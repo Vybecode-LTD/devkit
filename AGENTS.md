@@ -12,13 +12,14 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 
 ## Current state (2026-11-12)
 
-- Spec v0.1 written, the owner's answers applied. Nothing is built yet.
-- **Next:** `KICKOFF.md`, phase K0 (repo foundation), then K1 to K5 (the kernel, lifted from VybeSite).
+- Spec v0.1 written, the owner's answers applied.
+- **K0 (repo foundation) and K1 (kernel core) are done:** tooling, CI workflow, harness, Alembic, config, database, crypto, errors, security middleware, rate limits, logs, error tracking, module switches, versioned settings, the app factory. See `docs/HANDOFF.md`.
+- **Next:** `KICKOFF.md` phase K2, auth, contract tests first.
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`). It doubles as the spec's validation build.
 
 ## Last Completed Task
 
-2026-11-12: repo scaffolded in chat and written to `C:\DEV\AI-DevKit`: spec, decisions 0001 to 0008, JSON Schemas, module template, starter recipes, the inventory, the Vibrant Mindz plan, four project skills (in `skills/`) and the kickoff prompt. No code or git history yet.
+2026-11-12 (remote session): K0 and K1 built and tested in a cloud container, then synced to `C:\DEV\AI-DevKit` with the git history as `.history\devkit.bundle`. 137 Python tests, 7 web tests, all checks clean.
 
 ## Read order
 
@@ -80,7 +81,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `KICKOFF.md` | The first build sessions' prompt: phases K0 to K5 |
 | `AGENT-GUIDE.md` | Front door for an agent building a site with DevKit |
 | `schema/` | JSON Schemas: module manifest, recipe, lock file; event payload schemas land in `schema/events/` |
-| `kernel/` | The always-installed core (empty until K1) |
+| `kernel/` | The always-installed core: `backend/kernel/` (Python), `migrations/`, `tests/`, `web/` |
 | `modules/` | One folder per module; `modules/_template/` is the starting point |
 | `recipes/` | Preset module bundles per kind of site |
 | `themes/` | Token sets (Machined Light, Depth) |
@@ -102,6 +103,9 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 ## Gotchas
 
 - Windows: the owner's terminal is PowerShell. Python commands use the `python -m` form (`python -m pip`, `python -m pytest`).
+- FastAPI 0.16x keeps included routers whole in `app.routes`: walk routes with `fastapi.routing.iter_route_contexts`.
+- pytest runs with `--import-mode=importlib`; the root `conftest.py` imports the real `kernel` package before collection so `kernel/tests/*` can't shadow it.
+- React Router stays on 7.x (the spec) though 8.x is out; TypeScript stays on 6.0.x for typescript-eslint.
 - VybeSite's code is React 18.3; lifted components move to React 19 (ref as a prop, no `forwardRef`).
 - VybeSite uses JWT sessions and separate staff and member tables. DevKit uses opaque cookie sessions and one `auth_user` table (spec 14.1 and 14.5, decision 0003). Port the behavior, not the shape.
 

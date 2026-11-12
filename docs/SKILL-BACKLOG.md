@@ -26,3 +26,7 @@ The owner's rule (2026-11-12): keep a running list of skill ideas and build them
 | `spec-to-kickoff` | Turns a spec doc into a Claude Code kickoff prompt plus a build checklist | 2026-11-12 | No |
 | `supabase-rls-to-fastapi` | Rewrites Supabase row-level-security policies and triggers as server-side checks and event handlers, each with a test | 2026-11-12 | No. Needed before porting Brewr's forum or other Supabase projects |
 | `doc-and-repo-spec-sync` | Keeps a design doc and its Markdown copy in a repo (such as `SPEC.md`) in step, with the change log and decision records | 2026-11-12 | No |
+| `pytest-throwaway-postgres` | The fixture set from `conftest.py`: one database per run, an empty one per migration test, skip without a server unless CI requires it, asyncpg plus pytest-asyncio on one loop | 2026-11-12 | No. The kernel's `conftest.py` is the working copy |
+| `conditional-settings-saves` | Versioned settings with a three-way merge per field, secrets typed-only, an advisory lock and a 409 with both values (VybeSite's pattern, generalized in `kernel/settings.py`) | 2026-11-12 | No |
+| `path-filtered-ci` | A GitHub Actions workflow whose jobs run only for the paths they check, with a single "CI result" gate a ruleset can require (VybeSite's and DevKit's `ci.yml`) | 2026-11-12 | No |
+| `fastapi-route-audit` | Lists every route that declares no access, walking FastAPI 0.16x's included routers with `iter_route_contexts` | 2026-11-12 | No. `kernel/access.py` does it for DevKit |
