@@ -13,13 +13,13 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 ## Current state (2026-11-12)
 
 - Spec v0.1 written, the owner's answers applied.
-- **K0 (repo foundation) and K1 (kernel core) are done:** tooling, CI workflow, harness, Alembic, config, database, crypto, errors, security middleware, rate limits, logs, error tracking, module switches, versioned settings, the app factory. See `docs/HANDOFF.md`.
-- **Next:** `KICKOFF.md` phase K2, auth, contract tests first.
+- **K0 (repo foundation) and K1 (kernel core) are done.** K2 (auth) has started: the contract suite is written, as expected failures, and passwords and every auth table are in place. See `docs/HANDOFF.md`.
+- **Next:** K2's sessions, dependencies, the mail interface and the first auth routes (`dev plans\2026-11-12-next-session-k2-auth.md`).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`). It doubles as the spec's validation build.
 
 ## Last Completed Task
 
-2026-11-12 (remote session): K0 and K1 built and tested in a cloud container, then synced to `C:\DEV\AI-DevKit` with the git history as `.history\devkit.bundle`. 137 Python tests, 7 web tests, all checks clean.
+2026-11-12 (remote session): K0 and K1 built; K2 begun: the contract suite from SPEC.md 14.13 (strict expected failures), `kernel/auth/passwords.py`, the auth tables (migration `kernel_0002`). Synced to `C:\DEV\AI-DevKit`, which is now a git repo with the full history.
 
 ## Read order
 
@@ -96,6 +96,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `docs/HANDOFF.md` | One page, overwritten each session |
 | `docs/inventory.md` | What already exists in `C:\DEV` and where to lift each piece from |
 | `docs/plans/` | Plans, such as the Vibrant Mindz module plan |
+| `docs/contracts/` | HTTP contracts the contract suites check, starting with `auth-api.md` |
 | `docs/SKILL-BACKLOG.md` | Skill ideas waiting to be built |
 | `skills/` | Project skills, the source copies; K0 links them into `.claude/skills/` |
 | `dev plans\` | Session prompts and working plans (the owner's convention) |
