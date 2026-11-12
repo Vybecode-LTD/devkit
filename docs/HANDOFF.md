@@ -23,10 +23,11 @@ The files in `C:\DEV\AI-DevKit` match `main`. To get the commits too, from that 
 git init -b main
 git fetch .history\devkit.bundle main
 git reset --mixed FETCH_HEAD
+git checkout -- .npmrc .github   # the remote tools can't write these two; the history holds them
 git status   # only kernel\tests\.gitkeep and kernel\migrations\.gitkeep, left from the scaffold: delete them
 ```
 
-Then `py -3.12 -m venv .venv`, install with the commands in CLAUDE.md, `npm ci`, `python -m tools.link_skills`, and `docker compose up -d db` for the database tests.
+**Restore `.npmrc` before any `npm` command:** it holds `ignore-scripts=true` (SPEC.md section 15). Then `py -3.12 -m venv .venv`, install with the commands in CLAUDE.md, `npm ci`, `python -m tools.link_skills`, and `docker compose up -d db` for the database tests.
 
 ## Notes
 
