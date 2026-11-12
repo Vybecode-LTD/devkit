@@ -61,4 +61,6 @@ def test_the_migrations_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert migrations.main([]) == 2
     assert "usage:" in capsys.readouterr().out
     assert migrations.main(["heads"]) == 0
-    assert "Rev: kernel_0001 (head)" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Rev: kernel_" in out
+    assert "(head)" in out

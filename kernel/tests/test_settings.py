@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kernel.auth.models import User
 from kernel.db import Database
 from kernel.errors import Problem
 from kernel.models import Setting
@@ -73,6 +74,9 @@ async def test_save_records_a_version(
 ) -> None:
     found, module_id = registry
     who = uuid.uuid4()
+    email = f"{who.hex}@site.test"
+    db.add(User(id=who, email=email, email_normal=email))
+    await db.commit()
     saved = await found.save(
         db, module_id, {"title": "News", "posts_per_page": 5}, version=0, by=who
     )

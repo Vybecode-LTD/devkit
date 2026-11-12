@@ -1,7 +1,7 @@
 """The kernel's own tables (K1). Auth's arrive in K2, the outbox and jobs in K3.
 
-`updated_by_id` and `saved_by_id` hold an `auth_user` id. Their foreign keys
-(ON DELETE SET NULL) are added by K2's migration, when that table exists.
+`updated_by_id` and `saved_by_id` hold an `auth_user` id, set to NULL when
+that account is deleted (migration kernel_0002 adds the foreign keys).
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Integer, String, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,7 +28,9 @@ class ModuleState(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    updated_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    updated_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class Setting(Base):
@@ -43,7 +45,9 @@ class Setting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    updated_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    updated_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class SettingVersion(Base):
@@ -62,4 +66,11 @@ class SettingVersion(Base):
     #: How it was saved: "form", "assistant", "setup", "cli".
     via: Mapped[str] = mapped_column(String(20))
     saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    saved_by_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    saved_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+# Auth's tables live in kernel.auth.models; importing them here puts every
+# kernel table in Base.metadata for Alembic and the model checks.
+from kernel.auth import models as _auth_models  # noqa: E402, F401

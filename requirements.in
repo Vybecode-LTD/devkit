@@ -17,6 +17,7 @@ httpx>=0.28.0  # outbound calls, always with a timeout (SPEC.md section 7)
 cryptography>=50.0.0  # crypto.seal / open: MultiFernet, so keys rotate (SPEC.md 14.12)
 limits>=3.6.0  # rate_limit(): memory now, Redis later through the same storage URI
 sentry-sdk>=2.20.0  # error tracking, only when SENTRY_DSN is set
+argon2-cffi>=25.1.0  # passwords: Argon2id, which reads the whole password (bcrypt stops at 72 bytes)
 pyotp>=2.9.0  # TOTP second factors (SPEC.md 14.4); the contract suite computes codes with it too
 
 # Installed through the packages above. Listed to hold their floors past known
