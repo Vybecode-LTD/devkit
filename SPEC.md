@@ -610,7 +610,7 @@ Both limits are site settings (Q6).
 
 ### 14.13 Contract tests
 
-These run against the HTTP API, not Python internals, so the same suite can test a TypeScript port later (section 19). Each MUST exist before auth ships.
+These run against the HTTP API, not Python internals, so the same suite can test a TypeScript port later (section 19). Each MUST exist before auth ships. The routes they call are written down in `docs/contracts/auth-api.md`; time, mail and outside providers are driven through the harness's test-support routes (decision 0010).
 
 - [ ] Sign-in, sign-up and reset answer the same for a known and an unknown email
 - [ ] A reset, code or link token works once, and never after it expires
@@ -771,6 +771,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | 14.13 points to the auth HTTP contract (`docs/contracts/auth-api.md`) and the harness's test support (decision 0010) |
 | 2026-11-12 | K1 conventions (decision 0009): `settings.for_module` takes the session; secret settings are `SecretStr` fields; problem types are `urn:devkit:problem:<code>`; ENCRYPTION_KEYS rotates with MultiFernet; module CSP hosts are https origins in a fixed set of directives |
 | 2026-11-12 | A module's Python package and table prefix use the id with hyphens turned into underscores; the manifest example gains `notifications`; JSON Schemas for the manifest, recipe and lock file added in `schema/` |
 | 2026-11-12 | From the Vibrant Mindz module plan: the kernel gains `notifications` and `moderation`; modules may share UI through `web/public.ts`; object-storage and third-party-host rules; the manifest gains `notifications` |
