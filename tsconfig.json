@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node", "@testing-library/jest-dom/vitest"],
+    "paths": { "@/kernel": ["./kernel/web/index.ts"] }
+  },
+  "include": [
+    "kernel/web/**/*.ts",
+    "kernel/web/**/*.tsx",
+    "harness/web/**/*.ts",
+    "harness/web/**/*.tsx",
+    "modules/*/web/**/*.ts",
+    "modules/*/web/**/*.tsx",
+    "modules/*/tests/web/**/*.ts",
+    "modules/*/tests/web/**/*.tsx",
+    "vitest.config.ts",
+    "vitest.setup.ts"
+  ],
+  "exclude": ["node_modules", "modules/_template"]
+}

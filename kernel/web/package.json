@@ -1,0 +1,9 @@
+{
+  "name": "@devkit/kernel",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The kernel's web half (SPEC.md section 6). index.ts is the public surface.",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts"
+}

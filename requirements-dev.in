@@ -1,0 +1,15 @@
+# Test and development tools, as people edit them. requirements-dev.txt is made
+# from this file as requirements.txt is from requirements.in, held to
+# requirements.txt's pins. Install on top of it:
+#   python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt
+-c requirements.txt
+pytest>=8.3
+pytest-asyncio>=1.0  # async tests and fixtures on one event loop per run
+pytest-cov>=7.1  # line coverage, held to the floor in SPEC.md section 16
+ruff>=0.14
+black>=25.1
+mypy>=1.15  # strict on the kernel (SPEC.md section 16)
+jsonschema>=4.23  # tools/validate_schemas.py
+pip-audit>=2.10.1  # checks both .txt files for known vulnerabilities, in CI too
+uv>=0.12.18  # makes both .txt files from their .in files
+filelock>=4.2.1  # pip-audit's, through cachecontrol: 4.0.3 has known CVEs

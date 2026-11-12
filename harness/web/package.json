@@ -1,0 +1,12 @@
+{
+  "name": "@devkit/harness-web",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The harness's web app: the kernel's shell with every module in this repo, for local runs and tests.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
+}

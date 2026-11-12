@@ -1,0 +1,199 @@
+name: CI
+
+# Modelled on VybeSite's CI. Pull requests into main, and manual runs, which
+# check everything. Each job runs only when the PR touches what it checks
+# ("What changed"), so a docs-only PR spends a minute, not ten. The one check
+# a ruleset should require is "CI result": a skipped job passes there, a
+# failed or cancelled one doesn't. A newer push to a PR cancels the run it
+# replaces.
+#
+# The brand check (no past client's words) can't run here: it lives in
+# C:\DEV\VybeSite. It runs locally before every PR that lifts code (CLAUDE.md).
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      pythons: ${{ steps.filter.outputs.pythons }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2 # a PR's merge commit and main under it
+
+      - name: Decide which checks this change needs
+        id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "pull_request" ]; then
+            git diff --name-only HEAD^1 HEAD > changed.txt
+          else
+            echo ".github/workflows/ci.yml" > changed.txt # a manual run checks everything
+          fi
+          echo "Changed:"; cat changed.txt
+          any() { grep -Eq "$1" changed.txt && echo true || echo false; }
+          everything=$(any '^\.github/workflows/')
+          pins=$(any '^requirements')
+          # The Python job also validates every manifest, so schemas and recipes count.
+          python=$(any '^(kernel/(backend|migrations|tests)/|kernel/kernel\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|tools/|tests/|schema/|recipes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
+          # The web tests read kernel/kernel.json for the version.
+          web=$(any '^(kernel/web/|kernel/kernel\.json$|harness/web/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|\.npmrc$)')
+          if [ "$everything" = true ]; then python=true; pins=true; web=true; fi
+          # 3.12 is the floor (SPEC.md section 2). 3.13 runs too when the pins change.
+          if [ "$pins" = true ]; then pythons='["3.12", "3.13"]'; else pythons='["3.12"]'; fi
+          {
+            echo "python=$python"
+            echo "pythons=$pythons"
+            echo "web=$web"
+          } | tee -a "$GITHUB_OUTPUT"
+
+  python:
+    name: Python (kernel, modules, tools; ${{ matrix.python-version }})
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(needs.changes.outputs.pythons) }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: devkit
+          POSTGRES_PASSWORD: devkit
+          POSTGRES_DB: devkit
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U devkit" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql://devkit:devkit@localhost:5432/postgres
+      DEVKIT_REQUIRE_DB: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install dependencies
+        # Both files are pinned with hashes (CLAUDE.md, "Commands"). --require-hashes
+        # refuses a file that has lost them; --only-binary refuses to build from source.
+        run: >-
+          python -m pip install --require-hashes --only-binary=:all:
+          -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: python -m ruff check .
+
+      - name: Format (Black)
+        run: python -m black --check .
+
+      - name: Types (mypy, strict on the kernel)
+        run: python -m mypy
+
+      - name: Manifests against the schemas
+        run: python -m tools.validate_schemas
+
+      - name: Tests, with Postgres, and line coverage
+        run: python -m pytest --cov --cov-report=term
+
+      - name: Audit the pinned dependencies (pip-audit)
+        # Fails on any known vulnerability in either file; nothing is ignored.
+        run: >-
+          python -m pip_audit --strict --progress-spinner off --require-hashes --disable-pip
+          -r requirements.txt -r requirements-dev.txt
+
+  web:
+    name: Web (kernel, modules, harness)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        # The lockfile only, and no install scripts (.npmrc, SPEC.md section 15).
+        run: npm ci
+
+      - name: Lint (ESLint, zero warnings)
+        run: npm run lint
+
+      - name: Types (tsc strict)
+        run: npm run typecheck
+
+      - name: Tests (Vitest)
+        run: npm test
+
+      - name: Build the harness
+        run: npm run build
+
+      - name: Audit every dependency (npm audit)
+        run: npm audit --audit-level=low
+
+  secrets:
+    # Every PR, whatever it touches. Installed with `go install`, so the Go
+    # checksum database vouches for the code. Bump the version on purpose.
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Scan the history for secrets
+        run: |
+          go install github.com/zricethezav/gitleaks/v8@v8.28.0
+          "$(go env GOPATH)/bin/gitleaks" git --redact --no-banner --verbose .
+
+  result:
+    # The one check a ruleset should require, by this name: renaming the job
+    # blocks every merge until the ruleset names it too.
+    name: CI result
+    needs: [changes, python, web, secrets]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every check that ran passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*) exit 1 ;;
+          esac

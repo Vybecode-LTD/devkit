@@ -34,7 +34,23 @@ Python 3.12+, FastAPI, Pydantic v2 (strict), async SQLAlchemy 2 + asyncpg, Postg
 
 ## Commands
 
-None yet. Phase K0 adds them here: install, run, test, lint, migrate, and the brand check.
+From the repo root, in PowerShell. Python commands use the `python -m` form.
+
+| What | Command |
+| --- | --- |
+| Python environment, first time | `py -3.12 -m venv .venv`, then `.venv\Scripts\Activate.ps1` |
+| Install Python dependencies | `python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt` |
+| Re-pin after editing a `.in` file | `python -m uv pip compile requirements.in --generate-hashes --universal --python-version 3.12 -o requirements.txt`, and the same for `requirements-dev.in` into `requirements-dev.txt` |
+| Test Postgres (Docker) | `docker compose up -d db` |
+| Python tests | `python -m pytest` (add `-m "not db"` to run without Postgres) |
+| Lint, format, types | `python -m ruff check .`, `python -m black .`, `python -m mypy` |
+| Manifests against the schemas | `python -m tools.validate_schemas` |
+| Migrations | `python -m harness.migrations upgrade` (also `downgrade`, `heads`, `history`, `current`), with `DATABASE_URL` set |
+| Audit Python dependencies | `python -m pip_audit --strict --require-hashes --disable-pip -r requirements.txt -r requirements-dev.txt` |
+| Web install | `npm ci` |
+| Web tests, lint, types, build | `npm test`, `npm run lint`, `npm run typecheck`, `npm run build` |
+| Link the project skills for Claude Code | `python -m tools.link_skills` |
+| Brand check, before any PR that lifts code | `python -I "C:\DEV\VybeSite\vybesite\scripts\brand_check.py" "C:\DEV\AI-DevKit"` |
 
 ## Rules
 
@@ -47,7 +63,7 @@ None yet. Phase K0 adds them here: install, run, test, lint, migrate, and the br
 - **Modules never import each other** except through `public.py` / `web/public.ts` when listed in `requires.modules` (spec section 7).
 - **Skills:** don't build new skills as you go. Add every idea to `docs/SKILL-BACKLOG.md`; the owner builds them all in one batch later. Build one early only if the work can't continue without it, and say so.
 
-## Project skills (`skills/`, linked into `.claude/skills/` in K0)
+## Project skills (`skills/`, linked into `.claude/skills/` by `python -m tools.link_skills`)
 
 | Skill | Use it when |
 | --- | --- |
@@ -70,8 +86,10 @@ None yet. Phase K0 adds them here: install, run, test, lint, migrate, and the br
 | `themes/` | Token sets (Machined Light, Depth) |
 | `templates/site/` | The empty site every project starts from (built in K5) |
 | `cli/` | The `devkit` CLI (built in K5) |
-| `harness/` | Dev app that mounts the kernel and modules for tests and local runs (created in K0) |
-| `tools/` | Repo tooling such as `validate_schemas.py` (created in K0) |
+| `harness/` | Dev app that mounts the kernel and modules for tests and local runs; `harness/alembic/` is the one Alembic environment, `harness/migrations.py` drives it |
+| `tools/` | Repo tooling: `validate_schemas.py`, `link_skills.py` |
+| `tests/` | Repo-level tests: schemas, migrations round trip, tools |
+| `conftest.py` | The test run's made-up secrets and the throwaway Postgres fixtures |
 | `catalog.json` | Generated index of every module (empty until the first module) |
 | `docs/decisions/` | Decision records |
 | `docs/HANDOFF.md` | One page, overwritten each session |

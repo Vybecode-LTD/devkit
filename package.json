@@ -1,0 +1,54 @@
+{
+  "name": "ai-devkit",
+  "private": true,
+  "version": "0.0.0",
+  "description": "AI DevKit's web workspaces: the kernel's web half, each module's web binding and the harness app.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "kernel/web",
+    "harness/web",
+    "modules/*/web"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json",
+    "dev": "npm run dev --workspace harness/web",
+    "build": "npm run build --workspace harness/web"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.107.1",
+    "react": "19.2.9",
+    "react-dom": "19.2.9",
+    "react-router": "7.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.10",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.14.0",
+    "jsdom": "31.0.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  },
+  "overrides": {
+    "minimatch": "11.0.8"
+  },
+  "//": [
+    "overrides.minimatch: eslint 10 and typescript-eslint 8 ask for minimatch 10, which has GHSA-g3hv-75wg-m249 (dev-only, a DoS). 11.0.8 is past it; drop the override when they move to 11."
+  ]
+}

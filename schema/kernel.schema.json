@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devkit.local/schema/kernel.schema.json",
+  "title": "DevKit kernel manifest (kernel/kernel.json)",
+  "description": "SPEC.md sections 3 and 6: the kernel's version, its services and where its public surface is.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "spec", "status", "services", "public_api", "source"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "id": {"const": "kernel"},
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "spec": {"type": "string", "pattern": "^\\d+\\.\\d+$"},
+    "status": {"enum": ["not built", "experimental", "stable"]},
+    "services": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[a-z][a-z_]*$"},
+      "uniqueItems": true
+    },
+    "public_api": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["backend", "web"],
+      "properties": {"backend": {"type": "string"}, "web": {"type": "string"}}
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "commit", "license"],
+      "properties": {
+        "from": {"type": "string"},
+        "commit": {"type": "string"},
+        "license": {"type": "string"}
+      }
+    }
+  }
+}

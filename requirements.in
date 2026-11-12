@@ -1,0 +1,29 @@
+# The kernel's runtime dependencies, as people edit them. requirements.txt is
+# made from this file, pinned exactly with hashes, and is what every
+# environment installs. Edit this file, then regenerate requirements.txt with
+# the command in CLAUDE.md ("Commands"). Never edit requirements.txt by hand.
+#
+# Floors follow VybeSite's backend/requirements.in (pip-audit, 2026-09-24): even
+# the oldest version allowed has no known vulnerability. A module that needs a
+# package adds it here in the PR that adds the module, with a comment.
+fastapi>=0.133.0  # the first that allows Starlette 1.x, which the floor below needs
+uvicorn[standard]>=0.32.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+sqlalchemy[asyncio]>=2.0.36  # async end to end; the extra requires greenlet on every platform
+asyncpg>=0.30.0
+alembic>=1.14.0  # one branch per module (SPEC.md section 10)
+httpx>=0.28.0  # outbound calls, always with a timeout (SPEC.md section 7)
+cryptography>=50.0.0  # crypto.seal / open: MultiFernet, so keys rotate (SPEC.md 14.12)
+limits>=3.6.0  # rate_limit(): memory now, Redis later through the same storage URI
+sentry-sdk>=2.20.0  # error tracking, only when SENTRY_DSN is set
+
+# Installed through the packages above. Listed to hold their floors past known
+# vulnerabilities; the kernel also imports Starlette directly.
+starlette>=1.3.1
+h11>=0.16.0
+anyio>=4.14.2
+idna>=3.15
+click>=8.3.3
+mako>=1.3.12  # alembic's templates
+urllib3>=2.7.0  # through sentry-sdk
