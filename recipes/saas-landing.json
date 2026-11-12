@@ -1,0 +1,21 @@
+{
+  "id": "saas-landing",
+  "name": "SaaS landing",
+  "fits": [
+    "A software product's marketing site with pricing, docs links and a changelog",
+    "Sign-ups or payments handled on the site"
+  ],
+  "modules": [
+    "pages",
+    "blog",
+    "media",
+    "contact",
+    "campaigns",
+    "status",
+    "payments"
+  ],
+  "settings": {
+    "auth.signup_mode": "open"
+  },
+  "theme": "machined-light"
+}

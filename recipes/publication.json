@@ -1,0 +1,20 @@
+{
+  "id": "publication",
+  "name": "Publication",
+  "fits": [
+    "Publishes articles, essays or news on a schedule",
+    "Readers comment and subscribe by email"
+  ],
+  "modules": [
+    "pages",
+    "blog",
+    "media",
+    "comments",
+    "reactions",
+    "campaigns"
+  ],
+  "settings": {
+    "auth.signup_mode": "open"
+  },
+  "theme": "machined-light"
+}

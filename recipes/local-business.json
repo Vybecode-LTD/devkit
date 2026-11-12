@@ -1,0 +1,19 @@
+{
+  "id": "local-business",
+  "name": "Local business",
+  "fits": [
+    "A shop, studio or service with a location and opening hours",
+    "Wants to be found in local search and AI answers"
+  ],
+  "modules": [
+    "pages",
+    "contact",
+    "blog",
+    "media",
+    "status"
+  ],
+  "settings": {
+    "auth.signup_mode": "closed"
+  },
+  "theme": "machined-light"
+}

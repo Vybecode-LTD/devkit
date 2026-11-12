@@ -1,0 +1,16 @@
+{
+  "id": "minimal",
+  "name": "Minimal",
+  "fits": [
+    "A small site of a few fixed pages and a way to get in touch",
+    "No accounts, no payments, no publishing schedule"
+  ],
+  "modules": [
+    "pages",
+    "contact"
+  ],
+  "settings": {
+    "auth.signup_mode": "closed"
+  },
+  "theme": "machined-light"
+}

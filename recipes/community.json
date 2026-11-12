@@ -1,0 +1,20 @@
+{
+  "id": "community",
+  "name": "Community",
+  "fits": [
+    "A space where members talk to each other in real time",
+    "Membership, roles and moderation matter more than publishing"
+  ],
+  "modules": [
+    "pages",
+    "community",
+    "reactions",
+    "comments",
+    "blog",
+    "media"
+  ],
+  "settings": {
+    "auth.signup_mode": "invite-only"
+  },
+  "theme": "machined-light"
+}

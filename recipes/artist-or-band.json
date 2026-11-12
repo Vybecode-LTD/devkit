@@ -1,0 +1,25 @@
+{
+  "id": "artist-or-band",
+  "name": "Artist, band or collective",
+  "fits": [
+    "Musicians, poets, painters or a creative collective showing their work",
+    "Releases on streaming services, a roster of members, news and fans who comment"
+  ],
+  "modules": [
+    "pages",
+    "blog",
+    "media",
+    "embeds",
+    "contact",
+    "campaigns",
+    "discography",
+    "portfolio",
+    "roster",
+    "comments",
+    "reactions"
+  ],
+  "settings": {
+    "auth.signup_mode": "open"
+  },
+  "theme": "machined-light"
+}

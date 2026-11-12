@@ -1,0 +1,413 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devkit.local/schema/module.schema.json",
+  "title": "DevKit module manifest (module.json)",
+  "description": "SPEC.md section 5. Agents pick modules from use_when and avoid_when; the CLI installs from the rest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "version",
+    "status",
+    "category",
+    "summary",
+    "use_when",
+    "avoid_when",
+    "requires",
+    "conflicts",
+    "permissions",
+    "settings",
+    "env",
+    "routes",
+    "tables",
+    "events",
+    "slots",
+    "bindings",
+    "jobs",
+    "notifications",
+    "data_hooks",
+    "source"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "maxLength": 40,
+      "description": "Route prefix and Alembic branch as written; table prefix and Python package with hyphens turned into underscores."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "status": {
+      "enum": [
+        "experimental",
+        "stable",
+        "deprecated"
+      ]
+    },
+    "category": {
+      "enum": [
+        "content",
+        "community",
+        "comms",
+        "commerce",
+        "admin",
+        "media",
+        "security",
+        "ai"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 120
+    },
+    "use_when": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "minLength": 10
+      }
+    },
+    "avoid_when": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "minLength": 10
+      }
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kernel"
+      ],
+      "properties": {
+        "kernel": {
+          "type": "string",
+          "minLength": 1,
+          "description": "A semver range, such as ^0.1"
+        },
+        "modules": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+      },
+      "uniqueItems": true
+    },
+    "permissions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "description",
+          "default_roles"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+            "description": "<id>.<resource>.<action>"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3
+          },
+          "default_roles": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "type",
+          "default",
+          "secret",
+          "description"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "type": {
+            "enum": [
+              "string",
+              "int",
+              "float",
+              "bool",
+              "json"
+            ]
+          },
+          "default": {},
+          "secret": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "env": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "required",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    },
+    "routes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api",
+        "public",
+        "member",
+        "admin"
+      ],
+      "properties": {
+        "api": {
+          "type": "string",
+          "pattern": "^/api/[a-z0-9-]+$"
+        },
+        "public": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "uniqueItems": true
+        },
+        "member": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/"
+          },
+          "uniqueItems": true
+        },
+        "admin": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^/admin(/|$)"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "uniqueItems": true
+    },
+    "events": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "emits",
+        "listens"
+      ],
+      "properties": {
+        "emits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          },
+          "uniqueItems": true
+        },
+        "listens": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "slots": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "nav.public",
+          "nav.member",
+          "nav.admin",
+          "admin.dashboard.widget",
+          "admin.settings.section",
+          "account.section",
+          "site.footer"
+        ]
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "web",
+          "avalonia",
+          "mobile"
+        ]
+      }
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "schedule"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "schedule": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Five-field cron, UTC"
+          }
+        }
+      }
+    },
+    "notifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "description",
+          "default"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9_]*$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3
+          },
+          "default": {
+            "enum": [
+              "in_site",
+              "email",
+              "both"
+            ]
+          }
+        }
+      }
+    },
+    "data_hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "export",
+        "delete"
+      ],
+      "properties": {
+        "export": {
+          "type": "boolean"
+        },
+        "delete": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "commit",
+        "license"
+      ],
+      "properties": {
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

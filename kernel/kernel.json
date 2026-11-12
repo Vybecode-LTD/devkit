@@ -1,0 +1,33 @@
+{
+  "id": "kernel",
+  "version": "0.0.0",
+  "spec": "0.1",
+  "status": "not built",
+  "services": [
+    "auth",
+    "users",
+    "roles",
+    "settings",
+    "database",
+    "email",
+    "notifications",
+    "storage",
+    "events",
+    "jobs",
+    "moderation",
+    "audit",
+    "security",
+    "crypto",
+    "rate_limit",
+    "modules"
+  ],
+  "public_api": {
+    "backend": "backend/kernel/__init__.py",
+    "web": "web/index.ts"
+  },
+  "source": {
+    "from": "VybeSite (plus Basefra.me OAuth, VybeMindz patterns)",
+    "commit": "TBD at extraction",
+    "license": "proprietary"
+  }
+}

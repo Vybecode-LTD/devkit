@@ -1,0 +1,20 @@
+{
+  "id": "shop",
+  "name": "Shop",
+  "fits": [
+    "Sells physical or digital products online",
+    "Needs a cart, checkout, orders and downloads"
+  ],
+  "modules": [
+    "pages",
+    "media",
+    "contact",
+    "payments",
+    "shop",
+    "downloads"
+  ],
+  "settings": {
+    "auth.signup_mode": "open"
+  },
+  "theme": "machined-light"
+}

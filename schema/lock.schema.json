@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devkit.local/schema/lock.schema.json",
+  "title": "DevKit site lock file (devkit.lock.json)",
+  "description": "SPEC.md section 13: which kernel and module versions a site copied, with file hashes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "devkit",
+    "spec",
+    "kernel",
+    "modules",
+    "recipe",
+    "theme"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "devkit": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+    },
+    "spec": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "kernel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "files"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "version",
+          "added",
+          "files"
+        ],
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+          },
+          "added": {
+            "type": "string",
+            "format": "date"
+          },
+          "files": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "recipe": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "theme": {
+      "type": "string"
+    }
+  }
+}

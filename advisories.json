@@ -1,0 +1,4 @@
+{
+  "$comment": "Security advisories (SPEC.md section 13). `devkit check` fails a site's CI on any open advisory of high severity that affects it.",
+  "advisories": []
+}

@@ -1,0 +1,64 @@
+{
+  "id": "my-module",
+  "name": "My module",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "content",
+  "summary": "One line on what this module does for a site.",
+  "use_when": [
+    "TODO: a concrete sentence about the site that calls for this module"
+  ],
+  "avoid_when": [
+    "TODO: a concrete sentence that names the better choice"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "my-module.item.manage",
+      "description": "Create, edit and delete items",
+      "default_roles": [
+        "admin"
+      ]
+    }
+  ],
+  "settings": [],
+  "env": [],
+  "routes": {
+    "api": "/api/my-module",
+    "public": [],
+    "member": [],
+    "admin": [
+      "/admin/my-module"
+    ]
+  },
+  "tables": [
+    "my_module_item"
+  ],
+  "events": {
+    "emits": [],
+    "listens": [
+      "auth.user.deleted"
+    ]
+  },
+  "slots": [
+    "nav.admin"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [],
+  "data_hooks": {
+    "export": true,
+    "delete": true
+  },
+  "source": {
+    "from": "TODO: project or 'new'",
+    "commit": "TODO",
+    "license": "proprietary"
+  }
+}
