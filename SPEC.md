@@ -197,7 +197,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `require_permission(key)` | 403 unless the user holds the permission | `Depends(require_permission("blog.post.publish"))` |
 | `require_recent_auth(minutes=10)` | Forces a fresh sign-in for sensitive actions | Changing a payout account |
 | `require_module(id)` | 404 while the module is switched off (VybeSite's `require_part`) | Added by the kernel to every module router |
-| `settings.for_module(id)` | The module's typed, versioned settings | `cfg = await settings.for_module("blog")` |
+| `settings.for_module(db, id)` | The module's typed, versioned settings | `cfg = await settings.for_module(db, "blog")` |
 | `email.send(template, to, context)` | Sends through the site's mail adapter | Welcome email |
 | `storage.put / get / signed_url` | S3-compatible file storage | Uploads |
 | `events.emit(name, payload)`, `@events.on(name)` | Durable events between modules (section 11) | `blog.post.published` |
@@ -771,6 +771,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | K1 conventions (decision 0009): `settings.for_module` takes the session; secret settings are `SecretStr` fields; problem types are `urn:devkit:problem:<code>`; ENCRYPTION_KEYS rotates with MultiFernet; module CSP hosts are https origins in a fixed set of directives |
 | 2026-11-12 | A module's Python package and table prefix use the id with hyphens turned into underscores; the manifest example gains `notifications`; JSON Schemas for the manifest, recipe and lock file added in `schema/` |
 | 2026-11-12 | From the Vibrant Mindz module plan: the kernel gains `notifications` and `moderation`; modules may share UI through `web/public.ts`; object-storage and third-party-host rules; the manifest gains `notifications` |
 | 2026-11-12 | Owner answers to Q1–Q11 applied (section 20) |

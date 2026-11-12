@@ -27,8 +27,13 @@ from cryptography.fernet import Fernet
 os.environ["SECRET_KEY"] = secrets.token_urlsafe(48)
 os.environ["ENCRYPTION_KEYS"] = Fernet.generate_key().decode()
 os.environ["DEBUG"] = "false"
-os.environ["SITE_URL"] = "https://example.com"
+os.environ["SITE_URL"] = "https://devkit.test"  # .test is reserved (RFC 2606), never live
 os.environ["SENTRY_DSN"] = ""
+os.environ["MODULES"] = "*"
+os.environ["CLIENT_IP_HEADER"] = ""
+os.environ["HSTS_MAX_AGE"] = "0"
+os.environ["ROBOTS_NOINDEX"] = "false"
+os.environ["CORS_ORIGINS"] = ""
 os.environ.setdefault("LOG_FORMAT", "text")
 
 import asyncpg  # after the environment, which the kernel reads
@@ -36,6 +41,11 @@ import pytest
 import pytest_asyncio
 
 import harness  # noqa: F401  (puts the kernel and modules on sys.path)
+
+# The real kernel package, imported before pytest collects kernel/tests/: with
+# --import-mode=importlib pytest names those files kernel.tests.*, and would
+# otherwise put a stand-in `kernel` module in sys.modules for their parent.
+import kernel  # noqa: F401
 
 ADMIN_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql://devkit:devkit@localhost:5432/postgres"

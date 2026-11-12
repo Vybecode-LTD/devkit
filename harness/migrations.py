@@ -24,7 +24,7 @@ SCRIPT_LOCATION = ROOT / "harness" / "alembic"
 
 def config(database_url: str | None = None) -> Config:
     """An Alembic config for this repo. `database_url` overrides the app's."""
-    cfg = Config()
+    cfg = Config(stdout=sys.stdout)  # read now: Alembic's default is bound at its import
     cfg.set_main_option("script_location", str(SCRIPT_LOCATION))
     cfg.set_main_option("path_separator", "os")
     cfg.set_main_option("version_locations", os.pathsep.join(str(p) for p in migration_dirs()))

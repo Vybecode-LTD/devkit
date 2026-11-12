@@ -1,8 +1,8 @@
 {
   "id": "kernel",
-  "version": "0.0.0",
+  "version": "0.1.0-dev.0",
   "spec": "0.1",
-  "status": "not built",
+  "status": "experimental",
   "services": [
     "auth",
     "users",

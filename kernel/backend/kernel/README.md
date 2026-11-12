@@ -1,5 +1,23 @@
 # kernel (Python package)
 
-Planned subpackages, one per service (SPEC.md section 6): `auth`, `users`, `roles`, `settings`, `db`, `email`, `notifications`, `storage`, `events`, `jobs`, `moderation`, `audit`, `security`, `crypto`, `ratelimit`, `modules`, `errors`.
+`__init__.py` is the public surface (SPEC.md section 6). Modules import from `kernel` only.
 
-`__init__.py` re-exports the public API: `get_db`, `current_user`, `optional_user`, `require_permission`, `require_recent_auth`, `require_module`, `settings`, `email`, `notify`, `storage`, `events`, `jobs`, `moderation`, `audit`, `rate_limit`, `crypto`, `Problem`, `ai`. Nothing else is public.
+| File | What | Phase |
+| --- | --- | --- |
+| `app.py` | `create_app`: builds a site's app from the kernel and its modules | K1 |
+| `config.py` | Environment config; refuses to start on unsafe secrets outside DEBUG; MODULES | K1 |
+| `db.py` | `Base`, naming convention, `Database`, `get_db`, one-row tables (`for_saving`) | K1 |
+| `crypto.py` | `seal` / `open` / `rotate` with MultiFernet | K1 |
+| `errors.py` | `Problem` and the handlers: RFC 9457 problem details everywhere | K1 |
+| `security.py` | CSP (with per-module hosts), security headers, same-origin writes, www redirect | K1 |
+| `ratelimit.py` | `rate_limit(rule, key)` and `RateLimiter`, per IP (IPv6 /64) or account | K1 |
+| `redact.py` | Strips emails, tokens, IPs, queries and DB values from text | K1 |
+| `logs.py` | JSON or text logs, stdout/stderr split, every line redacted | K1 |
+| `error_tracking.py` | Sentry, only when SENTRY_DSN is set; nothing private sent | K1 |
+| `modules.py` | Manifests, the module registry, switches and `require_module` | K1 |
+| `settings.py` | Versioned per-module settings with three-way merge on save | K1 |
+| `access.py` | Route access marks (`public`) and the audit of undeclared routes | K1 |
+| `models.py` | Kernel tables: `kernel_module_state`, `kernel_setting`, `kernel_setting_version` | K1 |
+| `routes.py` | `/api/kernel/health`, `/api/kernel/modules` | K1 |
+
+Still to come: `auth` (K2: users, roles, sessions, passwords, passkeys, OAuth, TOTP, API keys); `email`, `storage`, `events`, `jobs`, `notifications`, `moderation`, `audit`, `retention`, public rendering and the AI client (K3).
