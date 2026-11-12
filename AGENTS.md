@@ -7,7 +7,7 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 - **What:** AI DevKit, a library of reusable website modules (auth, blog, chat, payments, community, media and more) that any AI agent copies into a site's repo and wires together from a short brief.
 - **Owner:** VybeCode Software (VybeCod.ing / Vibrant Mindz).
 - **Not:** a hosted platform, a WordPress-style CMS, or a package registry. Modules are copied in at build time (decision 0002).
-- **Path:** `C:\DEV\AI-DevKit`. **Remote:** private `Vybecode-LTD/devkit` on GitHub, not created yet (ask the owner first).
+- **Path:** `C:\DEV\AI-DevKit`. **Remote:** `https://github.com/Vybecode-LTD/devkit`, **public** (decision 0011). Never commit secrets, client material or private notes; private notes go in `docs/private/` (gitignored).
 - **The contract:** `SPEC.md`. Every module, the kernel and the CLI follow it. Read the sections you touch before every change.
 
 ## Current state (2026-11-12)
@@ -27,7 +27,7 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 2. `docs/HANDOFF.md`: state, next steps, blockers.
 3. `SPEC.md`: the sections the job touches.
 4. `docs/decisions/`: why things are the way they are.
-5. `docs/inventory.md`: where each piece can be lifted from in `C:\DEV`.
+5. `docs/private/inventory.md` (on the owner's machine only, not in git): where each piece can be lifted from in `C:\DEV`.
 
 ## Stack (decision 0001)
 
@@ -94,7 +94,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `catalog.json` | Generated index of every module (empty until the first module) |
 | `docs/decisions/` | Decision records |
 | `docs/HANDOFF.md` | One page, overwritten each session |
-| `docs/inventory.md` | What already exists in `C:\DEV` and where to lift each piece from |
+| `docs/private/` | Not in git (the repo is public): the inventory of `C:\DEV` and the name of the client folder |
 | `docs/plans/` | Plans, such as the Vibrant Mindz module plan |
 | `docs/contracts/` | HTTP contracts the contract suites check, starting with `auth-api.md` |
 | `docs/SKILL-BACKLOG.md` | Skill ideas waiting to be built |

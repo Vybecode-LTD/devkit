@@ -14,3 +14,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0008](0008-repo-license-jobs-admin.md) | Repo, license, job queue and admin shell | Locked |
 | [0009](0009-k1-kernel-conventions.md) | Conventions settled while building the kernel's core (K1) | Applied |
 | [0010](0010-auth-http-contract.md) | The auth HTTP contract, and test support in the harness | Applied |
+| [0011](0011-public-repo.md) | The GitHub repo is public, for now | Applied |

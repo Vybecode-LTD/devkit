@@ -11,7 +11,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 1. `CLAUDE.md`. (`C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md` load on their own.)
 2. `SPEC.md`, all of it, once. Re-read the sections a task touches before starting it.
 3. `docs/decisions/` (0001 to 0008).
-4. `docs/inventory.md`, section 4.1: where each kernel piece lives today.
+4. `docs/private/inventory.md` (on the owner's machine, not in git), section 4.1: where each kernel piece lives today.
 5. `skills/devkit-module-extractor/SKILL.md`. Its steps (choose the source, provenance gate, inventory, cut dependencies) apply to lifting kernel code too.
 
 ## Ground rules for every phase
@@ -32,7 +32,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 
 1. `git init` on `main`, then commit the scaffold as it is: `chore: scaffold from spec v0.1`.
 2. Link the project skills so Claude Code loads them: for each folder in `skills\`, make a directory junction at `.claude\skills\<name>` (PowerShell: `New-Item -ItemType Junction -Path .claude\skills\<name> -Target skills\<name>`), the same pattern as `C:\DEV\knowledge\skills\link_skills.py`. Commit `skills\`, not the junctions.
-3. Ask the owner whether to create the private repo `Vybecode-LTD/devkit` and push. Carry on locally until they answer.
+3. The repo `Vybecode-LTD/devkit` exists and is public (decision 0011): nothing private is ever committed.
 4. **Python.** A root `pyproject.toml` for the dev environment. `requirements.in` compiled to a hash-pinned `requirements.txt` with `uv pip compile --generate-hashes`, following VybeSite's `backend/requirements.in` (floors above known vulnerabilities, a comment per package). Dev tools: ruff, Black, mypy (strict for `kernel/`), pytest, pytest-asyncio, httpx, jsonschema.
 5. **The harness.** `harness/` is a small FastAPI app that mounts the kernel and any modules in this repo. Tests and local runs use it, and K5 turns it into `templates/site/`.
 6. **Postgres for tests.** A `compose.yaml` with Postgres 16, and a pytest fixture that gives each test run a throwaway database.

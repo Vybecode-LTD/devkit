@@ -1,0 +1,9 @@
+Copyright (c) 2026 VybeCode Software. All rights reserved.
+
+This repository is public so that its source can be read. Reading it grants
+no license. No part of it may be copied, modified, distributed or used to
+build other software without written permission from VybeCode Software,
+except where a file or folder states its own license (some modules may be
+released under the MIT License; each says so in its `module.json`).
+
+Third-party material and its licenses are listed in NOTICE.

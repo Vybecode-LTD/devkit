@@ -125,7 +125,7 @@ devkit/
 
 Code written for one site goes in `site/` folders. Copied folders MAY be edited, but `devkit check` reports every edit against the lock file (section 12).
 
-DevKit itself lives at `C:\DEV\AI-DevKit`, in the private GitHub repo `Vybecode-LTD/devkit`.
+DevKit itself lives at `C:\DEV\AI-DevKit`, in the GitHub repo `Vybecode-LTD/devkit`: public for now, the code still proprietary (decision 0011).
 
 ## 5. Module manifest (module.json)
 
@@ -762,7 +762,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 | Q5 | SMS codes | Not in v1 |
 | Q6 | Session limits | Members 14 days idle and 30 days total; staff 8 hours and 7 days |
 | Q7 | Password minimum | 12 characters for every account (the owner's call) |
-| Q8 | Repo | `C:\DEV\AI-DevKit`, private GitHub repo `Vybecode-LTD/devkit` |
+| Q8 | Repo | `C:\DEV\AI-DevKit`, GitHub repo `Vybecode-LTD/devkit` (public for now, decision 0011) |
 | Q9 | License | Proprietary, with MIT allowed for selected modules |
 | Q10 | First real site | The new Vibrant Mindz site |
 | Q11 | Admin shell | VybeSite's, as it stands |
@@ -771,6 +771,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | The repo is public for now, the code still proprietary (decision 0011); the client folder's name and the inventory moved out of git |
 | 2026-11-12 | 14.13 points to the auth HTTP contract (`docs/contracts/auth-api.md`) and the harness's test support (decision 0010) |
 | 2026-11-12 | K1 conventions (decision 0009): `settings.for_module` takes the session; secret settings are `SecretStr` fields; problem types are `urn:devkit:problem:<code>`; ENCRYPTION_KEYS rotates with MultiFernet; module CSP hosts are https origins in a fixed set of directives |
 | 2026-11-12 | A module's Python package and table prefix use the id with hyphens turned into underscores; the manifest example gains `notifications`; JSON Schemas for the manifest, recipe and lock file added in `schema/` |

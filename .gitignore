@@ -38,3 +38,6 @@ playwright-report/
 
 # Local history bundles synced from remote sessions
 .history/
+
+# Private notes: the repo is public. See docs/private/README.md on the owner's machine.
+docs/private/
