@@ -7,6 +7,10 @@ Cheat Sheet:
 - **12 to 256 characters,** counted after NFC, each code point one character
   (the owner's 12, Q7; 256 bounds the hashing cost). No composition rules,
   no rotation, no hints, no security questions.
+- **Not on the bundled common-password list** (`is_common`): 72,969
+  passwords of 12 characters or more from four public lists of leaked and
+  most-used passwords (NOTICE; `tools/build_common_passwords.py`), compared
+  casefolded. Shorter ones are refused by length already.
 - **Not a pattern** (`by_rules`, VybeSite's): one character repeated or very
   few different ones, a run along the keyboard or a count, one short piece
   repeated, or little more than the site's name or the person's own address.
@@ -28,12 +32,15 @@ so the time says nothing about which accounts exist.
 from __future__ import annotations
 
 import asyncio
+import gzip
 import hashlib
 import itertools
 import logging
 import unicodedata
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
+from functools import cache
+from pathlib import Path
 
 import httpx
 from argon2 import PasswordHasher
@@ -57,6 +64,10 @@ BREACHED = (
 FEW_CHARACTERS = "That's mostly one character repeated. Use more different ones."
 A_RUN = "That's a run along the keyboard or a count, like qwerty or 123456. Choose something less regular."
 REPEATED = "That's one short piece repeated. Choose something that doesn't repeat."
+COMMON = (
+    "That's one of the most common passwords, so it's one people try first. "
+    "Choose something less predictable: three or four unrelated words work well."
+)
 ABOUT_THIS_SITE = (
     "That's little more than this site's name or your own email address. "
     "Choose something that isn't about either."
@@ -179,6 +190,20 @@ def by_rules(password: str, context: Iterable[str] = ()) -> str | None:
     return None
 
 
+COMMON_LIST = Path(__file__).resolve().parent / "data" / "common-passwords.txt.gz"
+
+
+@cache
+def _common() -> frozenset[str]:
+    with gzip.open(COMMON_LIST, "rt", encoding="utf-8") as lines:
+        return frozenset(line.rstrip("\n") for line in lines if line.strip())
+
+
+def is_common(password: str) -> bool:
+    """Whether this password is on the bundled list, casefolded."""
+    return normal(password).casefold() in _common()
+
+
 async def ask_range(prefix: str) -> str | None:
     """Have I Been Pwned's answer for a five-character SHA-1 prefix, or None
     when it can't be had."""
@@ -227,6 +252,8 @@ async def refusal(
     reason = by_rules(password, context)
     if reason is not None:
         return reason
+    if is_common(password):
+        return COMMON
     if await breached(password, lookup):
         return BREACHED
     return None

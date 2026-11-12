@@ -120,3 +120,30 @@ def test_the_owasp_floor() -> None:
         Hashing(memory_kib=8 * 1024, time_cost=2, lanes=1)
     with pytest.raises(ValueError, match="OWASP's minimum"):
         Hashing(memory_kib=19 * 1024, time_cost=1, lanes=1)
+
+
+def test_the_common_list_is_bundled() -> None:
+    assert len(pw._common()) > 70_000
+    assert all(len(entry) >= pw.SHORTEST for entry in list(pw._common())[:1000])
+
+
+COMMON_ONES = ["iloveyou1234", "qwertyuiop123", "CorrectHorseBatteryStaple", "password1234"]
+
+
+@pytest.mark.parametrize("common", COMMON_ONES)
+async def test_common_passwords_are_refused(common: str) -> None:
+    assert pw.is_common(common)
+
+    async def never(_prefix: str) -> str | None:
+        raise AssertionError("a common password is refused before the breach lookup")
+
+    reason = await refusal(common, lookup=never)
+    assert reason in {pw.COMMON, pw.A_RUN, pw.ABOUT_THIS_SITE}
+
+
+async def test_an_uncommon_password_passes_the_list() -> None:
+    async def clean(_prefix: str) -> str | None:
+        return ""
+
+    assert not pw.is_common("lantern orbit pickle seventy")
+    assert await refusal("lantern orbit pickle seventy", lookup=clean) is None
