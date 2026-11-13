@@ -82,4 +82,5 @@ async def test_reset_with_accounts_forgets_every_account(
         async with database.sessions() as session:
             assert await session.scalar(select(func.count()).select_from(User)) == 0
     finally:
+        await app.state.database.dispose()  # the reset's own pool: no lifespan ran to close it
         await database.dispose()
