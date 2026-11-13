@@ -52,7 +52,10 @@ _URL_CREDENTIALS = re.compile(r"(?<![A-Za-z0-9+.\-])([A-Za-z][A-Za-z0-9+.\-]{0,3
 _EMAIL = re.compile(r"(?<![\w.%+'\-])[\w.%+'\-]+(?:@|%40)[\w\-]+(?:\.[\w\-]+)*\.[^\W\d_]{2,}")
 _QUERY = re.compile(r"(?<![^\s\"'(<\[=,:])((?:https?://|/)[^\s?#\"']*+)\?[^\s#\"']*")
 _NAMED_SECRET = re.compile(r"(?i)\b(password|passwd|secret|token|code)=[^\s&,;\"'\]]++")
-_INPUT_VALUE = re.compile(r"""\binput_value=(?:'(?:[^'\\]|\\.)*+'|"(?:[^"\\]|\\.)*+"|[^\s,\]]++)""")
+# A quote left open (a cut, or a value that ran past the line) hides to the end.
+_INPUT_VALUE = re.compile(
+    r"""\binput_value=(?:'(?:[^'\\]|\\.)*+(?:'|\Z)|"(?:[^"\\]|\\.)*+(?:"|\Z)|[^\s,\]]++)"""
+)
 _BREACH_RANGE = re.compile(r"/range/[0-9A-Fa-f]{5}\b")
 _JWT = re.compile(r"\beyJ[A-Za-z0-9_\-]{4,}+\.[A-Za-z0-9_\-]{4,}+\.[A-Za-z0-9_\-]*+")
 _KEYED = re.compile(r"\b(?:(?:sk|rk)_(?:live|test)|whsec)_[A-Za-z0-9]++")
