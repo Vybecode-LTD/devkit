@@ -88,7 +88,7 @@ Mounted by the harness only when `HARNESS_TEST_SUPPORT=1`, so the contract suite
 
 | Method and path | Does |
 | --- | --- |
-| `POST /api/_test/reset` | 204. Forgets rate-limit counts, captured mail, the clock offset and the breached list |
+| `POST /api/_test/reset` | 204. Forgets rate-limit counts, captured mail, the clock offset and the breached list. With `{"accounts": true}` it also deletes every account |
 | `GET /api/_test/mail?to=` | `{"messages": [{"to", "subject", "text"}]}`, oldest first |
 | `POST /api/_test/clock` | `{"advance": seconds}`: 204, moves the server's clock forward (not rate-limit windows, which run on real time) |
 | `POST /api/_test/users` | `{email, password?, roles?, verified?, totp?}` makes an account, without judging the password: 201 `{"id", "totp_secret"?}` (the TOTP confirmed) |

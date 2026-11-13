@@ -19,10 +19,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.routing import APIRoute, iter_route_contexts
 from pydantic import BaseModel, Field
+from sqlalchemy import delete
 
 from harness.registry import discover
 from kernel import clock, create_app
 from kernel.access import needs_step_up, public, undeclared
+from kernel.auth.models import User
 from kernel.config import KernelConfig
 from kernel.ratelimit import RateLimiter
 
@@ -37,12 +39,23 @@ class Breached(BaseModel):
     passwords: list[str]
 
 
+class Reset(BaseModel):
+    #: Also delete every account (and, by cascade, its sessions, factors and
+    #: roles), for a test whose precondition is "no one else", such as the
+    #: last owner. The suite's other tests keep theirs: they make their own.
+    accounts: bool = False
+
+
 @router.post("/reset", status_code=204)
-async def reset(request: Request) -> Response:
+async def reset(request: Request, body: Reset | None = None) -> Response:
     limiter: RateLimiter = request.app.state.limiter
     await limiter.reset()
     clock.reset()
     request.app.state.breached = set()
+    if body is not None and body.accounts:
+        async with request.app.state.database.sessions() as session:
+            await session.execute(delete(User))
+            await session.commit()
     return Response(status_code=204)
 
 
