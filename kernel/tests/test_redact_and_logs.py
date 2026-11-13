@@ -4,13 +4,20 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+from collections.abc import Callable
 
 import pytest
+from fastapi import APIRouter, Depends
 
-from kernel import logs
+from kernel import logs, redact
+from kernel.access import public
 from kernel.config import KernelConfig
 from kernel.error_tracking import init, scrub, scrub_breadcrumb
+from kernel.modules import InstalledModule
 from kernel.redact import ADDRESS, MAX_TEXT, REDACTED, clean, clean_text
+
+from .conftest import AppFactory, Client, manifest, unique_id
 
 
 @pytest.mark.parametrize(
@@ -139,3 +146,106 @@ def test_scrub_removes_the_private_parts() -> None:
 def test_scrub_breadcrumb() -> None:
     crumb = scrub_breadcrumb({"message": "to a@b.test", "data": {"http.query": "q=1", "url": "/x"}})
     assert crumb == {"message": f"to {ADDRESS}", "data": {"http.query": REDACTED, "url": "/x"}}
+
+
+# --- the audit's redaction and logging findings (F15, F33, F34, F35, F55) ---
+
+
+def test_a_long_traceback_keeps_its_last_line() -> None:
+    frames = "".join(f'  File "/app/x.py", line {n}, in f\n    call()\n' for n in range(400))
+    text = "Traceback (most recent call last):\n" + frames + "IntegrityError: duplicate key\n"
+    assert len(text) > MAX_TEXT
+    cleaned = clean_text(text)
+    assert cleaned.startswith("Traceback (most recent call last):")
+    assert cleaned.rstrip().endswith("IntegrityError: duplicate key")
+    assert "characters cut]" in cleaned
+    assert len(cleaned) <= MAX_TEXT
+
+
+def test_a_cut_doesnt_leave_half_an_address() -> None:
+    text = "x" * 2040 + " ana.lopez@site.test " + "y " * 6000 + " end"
+    assert "ana.lopez" not in clean_text(text)
+
+
+def _best_of(runs: int, work: Callable[[], object]) -> float:
+    best = float("inf")
+    for _ in range(runs):
+        start = time.perf_counter()
+        work()
+        best = min(best, time.perf_counter() - start)
+    return best
+
+
+@pytest.mark.parametrize("unit", ["a.", "a+", "a-"])
+def test_url_credentials_run_in_linear_time(unit: str) -> None:
+    small, large = unit * 1_000, unit * 8_000
+    short = _best_of(5, lambda: redact._URL_CREDENTIALS.sub("", small))
+    long = _best_of(5, lambda: redact._URL_CREDENTIALS.sub("", large))
+    assert long < max(short, 1e-5) * 24  # 8x the input: linear ~8x, quadratic ~64x
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("seen at 203.0.113.9.", f"seen at {REDACTED}."),
+        ("url:https://site.test/a?token=abc", f"url:https://site.test/a?{REDACTED}"),
+        ("login password=hunter2 ok", f"login password={REDACTED} ok"),
+        ("Token=abc&next=1 secret=s3cr3t", f"Token={REDACTED}&next=1 secret={REDACTED}"),
+        ("code=123456 sent", f"code={REDACTED} sent"),
+        (
+            "[type=string_too_short, input_value='hunter2', input_type=str]",
+            f"[type=string_too_short, input_value={REDACTED}, input_type=str]",
+        ),
+        ('input_value="a b"', f"input_value={REDACTED}"),
+        (
+            "GET https://api.pwnedpasswords.com/range/DF4B5 200",
+            f"GET https://api.pwnedpasswords.com/range/{REDACTED} 200",
+        ),
+        ("key sk_live_51Hshort here", f"key {REDACTED} here"),
+        ("jwt eyJhbGciOiJI.eyJzdWIiOjF9.c2ln", f"jwt {REDACTED}"),
+        ("Uvicorn running on http://0.0.0.0:8000", "Uvicorn running on http://0.0.0.0:8000"),
+        ("bound to 127.0.0.1:8000 and [::1]", "bound to 127.0.0.1:8000 and [::1]"),
+        ("the status code was 503", "the status code was 503"),
+    ],
+)
+def test_clean_text_after_the_audit(text: str, expected: str) -> None:
+    assert clean_text(text) == expected
+
+
+def test_httpx_requests_arent_logged_at_info() -> None:
+    root = logging.getLogger()
+    before = list(root.handlers), root.level
+    try:
+        logs.configure("text", "INFO")
+        assert logging.getLogger("httpx").getEffectiveLevel() == logging.WARNING
+    finally:
+        for handler in list(root.handlers):
+            if handler not in before[0]:
+                root.removeHandler(handler)
+        root.setLevel(before[1])
+
+
+async def test_each_request_gets_one_redacted_access_line(
+    app_factory: AppFactory, caplog: pytest.LogCaptureFixture
+) -> None:
+    router = APIRouter()
+
+    @router.get("/items/{item_id}", dependencies=[Depends(public)])
+    async def item(item_id: int) -> dict[str, int]:
+        return {"item": item_id}
+
+    module_id = unique_id("shop")
+    app = app_factory([InstalledModule(manifest(module_id), router=router)])
+    async with Client(app) as client:
+        with caplog.at_level(logging.INFO, logger="kernel.access"):
+            await client.get(f"/api/{module_id}/items/42?token=abc")
+            await client.get("/nowhere/ana@site.test")
+    lines = [r for r in caplog.records if r.name == "kernel.access"]
+    assert [line.getMessage().rsplit(" ", 1)[0] for line in lines] == [
+        f"GET /api/{module_id}/items/{{item_id}} 200",
+        "GET (no route) 404",
+    ]
+    assert lines[0].route == f"/api/{module_id}/items/{{item_id}}"  # type: ignore[attr-defined]
+    assert lines[0].status == 200  # type: ignore[attr-defined]
+    assert "abc" not in caplog.text
+    assert "ana@site.test" not in caplog.text

@@ -36,6 +36,7 @@ from kernel import error_tracking, logs
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
 from kernel.errors import BodyLimit, UnexpectedErrors, install_handlers
+from kernel.logs import AccessLog
 from kernel.modules import InstalledModule, ModuleRegistry, require_module
 from kernel.ratelimit import RateLimiter
 from kernel.routes import router as kernel_router
@@ -134,4 +135,5 @@ def create_app(
         hsts_max_age=config.hsts_max_age,
         noindex=config.robots_noindex,
     )
+    app.add_middleware(AccessLog)  # outermost: the whole request, the final status
     return app
