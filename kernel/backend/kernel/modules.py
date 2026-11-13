@@ -15,15 +15,23 @@ puts in front of every module router), its slots are hidden, its jobs pause
 and its event handlers wait (K3). Its data is kept, so switching it back on
 resumes.
 
-The on-set is read fresh by `require_module`. The security headers read the
-last set seen (`on_cached`), refreshed by every fresh read, since they can't
-wait on the database.
+**One short-lived cache.** The on-set is read from the database at most once
+every MODULES_CACHE_SECONDS (5 by default) per process, and shared: by
+`require_module`, the security headers' CSP (`current`, before each
+response) and `/api/kernel/modules`. A switch made in this process applies
+at once; one made by another worker reaches this one within the TTL, in both
+directions. If the database doesn't answer, the last set read stands and the
+miss is logged, once per TTL.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
+import time
 from collections.abc import Awaitable, Callable, Iterable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -32,6 +40,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.db import get_db
@@ -87,9 +96,18 @@ class InstalledModule:
 
 OFF = "This part of the site is switched off."
 
+log = logging.getLogger(__name__)
+
 
 class ModuleRegistry:
-    def __init__(self, installed: Iterable[InstalledModule], allowed: Iterable[str]) -> None:
+    def __init__(
+        self,
+        installed: Iterable[InstalledModule],
+        allowed: Iterable[str],
+        *,
+        ttl: float = 5.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.installed: dict[str, InstalledModule] = {}
         for module in installed:
             if module.id in self.installed:
@@ -104,6 +122,10 @@ class ModuleRegistry:
                     f"{'is' if len(missing) == 1 else 'are'} not installed."
                 )
         self._cached = self.effective(())
+        self.ttl = ttl
+        self._clock = clock
+        self._read_at: float | None = None  # never read: stale
+        self._reading = asyncio.Lock()
 
     def effective(self, switched_off: Iterable[str]) -> frozenset[str]:
         """The modules on: allowed, not switched off, and with every module
@@ -128,9 +150,37 @@ class ModuleRegistry:
         statement = select(ModuleState.module_id).where(ModuleState.enabled.is_(False))
         return frozenset((await db.execute(statement)).scalars())
 
-    async def on(self, db: AsyncSession) -> frozenset[str]:
-        """The modules on now, read afresh."""
-        self._cached = self.effective(await self.switched_off(db))
+    def _stale(self) -> bool:
+        return self._read_at is None or self._clock() - self._read_at >= self.ttl
+
+    async def on(self, db: AsyncSession, *, fresh: bool = False) -> frozenset[str]:
+        """The modules on, read through `db` when the cache is past its TTL
+        (or `fresh`)."""
+        if fresh or self._stale():
+            self._cached = self.effective(await self.switched_off(db))
+            self._read_at = self._clock()
+        return self._cached
+
+    async def current(
+        self, sessions: Callable[[], AbstractAsyncContextManager[AsyncSession]]
+    ) -> frozenset[str]:
+        """The modules on, for code with no session of its own (the CSP):
+        read through a new session when the cache is stale; while another
+        read is under way, or when the database doesn't answer, the last set."""
+        if not self._stale() or self._reading.locked():
+            return self._cached
+        async with self._reading:
+            if self._stale():
+                try:
+                    async with sessions() as session:
+                        await self.on(session)
+                except (SQLAlchemyError, OSError) as error:
+                    self._read_at = self._clock()  # try again after the TTL, not every request
+                    log.warning(
+                        "Couldn't read which modules are switched off (%s); keeping the "
+                        "last set read.",
+                        type(error).__name__,
+                    )
         return self._cached
 
     def on_cached(self) -> frozenset[str]:
@@ -169,13 +219,14 @@ class ModuleRegistry:
         await db.execute(statement)
         await db.commit()
         # K3: emit kernel.module.enabled / kernel.module.disabled and audit it.
-        return await self.on(db)
+        return await self.on(db, fresh=True)
 
 
 def require_module(module_id: str) -> Callable[..., Awaitable[None]]:
     """A dependency that answers 404 while `module_id` is off. The kernel puts
     it in front of every module's router; it runs before the route's own
-    dependencies, so nothing else is read for a module that's off."""
+    dependencies, so nothing else is read for a module that's off. It reads
+    the shared cache, so most requests cost no query."""
 
     async def module_is_on(request: Request, db: AsyncSession = Depends(get_db)) -> None:
         registry: ModuleRegistry = request.app.state.modules

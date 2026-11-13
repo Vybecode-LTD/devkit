@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, FastAPI
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.access import public
@@ -98,3 +101,87 @@ async def test_modules_left_out_of_MODULES_are_never_mounted_on(app_factory: App
     async with Client(app) as client:
         assert (await client.get(f"/api/{module_id}/hello")).status_code == 404
         assert (await client.get("/api/kernel/modules")).json() == {"on": ["other"]}
+
+
+# --- one short-lived cache for require_module and the CSP (audit F14) ---
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+async def test_the_on_set_is_read_at_most_once_per_ttl(db: AsyncSession) -> None:
+    module_id = unique_id("cached")
+    clock = _Clock()
+    here = ModuleRegistry([InstalledModule(manifest(module_id))], {module_id}, ttl=5, clock=clock)
+    elsewhere = registry(InstalledModule(manifest(module_id)))  # another process
+    assert await here.on(db) == {module_id}
+    await elsewhere.set_enabled(db, module_id, False)
+    clock.now += 4
+    assert await here.on(db) == {module_id}  # still the set read 4 s ago
+    clock.now += 2
+    assert await here.on(db) == set()  # past the ttl: read again
+    assert await here.set_enabled(db, module_id, True) == {module_id}  # its own switch: at once
+
+
+def _counting_queries(app: FastAPI) -> list[str]:
+    seen: list[str] = []
+
+    def count(*args: object) -> None:
+        seen.append(str(args[2]))
+
+    event.listen(app.state.database.engine.sync_engine, "before_cursor_execute", count)
+    return seen
+
+
+async def test_module_requests_dont_read_the_database_while_its_fresh(
+    app_factory: AppFactory,
+) -> None:
+    module_id = unique_id("greet")
+    app = app_factory([_module_with_route(module_id)])
+    async with Client(app) as client:
+        assert (await client.get(f"/api/{module_id}/hello")).status_code == 200
+        seen = _counting_queries(app)
+        assert (await client.get(f"/api/{module_id}/hello")).status_code == 200
+        assert seen == []
+
+
+def _embeds(module_id: str) -> InstalledModule:
+    return InstalledModule(manifest(module_id), csp=(("frame-src", "https://player.vimeo.com"),))
+
+
+async def test_another_process_switching_a_module_reaches_this_ones_csp(
+    app_factory: AppFactory,
+) -> None:
+    """No module request in between: the page's own headers notice."""
+    module_id = unique_id("embeds")
+    first = app_factory([_embeds(module_id)], modules_cache_seconds=0)
+    second = app_factory([_embeds(module_id)], modules_cache_seconds=0)
+    async with Client(first), Client(second) as client:
+        assert "player.vimeo.com" in (await client.get("/")).headers["content-security-policy"]
+        async with first.state.database.sessions() as session:
+            await first.state.modules.set_enabled(session, module_id, False)
+        assert "player.vimeo.com" not in (await client.get("/")).headers["content-security-policy"]
+        async with first.state.database.sessions() as session:
+            await first.state.modules.set_enabled(session, module_id, True)
+        assert "player.vimeo.com" in (await client.get("/")).headers["content-security-policy"]
+
+
+async def test_the_page_keeps_the_last_set_when_the_database_doesnt_answer(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    module_id = unique_id("cached")
+    clock = _Clock()
+    found = ModuleRegistry([InstalledModule(manifest(module_id))], {module_id}, ttl=5, clock=clock)
+
+    def down() -> AsyncSession:
+        raise OSError("connection refused")
+
+    with caplog.at_level(logging.WARNING, logger="kernel.modules"):
+        assert await found.current(down) == {module_id}
+        assert await found.current(down) == {module_id}  # not tried again inside the ttl
+    assert caplog.text.count("Couldn't read which modules are switched off") == 1

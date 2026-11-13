@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from urllib.parse import quote, urlsplit
 
@@ -111,12 +111,16 @@ class SecurityHeaders:
         *,
         policy: ContentSecurityPolicy,
         modules_on: Callable[[], Iterable[str]],
+        refresh: Callable[[], Awaitable[object]] | None = None,
         hsts_max_age: int = 0,
         noindex: bool = False,
     ) -> None:
         self.app = app
         self.policy = policy
         self.modules_on = modules_on
+        #: Brings the module on-set up to date before the CSP is written
+        #: (`ModuleRegistry.current`); never raises.
+        self.refresh = refresh
         self.hsts_max_age = hsts_max_age
         self.noindex = noindex
 
@@ -132,6 +136,8 @@ class SecurityHeaders:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        if self.refresh is not None:
+            await self.refresh()
         extra = self.headers_for(scope)
 
         async def send_with_headers(message: Message) -> None:

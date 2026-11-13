@@ -39,7 +39,4 @@ async def modules_on(request: Request) -> dict[str, Any]:
     """The modules on, for the web shell (`useModuleEnabled`). Modules that are
     off aren't named: a visitor learns nothing of what the site lacks."""
     registry = request.app.state.modules
-    database = request.app.state.database
-    async with database.sessions() as session:
-        on = await registry.on(session)
-    return {"on": sorted(on)}
+    return {"on": sorted(await registry.current(request.app.state.database.sessions))}
