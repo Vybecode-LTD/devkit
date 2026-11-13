@@ -57,11 +57,11 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | `POST /api/auth/step-up` | `{password}` or `{totp}` | 200 `{"status": "recent"}`; the session token is replaced |
 | `POST /api/auth/password/change` | `{current_password, new_password}` | **step-up.** 200; every other session ends; 422 `auth.password_rejected` with the reason |
 | `POST /api/auth/email/change` | `{email}` | **step-up.** 202; the new address confirms it |
-| `POST /api/auth/totp/setup` | | **step-up.** 200 `{"secret", "otpauth_uri"}` |
+| `POST /api/auth/totp/setup` | | **step-up.** 200 `{"secret", "otpauth_uri"}`; 403 `auth.email_unverified` until the email is verified (14.3). The TOTP counts as a second factor only once confirmed |
 | `POST /api/auth/totp/confirm` | `{code}` | 200 `{"recovery_codes": [10 codes]}` |
 | `DELETE /api/auth/totp` | | **step-up.** 204 |
 | `POST /api/auth/recovery-codes` | | **step-up.** 200 `{"recovery_codes": [...]}`; the old ones stop working; 409 `auth.no_second_factor` while the account has no confirmed TOTP |
-| `POST /api/auth/passkeys/register/start` | `{name}` | **step-up.** 200 WebAuthn creation options |
+| `POST /api/auth/passkeys/register/start` | `{name}` | **step-up.** 200 WebAuthn creation options; 403 `auth.email_unverified` until the email is verified |
 | `POST /api/auth/passkeys/register/finish` | the credential | 201 |
 | `DELETE /api/auth/passkeys/{id}` | | **step-up.** 204 |
 | `GET /api/auth/sessions` | | 200 `{"items": [...]}` with `current` marked |
@@ -93,7 +93,7 @@ Mounted by the harness only when `HARNESS_TEST_SUPPORT=1`, so the contract suite
 | `POST /api/_test/clock` | `{"advance": seconds}`: 204, moves the server's clock forward (not rate-limit windows, which run on real time) |
 | `POST /api/_test/users` | `{email, password?, roles?, verified?, totp?}` makes an account, without judging the password: 201 `{"id", "totp_secret"?}` (the TOTP confirmed) |
 | `POST /api/_test/breached` | `{passwords: [...]}`: 204, the fake breach lookup reports these as breached until the next reset |
-| `POST /api/_test/oauth/grant` | `{provider: "test", subject, email, email_verified}`: `{"code"}` the fake provider accepts once |
+| `POST /api/_test/oauth/grant` | `{provider: "test", subject, email, email_verified}`: 200 `{"code"}` the fake provider accepts once |
 | `POST /api/_test/jobs/run` | 204, after running every job that is due |
 | `GET /api/_test/delete-hooks` | `{"deleted": [user ids]}`, recorded by the harness's probe module |
 | `GET /api/_test/routes` | `{"undeclared": [...], "admin": [...], "step_up": [...]}`: the route audit's list, then every admin route and every step-up route as `METHOD /path/{template}` |

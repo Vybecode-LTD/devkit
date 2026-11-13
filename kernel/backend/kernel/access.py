@@ -24,6 +24,8 @@ from starlette.routing import Mount
 
 #: Marks set by the access dependencies; K2 adds member and permission.
 ACCESS_MARK = "__devkit_access__"
+#: Set by `require_recent_auth` (K2), so the step-up routes can be listed.
+STEP_UP_MARK = "__devkit_step_up__"
 
 
 def public() -> None:
@@ -35,6 +37,17 @@ setattr(public, ACCESS_MARK, "public")
 
 def access_of(call: Callable[..., Any]) -> str | None:
     return getattr(call, ACCESS_MARK, None)
+
+
+def needs_step_up(dependant: Dependant) -> bool:
+    """Whether any dependency of a route asks for a recent sign-in."""
+    stack = [dependant]
+    while stack:
+        dependant = stack.pop()
+        if dependant.call is not None and getattr(dependant.call, STEP_UP_MARK, False):
+            return True
+        stack.extend(dependant.dependencies)
+    return False
 
 
 def _declared(dependant: Dependant) -> list[str]:
