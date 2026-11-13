@@ -12,7 +12,7 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0006](0006-vibrant-mindz-first-site.md) | The new Vibrant Mindz site is the first site | Locked |
 | [0007](0007-kernel-notifications-moderation.md) | Kernel gains notifications and moderation | Applied |
 | [0008](0008-repo-license-jobs-admin.md) | Repo, license, job queue and admin shell | Locked |
-| [0009](0009-k1-kernel-conventions.md) | Conventions settled while building the kernel's core (K1) | Applied |
+| [0009](0009-k1-kernel-conventions.md) | Conventions settled while building the kernel's core (K1) | Applied; the module-switch read changed after the audit |
 | [0010](0010-auth-http-contract.md) | The auth HTTP contract, and test support in the harness | Applied; its clock rule narrowed by 0013 |
 | [0011](0011-public-repo.md) | The GitHub repo is public, for now | Applied |
 | [0012](0012-keyed-one-time-secrets.md) | One-time secrets are kept as keyed hashes | Applied |

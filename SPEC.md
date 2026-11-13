@@ -421,7 +421,7 @@ A module is copied in with `devkit add`, switched on and off at runtime, and upg
 6. Run its migrations (`alembic upgrade <id>@head`).
 7. Run its tests and report the result.
 
-**Switching on and off.** A module is on when the deploy's `MODULES` list allows it and the admin hasn't switched it off on the Features page (VybeSite's parts). While off, its routes answer 404, its slots are hidden, its jobs pause and its event handlers wait.
+**Switching on and off.** A module is on when the deploy's `MODULES` list allows it and the admin hasn't switched it off on the Features page (VybeSite's parts). While off, its routes answer 404, its slots are hidden, its jobs pause and its event handlers wait. A switch applies at once in the process that made it and within `MODULES_CACHE_SECONDS` (5 by default) in every other worker (decision 0009).
 
 **`devkit remove <id>`.** Switch it off, offer an export of its data, delete its code and registry entries, and keep its tables unless `--drop-data` is given.
 
@@ -781,6 +781,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | The module switches are cached per process for `MODULES_CACHE_SECONDS`, shared by `require_module` and the CSP (decision 0009, amended; section 12) |
 | 2026-11-12 | Password hashing is bounded: its own pool, 503 `kernel.busy`, parameters from the config, one verify for a missing account (decision 0014; 14, 14.6) |
 | 2026-11-12 | Auth rules from the audit (decision 0013): who can grant what (14.1), no pre-claiming an address (14.3), confirmed second factors only (14.4), `role_version` and known devices (14.5), the step-up limit, 429 answers, normalized keys, sign-up notices and which clock limits read (14.6), override precedence (14.8), API keys follow their creator (14.9) |
 | 2026-11-12 | One-time tokens, codes and recovery codes are kept as keyed hashes; sign-in codes aren't unique by hash; sessions keep the user agent; every foreign key is indexed (decision 0012; 14.2, 14.4, 14.11, 14.12) |

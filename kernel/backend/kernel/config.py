@@ -63,6 +63,10 @@ class KernelConfig(BaseSettings):
     encryption_keys: str = ""
 
     modules: str = "*"
+    #: How long each process trusts the switched-off list it read
+    #: (kernel.modules): a switch made by another worker reaches this one
+    #: within it. 0 reads it on every request.
+    modules_cache_seconds: float = Field(default=5.0, ge=0, le=60)
 
     #: Origins allowed to call the API from a browser, comma-separated. With
     #: DEBUG on they count as the site's own for the same-origin check, so a

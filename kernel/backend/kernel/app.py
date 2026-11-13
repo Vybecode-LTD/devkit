@@ -60,7 +60,7 @@ def create_app(
     installed = list(modules)
     try:
         allowed = modules_allowed(config, {module.id for module in installed})
-        registry = ModuleRegistry(installed, allowed)
+        registry = ModuleRegistry(installed, allowed, ttl=config.modules_cache_seconds)
     except ValueError as error:
         raise RuntimeError(f"Refusing to start: {error}") from error
 
@@ -130,6 +130,7 @@ def create_app(
         SecurityHeaders,
         policy=policy,
         modules_on=registry.on_cached,
+        refresh=lambda: registry.current(db.sessions),
         hsts_max_age=config.hsts_max_age,
         noindex=config.robots_noindex,
     )
