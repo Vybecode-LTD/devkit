@@ -18,8 +18,12 @@ shapes that slip through anyway. Removed from any string:
 
 It misses what has no shape, such as a six-digit code alone. A string past
 MAX_TEXT keeps its first 2,048 characters and its end, cut at whitespace,
-since a traceback's last line is the one that names the error. Every pattern
-runs in linear time: this runs on the event loop.
+since a traceback's last line is the one that names the error. The regions
+a marker opens (`[parameters: `, `Key (…)=(`, `Failing row contains (`,
+`input_value=`) are hidden before the cut, so a marker in the dropped middle
+can't leave its values in the kept end. Past SCRUB_WHOLE (256 KiB) a string
+keeps only its head instead. Every pattern runs in linear time: this runs
+on the event loop.
 """
 
 from __future__ import annotations
@@ -31,6 +35,8 @@ from typing import Any
 REDACTED = "[redacted]"
 ADDRESS = "[address]"
 MAX_TEXT = 8192
+#: Up to this, regions are hidden over the whole string before it's cut.
+SCRUB_WHOLE = 256 * 1024
 _HEAD = 2048
 _MARK_ROOM = 40  # "\n…[n characters cut]…\n", so the whole stays within MAX_TEXT
 
@@ -122,13 +128,26 @@ def _cut(text: str) -> str:
     return f"{text[:head_end]}\n…[{cut} characters cut]…\n{text[tail_from:]}"
 
 
-def clean_text(text: str) -> str:
-    """A string with nothing private left in it (this module's list)."""
-    text = _cut(text)
+def _head(text: str) -> str:
+    """The first MAX_TEXT characters, ending at whitespace where one is near."""
+    head = text[:MAX_TEXT]
+    space = max(head.rfind("\n"), head.rfind(" "))
+    return head[:space] if space > MAX_TEXT // 2 else head
+
+
+def _regions(text: str) -> str:
+    """Hide what a marker opens, up to where its region ends."""
     text = _SQL_PARAMETERS.sub("[parameters: hidden]", text)
     text = _KEY_VALUE.sub(_key_value, text)
     text = _FAILING_ROW.sub(_failing_row, text)
-    text = _INPUT_VALUE.sub(f"input_value={REDACTED}", text)
+    return _INPUT_VALUE.sub(f"input_value={REDACTED}", text)
+
+
+def clean_text(text: str) -> str:
+    """A string with nothing private left in it (this module's list)."""
+    if len(text) > SCRUB_WHOLE:
+        text = _head(text)  # no end kept, so no region can reach into it
+    text = _cut(_regions(text))
     text = _URL_CREDENTIALS.sub(lambda m: f"{m.group(1)}{REDACTED}@", text)
     text = _EMAIL.sub(ADDRESS, text)
     text = _QUERY.sub(lambda m: f"{m.group(1)}?{REDACTED}", text)
