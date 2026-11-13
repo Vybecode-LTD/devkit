@@ -474,6 +474,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 - Built-in roles are `owner` (every permission; at least one must exist), `admin`, `editor` and `member`. Sites may add custom roles.
 - Staff means any account with a role other than `member`. Staff MUST have a second factor (14.4) before reaching the admin.
 - Public sign-up creates only `member` accounts. Staff roles come from an owner or admin, or from an invite that names the role.
+- **Who can grant what** (decision 0013): a role can be granted or removed only by someone who holds every permission it carries. Only an owner grants, removes or suspends an owner, and the last owner can't be removed, demoted or suspended. Built-in roles can't be deleted. The same rules bind invites.
 - The first owner is made with `devkit create-owner`, or with a one-time setup token printed at first boot (VybeSite `setup_admin.py`).
 
 ### 14.2 Sign-in methods
@@ -515,12 +516,14 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 - A new provider identity links to an existing account automatically only when the provider says its email is verified and the existing account's email is verified too. Otherwise the person signs in the usual way first, then links from account settings.
 - GitHub: only the verified primary email from its emails API counts. Apple: relay addresses are stored as given, and the name is saved at first sign-in because Apple sends it only then.
 - Unlinking is allowed only while another sign-in method remains. Every link and unlink is audited and emailed.
+- **No pre-claiming an address:** a provider link, a second factor or a passkey can be added only once the account's email is verified, so whoever signs up with someone else's address can't leave a way in for the real owner to inherit.
 
 ### 14.4 Second factors and step-up
 
 - TOTP (RFC 6238, pyotp): 6 digits, 30-second steps, one step of drift either way, the secret sealed at rest, and a code refused if its step was already used.
 - Recovery codes: 10 single-use codes, stored as keyed hashes and shown once. Making new ones voids the old.
 - Passkeys count as a second factor.
+- A second factor counts only once confirmed: a TOTP secret set up but never confirmed with a code is not one.
 - Required for staff. Optional for members, unless the site's setting requires it.
 - Step-up: changing email, password, second factors or passkeys, creating API keys, changing roles or payout details, and deleting the account all need a sign-in within the last 10 minutes (`require_recent_auth`).
 
@@ -529,10 +532,11 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 Web sessions are opaque random tokens kept in a cookie and checked against the database on every request, so any session can be ended instantly. No session token is ever readable by JavaScript.
 
 - The token is 32 random bytes in the cookie `__Host-dk_session`, set HttpOnly, Secure, SameSite=Lax, Path=/. The database stores only its SHA-256.
-- A new token is issued at sign-in, at step-up and on any role change, so a session can't be fixed in advance.
+- A new token is issued at sign-in, at step-up and on any role change, so a session can't be fixed in advance. Each session records the account's `role_version`; a role change raises it, the session's next request gets a new token, and the old one stops working.
 - Each session records when it started, when it was last seen, the user agent, a device label and a coarse location. The account page lists them, with sign-out for each and "sign out everywhere else" (VybeSite `SignedInDevices`).
 - `auth_user.session_epoch` goes up on a password change, a reset, a second-factor reset or a suspension, which ends every older session.
 - CSRF: SameSite=Lax plus an Origin check on every request that changes state (VybeSite `same_origin.py`).
+- **Known devices:** a browser that has signed in to an account keeps a signed, HttpOnly `__Host-dk_device` cookie naming that account. Over the account's failure limit (14.6), the right password still signs in on such a browser, so strangers' guesses can't lock an owner out. The cookie survives sign-out, is never the session, and helps no other account.
 - Native and third-party clients (14.14) get short-lived access tokens and rotating refresh tokens instead. Reusing an old refresh token revokes the whole chain.
 
 | Account | Idle timeout | Absolute limit |
@@ -551,9 +555,13 @@ Both limits are site settings (Q6).
 | Password reset request | Same as a code send |
 | Sign-up | 5 per IP per hour |
 | Second-factor check | 5 failures per sign-in, then the sign-in starts over |
+| Step-up | 5 failures per session in 15 minutes, then the session ends |
 
 - No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
-- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account still costs one Argon2 hash.
+- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account still costs one Argon2 hash. A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
+- Limits keyed on an email use the normalized address, so case variants share one budget.
+- Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
+- Rate-limit windows run on real time, not on `kernel.clock`; expiries, the resend wait and the growing delays read `kernel.clock` (decision 0013).
 - Security emails go out on a sign-in from a new device, a password change, an email change (to the old address, with an undo link valid 7 days), a second factor or passkey added or removed, an API key created and a provider linked.
 
 ### 14.7 Account lifecycle
@@ -570,7 +578,7 @@ Both limits are site settings (Q6).
 
 - Permissions are strings, `<module>.<resource>.<action>`, declared in each manifest with default roles. Owners hold all of them.
 - Roles map to permission sets that staff can edit in the admin.
-- Per-resource overrides grant or deny one permission on one thing, such as a single forum category (VybeMindz `per-resource-permission-overrides`).
+- Per-resource overrides grant or deny one permission on one thing, such as a single forum category (VybeMindz `per-resource-permission-overrides`), for one person or one role. A denial beats a grant, and a person's own override beats their role's.
 - `require_owner_or(permission)` covers "your own, or staff with the permission".
 - Deny by default. The server checks every time; the front end's `can()` only hides buttons.
 
@@ -578,7 +586,7 @@ Both limits are site settings (Q6).
 
 - For machines only, never for people signing in.
 - Format `dk_<live|test>_<8-character id>_<32-byte secret>`, shown once. Only the secret's SHA-256 is stored, which is enough for a random secret.
-- Scoped to some of the creator's permissions, expiring after 90 days by default, recording last use, and revocable.
+- Scoped to some of the creator's permissions, expiring after 90 days by default, recording last use, and revocable. A key acts with the permissions its scopes and its creator hold now, so a role removed narrows it, and a suspended or deleted creator's keys stop working.
 
 ### 14.10 Audit log
 
@@ -773,6 +781,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | Auth rules from the audit (decision 0013): who can grant what (14.1), no pre-claiming an address (14.3), confirmed second factors only (14.4), `role_version` and known devices (14.5), the step-up limit, 429 answers, normalized keys, sign-up notices and which clock limits read (14.6), override precedence (14.8), API keys follow their creator (14.9) |
 | 2026-11-12 | One-time tokens, codes and recovery codes are kept as keyed hashes; sign-in codes aren't unique by hash; sessions keep the user agent; every foreign key is indexed (decision 0012; 14.2, 14.4, 14.11, 14.12) |
 | 2026-11-12 | The repo is public for now, the code still proprietary (decision 0011); the client folder's name and the inventory moved out of git |
 | 2026-11-12 | 14.13 points to the auth HTTP contract (`docs/contracts/auth-api.md`) and the harness's test support (decision 0010) |
