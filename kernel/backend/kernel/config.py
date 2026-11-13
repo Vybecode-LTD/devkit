@@ -19,6 +19,7 @@ typo never silently leaves a module off.
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import re
 from functools import lru_cache
@@ -31,7 +32,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 log = logging.getLogger(__name__)
 
-SECRET_MIN_BYTES = 32
+#: secrets.token_urlsafe(32)'s length: 256 bits, if the key is random. A floor,
+#: not a proof: a long phrase passes it, so generate the key (see the hint).
+SECRET_MIN_LENGTH = 43
 _PLACEHOLDER_WORDS = (
     "changeme",
     "placeholder",
@@ -55,7 +58,8 @@ class KernelConfig(BaseSettings):
     db_pool_size: int = Field(default=5, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)
 
-    #: HMAC key for signed values (links in emails, OAuth state). 32+ random bytes.
+    #: HMAC key for signed values (links in emails, OAuth state): 43+ characters,
+    #: from secrets.token_urlsafe(48).
     secret_key: str = ""
     #: Fernet keys, comma-separated, newest first: secrets are sealed with the
     #: first and opened with any, so a new key goes in front and the old one
@@ -123,6 +127,11 @@ def modules_allowed(config: KernelConfig, installed: set[str]) -> frozenset[str]
     names = {name.strip().lower() for name in config.modules.split(",") if name.strip()}
     if names == {"*"}:
         return frozenset(installed)
+    if "*" in names:
+        raise ValueError(
+            f"MODULES mixes * with names ({', '.join(sorted(names - {'*'}))}): use * alone for "
+            "every installed module, or list the ones this deploy may use."
+        )
     unknown = sorted(names - installed - {"*"})
     if unknown:
         raise ValueError(
@@ -138,8 +147,8 @@ def unsafe_secrets(config: KernelConfig) -> list[str]:
     problems = []
     secret = config.secret_key or ""
     squashed = re.sub(r"[^a-z0-9]", "", secret.lower())
-    if len(secret.encode("utf-8")) < SECRET_MIN_BYTES:
-        problems.append(f"SECRET_KEY is shorter than {SECRET_MIN_BYTES} bytes.")
+    if len(secret) < SECRET_MIN_LENGTH:
+        problems.append(f"SECRET_KEY is shorter than {SECRET_MIN_LENGTH} characters.")
     elif any(word in squashed for word in _PLACEHOLDER_WORDS) or len(set(secret)) < 10:
         problems.append("SECRET_KEY is a placeholder, not a random secret.")
     keys = config.encryption_key_list
@@ -160,12 +169,30 @@ def is_placeholder_domain(name: str) -> bool:
     return any(name == domain or name.endswith("." + domain) for domain in _PLACEHOLDER_DOMAINS)
 
 
+def _is_local(host: str) -> bool:
+    if host == "localhost" or host.endswith(".localhost"):
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return address.is_loopback or address.is_unspecified
+
+
 def placeholder_addresses(config: KernelConfig) -> list[str]:
+    """What's wrong with SITE_URL. Outside DEBUG it must also be https and
+    not a local address: cookies are `__Host-`, and links in mail go there."""
     parts = urlsplit((config.site_url or "").strip())
     if parts.scheme not in ("http", "https") or not parts.hostname:
         return ["SITE_URL is not an http or https address."]
     if is_placeholder_domain(parts.hostname):
         return [f"SITE_URL is a placeholder ({parts.hostname}), not the site's own address."]
+    if config.debug:
+        return []
+    if parts.scheme != "https":
+        return ["SITE_URL must be https outside DEBUG."]
+    if _is_local(parts.hostname):
+        return [f"SITE_URL is a local address ({parts.hostname}), not the site's own."]
     return []
 
 
@@ -174,6 +201,13 @@ def refuse_unsafe(config: KernelConfig) -> None:
     is on, when each problem is only logged."""
     secrets_wrong = unsafe_secrets(config)
     problems = secrets_wrong + placeholder_addresses(config)
+    if not config.debug and not config.client_ip_header.strip():
+        log.warning(
+            "CLIENT_IP_HEADER is blank, so every visitor counts as the address that "
+            "connects. Behind a proxy or a host's edge (Railway), that's the edge: "
+            "everyone shares one rate limit. Set it to the header the edge writes "
+            "(X-Real-IP on Railway)."
+        )
     if not problems:
         return
     if config.debug:

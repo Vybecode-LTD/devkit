@@ -23,7 +23,9 @@ BASE_POLICY = (
 )
 
 
-def build(*, on: tuple[str, ...] = (), hsts: int = 0, noindex: bool = False) -> FastAPI:
+def build(
+    *, on: tuple[str, ...] = (), hsts: int = 0, noindex: bool = False, https_site: bool = False
+) -> FastAPI:
     app = FastAPI()
     install_handlers(app)
 
@@ -49,7 +51,12 @@ def build(*, on: tuple[str, ...] = (), hsts: int = 0, noindex: bool = False) -> 
     app.add_middleware(SameOriginWrites, origins=[SITE])
     app.add_middleware(WwwRedirect, site_url=SITE)
     app.add_middleware(
-        SecurityHeaders, policy=policy, modules_on=lambda: on, hsts_max_age=hsts, noindex=noindex
+        SecurityHeaders,
+        policy=policy,
+        modules_on=lambda: on,
+        hsts_max_age=hsts,
+        noindex=noindex,
+        https_site=https_site,
     )
     return app
 
@@ -86,6 +93,12 @@ async def test_hsts_over_https_only_once_set() -> None:
         assert "strict-transport-security" not in (await c.get("/page")).headers
 
 
+async def test_hsts_behind_a_tls_edge_when_the_site_is_https() -> None:
+    """Railway ends TLS at its edge: the app sees http, the visitor https."""
+    async with client(build(hsts=300, https_site=True), "http://devkit.test") as c:
+        assert (await c.get("/page")).headers["strict-transport-security"] == "max-age=300"
+
+
 async def test_noindex_for_staging() -> None:
     async with client(build(noindex=True)) as c:
         assert (await c.get("/page")).headers["x-robots-tag"] == "noindex"
@@ -99,11 +112,20 @@ async def test_noindex_for_staging() -> None:
         ("script-src", "http://cdn.test", "isn't an https origin"),
         ("frame-src", "https://*", "isn't an https origin"),
         ("frame-src", "*", "isn't an https origin"),
+        ("frame-src", "https://w.soundcloud.com\n", "isn't an https origin"),
+        ("script-src", "https://*.github.io", "script-src takes exact hosts"),
+        ("script-src", "https://*.s3.amazonaws.com", "script-src takes exact hosts"),
     ],
 )
 def test_modules_cant_weaken_the_policy(directive: str, source: str, message: str) -> None:
     with pytest.raises(ValueError, match=message):
         ContentSecurityPolicy().allow(directive, source)
+
+
+def test_wildcards_stay_allowed_outside_script_src() -> None:
+    policy = ContentSecurityPolicy()
+    policy.allow("img-src", "https://*.googleusercontent.com")
+    assert "https://*.googleusercontent.com" in policy.render()
 
 
 def test_a_host_is_added_once() -> None:

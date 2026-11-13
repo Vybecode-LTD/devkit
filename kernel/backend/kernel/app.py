@@ -134,6 +134,7 @@ def create_app(
         refresh=lambda: registry.current(db.sessions),
         hsts_max_age=config.hsts_max_age,
         noindex=config.robots_noindex,
+        https_site=config.site_url.strip().lower().startswith("https://"),
     )
     app.add_middleware(AccessLog)  # outermost: the whole request, the final status
     return app
