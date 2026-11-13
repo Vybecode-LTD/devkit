@@ -72,6 +72,8 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `devkit-site-picker` | Turning a site brief into a module list and build commands |
 | `beat-license-generator` | Building the `licensing` module |
 | `printful-v2-adapter` | Building the `print-on-demand` module |
+| `alembic-multi-module-migrations` | Adding a module's migrations, merging heads, the round-trip tests |
+| `module-contract-lint` | Reviewing a module (or the kernel) against the contract before it merges |
 
 ## Project map
 
