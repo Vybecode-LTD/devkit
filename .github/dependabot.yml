@@ -1,0 +1,16 @@
+# Keeps the SHA-pinned actions in .github/workflows current (decision 0015).
+# One grouped PR a week; CI runs on it like any other, and the owner merges it.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

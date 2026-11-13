@@ -19,6 +19,6 @@
   - The brand check stays local (CLAUDE.md).
 - **Alternatives:**
   - A ruleset requiring "CI result" on `main`. That's the stronger guard, and it's the owner's call (a repo setting): pending.
-  - SHA-pinned actions. They need something to keep them current (Dependabot), which is another bot on the repo: the owner's call.
+  - SHA-pinned actions. They need something to keep them current (Dependabot), which is another bot on the repo: the owner's call. **The owner said yes (2026-11-13):** every action is pinned to a commit SHA with its version beside it, and `.github/dependabot.yml` opens one grouped PR a week.
 - **Consequences:** Every merge to `main` costs a full run, about ten minutes, which is free on a public repo. Decision 0011 is reworded to match.
 - **See:** SPEC.md 16; decisions 0008 and 0011; `.github/workflows/ci.yml`
