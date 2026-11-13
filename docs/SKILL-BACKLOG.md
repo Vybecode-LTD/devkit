@@ -36,6 +36,7 @@ Account copies are saved by the owner from the review cards Claude proposes; `sk
 | `bundled-data-licence-audit` | Checks each bundled third-party dataset's own terms against NOTICE (a collection's licence isn't its files'), pins the source commit and blob ids, and makes the rebuild byte-for-byte reproducible | 2026-11-12 | No |
 | `review-bot-triage` | Reads the review bots' comments on merged PRs (Codex, CodeRabbit), reproduces each claim with a failing test, and turns the real ones into follow-up PRs. Four of four were real in this audit | 2026-11-12 | No |
 | `postgres-catalog-snapshot` | A pg_catalog snapshot (columns, indexes, constraints, types, functions, sequences, triggers, rows) for migration round trips, with its mutant controls | 2026-11-12 | No. Could fold into `alembic-multi-module-migrations` |
+| `repo-hygiene-sweep` | One pass over a GitHub repo's housekeeping, asking before each outward step: rewrite only the commits stamped with the wrong author address (a bounded `filter-branch` range, trees checked identical, gitleaks on the new history) before any ruleset exists; delete merged branches; pin actions to commit SHAs with a weekly grouped Dependabot; then a `main` ruleset (required check kept up to date, no force push, no deletion, no bypass, and no PR rule when the merge button would stamp the wrong author). Ends with the reset commands for old clones. Done by hand on 2026-11-13 (PRs #26 and #27) | 2026-11-13 | No |
 
 ## Dropped
 
