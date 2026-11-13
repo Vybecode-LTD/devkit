@@ -12,6 +12,7 @@ from kernel.auth import passwords as pw
 from kernel.auth.passwords import Hashing, Passwords, breached, by_rules, normal, refusal
 
 FAST = Hashing(memory_kib=pw.FLOOR_MEMORY_KIB, time_cost=2, lanes=1)
+PASSWORD = "quiet orbit lantern 4471 marsh"
 
 
 @pytest.mark.parametrize(
@@ -147,3 +148,24 @@ async def test_an_uncommon_password_passes_the_list() -> None:
 
     assert not pw.is_common("lantern orbit pickle seventy")
     assert await refusal("lantern orbit pickle seventy", lookup=clean) is None
+
+
+async def test_text_that_cant_be_kept_is_refused_not_a_crash() -> None:
+    lone = "abc\ud800defghijklmn"
+    assert by_rules(lone) == pw.CANT_KEEP
+    passwords = Passwords(FAST)
+    kept = await passwords.hash(PASSWORD)
+    assert await passwords.check(lone, kept) is False
+    assert await passwords.check(lone, None) is False
+    assert await pw.breached(lone, lookup=lambda prefix: _never(prefix)) is None
+
+
+async def _never(prefix: str) -> str | None:
+    raise AssertionError("asked the breach API about a password that can't be kept")
+
+
+async def test_a_password_past_256_is_never_checked_as_typed() -> None:
+    passwords = Passwords(FAST)
+    long = "a long passphrase " * 20  # 360 characters
+    kept = await passwords.hash(long)  # kept somehow, say by an old rule
+    assert await passwords.check(long, kept) is False

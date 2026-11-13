@@ -68,6 +68,10 @@ COMMON = (
     "That's one of the most common passwords, so it's one people try first. "
     "Choose something less predictable: three or four unrelated words work well."
 )
+CANT_KEEP = (
+    "That password has characters that can't be kept, such as a stray half of an emoji. "
+    "Type it again, or choose another."
+)
 ABOUT_THIS_SITE = (
     "That's little more than this site's name or your own email address. "
     "Choose something that isn't about either."
@@ -90,6 +94,16 @@ def normal(password: str) -> str:
     """A password as it is hashed and judged: NFC, so one typed on a phone
     and on a laptop is the same string."""
     return unicodedata.normalize("NFC", password or "")
+
+
+def keepable(password: str) -> bool:
+    """Whether it can be kept at all: UTF-8 can't hold a lone surrogate, which
+    JSON can carry (`"\\ud800"`)."""
+    try:
+        password.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 # --- keeping one --------------------------------------------------------------------
@@ -128,7 +142,12 @@ class Passwords:
         self._dummy: str | None = None
 
     async def hash(self, password: str) -> str:
-        return await asyncio.to_thread(self._hasher.hash, normal(password))
+        """The kept form of a password `refusal` has passed. Raises ValueError
+        for one that can't be kept."""
+        password = normal(password)
+        if not keepable(password):
+            raise ValueError(CANT_KEEP)
+        return await asyncio.to_thread(self._hasher.hash, password)
 
     def _verify(self, hashed: str, password: str) -> bool:
         try:
@@ -138,13 +157,16 @@ class Passwords:
 
     async def check(self, password: str, hashed: str | None) -> bool:
         """Whether `password` is the one kept. With no hash (an unknown
-        account, or one that has no password) it still costs one check."""
-        if hashed is None:
+        account, or one that has no password), or a password no rule lets be
+        kept (past 256 characters, or text UTF-8 can't hold), it still costs one
+        check, against a dummy hash, and is False."""
+        password = normal(password)
+        if hashed is None or len(password) > LONGEST or not keepable(password):
             if self._dummy is None:
                 self._dummy = await asyncio.to_thread(self._hasher.hash, "no password is kept here")
-            await asyncio.to_thread(self._verify, self._dummy, normal(password))
+            await asyncio.to_thread(self._verify, self._dummy, "x" * SHORTEST)
             return False
-        return await asyncio.to_thread(self._verify, hashed, normal(password))
+        return await asyncio.to_thread(self._verify, hashed, password)
 
     def needs_rehash(self, hashed: str) -> bool:
         """Whether a kept hash uses other parameters than the site's now."""
@@ -167,6 +189,8 @@ def by_rules(password: str, context: Iterable[str] = ()) -> str | None:
     patterns. `context` is what a guesser starts from: the site's name, its
     domain, the person's address."""
     password = normal(password)
+    if not keepable(password):
+        return CANT_KEEP
     if len(password) < SHORTEST:
         return TOO_SHORT
     if len(password) > LONGEST:
@@ -231,6 +255,8 @@ RangeLookup = Callable[[str], Awaitable[str | None]]
 async def breached(password: str, lookup: RangeLookup = ask_range) -> bool | None:
     """Whether Have I Been Pwned has seen this password: None when it can't
     be asked."""
+    if not keepable(normal(password)):
+        return None
     # SHA-1 is the range API's key, not a protection here.
     digest = (
         hashlib.sha1(normal(password).encode("utf-8"), usedforsecurity=False).hexdigest().upper()
