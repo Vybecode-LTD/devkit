@@ -9,7 +9,7 @@
 - `require_permission(key)`: 403 `kernel.forbidden` unless the account holds
   `key` (`permissions.can`; owners hold everything).
 - `require_owner_or(permission)`: a guard whose `check(owner_id)` lets through
-  the resource's owner or someone holding the permission, else 403.
+  the resource's owner, or staff holding the permission, else 403.
 - `require_recent_auth(minutes=10)`: 403 `auth.step_up_required` unless the
   session signed in or stepped up that recently (14.4).
 
@@ -76,10 +76,16 @@ def lifetimes_of(request: Request) -> Lifetimes:
 
 def route_path(request: Request) -> str:
     """The path the router matched: without the ASGI `root_path` a proxy's
-    prefix adds (`--root-path /site`), as Starlette's own routing reads it."""
+    prefix adds (`--root-path /site`). Starlette's own rule (`get_route_path`):
+    the prefix comes off only at a segment boundary, so with root "/a" the path
+    "/api/x" stays whole, as the router reads it."""
     path: str = request.scope["path"]
     root: str = request.scope.get("root_path", "")
-    if root and path.startswith(root):
+    if not root or not path.startswith(root):
+        return path
+    if path == root:
+        return ""
+    if path[len(root)] == "/":
         return path[len(root) :]
     return path
 
@@ -161,17 +167,19 @@ class OwnerOr:
     """The guard `require_owner_or` gives a route. The route loads the thing,
     then calls `await guard.check(thing.owner_id)` before touching it."""
 
-    def __init__(self, user: User, permission: str, db: AsyncSession) -> None:
+    def __init__(self, user: User, permission: str, db: AsyncSession, *, staff: bool) -> None:
         self.user = user
         self.permission = permission
+        self.staff = staff
         self._db = db
 
     async def check(self, owner_id: uuid.UUID | None, *, resource: Resource | None = None) -> None:
-        """Returns for the owner or a holder of the permission (on `resource`,
-        when given); otherwise 403."""
+        """Returns for the owner, or for staff holding the permission (on
+        `resource`, when given; 14.8); otherwise 403. A member's personal grant
+        never opens someone else's thing."""
         if owner_id is not None and owner_id == self.user.id:
             return
-        if await can(self._db, self.user.id, self.permission, resource=resource):
+        if self.staff and await can(self._db, self.user.id, self.permission, resource=resource):
             return
         raise Problem("kernel.forbidden", 403, "You don't have permission to do that.")
 
@@ -182,7 +190,7 @@ def require_owner_or(permission: str) -> Callable[..., Awaitable[OwnerOr]]:
     async def dependency(
         resumed: Resumed = Depends(signed_in), db: AsyncSession = Depends(get_db)
     ) -> OwnerOr:
-        return OwnerOr(resumed.user, permission, db)
+        return OwnerOr(resumed.user, permission, db, staff=resumed.staff)
 
     return _mark(dependency, "owner_or")
 

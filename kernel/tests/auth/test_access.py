@@ -15,9 +15,10 @@ from typing import Any
 import httpx
 import pytest
 import pytest_asyncio
-from fastapi import APIRouter, Depends, FastAPI
+from fastapi import APIRouter, Depends, FastAPI, Request
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette._utils import get_route_path
 from starlette.types import Receive, Scope, Send
 
 from kernel import clock
@@ -31,6 +32,7 @@ from kernel.auth.dependencies import (
     require_owner_or,
     require_permission,
     require_recent_auth,
+    route_path,
 )
 from kernel.auth.models import (
     Passkey,
@@ -192,6 +194,13 @@ def _demo_router() -> APIRouter:
     @router.get("/missing", dependencies=[Depends(current_user)])
     async def missing() -> None:
         raise Problem("demo.post_not_found", 404)
+
+    @router.get("/categories/{category}/comments/{owner_id}")
+    async def comment_in(
+        category: str, owner_id: uuid.UUID, guard: OwnerOr = Depends(require_owner_or(EDIT))
+    ) -> dict[str, bool]:
+        await guard.check(owner_id, resource=(CATEGORY, category))
+        return {"ok": True}
 
     @router.get("/comments/{owner_id}")
     async def comment(
@@ -551,3 +560,65 @@ async def test_the_gate_holds_when_the_site_is_served_under_a_root_path(
         assert (response.status_code, _code(response)) == (403, "kernel.forbidden")
         mine = await http.get("/site/api/demo/me", headers=_as(token))
         assert mine.status_code == 200
+
+
+@pytest.mark.parametrize(
+    ("root", "path", "expected"),
+    [
+        ("", "/api/x/admin", "/api/x/admin"),
+        ("/site", "/site/api/x/admin", "/api/x/admin"),
+        ("/site", "/site", ""),
+        ("/a", "/api/x/admin", "/api/x/admin"),
+        ("/site", "/other/api/x", "/other/api/x"),
+    ],
+)
+def test_route_path_follows_starlettes_own_rule(root: str, path: str, expected: str) -> None:
+    scope: Scope = {"type": "http", "path": path, "root_path": root, "headers": []}
+    assert route_path(Request(scope)) == expected
+    assert route_path(Request(scope)) == get_route_path(scope)
+
+
+async def test_the_gate_holds_when_the_root_path_is_only_a_prefix_of_the_path(
+    db: AsyncSession, demo_app: FastAPI
+) -> None:
+    """Starlette strips `root_path` only at a segment boundary: with "/a" and
+    "/api/demo/admin/ping" the router still matches the admin route, so the
+    gate must see the same path."""
+    member = await _user(db)
+    token = await _token(db, member)
+    transport = httpx.ASGITransport(app=demo_app, root_path="/a")
+    async with (
+        demo_app.router.lifespan_context(demo_app),
+        httpx.AsyncClient(transport=transport, base_url=SITE) as http,
+    ):
+        response = await http.get("/api/demo/admin/ping", headers=_as(token))
+        assert (response.status_code, _code(response)) == (403, "kernel.forbidden")
+
+
+async def test_owner_or_wants_staff_for_someone_elses_thing(
+    db: AsyncSession, client: httpx.AsyncClient
+) -> None:
+    """SPEC 14.8: your own, or staff with the permission. A member's personal
+    grant on a resource doesn't open other people's things there."""
+    member, author = await _user(db), await _user(db)
+    await _override(db, "grant", "c1", user=member, permission=EDIT)
+    as_member = _as(await _token(db, member))
+    refused = await client.get(f"/api/demo/categories/c1/comments/{author.id}", headers=as_member)
+    assert (refused.status_code, _code(refused)) == (403, "kernel.forbidden")
+    own = await client.get(f"/api/demo/categories/c1/comments/{member.id}", headers=as_member)
+    assert own.status_code == 200
+
+
+async def test_owner_or_takes_a_staff_grant_on_that_resource_only(
+    db: AsyncSession, client: httpx.AsyncClient
+) -> None:
+    role = await _role(db)
+    await _override(db, "grant", "c1", role=role, permission=EDIT)
+    moderator, author = await _user(db, role), await _user(db)
+    as_moderator = _as(await _token(db, moderator))
+    there = await client.get(f"/api/demo/categories/c1/comments/{author.id}", headers=as_moderator)
+    assert there.status_code == 200
+    elsewhere = await client.get(
+        f"/api/demo/categories/c2/comments/{author.id}", headers=as_moderator
+    )
+    assert (elsewhere.status_code, _code(elsewhere)) == (403, "kernel.forbidden")
