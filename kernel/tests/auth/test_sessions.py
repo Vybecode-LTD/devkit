@@ -355,29 +355,13 @@ async def test_a_request_that_loses_the_race_carries_on_without_a_token(
     old, row = await _start(db, user)
     user.role_version += 1
     await db.commit()
-
-    async def waiting_on_a_lock() -> bool:
-        async with database.sessions() as watcher:
-            found = await watcher.execute(
-                text(
-                    "SELECT count(*) FROM pg_stat_activity"
-                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
-                )
-            )
-            return bool(found.scalar_one())
-
     async with database.sessions() as winner:
         await winner.execute(
             update(Session).where(Session.id == row.id).values(token_hash="f" * 64)
         )
         async with database.sessions() as loser_db:
             loser = asyncio.create_task(sessions.resume(loser_db, old))
-            for _ in range(500):
-                if await waiting_on_a_lock():
-                    break
-                await asyncio.sleep(0.01)
-            else:
-                pytest.fail("the request never waited on the row")
+            await _until_waiting_on_a_lock(database)
             await winner.commit()
             result = await loser
     assert result is not None
@@ -385,10 +369,66 @@ async def test_a_request_that_loses_the_race_carries_on_without_a_token(
     assert await sessions.resume(db, old) is None
 
 
+async def _until_waiting_on_a_lock(database: Database) -> None:
+    """Return once a connection to this database waits on a lock: the racing
+    request has read the old hash and is blocked on the row."""
+    for _ in range(500):
+        async with database.sessions() as watcher:
+            found = await watcher.execute(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity"
+                    " WHERE datname = current_database() AND wait_event_type = 'Lock'"
+                )
+            )
+            if found.scalar_one():
+                return
+        await asyncio.sleep(0.01)
+    pytest.fail("the request never waited on the row")
+
+
+async def test_two_step_ups_at_once_issue_one_token(db: AsyncSession, database: Database) -> None:
+    """A double-clicked step-up: the first holds the row; the second waits,
+    then finds the token already replaced and issues none, so the browser
+    can't end up holding a dead cookie."""
+    user = await _user(db)
+    old, _ = await _start(db, user)
+    async with database.sessions() as first_db, database.sessions() as second_db:
+        first = await sessions.resume(first_db, old)
+        second = await sessions.resume(second_db, old)
+        assert first is not None
+        assert second is not None
+        first_token = await sessions.step_up(first_db, first.session)
+        racing = asyncio.create_task(sessions.step_up(second_db, second.session))
+        await _until_waiting_on_a_lock(database)
+        await first_db.commit()
+        second_token = await racing
+        await second_db.commit()
+    assert first_token is not None
+    assert second_token is None
+    assert await sessions.resume(db, old) is None
+    assert await sessions.resume(db, first_token) is not None
+
+
+async def test_a_step_up_on_a_stale_copy_issues_nothing(
+    db: AsyncSession, database: Database
+) -> None:
+    user = await _user(db)
+    old, row = await _start(db, user)
+    async with database.sessions() as other_db:
+        stale = await sessions.resume(other_db, old)
+        assert stale is not None
+        fresh = await sessions.step_up(db, row)
+        await db.commit()
+        assert await sessions.step_up(other_db, stale.session) is None
+        await other_db.commit()
+    assert fresh is not None
+    assert await sessions.resume(db, fresh) is not None
+
+
 async def test_step_up_without_a_second_factor_leaves_that_record(db: AsyncSession) -> None:
     user = await _user(db)
     _, row = await _start(db, user)
-    await sessions.step_up(db, row)
+    assert await sessions.step_up(db, row) is not None
     await db.commit()
     assert row.second_factor_at is None
 
@@ -403,6 +443,7 @@ async def test_step_up_replaces_the_token_and_makes_the_sign_in_recent(db: Async
     assert not sessions.recent(resumed.session)
     new = await sessions.step_up(db, resumed.session, second_factor=True)
     await db.commit()
+    assert new is not None
     assert new != old
     assert await sessions.resume(db, old) is None
     stepped = await sessions.resume(db, new)

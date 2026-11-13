@@ -403,17 +403,33 @@ async def _reissue(
     return Resumed(session, user, staff, token)
 
 
-async def step_up(db: AsyncSession, session: Session, *, second_factor: bool = False) -> str:
+async def step_up(db: AsyncSession, session: Session, *, second_factor: bool = False) -> str | None:
     """A fresh sign-in on this session (14.4): a new token, returned for the
-    cookie, and the sign-in time reset. The caller commits."""
+    cookie, and the sign-in time reset. The caller commits.
+
+    Only a request that still finds the session's old token replaces it. One
+    that loses to another step-up of the same session (a double click) gets
+    None: the session is already freshly signed in, so the caller answers as
+    for success and sets no cookie, and the browser keeps the winner's."""
     now = clock.now()
     token, token_hash = new_token()
-    session.token_hash = token_hash
-    session.authenticated_at = now
-    session.last_seen_at = now
+    values: dict[str, Any] = {
+        "token_hash": token_hash,
+        "authenticated_at": now,
+        "last_seen_at": now,
+    }
     if second_factor:
-        session.second_factor_at = now
-    await db.flush()
+        values["second_factor_at"] = now
+    result = await db.execute(
+        update(Session)
+        .where(Session.id == session.id, Session.token_hash == session.token_hash)
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    )
+    if cast(CursorResult[Any], result).rowcount != 1:
+        return None
+    for name, value in values.items():
+        set_committed_value(session, name, value)
     return token
 
 
