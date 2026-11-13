@@ -13,13 +13,13 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 ## Current state (2026-11-12)
 
 - Spec v0.1 written, the owner's answers applied.
-- **K0 (repo foundation) and K1 (kernel core) are done.** K2 (auth) has started: the contract suite is written, as expected failures, and passwords and every auth table are in place. See `docs/HANDOFF.md`.
-- **Next:** a full audit of everything so far (`dev plans\2026-11-12-next-session-audit.md`), then K2's sessions, dependencies, the mail interface and the first auth routes (`dev plans\2026-11-12-next-session-k2-auth.md`).
+- **K0 (repo foundation) and K1 (kernel core) are done and audited:** the audit's fixes and the review bots' follow-ups are merged (PRs #1 to #24). K2 (auth) has started: the contract suite is written as strict expected failures, and passwords, keyed hashes and every auth table are in place. See `docs/HANDOFF.md`.
+- **Next:** K2's sessions, dependencies, the mail interface and the first auth routes (`dev plans\2026-11-12-next-session-k2-after-audit.md`).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`). It doubles as the spec's validation build.
 
 ## Last Completed Task
 
-2026-11-12 (remote session): K0 and K1 built; K2 begun: the contract suite from SPEC.md 14.13 (strict expected failures), `kernel/auth/passwords.py` with the bundled common-password list, the auth tables (migration `kernel_0002`). Pushed to the public `Vybecode-LTD/devkit`; the skill backlog built.
+2026-11-12 (remote session): the full audit of K0, K1 and K2-so-far (55 findings, report in `docs/private/`), then every fix batch as its own PR, tests first, plus eight follow-ups from the review bots. Decisions 0012 to 0016. CI now runs on pushes to `main` and weekly, with an 85% coverage floor.
 
 ## Read order
 

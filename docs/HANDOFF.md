@@ -4,46 +4,46 @@ Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud cont
 
 ## State
 
-- **K0 done:** hash-pinned Python tooling (uv), ruff, Black, mypy strict, pytest with a throwaway Postgres, one Alembic environment with per-module branches, the schema checker, npm workspaces (TypeScript strict, ESLint, Vitest), the CI workflow, `tools/link_skills.py`.
-- **K1 done:** config with secret refusal, database layer, MultiFernet crypto, RFC 9457 errors, CSP and security middleware, rate limiting, redacted JSON logs, Sentry, module registry and switches, versioned settings with three-way merge, the route access audit, `create_app`, the harness app, migration `kernel_0001`.
+- **K0 and K1 done**, and **audited** (2026-11-12). The audit found 55 issues, none of them a leak; the report is private (`docs/private/`). It and the review bots' follow-ups landed as 24 pull requests, #1 to #24, each with its tests seen failing first and CI green.
 - **K2 started:**
-  1. The contract suite (`kernel/tests/contract/`, one or more tests per line of SPEC.md 14.13) is written against `docs/contracts/auth-api.md`. 42 tests are strict expected failures until their code lands; the route audit passes.
-  2. `kernel/auth/passwords.py` is done and tested.
-  3. Every auth table is in place (`kernel/auth/models.py`, migration `kernel_0002`, built-in roles seeded).
-  4. `kernel/clock.py` and the first test-support routes are in place (`harness/testing.py`: reset, clock, routes).
-- 167 Python tests pass, 42 expected failures; 7 web tests. mypy, ruff, Black, ESLint, tsc, gitleaks and the brand check are clean.
-- **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011), with `LICENSE` keeping every right. Commits use the owner's no-reply address (`10875133+color8@users.noreply.github.com`). The history was rewritten before the first push to drop the personal address and the inventory.
-- **Private notes** live in `docs/private/` (gitignored): the inventory of `C:\DEV` and the client folder's name.
-- **Common-password list** bundled: 72,969 entries of 12+ characters from SecLists (MIT) and Django (BSD-3), see `NOTICE`. `tools/build_common_passwords.py --brand-check` rebuilds it.
-- **Skills:** the backlog is built (11 proposed to the owner's account; `alembic-multi-module-migrations` and `module-contract-lint` also in `skills/`). Only `devkit-auth-contract-tests` waits, for K2.
-- `C:\DEV\AI-DevKit` matches `main`, with `origin` set to GitHub.
+  1. The contract suite (`kernel/tests/contract/`) speaks HTTP only, against `docs/contracts/auth-api.md`. Each of its 83 tests is a strict expected failure that fails only with "not built", so it can't pass by accident or fail for the wrong reason.
+  2. `kernel/auth/passwords.py` is done: a bounded Argon2id pool (503 `kernel.busy` when full), parameters from the config (`Passwords.from_config`), the rules, the bundled list and Pwned Passwords.
+  3. Every auth table is in place (`kernel/auth/models.py`, migration `kernel_0002`, amended in place by the audit with an index on every foreign key). Its six permissions are declared in `kernel/kernel.json`.
+  4. One-time secrets are kept as keyed hashes (`kernel/auth/hashing.py`, decision 0012).
+  5. Test support: `reset` (with `{"accounts": true}`), `clock`, `routes`, `breached`.
+- **Kernel changes from the audit:**
+  - 500s keep their security headers, and request bodies have a limit (`MAX_BODY_BYTES`);
+  - rate-limit keys can't collide, and each route has its own budget;
+  - the module switches are cached per process for `MODULES_CACHE_SECONDS`;
+  - settings keep typed secrets and work with strict models;
+  - logs keep a traceback's end, scrub in linear time and write one access line per request;
+  - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
+  - HSTS goes out behind a TLS edge.
+- **Tests:** 271 Python tests pass with 83 strict expected failures, and coverage is 92% (CI fails under 85%). There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
+- **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
+- **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
+- **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
+- **Decisions:** 0012 to 0016 were added this session. SPEC 4 to 7, 14 (14.1 to 14.13 in places), 15 and 16 changed.
 
 ## Next
 
-**First, the full audit:** `dev plans\2026-11-12-next-session-audit.md`. K2 continues after its fixes land.
-
-Then K2, in order:
-
-1. **Sessions** (`kernel/auth/sessions.py`, from VybeSite `services/sessions.py`): `__Host-dk_session`, SHA-256 rows, member 14 d idle / 30 d absolute, staff 8 h / 7 d, `session_epoch` and `role_version` checks (a role change re-issues the token on the next request), the device label, last-seen at most hourly. Port VybeSite's known-device cookie (F-63) too: over an account's failure limit the right password still signs in on a browser that signed in before, so nobody can lock an owner out. Add it to `docs/contracts/auth-api.md` and the suite.
-2. **Dependencies:** `current_user`, `optional_user`, `require_permission`, `require_recent_auth`, with access marks for the route audit, and the staff gate on every `/api/*/admin` route (a staff role and a second factor, else `auth.second_factor_required`). Role and permission resolution, owner holding all, per-resource overrides.
-3. **A mail interface** (`kernel/email.py`): a protocol, a capturing adapter the harness uses for `/api/_test/mail`, and a logging default. SMTP, Mailgun and Resend come in K3.
-4. **Routes:** sign-up, sign-in (with the 14.6 limits), sign-out, session and step-up. Test support adds `users` and `mail`. Remove each contract test's expected-failure mark as it passes.
-5. Then codes and links, reset and verification, TOTP and recovery codes, passkeys, OAuth with the fake `test` provider, API keys, lifecycle (deletion with its 14-day grace, run by `/api/_test/jobs/run` until K3's worker), audit.
+K2, in order: `dev plans\2026-11-12-next-session-k2-after-audit.md`.
 
 ## Questions for the owner
 
-- **A ruleset for `main`** (require a PR and the "CI result" check, block force pushes). It's a repo setting, so it waits for the owner's go-ahead.
+- **A ruleset for `main`:** require a PR and "CI result", and block force pushes. It's a repo setting, so it waits for your go-ahead.
+- **Two commits carry the token's address:** #1's squash commit (`d935f0e`, as author) and #2's rebase (`b1a0190`, as committer). Rewriting them needs a force push to `main`. That's your call, and it should be done before a ruleset blocks force pushes.
+- **Merged branches** are still on GitHub: the session couldn't delete them. Delete them in the UI or with `git push origin --delete <branch>`.
+- **SHA-pinned actions with Dependabot** (decision 0015): yes or no?
+- **The claude.ai Spec doc** needs SPEC 4 to 7, 14, 15, 16 and the change log synced (decisions 0012 to 0016).
 
 ## Notes
 
-- **React Router 8 is out** (8.5.1). The spec says 7, so the repo pins 7.18.5, which is past every advisory. Moving to 8 needs its own decision record.
-- **TypeScript is pinned to 6.0.3:** typescript-eslint 8 supports TypeScript below 6.1, and TypeScript 7 is the native port. `minimatch` is overridden to 11.0.8 for a dev-only advisory (see the note in `package.json`).
-- **FastAPI 0.162** keeps included routers whole in `app.routes`; walk them with `fastapi.routing.iter_route_contexts`.
-- **pytest runs with `--import-mode=importlib`.** The root `conftest.py` imports the real `kernel` package first, so pytest never puts a stand-in in its place.
-- **Playwright** comes with K4's end-to-end tests.
-- **gitleaks** in CI is installed with `go install …@v8.28.0`, so Go's checksum database vouches for it. Bump the version on purpose.
-- **CI runs on pull requests** (and manual runs), not on pushes to `main`. Open a PR to see it run.
-- **The remote tools can't write `.npmrc` or `.github\`.** After a remote sync, restore them from git (`git checkout -- .npmrc .github`) before any `npm` command, since `.npmrc` holds `ignore-scripts=true`.
+- **React Router stays on 7** (8 is out; moving needs a decision record). TypeScript stays on 6.0.x for typescript-eslint.
+- **FastAPI 0.162** keeps included routers whole in `app.routes`: walk them with `fastapi.routing.iter_route_contexts`, as `kernel.ratelimit.route_name` does.
+- **pytest runs with `--import-mode=importlib`.** Close any pool a test app opens: under coverage, an unclosed connection fails the next test.
+- **gitleaks in CI** is the release binary checked against a pinned SHA-256. Bump both together.
+- **The remote tools can't write `.npmrc` or `.github\`.** After a remote sync, run `git checkout -- .npmrc .github` before any `npm` command.
 
 ## Warnings
 
