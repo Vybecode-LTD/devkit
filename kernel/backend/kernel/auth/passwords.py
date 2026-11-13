@@ -182,20 +182,39 @@ class Passwords:
     def from_config(cls, config: KernelConfig) -> Passwords:
         return cls(Hashing.from_config(config), concurrency=config.argon2_concurrency)
 
-    @contextlib.asynccontextmanager
-    async def _slot(self) -> AsyncIterator[None]:
+    async def _acquire(self) -> None:
         try:
             await asyncio.wait_for(self._slots.acquire(), timeout=self._wait)
         except TimeoutError:
             raise Problem("kernel.busy", 503, BUSY, headers={"Retry-After": "5"}) from None
+
+    @contextlib.asynccontextmanager
+    async def _slot(self) -> AsyncIterator[None]:
+        await self._acquire()
         try:
             yield
         finally:
             self._slots.release()
 
     async def _run(self, work: Callable[..., T], *args: Any) -> T:
-        async with self._slot():
-            return await asyncio.get_running_loop().run_in_executor(self._pool, work, *args)
+        """`work` on the pool, holding a slot until its thread is done. A
+        cancelled caller stops waiting, but the thread can't be stopped, so
+        the slot stays taken until it ends: the queue never grows past
+        `concurrency` behind the admission timeout."""
+        await self._acquire()
+        try:
+            running = asyncio.get_running_loop().run_in_executor(self._pool, work, *args)
+        except BaseException:
+            self._slots.release()
+            raise
+
+        def done(finished: asyncio.Future[T]) -> None:
+            self._slots.release()
+            if not finished.cancelled():
+                finished.exception()  # read, so a cancelled caller's error isn't "never retrieved"
+
+        running.add_done_callback(done)
+        return await asyncio.shield(running)
 
     async def hash(self, password: str) -> str:
         """The kept form of a password `refusal` has passed. Raises ValueError

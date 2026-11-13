@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hashlib
 import logging
+import threading
 
 import httpx
 import pytest
 
 from kernel.auth import passwords as pw
 from kernel.auth.passwords import Hashing, Passwords, breached, by_rules, normal, refusal
+from kernel.config import KernelConfig
+from kernel.errors import Problem
 
 FAST = Hashing(memory_kib=pw.FLOOR_MEMORY_KIB, time_cost=2, lanes=1)
 PASSWORD = "quiet orbit lantern 4471 marsh"
@@ -213,8 +218,6 @@ class _Counting:
 
 
 async def test_hashing_runs_a_bounded_number_at_once() -> None:
-    import asyncio
-
     passwords = Passwords(FAST, concurrency=2)
     counting = _Counting(passwords._hasher)
     passwords._hasher = counting  # type: ignore[assignment]
@@ -224,17 +227,41 @@ async def test_hashing_runs_a_bounded_number_at_once() -> None:
 
 
 async def test_a_full_queue_answers_busy() -> None:
-    import asyncio
-
-    from kernel.errors import Problem
-
     passwords = Passwords(FAST, concurrency=1, wait_seconds=0.05)
     async with passwords._slot():  # every slot taken
         with pytest.raises(Problem) as refused:
             await passwords.hash(PASSWORD)
     assert (refused.value.status, refused.value.code) == (503, "kernel.busy")
     assert await passwords.hash(PASSWORD)  # free again
-    del asyncio
+
+
+class _Gate:
+    """A hasher whose hash holds its thread until let go."""
+
+    def __init__(self) -> None:
+        self.started, self.go = threading.Event(), threading.Event()
+
+    def hash(self, password: str) -> str:
+        self.started.set()
+        self.go.wait(5)
+        return "gated"
+
+
+async def test_a_cancelled_hash_keeps_its_slot_until_its_thread_is_done() -> None:
+    """The thread can't be stopped, so the slot is the thread's, not the caller's."""
+    passwords = Passwords(FAST, concurrency=1, wait_seconds=0.2)
+    gate = _Gate()
+    passwords._hasher = gate  # type: ignore[assignment]
+    first = asyncio.create_task(passwords.hash(PASSWORD))
+    assert await asyncio.to_thread(gate.started.wait, 5)
+    first.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await first
+    with pytest.raises(Problem) as refused:
+        await passwords.hash(PASSWORD)  # the one thread is still hashing for the first
+    assert refused.value.code == "kernel.busy"
+    gate.go.set()
+    assert await passwords.hash(PASSWORD) == "gated"
 
 
 async def test_unknown_accounts_and_bad_hashes_cost_one_verify() -> None:
@@ -247,8 +274,6 @@ async def test_unknown_accounts_and_bad_hashes_cost_one_verify() -> None:
 
 
 def test_hashing_comes_from_the_config() -> None:
-    from kernel.config import KernelConfig
-
     hashing = Hashing.from_config(
         KernelConfig(argon2_memory_kib=32 * 1024, argon2_time_cost=2, argon2_lanes=1)
     )
