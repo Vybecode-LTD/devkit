@@ -1,6 +1,6 @@
 # Handoff
 
-Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud container, synced to `C:\DEV\AI-DevKit`).
+Overwritten every session. 2026-11-13, remote session (claude.ai in a cloud container). The next session is the first in Claude Code on the owner's machine.
 
 ## State
 
@@ -27,7 +27,7 @@ Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud cont
 
 ## Next
 
-K2, in order: `dev plans\2026-11-12-next-session-k2-after-audit.md`.
+K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`. Its set-up steps come first: the suite should show 271 passed and 83 xfailed with Postgres up.
 
 ## The owner's answers (2026-11-13)
 
