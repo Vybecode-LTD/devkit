@@ -9,7 +9,7 @@ from datetime import date
 from enum import StrEnum
 
 import pytest
-from pydantic import BaseModel, Field, SecretBytes, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretBytes, SecretStr
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -346,3 +346,43 @@ async def test_a_save_that_changes_nothing_lets_the_lock_go(
         saved = await found.save(session, module_id, {"title": "Blog"}, version=0)
         assert saved.changed == []
         assert await _lock_is_free(database, module_id)
+
+
+# --- strict models: stored values are JSON, read back in JSON mode (review of #8) ---
+
+
+class Strict(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    opens: date = date(2026, 1, 1)
+    tone: Tone = Tone.CALM
+    ref: uuid.UUID = uuid.UUID(int=0)
+    posts_per_page: int = 10
+    token: SecretStr | None = None
+
+
+async def test_a_strict_model_saves_typed_values_and_form_values(db: AsyncSession) -> None:
+    found, module_id = SettingsRegistry(), unique_id("strict")
+    found.register(module_id, Strict)
+    ref = uuid.uuid4()
+    typed = {"opens": date(2026, 5, 1), "tone": Tone.LOUD, "ref": ref, "token": SecretStr("t")}
+    saved = await found.save(db, module_id, typed, version=0, via="cli")
+    assert saved.changed == ["opens", "ref", "token", "tone"]
+    current = await found.for_module(db, module_id)
+    assert isinstance(current, Strict)
+    assert (current.opens, current.tone, current.ref) == (date(2026, 5, 1), Tone.LOUD, ref)
+    # A form posts what it read: JSON text for the date, the enum and the UUID.
+    form = (await found.form(db, module_id))["values"]
+    sent = {name: form[name] for name in ("opens", "tone", "ref")} | {"posts_per_page": 20}
+    saved = await found.save(db, module_id, sent, version=1)
+    assert saved.changed == ["posts_per_page"]
+
+
+async def test_a_value_settings_cant_hold_is_a_422(
+    db: AsyncSession, registry: tuple[SettingsRegistry, str]
+) -> None:
+    found, module_id = registry
+    with pytest.raises(Problem) as refused:
+        await found.save(db, module_id, {"title": object()}, version=0)
+    await db.rollback()
+    assert (refused.value.status, list(refused.value.errors)) == (422, ["title"])

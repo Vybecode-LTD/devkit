@@ -33,8 +33,11 @@ A secret is a change only when typed: `None` keeps it, `""` removes it (back
 to its default), any other text or `SecretStr` replaces it. Both saves typing
 one is a conflict.
 
-Values are compared as the model reads them: a stale form sending `"10"` for
-an int that was 10, or a datetime at midnight for a date, hasn't changed it.
+Values are kept as JSON and read back in JSON mode, so a strict model works:
+a date or an enum arrives as its JSON text from a form and as itself from
+code, and both read the same. Values are compared as the model reads them:
+a stale form sending `"10"` for an int that was 10, or a datetime at
+midnight for a date, hasn't changed it.
 A save that changes nothing ends its transaction (when it commits), so the
 lock goes with it.
 
@@ -43,6 +46,7 @@ VybeSite also merges list fields item by item; here a list is one value.
 
 from __future__ import annotations
 
+import json
 import types
 import typing
 import uuid
@@ -52,6 +56,7 @@ from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, SecretBytes, SecretStr, ValidationError
+from pydantic_core import PydanticSerializationError, to_jsonable_python
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -167,11 +172,12 @@ class SettingsRegistry:
             if name in secrets:
                 sealed = (stored[name] or {}).get("sealed")
                 if sealed:
-                    values[name] = SecretStr(crypto.open(sealed))
+                    values[name] = crypto.open(sealed)
                 # Removed: the field's default.
             else:
                 values[name] = stored[name]
-        return model.model_validate(values)
+        # JSON mode: what's stored is JSON, and a strict model reads its text forms.
+        return model.model_validate_json(json.dumps(values))
 
     async def for_module(self, db: AsyncSession, module_id: str) -> BaseModel:
         """The module's settings as its model, secrets opened."""
@@ -276,7 +282,9 @@ class SettingsRegistry:
         now = self._masked(model, stored)
         typed = {name for name in secrets if changes.get(name) is not None}
         yours = self._as_read(
-            model, stored, {name: value for name, value in changes.items() if name not in secrets}
+            model,
+            stored,
+            self._as_json(module_id, {n: v for n, v in changes.items() if n not in secrets}),
         )
 
         merged: list[str] = []
@@ -360,6 +368,26 @@ class SettingsRegistry:
             await db.flush()
         # K3: emit kernel.settings.changed and audit it.
         return Saved(version=current + 1, changed=changed, merged=merged)
+
+    @staticmethod
+    def _as_json(module_id: str, sent: Mapping[str, Any]) -> dict[str, Any]:
+        """Values from code (a date, an enum, a UUID) as the JSON a form would
+        send. Raises Problem 422 for one with no JSON form."""
+        out: dict[str, Any] = {}
+        errors: dict[str, list[str]] = {}
+        for name, value in sent.items():
+            try:
+                out[name] = to_jsonable_python(value)
+            except PydanticSerializationError:
+                errors[name] = ["Not a value these settings can hold."]
+        if errors:
+            raise Problem(
+                "kernel.invalid_request",
+                422,
+                f"Some of {module_id}'s settings aren't valid.",
+                errors=errors,
+            )
+        return out
 
     def _as_read(
         self, model: type[BaseModel], stored: Mapping[str, Any], sent: dict[str, Any]
