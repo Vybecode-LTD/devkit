@@ -125,6 +125,10 @@ class ModuleRegistry:
         self.ttl = ttl
         self._clock = clock
         self._read_at: float | None = None  # never read: stale
+        #: Reads are numbered as they start; one is kept only if none started
+        #: after it has been kept, so a slow read can't undo a newer switch.
+        self._reads_started = 0
+        self._newest_kept = 0
         self._reading = asyncio.Lock()
 
     def effective(self, switched_off: Iterable[str]) -> frozenset[str]:
@@ -157,8 +161,13 @@ class ModuleRegistry:
         """The modules on, read through `db` when the cache is past its TTL
         (or `fresh`)."""
         if fresh or self._stale():
-            self._cached = self.effective(await self.switched_off(db))
-            self._read_at = self._clock()
+            self._reads_started += 1
+            number = self._reads_started
+            switched_off = await self.switched_off(db)
+            if number > self._newest_kept:
+                self._newest_kept = number
+                self._cached = self.effective(switched_off)
+                self._read_at = self._clock()
         return self._cached
 
     async def current(

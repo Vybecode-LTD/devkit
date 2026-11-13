@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import pytest
@@ -185,3 +186,34 @@ async def test_the_page_keeps_the_last_set_when_the_database_doesnt_answer(
         assert await found.current(down) == {module_id}
         assert await found.current(down) == {module_id}  # not tried again inside the ttl
     assert caplog.text.count("Couldn't read which modules are switched off") == 1
+
+
+async def test_an_older_read_cant_undo_a_switch_made_here(db: AsyncSession) -> None:
+    """Review of #9: a refresh that read before the switch, and finishes after
+    it, must not put the old set back for another TTL."""
+    module_id = unique_id("raced")
+    found = registry(InstalledModule(manifest(module_id)))
+    await found.on(db)
+    first_read = asyncio.Event()
+    release = asyncio.Event()
+    reads = 0
+    real = found.switched_off
+
+    async def switched_off(session: AsyncSession) -> frozenset[str]:
+        nonlocal reads
+        reads += 1
+        if reads == 1:  # the refresh that started first: it sees the old state
+            first_read.set()
+            await release.wait()
+            return frozenset()
+        return await real(session)
+
+    found.switched_off = switched_off  # type: ignore[method-assign]
+    stale = asyncio.create_task(found.on(db, fresh=True))
+    await first_read.wait()
+    async with AsyncSession(db.bind) as other:
+        assert await found.set_enabled(other, module_id, False) == set()
+    release.set()
+    await stale
+    assert found.on_cached() == set()
+    assert await found.on(db) == set()  # and the cache is still the switch's
