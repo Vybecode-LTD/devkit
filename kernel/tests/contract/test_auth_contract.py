@@ -209,8 +209,9 @@ async def test_a_sign_in_code_lasts_10_minutes(api: Api) -> None:
     assert still.status_code == 200  # the control: alive at 9 minutes
 
     other = api.another_browser()
+    sent = len(await api.mail(user.email))  # the code, and the sign-in's security mail
     await other.http.post("/api/auth/code", json={"email": user.email})  # past the resend wait
-    assert len(await api.mail(user.email)) == 2
+    assert len(await api.mail(user.email)) == sent + 1
     late = code_in((await api.last_mail(user.email))["text"])
     await api.advance(11 * MINUTE)
     gone = await other.http.post("/api/auth/code/verify", json={"email": user.email, "code": late})
@@ -702,6 +703,7 @@ async def test_an_admin_cant_grant_owner_or_suspend_one(api: Api) -> None:
 
 @not_built
 async def test_the_last_owner_stays(api: Api) -> None:
+    await api.forget_every_account()  # earlier tests made owners of their own
     owner = await api.make_user(roles=["owner"], totp=True)
     await api.signed_in_as(owner)
     demote = await api.http.put(

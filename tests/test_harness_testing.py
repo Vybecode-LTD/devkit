@@ -47,3 +47,39 @@ def test_the_plain_harness_has_no_test_routes(
         assert not any(path.startswith("/api/_test") for path in paths)
     finally:
         reset_config()
+
+
+async def test_reset_with_accounts_forgets_every_account(
+    monkeypatch: pytest.MonkeyPatch, migrated_url: str
+) -> None:
+    """The contract suite's precondition for "the last owner stays"."""
+    import uuid
+
+    import httpx
+    from sqlalchemy import func, select
+
+    from kernel.auth.models import User
+    from kernel.db import Database
+
+    monkeypatch.setenv("HARNESS_TEST_SUPPORT", "1")
+    app = testing.build_test_app(migrated_url)
+    database = Database(migrated_url, pool_size=1, max_overflow=0)
+    try:
+        async with database.sessions() as session:
+            email = f"{uuid.uuid4().hex}@site.test"
+            session.add(User(email=email, email_normal=email))
+            await session.commit()
+        transport = httpx.ASGITransport(app=app)
+        headers = {"Origin": "https://devkit.test", "Sec-Fetch-Site": "same-origin"}
+        async with httpx.AsyncClient(
+            transport=transport, base_url="https://devkit.test", headers=headers
+        ) as client:
+            assert (await client.post("/api/_test/reset")).status_code == 204
+            async with database.sessions() as session:
+                assert (await session.scalar(select(func.count()).select_from(User))) >= 1
+            kept = await client.post("/api/_test/reset", json={"accounts": True})
+            assert kept.status_code == 204, kept.text
+        async with database.sessions() as session:
+            assert await session.scalar(select(func.count()).select_from(User)) == 0
+    finally:
+        await database.dispose()

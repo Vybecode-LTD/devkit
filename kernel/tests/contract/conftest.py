@@ -198,6 +198,11 @@ class Api:
             totp_secret=data.get("totp_secret"),
         )
 
+    async def forget_every_account(self) -> None:
+        """For a test whose precondition is that no one else exists."""
+        response = await self.http.post("/api/_test/reset", json={"accounts": True})
+        assert response.status_code == 204, response.text
+
     async def mail(self, to: str) -> list[dict[str, str]]:
         response = await self.http.get("/api/_test/mail", params={"to": to})
         assert response.status_code == 200, response.text
