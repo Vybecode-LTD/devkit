@@ -29,12 +29,15 @@ Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud cont
 
 K2, in order: `dev plans\2026-11-12-next-session-k2-after-audit.md`.
 
+## The owner's answers (2026-11-13)
+
+- **History rewritten:** `main` from #1 on was rewritten so no commit carries the API token's address. Trees, messages and dates are unchanged; everything before #1 keeps its hashes. **A clone made before 2026-11-13 must reset:** `git fetch origin`, then `git reset --hard origin/main` (with nothing of its own to keep).
+- **Ruleset `main`:** on the default branch, it requires "CI result" to have passed on the exact commit (and the branch to be up to date for PR merges), and blocks force pushes and deletion (decision 0015). It has no "require a pull request" rule: that rule would force merges through GitHub's merge button, which stamps the API token's address on every merge. The check rule gives the same guarantee, since a commit only has a green "CI result" if it ran CI on a branch first.
+- **Merged branches deleted;** finished PR branches are deleted after landing from now on.
+- **Actions pinned** to commit SHAs, and Dependabot proposes the bumps weekly (#26).
+
 ## Questions for the owner
 
-- **A ruleset for `main`:** require a PR and "CI result", and block force pushes. It's a repo setting, so it waits for your go-ahead.
-- **Two commits carry the token's address:** #1's squash commit (`d935f0e`, as author) and #2's rebase (`b1a0190`, as committer). Rewriting them needs a force push to `main`. That's your call, and it should be done before a ruleset blocks force pushes.
-- **Merged branches** are still on GitHub: the session couldn't delete them. Delete them in the UI or with `git push origin --delete <branch>`.
-- **SHA-pinned actions with Dependabot** (decision 0015): yes or no?
 - **The claude.ai Spec doc** needs SPEC 4 to 7, 14, 15, 16 and the change log synced (decisions 0012 to 0016).
 
 ## Notes

@@ -18,7 +18,7 @@
   - Section 16's end-to-end, accessibility, public-pages and tokens rows run from K4, with the first pages.
   - The brand check stays local (CLAUDE.md).
 - **Alternatives:**
-  - A ruleset requiring "CI result" on `main`. That's the stronger guard, and it's the owner's call (a repo setting): pending.
+  - A ruleset requiring "CI result" on `main`. That's the stronger guard, and it's the owner's call (a repo setting). **Applied 2026-11-13:** the ruleset `main` requires "CI result" on the exact commit, with the branch up to date for PR merges, and blocks force pushes and deletion. It has no "require a pull request" rule, because that would push every merge through GitHub's merge button, which stamps the API token's address on the commit. A commit can only carry a green "CI result" if CI ran on it first, on a branch, so the check rule gives the same guarantee.
   - SHA-pinned actions. They need something to keep them current (Dependabot), which is another bot on the repo: the owner's call. **The owner said yes (2026-11-13):** every action is pinned to a commit SHA with its version beside it, and `.github/dependabot.yml` opens one grouped PR a week.
 - **Consequences:** Every merge to `main` costs a full run, about ten minutes, which is free on a public repo. Decision 0011 is reworded to match.
 - **See:** SPEC.md 16; decisions 0008 and 0011; `.github/workflows/ci.yml`
