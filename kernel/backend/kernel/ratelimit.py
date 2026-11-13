@@ -19,6 +19,12 @@ Over the limit it answers 429 (`kernel.rate_limited`) with Retry-After.
 whose answer over the limit isn't a 429, through `request.app.state.limiter`:
 `hit`, `used_up`, `wait_seconds`, `forget`.
 
+**Budgets.** A route's own budget is named by its method and its full path
+template (`POST /api/auth/sign-in`, `GET /api/blog/posts/{slug}`), prefixes
+included, so routes with the same relative path in two modules never share
+one. Scope and key are hashed together into one identifier, so no key (an
+email typed, say) can spell another scope's budget.
+
 **Who a request is** (`client_address`): the address in the header
 CLIENT_IP_HEADER names, when it holds exactly one (Railway's edge writes
 X-Real-IP itself), else the connection's. An IPv6 address counts as its
@@ -29,14 +35,17 @@ address.
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import math
 import re
 import time
 from collections.abc import Awaitable, Callable
+from functools import lru_cache
 from typing import Literal, cast
 
-from fastapi import Request
+from fastapi import FastAPI, Request
+from fastapi.routing import iter_route_contexts
 from limits import (
     RateLimitItem,
     RateLimitItemPerDay,
@@ -59,6 +68,7 @@ _UNITS: dict[str, type[RateLimitItem]] = {
 }
 
 
+@lru_cache(maxsize=256)
 def parse_rule(rule: str) -> RateLimitItem:
     """ "5/15m" as five per fifteen minutes. Raises ValueError otherwise."""
     match = _RULE.match(rule)
@@ -74,6 +84,11 @@ def _async_uri(uri: str) -> str:
     return uri if uri.startswith("async+") else f"async+{uri}"
 
 
+def _identifier(scope: str, key: str) -> str:
+    """One unambiguous identifier for a (scope, key) pair."""
+    return hashlib.sha256(f"{len(scope)}:{scope}|{key}".encode()).hexdigest()
+
+
 class RateLimiter:
     """Counts against named budgets: (scope, key) pairs under a rule."""
 
@@ -87,26 +102,26 @@ class RateLimiter:
         already spent (and nothing more is counted)."""
         if not self.enabled:
             return True
-        return bool(await self._strategy.hit(parse_rule(rule), scope, key))
+        return bool(await self._strategy.hit(parse_rule(rule), _identifier(scope, key)))
 
     async def used_up(self, rule: str, scope: str, key: str) -> bool:
         """Whether the budget is spent, counting nothing."""
         if not self.enabled:
             return False
-        return not await self._strategy.test(parse_rule(rule), scope, key)
+        return not await self._strategy.test(parse_rule(rule), _identifier(scope, key))
 
     async def wait_seconds(self, rule: str, scope: str, key: str) -> int:
         """Seconds until `key` may go again: 0 while under the limit."""
         if not await self.used_up(rule, scope, key):
             return 0
-        stats = await self._strategy.get_window_stats(parse_rule(rule), scope, key)
+        stats = await self._strategy.get_window_stats(parse_rule(rule), _identifier(scope, key))
         return max(1, math.ceil(stats.reset_time - time.time()))
 
     async def forget(self, rule: str, scope: str, key: str) -> None:
         """Start `key`'s count in `scope` again (a finished reset clears its
         sign-in failures, so the owner isn't refused for a stranger's guesses)."""
         if self.enabled:
-            await self._strategy.clear(parse_rule(rule), scope, key)
+            await self._strategy.clear(parse_rule(rule), _identifier(scope, key))
 
     async def reset(self) -> None:
         """Forget every count (tests)."""
@@ -155,6 +170,43 @@ def account_or_address(request: Request) -> str:
 
 KeyFunc = Callable[[Request], str]
 
+_ROUTE_PATHS = "_devkit_route_paths"
+
+
+def _route_paths(app: FastAPI) -> dict[int, list[tuple[re.Pattern[str] | None, str]]]:
+    """Each route object's full path templates, prefixes included. FastAPI
+    keeps included routers whole, so `scope["route"].path` is only the path
+    within its own router; a router mounted twice has two."""
+    found: dict[int, list[tuple[re.Pattern[str] | None, str]]] | None = getattr(
+        app.state, _ROUTE_PATHS, None
+    )
+    if found is None:
+        found = {}
+        for context in iter_route_contexts(app.routes):
+            if context.path:
+                regex = getattr(context, "path_regex", None)
+                found.setdefault(id(context.original_route), []).append((regex, context.path))
+        setattr(app.state, _ROUTE_PATHS, found)
+    return found
+
+
+def route_name(request: Request) -> str:
+    """`METHOD /full/path/{template}` for the route serving this request."""
+    route = request.scope.get("route")
+    path = request.url.path
+    candidates = _route_paths(request.app).get(id(route), []) if route is not None else []
+    if route is not None and not candidates:  # a route added since the map was made
+        delattr(request.app.state, _ROUTE_PATHS)
+        candidates = _route_paths(request.app).get(id(route), [])
+    if len(candidates) == 1:
+        path = candidates[0][1]
+    else:
+        for regex, template in candidates:
+            if regex is not None and regex.match(request.scope.get("path", "")):
+                path = template
+                break
+    return f"{request.method} {path}"
+
 
 def rate_limit(
     rule: str,
@@ -172,8 +224,7 @@ def rate_limit(
 
     async def limited(request: Request) -> None:
         limiter: RateLimiter = request.app.state.limiter
-        route = request.scope.get("route")
-        name = scope or f"{request.method} {getattr(route, 'path', request.url.path)}"
+        name = scope or route_name(request)
         who = key_func(request)
         if not await limiter.hit(rule, name, who):
             wait = await limiter.wait_seconds(rule, name, who)
