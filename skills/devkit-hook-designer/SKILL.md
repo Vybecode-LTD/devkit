@@ -65,7 +65,7 @@ In one branch:
 - **SPEC.md.** Put each piece where its kind already lives: manifest fields in 5's table and example, kernel API in 6 with its "Since" phase, module files in 4's layout and 7, slots in 8, data rules in 10, events in 11. Never renumber sections. Use MUST / SHOULD / MAY, and say what happens when a module doesn't take part. If section 16's quality gate gains a check, add it there.
 - **Hooks index.** Keep one table at the end of section 7, "Hooks every module can fill": hook, shape, sections that define it. The first hook PR creates it, and each later PR adds a row.
 - **Schema and checker.** `schema/module.schema.json` (the field optional, with `additionalProperties: false` kept), plus any rule a JSON Schema can't say in `tools/validate_schemas.py`.
-- **Kernel.** Discovery in `kernel/backend/kernel/modules.py` (an attribute on `InstalledModule`, read the way `CSP` is), any registry or table with its migration on the `kernel` branch, and the public name in `kernel/__init__.py`.
+- **Kernel.** An attribute on `InstalledModule` in `kernel/backend/kernel/modules.py`, and discovery where modules are actually found: `discover()` in `harness/registry.py` reads it with `_attribute()`, the way it reads `CSP`. A test that builds `InstalledModule` by hand passes without that line, so test discovery too. Then any registry or table with its migration on the `kernel` branch, and the public name in `kernel/__init__.py`.
 - **Template.** `modules/_template`: the manifest's default value, an empty stub of the part, and a line under "Extension points" in `MODULE.md`.
 - **Agent docs.** A row for the hook in `skills/module-contract-lint/SKILL.md`, and a step in `skills/devkit-module-extractor/SKILL.md` when extractions must fill it. The owner's account copies of both skills then need the same edit at the next skill batch, so note it in `docs/SKILL-BACKLOG.md`.
 - **catalog.json.** Only if picking modules needs the new field (section 17).
@@ -80,10 +80,11 @@ In one branch:
 
 ## Step 6: verify
 
-From the repo root, in PowerShell:
+From the repo root, in PowerShell, with the test Postgres up (CLAUDE.md, "Test Postgres"). `DEVKIT_REQUIRE_DB` makes a database test fail rather than skip when Postgres isn't reachable, so the registry and migration tests can't pass by not running:
 
 ```
 python -m tools.validate_schemas
+$env:DEVKIT_REQUIRE_DB = "1"
 python -m pytest
 python -m ruff check . ; python -m black --check . ; python -m mypy
 npm run lint ; npm run typecheck ; npm test      # when the web side changed
