@@ -76,6 +76,10 @@ class KernelConfig(BaseSettings):
     #: Ask search engines to leave this copy out (staging). Never on production.
     robots_noindex: bool = False
 
+    #: The largest request body accepted, in bytes; larger is refused with 413.
+    #: A module that takes bigger uploads sends them to storage, not here.
+    max_body_bytes: int = Field(default=1024 * 1024, ge=1024)
+
     rate_limit_enabled: bool = True
     #: Where counts live: memory:// for one process, redis://… once a site
     #: runs more than one.

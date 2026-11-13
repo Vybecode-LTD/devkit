@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi import APIRouter, Depends, WebSocket
 
@@ -141,3 +143,51 @@ def test_the_harness_builds(monkeypatch: pytest.MonkeyPatch, migrated_url: str) 
     finally:
         monkeypatch.undo()
         reset_config()
+
+
+def _boom_module() -> InstalledModule:
+    router = APIRouter()
+
+    @router.get("/boom", dependencies=[Depends(public)])
+    async def boom() -> None:
+        raise RuntimeError("kaboom")
+
+    @router.post("/echo", dependencies=[Depends(public)])
+    async def echo(body: dict[str, str]) -> dict[str, int]:
+        return {"keys": len(body)}
+
+    return InstalledModule(manifest("probe"), router=router)
+
+
+async def test_an_unexpected_error_keeps_the_security_headers(app_factory: AppFactory) -> None:
+    """Handled inside SecurityHeaders and not raised on, so the 500 carries the
+    headers and the server logs it once (no second "Exception in ASGI
+    application")."""
+    app = app_factory([_boom_module()])
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app, raise_app_exceptions=True)
+        async with httpx.AsyncClient(transport=transport, base_url="https://devkit.test") as c:
+            response = await c.get("/api/probe/boom")  # raises here if the error escapes
+    assert (response.status_code, response.json()["code"]) == (500, "kernel.internal_error")
+    assert "default-src 'self'" in response.headers["content-security-policy"]
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
+async def test_a_body_over_the_limit_is_refused(app_factory: AppFactory) -> None:
+    app = app_factory([_boom_module()], max_body_bytes=1024)
+    big = {"text": "x" * 2000}
+    async with Client(app) as client:
+        assert (await client.post("/api/probe/echo", json={"a": "b"})).status_code == 200
+        declared = await client.post("/api/probe/echo", json=big)
+        assert (declared.status_code, declared.json()["code"]) == (413, "kernel.too_large")
+
+        async def chunks() -> AsyncIterator[bytes]:  # no Content-Length: counted as it comes
+            yield b'{"text": "'
+            for _ in range(20):
+                yield b"x" * 100
+            yield b'"}'
+
+        streamed = await client.post(
+            "/api/probe/echo", content=chunks(), headers={"Content-Type": "application/json"}
+        )
+        assert (streamed.status_code, streamed.json()["code"]) == (413, "kernel.too_large")

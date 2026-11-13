@@ -14,7 +14,8 @@ What it does, in order:
 4. Mounts the kernel's routes at /api/kernel and each module's router at
    /api/<id>, behind `require_module(id)`.
 5. Adds the middleware: SecurityHeaders (outermost), WwwRedirect, CORS (when
-   CORS_ORIGINS is set) and SameOriginWrites.
+   CORS_ORIGINS is set), SameOriginWrites, BodyLimit and UnexpectedErrors
+   (innermost, so even a 500 carries the security headers).
 6. Answers every error as problem details.
 
 The API docs (/docs, /redoc, /openapi.json) are served only with DEBUG on: on
@@ -34,7 +35,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from kernel import error_tracking, logs
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
-from kernel.errors import install_handlers
+from kernel.errors import BodyLimit, UnexpectedErrors, install_handlers
 from kernel.modules import InstalledModule, ModuleRegistry, require_module
 from kernel.ratelimit import RateLimiter
 from kernel.routes import router as kernel_router
@@ -112,6 +113,8 @@ def create_app(
             )
 
     # Starlette runs the last added outermost.
+    app.add_middleware(UnexpectedErrors)
+    app.add_middleware(BodyLimit, max_bytes=config.max_body_bytes)
     origins = [config.site_url] + (config.cors_origins_list if config.debug else [])
     app.add_middleware(SameOriginWrites, origins=origins)
     if config.cors_origins_list:

@@ -17,6 +17,12 @@ The handlers turn FastAPI's own errors into the same shape: a 404 or 405
 from routing, a request that fails validation (422, `kernel.invalid_request`,
 with `errors`), and anything unexpected (500, `kernel.internal_error`, whose
 details stay in the log and the error tracker, never in the answer).
+
+`create_app` also adds `UnexpectedErrors`, just inside the security
+middleware: an unexpected error is answered there, so the 500 carries the
+security headers, and it's logged once (Starlette's own last-resort handler
+would answer outside them and re-raise it for the server to log again).
+`BodyLimit` refuses a body over MAX_BODY_BYTES with 413 `kernel.too_large`.
 """
 
 from __future__ import annotations
@@ -27,11 +33,12 @@ from collections.abc import Mapping
 from http import HTTPStatus
 from typing import Any, cast
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 log = logging.getLogger(__name__)
 
@@ -134,11 +141,79 @@ async def _invalid(_request: Request, exc: Exception) -> JSONResponse:
     ).response()
 
 
+INTERNAL_ERROR = "Something went wrong on our side. Try again in a moment."
+
+
 async def _unexpected(request: Request, error: Exception) -> JSONResponse:
     log.error("unhandled error on %s %s", request.method, request.url.path, exc_info=error)
-    return Problem(
-        "kernel.internal_error", 500, "Something went wrong on our side. Try again in a moment."
-    ).response()
+    return Problem("kernel.internal_error", 500, INTERNAL_ERROR).response()
+
+
+class UnexpectedErrors:
+    """Answers an unexpected error as a 500 problem, logs it once and keeps it
+    from going further out. Once a response has started there's nothing to
+    answer with, so it's raised on, for the server to close the connection."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        started = False
+
+        async def watch(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, watch)
+        except Exception as error:
+            log.error(
+                "unhandled error on %s %s", scope.get("method"), scope.get("path"), exc_info=error
+            )
+            if started:
+                raise
+            problem = Problem("kernel.internal_error", 500, INTERNAL_ERROR)
+            await problem.response()(scope, receive, send)
+
+
+class BodyLimit:
+    """Refuses a request body over `max_bytes`: by its Content-Length before
+    the app reads anything, or as it streams in when there is none."""
+
+    def __init__(self, app: ASGIApp, *, max_bytes: int) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    def _detail(self) -> str:
+        return f"That's more than this site accepts ({self.max_bytes:,} bytes at most)."
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        length = dict(scope.get("headers") or ()).get(b"content-length")
+        if length is not None and length.isdigit() and int(length) > self.max_bytes:
+            await Problem("kernel.too_large", 413, self._detail()).response()(scope, receive, send)
+            return
+        seen = 0
+
+        async def counted() -> Message:
+            nonlocal seen
+            message = await receive()
+            if message["type"] == "http.request":
+                seen += len(message.get("body", b""))
+                if seen > self.max_bytes:
+                    # An HTTPException, since FastAPI turns anything else raised
+                    # while it reads a body into a 400.
+                    raise HTTPException(413, self._detail())
+            return message
+
+        await self.app(scope, counted, send)
 
 
 def install_handlers(app: FastAPI) -> None:
