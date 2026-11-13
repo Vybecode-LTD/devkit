@@ -10,7 +10,7 @@ All bodies are JSON. Errors are problem details (`application/problem+json`, SPE
 
 ## Limits (SPEC.md 14.6)
 
-A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header (whole seconds) and `retry_after` in the body. The thresholds are 14.6's. Limits keyed on an email use the normalized address.
+A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header (whole seconds) and `retry_after` in the body. The thresholds are 14.6's. Limits keyed on an email use the normalized address. A route that hashes or checks a password can also answer 503 `kernel.busy`, with `Retry-After`, when the hashing pool is full.
 
 - **Password sign-in:**
   - 10 per IP per minute.

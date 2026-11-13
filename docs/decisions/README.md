@@ -17,3 +17,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0011](0011-public-repo.md) | The GitHub repo is public, for now | Applied |
 | [0012](0012-keyed-one-time-secrets.md) | One-time secrets are kept as keyed hashes | Applied |
 | [0013](0013-auth-rules-from-the-audit.md) | Auth rules the audit found missing | Applied |
+| [0014](0014-bounded-password-hashing.md) | Password hashing is bounded | Applied |

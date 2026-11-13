@@ -22,31 +22,46 @@ Cheat Sheet:
 
 **Kept as Argon2id.** The default parameters are argon2-cffi's (RFC 9106's
 low-memory profile: 64 MiB, 3 passes, 4 lanes), above OWASP's minimum of
-19 MiB, 2 passes, 1 lane, which `Hashing` refuses to go below. A hash made
-with weaker parameters is upgraded at the next sign-in (`needs_rehash`).
-Hashing runs on a thread: it takes tens of milliseconds and must not hold
-the event loop. A check for an account with no password costs one hash too,
-so the time says nothing about which accounts exist.
+19 MiB, 2 passes, 1 lane, which `Hashing` refuses to go below; a site sets
+its own with ARGON2_MEMORY_KIB, ARGON2_TIME_COST and ARGON2_LANES. A hash
+made with other parameters is flagged for upgrading (`needs_rehash`).
+
+**Bounded.** Hashing runs on a pool of its own, ARGON2_CONCURRENCY threads
+wide (4 by default), since each hash takes tens of milliseconds and its
+memory: a flood of sign-ins queues instead of exhausting the host, and a
+request that waits more than a few seconds for a slot is answered 503
+`kernel.busy`. A check for an account with no password, or against a
+stored hash that isn't Argon2, costs one verify against a dummy made when
+`Passwords` is, so the time says nothing about which accounts exist.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import gzip
 import hashlib
 import itertools
 import logging
 import unicodedata
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import httpx
-from argon2 import PasswordHasher
+from argon2 import PasswordHasher, extract_parameters
 from argon2.exceptions import InvalidHashError, VerificationError
 
+from kernel.errors import Problem
+
+if TYPE_CHECKING:
+    from kernel.config import KernelConfig
+
 log = logging.getLogger(__name__)
+T = TypeVar("T")
 
 SHORTEST, LONGEST = 12, 256
 RANGE_URL = "https://api.pwnedpasswords.com/range/"
@@ -132,14 +147,55 @@ class Hashing:
             memory_cost=self.memory_kib, time_cost=self.time_cost, parallelism=self.lanes
         )
 
+    @classmethod
+    def from_config(cls, config: KernelConfig) -> Hashing:
+        return cls(config.argon2_memory_kib, config.argon2_time_cost, config.argon2_lanes)
+
+
+def _is_argon2(hashed: str) -> bool:
+    try:
+        extract_parameters(hashed)
+    except InvalidHashError:
+        return False
+    return True
+
+
+BUSY = "We're signing a lot of people in right now. Try again in a few seconds."
+
 
 class Passwords:
-    """Hashing and checking with one site's parameters."""
+    """Hashing and checking with one site's parameters, at most `concurrency`
+    at once (a pool of their own), waiting at most `wait_seconds` for a slot."""
 
-    def __init__(self, hashing: Hashing | None = None) -> None:
+    def __init__(
+        self, hashing: Hashing | None = None, *, concurrency: int = 4, wait_seconds: float = 5.0
+    ) -> None:
         self.hashing = hashing or Hashing()
         self._hasher = self.hashing.hasher()
-        self._dummy: str | None = None
+        self._pool = ThreadPoolExecutor(max_workers=concurrency, thread_name_prefix="argon2")
+        self._slots = asyncio.Semaphore(concurrency)
+        self._wait = wait_seconds
+        #: Made now, not on the first unknown account, which would cost that one twice.
+        self._dummy = self._hasher.hash("no password is kept here")
+
+    @classmethod
+    def from_config(cls, config: KernelConfig) -> Passwords:
+        return cls(Hashing.from_config(config), concurrency=config.argon2_concurrency)
+
+    @contextlib.asynccontextmanager
+    async def _slot(self) -> AsyncIterator[None]:
+        try:
+            await asyncio.wait_for(self._slots.acquire(), timeout=self._wait)
+        except TimeoutError:
+            raise Problem("kernel.busy", 503, BUSY, headers={"Retry-After": "5"}) from None
+        try:
+            yield
+        finally:
+            self._slots.release()
+
+    async def _run(self, work: Callable[..., T], *args: Any) -> T:
+        async with self._slot():
+            return await asyncio.get_running_loop().run_in_executor(self._pool, work, *args)
 
     async def hash(self, password: str) -> str:
         """The kept form of a password `refusal` has passed. Raises ValueError
@@ -147,7 +203,7 @@ class Passwords:
         password = normal(password)
         if not keepable(password):
             raise ValueError(CANT_KEEP)
-        return await asyncio.to_thread(self._hasher.hash, password)
+        return await self._run(self._hasher.hash, password)
 
     def _verify(self, hashed: str, password: str) -> bool:
         try:
@@ -157,16 +213,19 @@ class Passwords:
 
     async def check(self, password: str, hashed: str | None) -> bool:
         """Whether `password` is the one kept. With no hash (an unknown
-        account, or one that has no password), or a password no rule lets be
-        kept (past 256 characters, or text UTF-8 can't hold), it still costs one
-        check, against a dummy hash, and is False."""
+        account, or one that has no password), a stored hash that isn't
+        Argon2, or a password no rule lets be kept (past 256 characters, or
+        text UTF-8 can't hold), it still costs one verify, and is False."""
         password = normal(password)
-        if hashed is None or len(password) > LONGEST or not keepable(password):
-            if self._dummy is None:
-                self._dummy = await asyncio.to_thread(self._hasher.hash, "no password is kept here")
-            await asyncio.to_thread(self._verify, self._dummy, "x" * SHORTEST)
+        if (
+            hashed is None
+            or not _is_argon2(hashed)
+            or len(password) > LONGEST
+            or not keepable(password)
+        ):
+            await self._run(self._verify, self._dummy, "x" * SHORTEST)
             return False
-        return await asyncio.to_thread(self._verify, hashed, password)
+        return await self._run(self._verify, hashed, password)
 
     def needs_rehash(self, hashed: str) -> bool:
         """Whether a kept hash uses other parameters than the site's now."""
@@ -205,11 +264,13 @@ def by_rules(password: str, context: Iterable[str] = ()) -> str | None:
     for period in range(1, (2 * len(folded)) // 3 + 1):
         if all(folded[i] == folded[i % period] for i in range(len(folded))):
             return REPEATED
-    left = _letters(password)
+    letters = left = _letters(password)
     for term in sorted({_letters(t) for t in context} | {"password"}, key=len, reverse=True):
         if len(term) >= 4:
             left = left.replace(term, "")
-    if len(left) < 8:
+    # Only when a name or "password" was taken out: a password of symbols or
+    # emoji has few letters to begin with, and that's no reason to refuse it.
+    if left != letters and len(left) < 8:
         return ABOUT_THIS_SITE
     return None
 
@@ -224,8 +285,11 @@ def _common() -> frozenset[str]:
 
 
 def is_common(password: str) -> bool:
-    """Whether this password is on the bundled list, casefolded."""
-    return normal(password).casefold() in _common()
+    """Whether this password is on the bundled list, casefolded, as typed or
+    with its spaces taken out (the lists hold most phrases unspaced)."""
+    folded = normal(password).casefold()
+    common = _common()
+    return folded in common or folded.replace(" ", "") in common
 
 
 async def ask_range(prefix: str) -> str | None:

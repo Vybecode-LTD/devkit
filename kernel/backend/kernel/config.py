@@ -80,6 +80,14 @@ class KernelConfig(BaseSettings):
     #: A module that takes bigger uploads sends them to storage, not here.
     max_body_bytes: int = Field(default=1024 * 1024, ge=1024)
 
+    #: Argon2id for passwords (kernel.auth.passwords): never below OWASP's
+    #: 19 MiB, 2 passes, 1 lane. Raise memory where the host has it.
+    argon2_memory_kib: int = Field(default=64 * 1024, ge=19 * 1024)
+    argon2_time_cost: int = Field(default=3, ge=2)
+    argon2_lanes: int = Field(default=4, ge=1)
+    #: How many hashes run at once; each holds ARGON2_MEMORY_KIB while it runs.
+    argon2_concurrency: int = Field(default=4, ge=1)
+
     rate_limit_enabled: bool = True
     #: Where counts live: memory:// for one process, redis://… once a site
     #: runs more than one.

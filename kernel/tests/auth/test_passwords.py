@@ -57,14 +57,14 @@ async def _lookup_listing(password: str, count: int) -> pw.RangeLookup:
 
 
 async def test_breached_passwords_are_refused() -> None:
-    lookup = await _lookup_listing("correct horse battery staple", 1234)
-    assert await breached("correct horse battery staple", lookup) is True
-    assert await refusal("correct horse battery staple", lookup=lookup) == pw.BREACHED
+    lookup = await _lookup_listing("quiet orbit lantern 4471 marsh", 1234)
+    assert await breached("quiet orbit lantern 4471 marsh", lookup) is True
+    assert await refusal("quiet orbit lantern 4471 marsh", lookup=lookup) == pw.BREACHED
 
 
 async def test_padding_lines_dont_count() -> None:
-    lookup = await _lookup_listing("correct horse battery staple", 0)
-    assert await breached("correct horse battery staple", lookup) is False
+    lookup = await _lookup_listing("quiet orbit lantern 4471 marsh", 0)
+    assert await breached("quiet orbit lantern 4471 marsh", lookup) is False
 
 
 async def test_a_lookup_that_fails_accepts_and_logs(
@@ -75,7 +75,7 @@ async def test_a_lookup_that_fails_accepts_and_logs(
 
     monkeypatch.setattr(httpx.AsyncClient, "get", down)
     with caplog.at_level(logging.WARNING, logger="kernel.auth.passwords"):
-        assert await refusal("correct horse battery staple") is None
+        assert await refusal("quiet orbit lantern 4471 marsh") is None
     assert "breach lookup failed (ConnectError)" in caplog.text
 
 
@@ -169,3 +169,87 @@ async def test_a_password_past_256_is_never_checked_as_typed() -> None:
     long = "a long passphrase " * 20  # 360 characters
     kept = await passwords.hash(long)  # kept somehow, say by an old rule
     assert await passwords.check(long, kept) is False
+
+
+@pytest.mark.parametrize("strong", ["!@#$%^&*()-=+[]{}", "😀🎉🔥🚀💯✨🌟🎈🍕🎸🌈🦄"])
+def test_symbol_and_emoji_passwords_arent_called_the_sites_name(strong: str) -> None:
+    assert by_rules(strong, ["devkit.test"]) is None
+
+
+def test_the_sites_name_with_symbols_is_still_refused() -> None:
+    assert by_rules("devkit.test!@#$%^&", ["devkit.test"]) == pw.ABOUT_THIS_SITE
+
+
+def test_the_common_list_matches_without_spaces() -> None:
+    assert pw.is_common("correct horse battery staple")  # the list holds it unspaced
+
+
+class _Counting:
+    """Stands in for argon2's hasher: counts calls and how many run at once."""
+
+    def __init__(self, real: object) -> None:
+        self.real = real
+        self.hashes = self.verifies = self.running = self.most = 0
+
+    def _enter(self) -> None:
+        self.running += 1
+        self.most = max(self.most, self.running)
+
+    def hash(self, password: str) -> str:
+        self.hashes += 1
+        self._enter()
+        try:
+            return self.real.hash(password)  # type: ignore[attr-defined, no-any-return]
+        finally:
+            self.running -= 1
+
+    def verify(self, hashed: str, password: str) -> bool:
+        self.verifies += 1
+        self._enter()
+        try:
+            return self.real.verify(hashed, password)  # type: ignore[attr-defined, no-any-return]
+        finally:
+            self.running -= 1
+
+
+async def test_hashing_runs_a_bounded_number_at_once() -> None:
+    import asyncio
+
+    passwords = Passwords(FAST, concurrency=2)
+    counting = _Counting(passwords._hasher)
+    passwords._hasher = counting  # type: ignore[assignment]
+    await asyncio.gather(*(passwords.hash(PASSWORD) for _ in range(8)))
+    assert counting.hashes == 8
+    assert counting.most <= 2
+
+
+async def test_a_full_queue_answers_busy() -> None:
+    import asyncio
+
+    from kernel.errors import Problem
+
+    passwords = Passwords(FAST, concurrency=1, wait_seconds=0.05)
+    async with passwords._slot():  # every slot taken
+        with pytest.raises(Problem) as refused:
+            await passwords.hash(PASSWORD)
+    assert (refused.value.status, refused.value.code) == (503, "kernel.busy")
+    assert await passwords.hash(PASSWORD)  # free again
+    del asyncio
+
+
+async def test_unknown_accounts_and_bad_hashes_cost_one_verify() -> None:
+    passwords = Passwords(FAST)
+    counting = _Counting(passwords._hasher)
+    passwords._hasher = counting  # type: ignore[assignment]
+    assert not await passwords.check(PASSWORD, None)  # the first unknown account
+    assert not await passwords.check(PASSWORD, "not an argon2 hash")
+    assert (counting.hashes, counting.verifies) == (0, 2)  # no dummy made on the way
+
+
+def test_hashing_comes_from_the_config() -> None:
+    from kernel.config import KernelConfig
+
+    hashing = Hashing.from_config(
+        KernelConfig(argon2_memory_kib=32 * 1024, argon2_time_cost=2, argon2_lanes=1)
+    )
+    assert (hashing.memory_kib, hashing.time_cost, hashing.lanes) == (32 * 1024, 2, 1)
