@@ -11,7 +11,7 @@ Everything below runs after the Vibrant Mindz build in the module plan (kernel â
 ## The owner's answers (2026-11-13)
 
 1. **Hooks.** The 10 hooks that Must modules need are Must. **i18n:** v1 adopts a "no hard-coded UI strings" rule; full translations are Later. **Flags:** Later, until A/B testing (`experiments`) is wanted; VybeSite's parts switch covers on/off meanwhile.
-2. **SMS provider: pending.** The owner is choosing the route. `sms` is built as a provider adapter either way, so nothing waits on it until wave 3b.
+2. **SMS provider: chosen at wave 3b,** from a comparison researched then (the owner, 2026-11-13). `sms` is built as a provider adapter either way, so nothing waits on it until then.
 3. **`maps` and `invoices` promoted to Must.** `maps` lands in wave 3b ahead of `directory` and `events`; `invoices` lands in wave 3a ahead of `client-portal`. `proposals` stays Later.
 4. **No migration for Vibrant Mindz.** The new Vibrant Mindz site is built from scratch, so `migrate` stays in wave 3a for client sites.
 

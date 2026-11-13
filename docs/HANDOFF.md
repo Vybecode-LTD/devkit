@@ -39,6 +39,10 @@ After K2 and the kernel phases, and before blog, chat and payments are extracted
 - **Merged branches deleted;** finished PR branches are deleted after landing from now on.
 - **Actions pinned** to commit SHAs, and Dependabot proposes the bumps weekly (#26).
 - **The claude.ai Spec doc is retired** (decision 0017): titled "(retired)", with a notice that it's frozen as of 2026-11-12. `SPEC.md` is the only copy.
+- **Review bots:** CodeRabbit stays on its free tier. When it's rate-limited, a PR lands on a green "CI result" and Codex's review.
+- **Security pass:** the `auth-threat-model-checklist` skill runs on K2's high-risk PRs (sign-in, reset, magic links, OAuth, step-up, API keys), not on the plumbing.
+- **Account skills:** the owner's claude.ai skills reach Claude Code through the account sync, so they aren't copied anywhere.
+- **Vibrant Mindz:** Q1 to Q6 are answered (`docs/plans/vibrant-mindz-module-plan.md`, section 12); comments take guests, with approval. The SMS provider is chosen at roadmap wave 3b.
 
 ## Notes
 

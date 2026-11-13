@@ -106,7 +106,7 @@ These three are VybeSite's commerce plan (product idea 4), split up so a site ca
 - The dashboard gets a setup checklist: connect Stripe, add a product, publish the shop, each step checked live.
 - APMonster's Stripe billing (Python, the closest match) and the CarbonDSP storefront (gated downloads, tiers) are ported as designs and logic, not files, since both run on other stacks.
 
-**On this site:** CDs, vinyl, poetry books and paintings are `shop` products. Exclusive videos are `downloads`, or member-only streams (Q2).
+**On this site:** CDs, vinyl, poetry books and paintings are `shop` products. Exclusive videos are paid `downloads` in v1 (Q2); member-only streams can follow with `memberships` (`docs/plans/module-roadmap.md`, wave 2c).
 
 ## 6. Beat and composition licensing
 
@@ -202,8 +202,8 @@ VybeMindz is already this module. The work is moving it onto the kernel, not bui
 
 - **Attaching.** A thread is keyed by module and item id. A module drops `<Comments target={...} />` on its page and lists `comments` under `requires`.
 - **Shape.** Replies two levels deep, reactions from the shared module, @mentions, edits for 15 minutes, sorting by top or newest. Deleting a comment that has replies leaves a placeholder.
-- **Who can post.** Signed-in members with a verified email (spec 14.7) by default. Guest comments are off (Q4).
-- **Spam and abuse.** A member's first comment waits for approval. Links are limited and marked `rel="ugc nofollow"`. VybeSite's contact filter and blocklist screen text, rate limits apply, and a report button feeds the kernel's moderation queue.
+- **Who can post.** Signed-in members with a verified email (spec 14.7), and guests too (Q4). Every guest comment waits for staff approval before anyone else sees it.
+- **Spam and abuse.** A member's first comment waits for approval, as every guest comment does. Until `bot-shield` arrives (roadmap wave 1), approval, rate limits and the text filters are what stop spam. Links are limited and marked `rel="ugc nofollow"`. VybeSite's contact filter and blocklist screen text, rate limits apply, and a report button feeds the kernel's moderation queue.
 - **Notifications.** Replies and mentions arrive in the site and by email, with an unsubscribe per thread.
 - **SEO.** Approved comments join the page's server copy, so crawlers that don't run JavaScript see the discussion too.
 - **Bridge to the community (optional).** A setting posts each new blog post into a community channel, with links both ways.
@@ -231,16 +231,14 @@ The site launches once the shop works, as decided for VybeSite on 11 October. Ea
 5. **`licensing` and `audio-player`:** the beat store opens.
 6. **`print-on-demand`:** the apparel designer opens.
 
-## 12. Open questions for the owner
+## 12. The owner's answers (2026-11-13)
 
-The default is listed first where there is one.
-
-- [ ] **Q1** Beat license tiers: the names, files, caps and prices for each. A lawyer then writes the agreement templates.
-- [ ] **Q2** Exclusive videos: paid downloads (default), or streams for paying members?
-- [ ] **Q3** Community sign-up: open to fans (default), or invite-only as VybeMindz is today?
-- [ ] **Q4** Comments: members only (default), or guests too, with approval?
-- [ ] **Q5** Collective splits: reports only in v1 (default), or payouts through Stripe Connect?
-- [ ] **Q6** Keep the name Vibrified Marketplace for the store?
+- [x] **Q1** Beat license tiers: when the `licensing` module starts, Claude drafts a starting table (names, files, caps, prices) from common lease tiers for the owner to edit. A lawyer then writes the agreement templates.
+- [x] **Q2** Exclusive videos: paid downloads in v1. Member-only streams can follow with `memberships`.
+- [x] **Q3** Community sign-up: open to fans.
+- [x] **Q4** Comments: guests too, with approval (not the default, members only).
+- [x] **Q5** Collective splits: reports only in v1; payouts stay manual.
+- [x] **Q6** The store keeps the name Vibrified Marketplace.
 
 ## Sources
 
