@@ -15,8 +15,8 @@ Cheat Sheet:
   few different ones, a run along the keyboard or a count, one short piece
   repeated, or little more than the site's name or the person's own address.
 - **Not one Have I Been Pwned has seen** (`breached`): only the first five
-  characters of the SHA-1 leave the server, and `Add-Padding` makes every
-  answer the same size. When the API can't be reached the password is
+  characters of the SHA-1 leave the server, and `Add-Padding` pads each
+  answer with fake entries, so its size says little about the prefix. When the API can't be reached the password is
   accepted and the miss is logged.
 - A refused password is always explained, in words.
 

@@ -9,8 +9,9 @@ SecurityHeaders is outermost: a redirect or a refusal carries its headers too.
 origin only, with no inline script or style; images from this origin, any
 https host and data: URIs; requests to this origin; frames from this origin;
 no plugins; forms post here; nothing frames us. A module that needs another
-host (an embed's player, a payment provider) adds it with `csp.allow(...)`,
-and the host is in the policy only while that module is on.
+host (an embed's player, a payment provider) declares it in `CSP` in its
+`__init__.py`; `create_app` passes it to `ContentSecurityPolicy.allow`, and
+the host is in the policy only while that module is on.
 
 **Always:** `X-Content-Type-Options: nosniff`,
 `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`

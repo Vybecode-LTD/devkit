@@ -55,7 +55,9 @@ def open(sealed: str) -> str:
 
 
 def rotate(sealed: str) -> str:
-    """The value sealed again with the newest key (unchanged when it was)."""
+    """The value sealed again with the newest key. Always a new token, even
+    when the newest key already opens it: check `sealed_with_newest` first to
+    skip those."""
     try:
         return _current().rotate(sealed.encode("ascii")).decode("ascii")
     except (InvalidToken, UnicodeError) as error:
@@ -65,7 +67,8 @@ def rotate(sealed: str) -> str:
 
 
 def sealed_with_newest(sealed: str) -> bool:
-    """Whether the newest key opens it, so `rotate` would change nothing."""
+    """Whether the newest key opens it, so rotating it can wait (`rotate`
+    would still issue a new token)."""
     keys = get_config().encryption_key_list
     if not keys:
         return False

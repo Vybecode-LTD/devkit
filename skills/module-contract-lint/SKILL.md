@@ -77,7 +77,7 @@ Also check:
 
 ```
 python -m ruff check modules/<id> && python -m black --check modules/<id>
-python -m mypy modules/<id>/backend
+python -m mypy   # strict, and pyproject's files include modules/*/backend (decision 0015)
 python -m pytest modules/<id> --cov=modules/<id>/backend --cov-fail-under=85
 npm run lint && npm run typecheck && npm test
 ```

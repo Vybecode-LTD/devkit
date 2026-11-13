@@ -25,7 +25,8 @@ the first. Under the module's advisory lock, a save from an older version is
 merged field by field with what was saved since:
 
 - a field only this save changed is this save's;
-- a field only others changed keeps their value (reported as `merged`);
+- a field this save sent unchanged, and others changed, keeps their value
+  (reported as `merged`); a field it didn't send keeps theirs without a report;
 - a field both changed to different values is a **conflict**: 409
   (`kernel.settings_conflict`) with both values, who and when, saving nothing.
 

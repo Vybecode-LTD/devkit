@@ -186,5 +186,5 @@ def verify_printful(raw_body: bytes, signature_hex: str, secret_hex: str) -> boo
 
 - Module id `print-on-demand`; requires `shop` and `payments`; the apparel designer is its web binding (react-konva editor storing `placement, cx, cy, scale, rotation`).
 - Settings: Printful token and store id (secret), markup, curated products, margin floor, refund-after hours.
-- Events: listens to `payments.checkout.completed`; emits `pod.order.submitted`, `pod.order.shipped`, `pod.order.failed`.
-- Notifications: `pod.order_shipped` (customer, with tracking), `pod.order_failed` (owner).
+- Events: listens to `payments.checkout.completed`; emits `print-on-demand.order.submitted`, `print-on-demand.order.shipped`, `print-on-demand.order.failed` (names start with the module id, which `validate_schemas` checks).
+- Notifications: `print-on-demand.order_shipped` (customer, with tracking), `print-on-demand.order_failed` (owner).
