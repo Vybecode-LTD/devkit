@@ -8,8 +8,25 @@ output keeps only what the length rule wouldn't already refuse (12 to 256
 characters after NFC), casefolded, each once, in the order first seen, so
 the most common come first. Lines that are encoding damage (the replacement
 character, or the mojibake `пїѕ` a UTF-8/CP1251 mix-up leaves) or that hold
-control characters are dropped. The sources and their licenses are listed
-in NOTICE; rebuild with the same sources to change it.
+control characters are dropped. The gzip header holds no time and a fixed
+name, so the same sources in the same order give the same bytes.
+
+The bundled list, rebuilt exactly (the sources, their licences and the
+commit are in NOTICE):
+
+1. From SecLists at commit dbfb830d95e4f3da4fb7d7d277ed597de0ed7a18,
+   Passwords/Common-Credentials/: 100k-most-used-passwords-NCSC.txt, then
+   xato-net-10-million-passwords-1000000.txt, then Pwdb_top-1000000.txt.
+2. Django 6.1.3's django/contrib/auth/common-passwords.txt.gz, taken from
+   the wheel and un-gzipped to django-common-passwords.txt, last.
+3. Run, from the repo root:
+
+       python -m tools.build_common_passwords \
+           kernel/backend/kernel/auth/data/common-passwords.txt.gz \
+           100k-most-used-passwords-NCSC.txt \
+           xato-net-10-million-passwords-1000000.txt \
+           Pwdb_top-1000000.txt django-common-passwords.txt \
+           --brand-check C:\DEV\VybeSite\vybesite\scripts\brand_check.py
 
 With `--brand-check`, the owner's private brand check reads the list and
 every line it flags is dropped, so no word of a past client's ships even as a
@@ -28,6 +45,8 @@ import unicodedata
 from pathlib import Path
 
 SHORTEST, LONGEST = 12, 256
+#: The name the gzip header holds (the bundled file's, without .gz).
+BUNDLED_NAME = "common-passwords.txt"
 _DAMAGE = ("�", "пїѕ")
 
 
@@ -84,10 +103,13 @@ def main(argv: list[str]) -> int:
         flagged = brand_flagged(passwords, checker)
         passwords = [p for index, p in enumerate(passwords) if index not in flagged]
         print(f"{len(flagged)} dropped by the brand check")
-    # mtime=0, so the same sources always give the same bytes.
+    # mtime=0 and a fixed name in the header, so the same sources always give
+    # the same bytes, whatever OUT is called.
     with (
         out.open("wb") as raw,
-        gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=9, mtime=0) as zipped,
+        gzip.GzipFile(
+            filename=BUNDLED_NAME, fileobj=raw, mode="wb", compresslevel=9, mtime=0
+        ) as zipped,
     ):
         zipped.write(("\n".join(passwords) + "\n").encode("utf-8"))
     print(f"{len(passwords)} passwords from {len(sources)} sources written to {out}")
