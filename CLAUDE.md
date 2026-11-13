@@ -13,8 +13,8 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 ## Current state (2026-11-13)
 
 - Spec v0.1 written, the owner's answers applied.
-- **K0 (repo foundation) and K1 (kernel core) are done and audited:** the audit's fixes and the review bots' follow-ups are merged (PRs #1 to #24), and the owner's follow-ups too (#25 to #30): history rewritten once, a ruleset on `main`, actions pinned, the claude.ai Spec doc retired. K2 (auth) has started: the contract suite is written as strict expected failures, and passwords, keyed hashes and every auth table are in place. See `docs/HANDOFF.md`.
-- **Next:** K2's sessions, dependencies, the mail interface and the first auth routes (`dev plans\2026-11-13-next-session-k2-in-claude-code.md`), the first session in Claude Code on the owner's machine.
+- **K0 (repo foundation) and K1 (kernel core) are done and audited:** the audit's fixes and the review bots' follow-ups are merged (PRs #1 to #24), and the owner's follow-ups too (#25 to #31): history rewritten once, a ruleset on `main`, actions pinned, the claude.ai Spec doc retired, the Windows set-up. K2 (auth) has started: the contract suite is written as strict expected failures, and passwords, keyed hashes, every auth table and the sessions service (`kernel/auth/sessions.py`, #32) are in place. See `docs/HANDOFF.md`.
+- **Next:** K2's access dependencies, the mail interface and the first auth routes (`dev plans\2026-11-13-next-session-k2-in-claude-code.md`, from step 2).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`). It doubles as the spec's validation build.
 
 ## Last Completed Task

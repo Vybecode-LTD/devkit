@@ -1,6 +1,6 @@
 # Handoff
 
-Overwritten every session. 2026-11-13, remote session (claude.ai in a cloud container). The next session is the first in Claude Code on the owner's machine.
+Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud container), then the first session in Claude Code on the owner's machine, which added sessions (#32).
 
 ## State
 
@@ -11,6 +11,7 @@ Overwritten every session. 2026-11-13, remote session (claude.ai in a cloud cont
   3. Every auth table is in place (`kernel/auth/models.py`, migration `kernel_0002`, amended in place by the audit with an index on every foreign key). Its six permissions are declared in `kernel/kernel.json`.
   4. One-time secrets are kept as keyed hashes (`kernel/auth/hashing.py`, decision 0012).
   5. Test support: `reset` (with `{"accounts": true}`), `clock`, `routes`, `breached`.
+  6. Sessions (`kernel/auth/sessions.py`, #32): opaque tokens kept as SHA-256, member and staff limits (`Lifetimes`), the session epoch, a new token after a role change (one per race) and at step-up, `last_seen_at` at most hourly, the `__Host-` cookie helpers and the signed known-device cookie. 46 tests, 100% of the module.
 - **Kernel changes from the audit:**
   - 500s keep their security headers, and request bodies have a limit (`MAX_BODY_BYTES`);
   - rate-limit keys can't collide, and each route has its own budget;
@@ -19,7 +20,7 @@ Overwritten every session. 2026-11-13, remote session (claude.ai in a cloud cont
   - logs keep a traceback's end, scrub in linear time and write one access line per request;
   - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
   - HSTS goes out behind a TLS edge.
-- **Tests:** 271 Python tests pass with 83 strict expected failures, and coverage is 92% (CI fails under 85%). There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
+- **Tests:** 317 Python tests pass on Linux CI (on Windows, 316 and a skipped symlink test) with 83 strict expected failures, and coverage is about 95% (CI fails under 85%). There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
 - **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
 - **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
 - **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
@@ -27,7 +28,7 @@ Overwritten every session. 2026-11-13, remote session (claude.ai in a cloud cont
 
 ## Next
 
-K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`. Its set-up steps come first: the suite should show 271 passed and 83 xfailed with Postgres up.
+K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`, from step 2 (the access dependencies); its set-up is done on the owner's machine. The suite should show 317 passed (Windows: 316 and 1 skipped) and 83 xfailed with Postgres up.
 
 ## The owner's answers (2026-11-13)
 
@@ -39,6 +40,9 @@ K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`. Its set-
 
 ## Notes
 
+- **Session lifetimes are a parameter** (`sessions.Lifetimes`, the spec's defaults). Reading them from the site's settings (Q6) comes with the dependencies, which also decide how `current_user` reads them without a query on every request.
+- **A replaced token is dead at once** (14.5): a request still carrying it after a role change or a step-up gets 401. The web kernel's session hook (K4) should retry once on a 401 that follows a new cookie.
+- **The device cookie is signed over the session epoch,** so a reset or a password change makes every browser a stranger. A route that raises the epoch on a browser that stays signed in (a password change) should set a fresh one.
 - **React Router stays on 7** (8 is out; moving needs a decision record). TypeScript stays on 6.0.x for typescript-eslint.
 - **FastAPI 0.162** keeps included routers whole in `app.routes`: walk them with `fastapi.routing.iter_route_contexts`, as `kernel.ratelimit.route_name` does.
 - **pytest runs with `--import-mode=importlib`.** Close any pool a test app opens: under coverage, an unclosed connection fails the next test.
