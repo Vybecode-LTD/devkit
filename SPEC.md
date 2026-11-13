@@ -142,7 +142,7 @@ Every module MUST ship a `module.json` that validates against `devkit/schema/mod
 | `requires` | object | `kernel` range, plus `modules` as `{id: range}` |
 | `conflicts` | string[] | Module ids that cannot be installed alongside |
 | `permissions` | object[] | `{key, description, default_roles}`. Keys are `<id>.<resource>.<action>` |
-| `settings` | object[] | `{key, type, default, secret, description}` |
+| `settings` | object[] | `{key, type, default, secret, description}`: the summary an agent reads. The `Settings` model in `schemas.py` is the source of truth (section 7); `devkit check` fails a manifest that disagrees with it, and `secret` is true exactly for its `SecretStr` fields |
 | `env` | object[] | `{name, required, description}` |
 | `routes` | object | `api` prefix, plus `public`, `member` and `admin` paths |
 | `tables` | string[] | Every table the module owns |
@@ -188,27 +188,40 @@ Every module MUST ship a `module.json` that validates against `devkit/schema/mod
 
 Modules MUST import only from the kernel's public surface: `kernel/__init__.py` on the backend and `kernel/web/index.ts` on the front end. Anything else in the kernel is private and may change in any release. The public surface follows semver.
 
-**Backend (Python)**
+**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: anything marked K2 or later isn't in `kernel/__init__.py` yet.
 
-| Name | Gives | Example |
+| Name | Gives | Example | Since |
+| --- | --- | --- | --- |
+| `get_db` | An async SQLAlchemy session, one per request | `db: AsyncSession = Depends(get_db)` | K1 |
+| `Base` | The declarative base every module's models subclass, with the kernel's naming convention | `class Post(Base): ...` | K1 |
+| `public` | The access mark for a route anyone may call (section 7: every route declares its access) | `dependencies=[Depends(public)]` | K1 |
+| `require_module(id)` | 404 while the module is switched off (VybeSite's `require_part`) | Added by the kernel to every module router | K1 |
+| `settings.for_module(db, id)` | The module's typed, versioned settings | `cfg = await settings.for_module(db, "blog")` | K1 |
+| `one_row_only(table)`, `for_saving(db, Model)` | A table that holds one row, and that row made safely on first save | A module's singleton config row | K1 |
+| `rate_limit(rule, key=, scope=)` | Per-IP or per-account limits | `rate_limit("5/15m", key="account")` | K1 |
+| `crypto.seal / open` | Encrypts secrets at rest, with key rotation (`ENCRYPTION_KEYS`) | Stored API keys for a third party | K1 |
+| `Problem(code, status, detail)` | The one error shape (section 7) | `raise Problem("blog.post_not_found", 404)` | K1 |
+| `current_user`, `optional_user` | The signed-in user, or 401 / `None` | `user: User = Depends(current_user)` | K2 |
+| `require_permission(key)` | 403 unless the user holds the permission | `Depends(require_permission("blog.post.publish"))` | K2 |
+| `require_owner_or(permission)` | The resource's owner, or staff holding the permission (14.8) | Editing your own comment | K2 |
+| `require_recent_auth(minutes=10)` | Forces a fresh sign-in for sensitive actions | Changing a payout account | K2 |
+| `email.send(template, to, context)` | Sends through the site's mail adapter | Welcome email | K3 |
+| `storage.put / get / signed_url` | S3-compatible file storage | Uploads | K3 |
+| `events.emit(name, payload)`, `@events.on(name)` | Durable events between modules (section 11) | `blog.post.published` | K3 |
+| `jobs.enqueue(name, payload, run_at)`, `@jobs.scheduled(cron)` | Background and scheduled work | Scheduled publishing | K3 |
+| `audit.record(actor, action, target, meta)` | An append-only audit entry | Role changed | K3 |
+| `notify(user, key, context)` | An in-site and email notice, sent by the person's preferences for that key, with one-click unsubscribe | Someone replied to your comment | K3 |
+| `moderation.report / queue / act` | Reports, the staff queue, word and link filters, and actions (hide, delete, time out, ban), all audited | A reported comment | K3 |
+| `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
+
+**Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
+
+| Name | Gives | Since |
 | --- | --- | --- |
-| `get_db` | An async SQLAlchemy session, one per request | `db: AsyncSession = Depends(get_db)` |
-| `current_user`, `optional_user` | The signed-in user, or 401 / `None` | `user: User = Depends(current_user)` |
-| `require_permission(key)` | 403 unless the user holds the permission | `Depends(require_permission("blog.post.publish"))` |
-| `require_recent_auth(minutes=10)` | Forces a fresh sign-in for sensitive actions | Changing a payout account |
-| `require_module(id)` | 404 while the module is switched off (VybeSite's `require_part`) | Added by the kernel to every module router |
-| `settings.for_module(db, id)` | The module's typed, versioned settings | `cfg = await settings.for_module(db, "blog")` |
-| `email.send(template, to, context)` | Sends through the site's mail adapter | Welcome email |
-| `storage.put / get / signed_url` | S3-compatible file storage | Uploads |
-| `events.emit(name, payload)`, `@events.on(name)` | Durable events between modules (section 11) | `blog.post.published` |
-| `jobs.enqueue(name, payload, run_at)`, `@jobs.scheduled(cron)` | Background and scheduled work | Scheduled publishing |
-| `audit.record(actor, action, target, meta)` | An append-only audit entry | Role changed |
-| `notify(user, key, context)` | An in-site and email notice, sent by the person's preferences for that key, with one-click unsubscribe | Someone replied to your comment |
-| `moderation.report / queue / act` | Reports, the staff queue, word and link filters, and actions (hide, delete, time out, ban), all audited | A reported comment |
-| `rate_limit(rule, key)` | Per-IP or per-account limits | `rate_limit("5/15m", key="account")` |
-| `crypto.seal / open` | Encrypts secrets at rest, with key rotation | Stored API keys for a third party |
-| `Problem(code, status, detail)` | The one error shape (section 7) | `raise Problem("blog.post_not_found", 404)` |
-| `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting |
+| `create_app(modules=, config=)` | The site's FastAPI app: the kernel, the modules, their routes, settings and CSP hosts | K1 |
+| `Database(url)` | The engine and session factory `create_app` uses | K1 |
+| `InstalledModule`, `Manifest` | A module as the app is built from it: its manifest, `router`, `Settings` and `CSP` | K1 |
+| `__version__` | The kernel's version, which the public surface follows under semver | K1 |
 
 **Front end (TypeScript)**
 
@@ -259,7 +272,7 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `devkit check` and code review enforce.
 
-**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9) and `public.py` (what other modules may call).
+**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9) and `public.py` (what other modules may call). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings` and `__init__.py`'s `CSP` (decision 0009).
 
 **Routes**
 
@@ -273,7 +286,7 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 - A module MUST NOT import another module, except through that module's public surface: `public.py` on the backend and `web/public.ts` on the front end, and only when it is listed in `requires.modules`. This is how a blog post shows `<Comments>`.
 - Everything else goes through kernel events.
 
-**Errors.** One shape: RFC 9457 problem details (`application/problem+json`) with `type`, `title`, `status` and `detail`, plus a stable `code` such as `blog.post_not_found`. Field errors go in an `errors` map.
+**Errors.** One shape: RFC 9457 problem details (`application/problem+json`) with `type`, `title`, `status` and `detail`, plus a stable `code` such as `blog.post_not_found`. `type` is `urn:devkit:problem:<code>`, the same on every site. Field errors go in an `errors` map.
 
 **Inputs and outputs**
 
@@ -287,7 +300,7 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 - Anything slower than about 1 second goes to `jobs`, never into the request.
 - Outbound HTTP uses httpx with timeouts. User-supplied URLs pass the kernel's SSRF guard.
 
-**Settings.** A module declares a Pydantic settings model. The kernel stores it with version history and save-conflict checks (the VybeSite pattern), and seals secret fields.
+**Settings.** A module declares a Pydantic model, `Settings` in `schemas.py`, with a default for every field. The kernel stores it with version history and save-conflict checks (the VybeSite pattern). A field typed `SecretStr` (or `SecretStr | None`) is a secret: sealed at rest with `ENCRYPTION_KEYS` (MultiFernet, newest key first), never shown, never kept in a version. A secret anywhere else, such as in a list, a nested model or as `SecretBytes`, is refused when the module registers (decision 0009).
 
 **Logs.** Structured JSON, never secrets, tokens or full email addresses.
 
@@ -647,7 +660,7 @@ These run against the HTTP API, not Python internals, so the same suite can test
 The kernel sets these defaults for every site, and a module MUST NOT weaken them.
 
 - **Headers:** a strict Content-Security-Policy with no inline script or style, HSTS, `frame-ancestors 'none'`, Referrer-Policy and Permissions-Policy (VybeSite `security_headers.py`).
-- **Third-party hosts:** each embed provider and payment host joins the policy (`frame-src`, `connect-src`, `form-action`) only while its module or setting is on, each with a test.
+- **Third-party hosts:** a module declares the https origins it needs (`CSP` in its `__init__.py`), each in one of `script-src`, `img-src`, `connect-src`, `frame-src`, `media-src`, `form-action` or `font-src`, and they join the policy only while the module is on, each with a test. `script-src` takes exact hosts, never a wildcard.
 - **User HTML:** Markdown is rendered on the server, and any HTML is cleaned against an allowlist with nh3.
 - **Uploads:** the type is checked from the file's bytes, images are re-encoded with Pillow and stripped of metadata, sizes are capped, and files live in object storage. Anything that isn't an image is served as a download.
 - **Object storage:** private files are reached only through short-lived signed links. A file an outside provider must fetch, such as a print file, gets a public, unguessable link that expires with its job. Large files never go in Postgres.
@@ -781,6 +794,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | The spec says what the code does (audit F23, F24): section 5's manifest `settings` defers to the `Settings` model; section 6 lists the names built and when the rest arrive, with a table for sites; section 7 gives the discovery names, the problem `type` and the secret-field rules; section 15 lists the seven CSP directives a module may open (decision 0009) |
 | 2026-11-12 | Section 16 says when CI runs and which rows start in K4 (decision 0015) |
 | 2026-11-12 | The module switches are cached per process for `MODULES_CACHE_SECONDS`, shared by `require_module` and the CSP (decision 0009, amended; section 12) |
 | 2026-11-12 | Password hashing is bounded: its own pool, 503 `kernel.busy`, parameters from the config, one verify for a missing account (decision 0014; 14, 14.6) |
