@@ -1,6 +1,11 @@
 """Auth's tables (SPEC.md 14.11), the built-in roles, and the foreign keys
 K1's tables were waiting on.
 
+Amended before any site ran it (decision 0012): one-time tokens are unique by
+hash except 6-digit sign-in codes, recovery codes are unique per person,
+sessions keep the user agent, API keys are live or test, and every foreign
+key has an index.
+
 Revision ID: kernel_0002
 Revises: kernel_0001
 Create Date: 2026-11-12
@@ -20,6 +25,22 @@ depends_on: str | Sequence[str] | None = None
 # True when this migration drops or rewrites data: the CLI asks before running it
 # (SPEC.md section 10).
 destructive = False
+
+
+_FOREIGN_KEY_INDEXES = (
+    ("auth_api_key", "user_id"),
+    ("auth_identity", "user_id"),
+    ("auth_passkey", "user_id"),
+    ("auth_permission_override", "role_id"),
+    ("auth_permission_override", "user_id"),
+    ("auth_session", "user_id"),
+    ("auth_token", "user_id"),
+    ("auth_user_role", "granted_by_id"),
+    ("auth_user_role", "role_id"),
+    ("kernel_module_state", "updated_by_id"),
+    ("kernel_setting", "updated_by_id"),
+    ("kernel_setting_version", "saved_by_id"),
+)
 
 
 def upgrade() -> None:
@@ -120,6 +141,7 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint("mode IN ('live', 'test')", name=op.f("ck_auth_api_key_mode_known")),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["auth_user.id"],
@@ -245,7 +267,7 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_auth_recovery_code")),
-        sa.UniqueConstraint("code_hash", name=op.f("uq_auth_recovery_code_code_hash")),
+        sa.UniqueConstraint("user_id", "code_hash", name=op.f("uq_auth_recovery_code_user_id")),
     )
     op.create_table(
         "auth_role_permission",
@@ -271,6 +293,9 @@ def upgrade() -> None:
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("authenticated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("second_factor_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "user_agent", sa.String(length=300), server_default=sa.text("''"), nullable=False
+        ),
         sa.Column(
             "device_label", sa.String(length=80), server_default=sa.text("''"), nullable=False
         ),
@@ -305,6 +330,10 @@ def upgrade() -> None:
             "purpose IN ('verify_email', 'reset_password', 'sign_in_code', 'magic_link', 'email_change', 'invite', 'second_factor')",
             name=op.f("ck_auth_token_purpose_known"),
         ),
+        sa.CheckConstraint(
+            "purpose <> 'sign_in_code' OR email_normal IS NOT NULL",
+            name=op.f("ck_auth_token_sign_in_code_has_email"),
+        ),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["auth_user.id"],
@@ -312,9 +341,15 @@ def upgrade() -> None:
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_auth_token")),
-        sa.UniqueConstraint("token_hash", name=op.f("uq_auth_token_token_hash")),
     )
     op.create_index("ix_auth_token_lookup", "auth_token", ["purpose", "email_normal"], unique=False)
+    op.create_index(
+        "uq_auth_token_token_hash",
+        "auth_token",
+        ["token_hash"],
+        unique=True,
+        postgresql_where=sa.text("purpose <> 'sign_in_code'"),
+    )
     op.create_table(
         "auth_totp",
         sa.Column("user_id", sa.UUID(), nullable=False),
@@ -390,6 +425,10 @@ def upgrade() -> None:
         ["id"],
         ondelete="SET NULL",
     )
+    # Every foreign key gets an index, so deleting an account (and listing its
+    # sessions, keys and the rest) never scans a table.
+    for table, column in _FOREIGN_KEY_INDEXES:
+        op.create_index(op.f(f"ix_{table}_{column}"), table, [column], unique=False)
 
     roles = sa.table(
         "auth_role",
@@ -447,6 +486,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # The auth tables' own indexes go with them; the kernel tables stay.
+    for table, column in _FOREIGN_KEY_INDEXES:
+        if table.startswith("kernel_"):
+            op.drop_index(op.f(f"ix_{table}_{column}"), table_name=table)
     op.drop_constraint(
         op.f("fk_kernel_setting_version_saved_by_id_auth_user"),
         "kernel_setting_version",

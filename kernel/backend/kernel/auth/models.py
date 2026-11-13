@@ -1,10 +1,13 @@
 """Auth's tables (SPEC.md 14.11). One `auth_user` for everyone; roles decide
 what an account is (14.1).
 
-Secrets are never kept as given: passwords as Argon2id hashes, session
-tokens, one-time tokens, recovery codes and API-key secrets as SHA-256
-hashes, TOTP secrets sealed (`kernel.crypto`). Emails are kept as typed and,
-for lookups, lowercased in `email_normal`.
+Secrets are never kept as given (decision 0012): passwords as Argon2id
+hashes; session tokens and API-key secrets, 32 random bytes each, as SHA-256;
+one-time tokens, sign-in codes and recovery codes as keyed hashes
+(`kernel.auth.hashing`), since a 6-digit code has too few values for a plain
+one; TOTP secrets sealed (`kernel.crypto`). Emails are kept as typed and, for
+lookups, lowercased in `email_normal`. Every foreign key has an index, so an
+account's rows are found, and deleted with it, without a scan.
 """
 
 from __future__ import annotations
@@ -55,7 +58,10 @@ def _created() -> Mapped[datetime]:
 
 def _user_fk(*, nullable: bool = False, on_delete: str = "CASCADE") -> Mapped[Any]:
     return mapped_column(
-        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete=on_delete), nullable=nullable
+        UUID(as_uuid=True),
+        ForeignKey("auth_user.id", ondelete=on_delete),
+        nullable=nullable,
+        index=True,
     )
 
 
@@ -115,7 +121,7 @@ class UserRole(Base):
         UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="CASCADE"), primary_key=True
     )
     role_id: Mapped[str] = mapped_column(
-        String(64), ForeignKey("auth_role.id", ondelete="CASCADE"), primary_key=True
+        String(64), ForeignKey("auth_role.id", ondelete="CASCADE"), primary_key=True, index=True
     )
     granted_at: Mapped[datetime] = _created()
     granted_by_id: Mapped[uuid.UUID | None] = _user_fk(nullable=True, on_delete="SET NULL")
@@ -135,7 +141,7 @@ class PermissionOverride(Base):
     id: Mapped[uuid.UUID] = _id()
     user_id: Mapped[uuid.UUID | None] = _user_fk(nullable=True)
     role_id: Mapped[str | None] = mapped_column(
-        String(64), ForeignKey("auth_role.id", ondelete="CASCADE"), nullable=True
+        String(64), ForeignKey("auth_role.id", ondelete="CASCADE"), nullable=True, index=True
     )
     permission: Mapped[str] = mapped_column(String(128))
     resource_type: Mapped[str] = mapped_column(String(64))
@@ -191,11 +197,17 @@ class Totp(Base):
 
 
 class RecoveryCode(Base):
+    """One recovery code, as a keyed hash over the user id and the code.
+    Unique per person only: a lookup always names whose code it is."""
+
     __tablename__ = "auth_recovery_code"
+    __table_args__ = (UniqueConstraint("user_id", "code_hash"),)
 
     id: Mapped[uuid.UUID] = _id()
-    user_id: Mapped[uuid.UUID] = _user_fk()
-    code_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="CASCADE")
+    )
+    code_hash: Mapped[str] = mapped_column(String(64))
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _created()
 
@@ -217,14 +229,20 @@ class Session(Base):
     #: The last sign-in or step-up: `require_recent_auth` reads it.
     authenticated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     second_factor_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: The browser's User-Agent, cut to 300 characters (14.5).
+    user_agent: Mapped[str] = mapped_column(String(300), server_default=text("''"))
     device_label: Mapped[str] = mapped_column(String(80), server_default=text("''"))
     location: Mapped[str] = mapped_column(String(80), server_default=text("''"))
 
 
 class Token(Base):
-    """A one-time token, kept hashed: a verification, a reset, a sign-in code
-    or link, an email change, an invite, or a sign-in waiting on its second
-    factor."""
+    """A one-time token, kept as a keyed hash: a verification, a reset, a
+    sign-in code or link, an email change, an invite, or a sign-in waiting on
+    its second factor.
+
+    A 32-byte token is found by its hash, which is unique. A 6-digit sign-in
+    code is not: two people can be sent the same digits, so a code is found by
+    its purpose and address (`ix_auth_token_lookup`), then compared."""
 
     __tablename__ = "auth_token"
     __table_args__ = (
@@ -233,12 +251,22 @@ class Token(Base):
             "'email_change', 'invite', 'second_factor')",
             name="purpose_known",
         ),
+        CheckConstraint(
+            "purpose <> 'sign_in_code' OR email_normal IS NOT NULL",
+            name="sign_in_code_has_email",
+        ),
         Index("ix_auth_token_lookup", "purpose", "email_normal"),
+        Index(
+            "uq_auth_token_token_hash",
+            "token_hash",
+            unique=True,
+            postgresql_where=text("purpose <> 'sign_in_code'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = _id()
     purpose: Mapped[str] = mapped_column(String(24))
-    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    token_hash: Mapped[str] = mapped_column(String(64))
     user_id: Mapped[uuid.UUID | None] = _user_fk(nullable=True)
     email_normal: Mapped[str | None] = mapped_column(String(320))
     data: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
@@ -252,6 +280,7 @@ class ApiKey(Base):
     """`dk_<live|test>_<key_id>_<secret>`; only the secret's SHA-256 is kept (14.9)."""
 
     __tablename__ = "auth_api_key"
+    __table_args__ = (CheckConstraint("mode IN ('live', 'test')", name="mode_known"),)
 
     id: Mapped[uuid.UUID] = _id()
     key_id: Mapped[str] = mapped_column(String(8), unique=True)
