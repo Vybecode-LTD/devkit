@@ -2,18 +2,35 @@ AI DevKit includes third-party material under its own licenses.
 
 kernel/backend/kernel/auth/data/common-passwords.txt.gz
   The bundled common-password list (SPEC.md 14.2), built with
-  tools/build_common_passwords.py from these lists, keeping only entries of
-  12 characters or more, casefolded and deduplicated:
+  tools/build_common_passwords.py from the four lists below, in this order,
+  keeping only entries of 12 characters or more, casefolded and
+  deduplicated, less the lines the owner's brand check flags. The tool's
+  docstring has the exact steps; rebuilt that way, the bytes are identical.
 
-  - SecLists, Passwords/Common-Credentials/: 100k-most-used-passwords-NCSC.txt,
-    xato-net-10-million-passwords-1000000.txt and Pwdb_top-1000000.txt.
-    https://github.com/danielmiessler/SecLists
-    MIT License, Copyright (c) 2018 Daniel Miessler.
+  The first three are taken from SecLists, a collection, at commit
+  dbfb830d95e4f3da4fb7d7d277ed597de0ed7a18 (2026-11-12), folder
+  Passwords/Common-Credentials/. https://github.com/danielmiessler/SecLists
+  SecLists is MIT licensed, Copyright (c) 2018 Daniel Miessler
+  (licenses/SecLists-MIT.txt). Each list keeps its own terms:
 
-  - Django's contrib/auth/common-passwords.txt.gz (Django 6.1.3), the list of
-    common passwords created by Royce Williams.
-    https://github.com/django/django
-    BSD 3-Clause License, Copyright (c) Django Software Foundation and
-    individual contributors.
+  1. 100k-most-used-passwords-NCSC.txt (git blob 38eb377), the UK National
+     Cyber Security Centre's list of the 100,000 passwords most seen in
+     breaches. Contains public sector information licensed under the Open
+     Government Licence v3.0:
+     https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/
+
+  2. xato-net-10-million-passwords-1000000.txt (git blob e5e7323), the most
+     common million of the ten million passwords Mark Burnett published in
+     2015 (xato.net) and released into the public domain.
+
+  3. Pwdb_top-1000000.txt (git blob 99665ae), from Pwdb-Public.
+     https://github.com/ignis-sec/Pwdb-Public
+     MIT License, Copyright (c) 2020 Ata Hakçıl (licenses/Pwdb-Public-MIT.txt).
+
+  4. Django 6.1.3's contrib/auth/common-passwords.txt.gz, the list of
+     common passwords created by Royce Williams.
+     https://github.com/django/django
+     BSD 3-Clause License, Copyright (c) Django Software Foundation and
+     individual contributors (licenses/Django-BSD-3-Clause.txt).
 
   The full license texts are in licenses/ beside this file.
