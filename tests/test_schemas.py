@@ -109,3 +109,13 @@ def test_main_exits_one_on_a_problem(repo: Path, capsys: pytest.CaptureFixture[s
     _edit(repo, status="beta")
     assert main([str(repo)]) == 1
     assert "FAILED" in capsys.readouterr().out
+
+
+def test_the_kernel_declares_only_its_own_permissions(repo: Path) -> None:
+    path = repo / "kernel" / "kernel.json"
+    data = json.loads(path.read_text("utf-8"))
+    data["permissions"].append(
+        {"key": "blog.post.edit", "description": "Not the kernel's", "default_roles": []}
+    )
+    path.write_text(json.dumps(data), "utf-8")
+    assert any("kernel.json" in problem for problem in check(repo).problems)

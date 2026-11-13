@@ -134,3 +134,18 @@ def test_keyed_hashes(monkeypatch: pytest.MonkeyPatch) -> None:
     finally:
         monkeypatch.undo()
         reset_config()
+
+
+async def test_the_seeded_grants_are_the_kernel_manifests(tx: AsyncSession) -> None:
+    """SPEC 14.8: permissions are declared in manifests. The migration's seed
+    is frozen, so this holds it to kernel.json (audit F51)."""
+    import json
+    from pathlib import Path
+
+    manifest = json.loads((Path(__file__).parents[2] / "kernel.json").read_text("utf-8"))
+    declared = {item["key"]: set(item["default_roles"]) for item in manifest["permissions"]}
+    rows = await tx.execute(text("SELECT role_id, permission FROM auth_role_permission"))
+    seeded: dict[str, set[str]] = {}
+    for role, permission in rows:
+        seeded.setdefault(permission, set()).add(role)
+    assert seeded == {key: roles for key, roles in declared.items() if roles}
