@@ -14,7 +14,7 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 
 - Spec v0.1 written, the owner's answers applied.
 - **K0 (repo foundation) and K1 (kernel core) are done.** K2 (auth) has started: the contract suite is written, as expected failures, and passwords and every auth table are in place. See `docs/HANDOFF.md`.
-- **Next:** K2's sessions, dependencies, the mail interface and the first auth routes (`dev plans\2026-11-12-next-session-k2-auth.md`).
+- **Next:** a full audit of everything so far (`dev plans\2026-11-12-next-session-audit.md`), then K2's sessions, dependencies, the mail interface and the first auth routes (`dev plans\2026-11-12-next-session-k2-auth.md`).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`). It doubles as the spec's validation build.
 
 ## Last Completed Task

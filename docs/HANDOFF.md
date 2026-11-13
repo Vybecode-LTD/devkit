@@ -18,7 +18,11 @@ Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud cont
 - **Skills:** the backlog is built (11 proposed to the owner's account; `alembic-multi-module-migrations` and `module-contract-lint` also in `skills/`). Only `devkit-auth-contract-tests` waits, for K2.
 - `C:\DEV\AI-DevKit` matches `main`, with `origin` set to GitHub.
 
-## Next (K2, in order)
+## Next
+
+**First, the full audit:** `dev plans\2026-11-12-next-session-audit.md`. K2 continues after its fixes land.
+
+Then K2, in order:
 
 1. **Sessions** (`kernel/auth/sessions.py`, from VybeSite `services/sessions.py`): `__Host-dk_session`, SHA-256 rows, member 14 d idle / 30 d absolute, staff 8 h / 7 d, `session_epoch` and `role_version` checks (a role change re-issues the token on the next request), the device label, last-seen at most hourly. Port VybeSite's known-device cookie (F-63) too: over an account's failure limit the right password still signs in on a browser that signed in before, so nobody can lock an owner out. Add it to `docs/contracts/auth-api.md` and the suite.
 2. **Dependencies:** `current_user`, `optional_user`, `require_permission`, `require_recent_auth`, with access marks for the route audit, and the staff gate on every `/api/*/admin` route (a staff role and a second factor, else `auth.second_factor_required`). Role and permission resolution, owner holding all, per-resource overrides.
