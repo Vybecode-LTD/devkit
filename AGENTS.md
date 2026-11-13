@@ -19,7 +19,7 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 
 ## Last Completed Task
 
-2026-11-12 (remote session): K0 and K1 built; K2 begun: the contract suite from SPEC.md 14.13 (strict expected failures), `kernel/auth/passwords.py`, the auth tables (migration `kernel_0002`). Synced to `C:\DEV\AI-DevKit`, which is now a git repo with the full history.
+2026-11-12 (remote session): K0 and K1 built; K2 begun: the contract suite from SPEC.md 14.13 (strict expected failures), `kernel/auth/passwords.py` with the bundled common-password list, the auth tables (migration `kernel_0002`). Pushed to the public `Vybecode-LTD/devkit`; the skill backlog built.
 
 ## Read order
 

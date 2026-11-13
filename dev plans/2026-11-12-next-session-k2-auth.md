@@ -6,7 +6,7 @@ Run from `C:\DEV\AI-DevKit` in Claude Code. Say: "Read dev plans\2026-11-12-next
 
 K0 and K1 are done (the tooling, CI workflow, harness and kernel core). K2 has started:
 - `kernel/tests/contract/` holds the auth contract suite, one or more tests per line of SPEC.md 14.13. The tests speak HTTP only, against `docs/contracts/auth-api.md`, and all 42 are strict expected failures.
-- `kernel/auth/passwords.py` is done.
+- `kernel/auth/passwords.py` is done, with the bundled common-password list.
 - Every auth table exists (`kernel/auth/models.py`, migration `kernel_0002`).
 - `kernel/clock.py` is the clock every expiry reads.
 - `harness/testing.py` holds the first test-support routes.
@@ -16,7 +16,7 @@ K0 and K1 are done (the tooling, CI workflow, harness and kernel core). K2 has s
 1. `git status` must be clean. If `.npmrc` or `.github\` is missing, run `git checkout -- .npmrc .github` before any `npm` command.
 2. `py -3.12 -m venv .venv`, `.venv\Scripts\Activate.ps1`, then `python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt`.
 3. `npm ci`, `python -m tools.link_skills`, `docker compose up -d db`.
-4. `python -m pytest`: 161 passed, 42 xfailed. `npm test`: 7 passed.
+4. `python -m pytest`: 167 passed, 42 xfailed. `npm test`: 7 passed.
 
 ## Read first
 
@@ -55,7 +55,6 @@ K0 and K1 are done (the tooling, CI workflow, harness and kernel core). K2 has s
 - Don't build skills. Add ideas to `docs/SKILL-BACKLOG.md`.
 - Session end: overwrite `docs/HANDOFF.md`, update "Current state" and "Last Completed Task" in CLAUDE.md and AGENTS.md, and write the next prompt in `dev plans\`.
 
-## Owner questions still open
+## Git
 
-- Common-password list: keep VybeSite's pattern rules alone, or add a bundled list as SPEC.md 14.2 says?
-- May `Vybecode-LTD/devkit` be created and pushed?
+The repo is public at `https://github.com/Vybecode-LTD/devkit`. Work on a branch per PR, push it, and open the PR so CI runs (CI runs on pull requests). Never commit secrets, client material or anything for `docs/private/`.

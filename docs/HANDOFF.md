@@ -11,8 +11,12 @@ Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud cont
   2. `kernel/auth/passwords.py` is done and tested.
   3. Every auth table is in place (`kernel/auth/models.py`, migration `kernel_0002`, built-in roles seeded).
   4. `kernel/clock.py` and the first test-support routes are in place (`harness/testing.py`: reset, clock, routes).
-- 161 Python tests pass, 42 expected failures; 7 web tests. mypy, ruff, Black, ESLint, tsc, gitleaks and the brand check are clean.
-- Git: `main` at `feat(k2): passwords and auth's tables`. `C:\DEV\AI-DevKit` is a git repo with the same history: it was set up from `.history\devkit.bundle` in the remote session, and the bundle is kept there for the next sync.
+- 167 Python tests pass, 42 expected failures; 7 web tests. mypy, ruff, Black, ESLint, tsc, gitleaks and the brand check are clean.
+- **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011), with `LICENSE` keeping every right. Commits use the owner's no-reply address (`10875133+color8@users.noreply.github.com`). The history was rewritten before the first push to drop the personal address and the inventory.
+- **Private notes** live in `docs/private/` (gitignored): the inventory of `C:\DEV` and the client folder's name.
+- **Common-password list** bundled: 72,969 entries of 12+ characters from SecLists (MIT) and Django (BSD-3), see `NOTICE`. `tools/build_common_passwords.py --brand-check` rebuilds it.
+- **Skills:** the backlog is built (11 proposed to the owner's account; `alembic-multi-module-migrations` and `module-contract-lint` also in `skills/`). Only `devkit-auth-contract-tests` waits, for K2.
+- `C:\DEV\AI-DevKit` matches `main`, with `origin` set to GitHub.
 
 ## Next (K2, in order)
 
@@ -24,8 +28,7 @@ Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud cont
 
 ## Questions for the owner
 
-- **Common-password list.** SPEC.md 14.2 says a bundled common-password list plus Pwned Passwords. On 2026-11-11 VybeSite chose pattern rules over a downloaded list, and DevKit ported those rules. Keep the rules, or add a list too, and if so which one?
-- **GitHub.** May `Vybecode-LTD/devkit` be created and pushed, so CI runs?
+- **A ruleset for `main`** (require a PR and the "CI result" check, block force pushes). It's a repo setting, so it waits for the owner's go-ahead.
 
 ## Notes
 
@@ -35,6 +38,7 @@ Overwritten every session. 2026-11-12, remote session (claude.ai in a cloud cont
 - **pytest runs with `--import-mode=importlib`.** The root `conftest.py` imports the real `kernel` package first, so pytest never puts a stand-in in its place.
 - **Playwright** comes with K4's end-to-end tests.
 - **gitleaks** in CI is installed with `go install …@v8.28.0`, so Go's checksum database vouches for it. Bump the version on purpose.
+- **CI runs on pull requests** (and manual runs), not on pushes to `main`. Open a PR to see it run.
 - **The remote tools can't write `.npmrc` or `.github\`.** After a remote sync, restore them from git (`git checkout -- .npmrc .github`) before any `npm` command, since `.npmrc` holds `ignore-scripts=true`.
 
 ## Warnings
