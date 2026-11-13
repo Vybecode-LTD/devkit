@@ -23,10 +23,11 @@ Account copies are saved by the owner from the review cards Claude proposes; `sk
 | `conditional-settings-saves` | 2026-11-12 | The owner's account |
 | `path-filtered-ci` | 2026-11-12 | The owner's account |
 | `remote-device-git-sync` | 2026-11-12 | The owner's account |
+| `devkit-hook-designer` | 2026-11-13 | `skills/` and the owner's account |
 
 **Updated 2026-11-12:** the account copy of `devkit-module-extractor` now uses `backend/<id_>/` (the id with hyphens turned into underscores) and decision 0009's fixed names.
 
-**To carry into the account copy at the next batch (2026-11-13):** `devkit-module-extractor` no longer names the retired Spec doc (decision 0017); `skills/` already has the change.
+**To carry into the account copy at the next batch (2026-11-13):** `devkit-module-extractor` no longer names the retired Spec doc (decision 0017); `skills/` already has the change. When the roadmap hooks land, `module-contract-lint` and `devkit-module-extractor` gain a row or step for each (`devkit-hook-designer` step 4), and their account copies need the same edits.
 
 ## Waiting to be built
 
@@ -39,6 +40,14 @@ Account copies are saved by the owner from the review cards Claude proposes; `sk
 | `review-bot-triage` | Reads the review bots' comments on merged PRs (Codex, CodeRabbit), reproduces each claim with a failing test, and turns the real ones into follow-up PRs. Four of four were real in this audit | 2026-11-12 | No |
 | `postgres-catalog-snapshot` | A pg_catalog snapshot (columns, indexes, constraints, types, functions, sequences, triggers, rows) for migration round trips, with its mutant controls | 2026-11-12 | No. Could fold into `alembic-multi-module-migrations` |
 | `repo-hygiene-sweep` | One pass over a GitHub repo's housekeeping, asking before each outward step: rewrite only the commits stamped with the wrong author address (a bounded `filter-branch` range, trees checked identical, gitleaks on the new history) before any ruleset exists; delete merged branches; pin actions to commit SHAs with a weekly grouped Dependabot; then a `main` ruleset (required check kept up to date, no force push, no deletion, no bypass, and no PR rule when the merge button would stamp the wrong author). Ends with the reset commands for old clones. Done by hand on 2026-11-13 (PRs #26 and #27) | 2026-11-13 | No |
+| `booking-availability-engine` | Availability rules, buffers, time zones and DST, double-booking locks, with a test matrix | 2026-11-13 | No. For the `booking` module (wave 3b of the build plan) |
+| `license-key-server` | Signed keys checkable offline (Ed25519), activation limits, revocation, client snippets for JUCE and Avalonia | 2026-11-13 | No. For the `license-keys` module (wave 4) |
+| `wordpress-to-devkit-migrator` | WXR and WooCommerce parsing, media re-hosted to R2, a redirect map, post-move checks | 2026-11-13 | No. For the `migrate` module (wave 3a); the Vibrant Mindz site is built new and doesn't need it |
+| `entitlements-gating` | One access check across roles, purchases, membership tiers and invites, with contract tests | 2026-11-13 | No. Pairs with the entitlements hook and `memberships` (wave 2a) |
+| `consent-gated-scripts` | Consent categories, pairing with the CSP rule, Google Consent Mode v2 | 2026-11-13 | No. Pairs with the consent hook and `consent` (wave 1) |
+| `module-idea-scorer` | Scores a new module idea for reuse and effort against `catalog.json` and the list of sites | 2026-11-13 | No |
+| `picks-to-build-plan` | Turns a Must / Want / Later picks table into dependency-ordered waves, each proven on a real site: flags a Must that needs a Later, hooks the Musts imply, and the large modules where the time goes. Done by hand on 2026-11-13 for the module roadmap | 2026-11-13 | No |
+| `claude-project-handoff` | Exports a claude.ai project (its docs, picks, account skills and decisions) into a local repo's `docs/private/`, scrubs drafts for a public repo, and writes the Claude Code prompt that lands them. Done by hand on 2026-11-13 for this session | 2026-11-13 | No |
 
 ## Dropped
 

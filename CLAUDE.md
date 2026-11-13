@@ -76,6 +76,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `printful-v2-adapter` | Building the `print-on-demand` module |
 | `alembic-multi-module-migrations` | Adding a module's migrations, merging heads, the round-trip tests |
 | `module-contract-lint` | Reviewing a module (or the kernel) against the contract before it merges |
+| `devkit-hook-designer` | Adding a cross-module hook to the contract (search index, consent, entitlements and the rest of the 2026-11-13 roadmap hooks) |
 
 ## Project map
 
