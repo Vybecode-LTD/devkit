@@ -19,3 +19,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0013](0013-auth-rules-from-the-audit.md) | Auth rules the audit found missing | Applied |
 | [0014](0014-bounded-password-hashing.md) | Password hashing is bounded | Applied |
 | [0015](0015-ci-gate-wiring.md) | How CI wires the quality gate | Applied |
+| [0016](0016-spec-catches-up-with-the-code.md) | The spec catches up with the code | Applied |

@@ -794,8 +794,9 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
-| 2026-11-12 | `kernel/kernel.json` declares the kernel's permissions (14.8) |
-| 2026-11-12 | The spec says what the code does (audit F23, F24): section 5's manifest `settings` defers to the `Settings` model; section 6 lists the names built and when the rest arrive, with a table for sites; section 7 gives the discovery names, the problem `type` and the secret-field rules; section 15 lists the seven CSP directives a module may open (decision 0009) |
+| 2026-11-12 | Section 4's module layout is the template's: `__init__.py` listed, no `routes.tsx` (decision 0016) |
+| 2026-11-12 | `kernel/kernel.json` declares the kernel's permissions (14.8, decision 0016) |
+| 2026-11-12 | The spec says what the code does (audit F23, F24): section 5's manifest `settings` defers to the `Settings` model; section 6 lists the names built and when the rest arrive, with a table for sites; section 7 gives the discovery names, the problem `type` and the secret-field rules; section 15 lists the seven CSP directives a module may open (decisions 0009 and 0016) |
 | 2026-11-12 | Section 16 says when CI runs and which rows start in K4 (decision 0015) |
 | 2026-11-12 | The module switches are cached per process for `MODULES_CACHE_SECONDS`, shared by `require_module` and the CSP (decision 0009, amended; section 12) |
 | 2026-11-12 | Password hashing is bounded: its own pool, 503 `kernel.busy`, parameters from the config, one verify for a missing account (decision 0014; 14, 14.6) |
