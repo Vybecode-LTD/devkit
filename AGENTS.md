@@ -13,11 +13,14 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 ## Current state (2026-11-13)
 
 - Spec v0.1 written, the owner's answers applied.
-- **K0 (repo foundation) and K1 (kernel core) are done and audited:** the audit's fixes and the review bots' follow-ups are merged (PRs #1 to #24), and the owner's follow-ups too (#25 to #31): history rewritten once, a ruleset on `main`, actions pinned, the claude.ai Spec doc retired, the Windows set-up. K2 (auth) has started: the contract suite is written as strict expected failures, and passwords, keyed hashes, every auth table and the sessions service (`kernel/auth/sessions.py`, #32) are in place. See `docs/HANDOFF.md`.
+- **K0 (repo foundation) and K1 (kernel core) are done and audited:** the audit's fixes and the review bots' follow-ups are merged (PRs #1 to #24), and the owner's follow-ups too (#25 to #31): history rewritten once, a ruleset on `main`, actions pinned, the claude.ai Spec doc retired, the Windows set-up. K2 (auth) has started: the contract suite is written as strict expected failures, and passwords, keyed hashes, every auth table and the sessions service (`kernel/auth/sessions.py`, #32, #33) are in place. See `docs/HANDOFF.md`.
 - **Next:** K2's access dependencies, the mail interface and the first auth routes (`dev plans\2026-11-13-next-session-k2-in-claude-code.md`, from step 2).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`). It doubles as the spec's validation build.
+- **After v1.0:** the module roadmap and ten contract hooks are decided (decision 0018, `docs/plans/module-roadmap.md`). The hooks land with `devkit-hook-designer` after the kernel phases and before blog, chat and payments are extracted (SPEC 19, phase 3), so the validation extractions exercise them too.
 
 ## Last Completed Task
+
+2026-11-13 (Claude Code, the owner's machine): the local Postgres locked down again (a chat agent had left it on `trust`); K2's sessions service (#32) and its step-up race fix (#33); then the claude.ai project's work: the `devkit-hook-designer` skill (#34), the module roadmap and decision 0018 (#35).
 
 2026-11-13 (remote session): the owner's answers to the audit's questions. `main` rewritten once to take the API token's address off two commits, then protected by a ruleset ("CI result" required, no force push, no deletion); merged branches deleted; actions pinned to SHAs with Dependabot (#26); the claude.ai Spec doc retired (decision 0017, #29); `repo-hygiene-sweep` added to the skill backlog (#28).
 
@@ -101,6 +104,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `docs/HANDOFF.md` | One page, overwritten each session |
 | `docs/private/` | Not in git (the repo is public): the inventory of `C:\DEV` and the name of the client folder |
 | `docs/plans/` | Plans, such as the Vibrant Mindz module plan |
+| `docs/plans/module-roadmap.md` | The module roadmap after v1.0: five waves of Musts, after ten contract hooks (decision 0018) |
 | `docs/contracts/` | HTTP contracts the contract suites check, starting with `auth-api.md` |
 | `docs/SKILL-BACKLOG.md` | Skill ideas waiting to be built |
 | `skills/` | Project skills, the source copies; K0 links them into `.claude/skills/` |

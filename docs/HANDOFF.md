@@ -24,11 +24,13 @@ Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud co
 - **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
 - **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
 - **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
-- **Decisions:** 0012 to 0016 were added this session. SPEC 4 to 7, 14 (14.1 to 14.13 in places), 15 and 16 changed.
+- **Decisions:** 0012 to 0016 came from the audit, 0017 retired the Spec doc, and 0018 records the module roadmap after v1.0 and its ten contract hooks (none in SPEC.md yet). SPEC 4 to 7, 14 (14.1 to 14.13 in places), 15 and 16 changed in the audit.
 
 ## Next
 
 K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`, from step 2 (the access dependencies); its set-up is done on the owner's machine. The suite should show 320 passed (Windows: 319 and 1 skipped) and 83 xfailed with Postgres up.
+
+After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
 
 ## The owner's answers (2026-11-13)
 

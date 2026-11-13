@@ -21,3 +21,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0015](0015-ci-gate-wiring.md) | How CI wires the quality gate | Applied |
 | [0016](0016-spec-catches-up-with-the-code.md) | The spec catches up with the code | Applied |
 | [0017](0017-retire-the-spec-doc.md) | Retire the claude.ai Spec doc | Applied |
+| [0018](0018-module-roadmap-and-contract-hooks.md) | The module roadmap after v1.0, and the contract hooks it needs | Accepted; hooks not yet applied |
