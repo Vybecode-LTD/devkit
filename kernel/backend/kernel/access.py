@@ -2,8 +2,14 @@
 
 A route is **public** (`Depends(public)`), for **members** (`current_user`,
 K2) or behind a **permission** (`require_permission(key)`, K2). `undeclared`
-lists the API routes that declare none; a test fails on any, so a route can't
-ship open by accident.
+lists every API route under /api/ whose access is missing or can't be right;
+a test fails on any, so a route can't ship open by accident:
+
+- an HTTP or WebSocket route that declares nothing;
+- an admin route (a path segment `admin`) whose only mark is `public`, often
+  from a router-level dependency;
+- `public` beside another mark, which can't both hold;
+- an app mounted under /api/, whose routes can't be audited at all.
 """
 
 from __future__ import annotations
@@ -13,7 +19,8 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.dependencies.models import Dependant
-from fastapi.routing import APIRoute, iter_route_contexts
+from fastapi.routing import APIRoute, APIWebSocketRoute, iter_route_contexts
+from starlette.routing import Mount
 
 #: Marks set by the access dependencies; K2 adds member and permission.
 ACCESS_MARK = "__devkit_access__"
@@ -41,16 +48,40 @@ def _declared(dependant: Dependant) -> list[str]:
     return found
 
 
+def _problem(path: str, marks: list[str]) -> str | None:
+    """What's wrong with these marks on this path, or None."""
+    kinds = set(marks)
+    if "public" in kinds and len(kinds) > 1:
+        return "public beside " + ", ".join(sorted(kinds - {"public"}))
+    if kinds == {"public"} and "admin" in path.split("/"):
+        return "an admin route can't be public"
+    return None
+
+
 def undeclared(app: FastAPI) -> list[str]:
-    """`METHOD /path` for each API route that declares no access."""
-    missing: list[str] = []
+    """`METHOD /path`, with the reason when one helps, for each API route whose
+    access is missing or can't be right. Sorted."""
+    found: list[str] = []
     # FastAPI keeps included routers whole; iter_route_contexts walks them with
     # their prefixes and router-level dependencies applied.
     for context in iter_route_contexts(app.routes):
-        if not isinstance(context.original_route, APIRoute) or not (context.path or "").startswith(
-            "/api/"
-        ):
+        path = context.path or ""
+        if not path.startswith("/api/") and path != "/api":
             continue
-        if not _declared(context.dependant):
-            missing.extend(f"{method} {context.path}" for method in sorted(context.methods or ()))
-    return missing
+        route = context.original_route
+        if isinstance(route, Mount):
+            found.append(f"MOUNT {path} (a mounted app under /api can't declare access)")
+            continue
+        if isinstance(route, APIWebSocketRoute):
+            methods = ["WEBSOCKET"]
+        elif isinstance(route, APIRoute):
+            methods = sorted(context.methods or ())
+        else:
+            continue
+        marks = _declared(context.dependant)
+        reason = None if not marks else _problem(path, marks)
+        if marks and reason is None:
+            continue
+        suffix = f" ({reason})" if reason else ""
+        found.extend(f"{method} {path}{suffix}" for method in methods)
+    return sorted(found)
