@@ -18,6 +18,8 @@ What it does, in order:
    replaced session token reaches the browser on any answer, errors too) and
    UnexpectedErrors (innermost, so even a 500 carries the security headers).
 6. Answers every error as problem details.
+7. Installs the mailer (`mailer=`, else `LogMailer`, which sends nothing)
+   behind `kernel.email.Checked`, as `app.state.mailer`.
 
 The API docs (/docs, /redoc, /openapi.json) are served only with DEBUG on: on
 a live site they would map every route for anyone.
@@ -37,6 +39,7 @@ from kernel import error_tracking, logs
 from kernel.auth.dependencies import SessionCookies
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
+from kernel.email import Checked, LogMailer, Mailer
 from kernel.errors import BodyLimit, UnexpectedErrors, install_handlers
 from kernel.logs import AccessLog
 from kernel.modules import InstalledModule, ModuleRegistry, require_module
@@ -54,6 +57,7 @@ def create_app(
     modules: Iterable[InstalledModule] = (),
     config: KernelConfig | None = None,
     database: Database | None = None,
+    mailer: Mailer | None = None,
 ) -> FastAPI:
     config = config or get_config()
     refuse_unsafe(config)
@@ -104,6 +108,7 @@ def create_app(
     app.state.csp = policy
     app.state.limiter = RateLimiter(config.rate_limit_storage, enabled=config.rate_limit_enabled)
     app.state.client_ip_header = config.client_ip_header
+    app.state.mailer = Checked(mailer if mailer is not None else LogMailer())
     install_handlers(app)
 
     app.include_router(kernel_router, prefix="/api/kernel")

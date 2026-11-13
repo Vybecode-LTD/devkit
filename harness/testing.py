@@ -6,9 +6,11 @@ support"). They let a suite written against HTTP alone reset counts, read
 captured mail, move the clock and make accounts, so the same suite can test
 a TypeScript port.
 
-Built: reset, clock, routes and breached (the fake breach lookup's list,
-which K2's password checks read from `app.state.breached`). Still to come
-with K2 and K3: users, mail, oauth/grant, jobs/run, delete-hooks.
+Built: reset, clock, routes, breached (the fake breach lookup's list,
+which K2's password checks read from `app.state.breached`) and mail (what
+the app's mailer was handed, kept by a `CapturingMailer` behind the same
+checks a site's adapter gets). Still to come with K2 and K3: users,
+oauth/grant, jobs/run, delete-hooks.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ from kernel import clock, create_app
 from kernel.access import needs_step_up, public, undeclared
 from kernel.auth.models import User
 from kernel.config import KernelConfig
+from kernel.email import CapturingMailer
 from kernel.ratelimit import RateLimiter
 
 router = APIRouter(dependencies=[Depends(public)])
@@ -52,6 +55,7 @@ async def reset(request: Request, body: Reset | None = None) -> Response:
     await limiter.reset()
     clock.reset()
     request.app.state.breached = set()
+    _captured(request).clear()
     if body is not None and body.accounts:
         async with request.app.state.database.sessions() as session:
             await session.execute(delete(User))
@@ -65,6 +69,22 @@ async def breached(body: Breached, request: Request) -> Response:
     next reset; it knows of no others, so the suite never goes online."""
     request.app.state.breached = set(request.app.state.breached) | set(body.passwords)
     return Response(status_code=204)
+
+
+def _captured(request: Request) -> CapturingMailer:
+    captured: CapturingMailer = request.app.state.captured_mail
+    return captured
+
+
+@router.get("/mail")
+async def mail(to: str, request: Request) -> dict[str, list[dict[str, str]]]:
+    """What the app's mailer was handed for `to`, oldest first."""
+    return {
+        "messages": [
+            {"to": message.to, "subject": message.subject, "text": message.text}
+            for message in _captured(request).to(to)
+        ]
+    }
 
 
 @router.post("/clock", status_code=204)
@@ -102,7 +122,9 @@ def build_test_app(database_url: str | None = None) -> FastAPI:
     if not enabled():
         raise RuntimeError("HARNESS_TEST_SUPPORT=1 is needed to mount the test-support routes.")
     config = KernelConfig(database_url=database_url) if database_url else KernelConfig()
-    app = create_app(modules=discover(), config=config)
+    captured = CapturingMailer()
+    app = create_app(modules=discover(), config=config, mailer=captured)
+    app.state.captured_mail = captured
     app.state.breached = set()
     app.include_router(router, prefix="/api/_test")
     return app
