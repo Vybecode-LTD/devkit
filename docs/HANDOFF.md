@@ -35,10 +35,7 @@ K2, in order: `dev plans\2026-11-12-next-session-k2-after-audit.md`.
 - **Ruleset `main`:** on the default branch, it requires "CI result" to have passed on the exact commit (and the branch to be up to date for PR merges), and blocks force pushes and deletion (decision 0015). It has no "require a pull request" rule: that rule would force merges through GitHub's merge button, which stamps the API token's address on every merge. The check rule gives the same guarantee, since a commit only has a green "CI result" if it ran CI on a branch first.
 - **Merged branches deleted;** finished PR branches are deleted after landing from now on.
 - **Actions pinned** to commit SHAs, and Dependabot proposes the bumps weekly (#26).
-
-## Questions for the owner
-
-- **The claude.ai Spec doc** needs SPEC 4 to 7, 14, 15, 16 and the change log synced (decisions 0012 to 0016).
+- **The claude.ai Spec doc is retired** (decision 0017): titled "(retired)", with a notice that it's frozen as of 2026-11-12. `SPEC.md` is the only copy.
 
 ## Notes
 

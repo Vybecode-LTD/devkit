@@ -1,6 +1,6 @@
 # AI DevKit Spec v0.1
 
-Version 0.1 · 2026-11-12. From phase K0 on, this file is the source of truth. The design doc "AI DevKit Spec v0.1" (https://claude.ai/artifact/KtR3Cv8p5Fgr9fxRth6u81) is the owner's reading copy: every change here gets a decision record in `docs/decisions/`, a line in the change log at the bottom, and a note to the owner listing the sections to sync into the doc.
+Version 0.1 · 2026-11-12. From phase K0 on, this file is the source of truth, and since 2026-11-13 the only copy: the claude.ai doc "AI DevKit Spec v0.1" is retired, frozen as of 2026-11-12 (decision 0017). Every change here gets a decision record in `docs/decisions/`, a line in the change log at the bottom, and a note to the owner listing the sections that changed.
 
 ## 1. Purpose and scope
 
@@ -794,6 +794,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-13 | This file is the only copy of the spec: the claude.ai doc is retired, frozen as of 2026-11-12 (decision 0017; header) |
 | 2026-11-12 | Section 4's module layout is the template's: `__init__.py` listed, no `routes.tsx` (decision 0016) |
 | 2026-11-12 | `kernel/kernel.json` declares the kernel's permissions (14.8, decision 0016) |
 | 2026-11-12 | The spec says what the code does (audit F23, F24): section 5's manifest `settings` defers to the `Settings` model; section 6 lists the names built and when the rest arrive, with a table for sites; section 7 gives the discovery names, the problem `type` and the secret-field rules; section 15 lists the seven CSP directives a module may open (decisions 0009 and 0016) |

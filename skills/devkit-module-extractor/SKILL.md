@@ -7,7 +7,7 @@ description: "Turn a feature from an existing project into an AI DevKit module: 
 
 Use this when lifting a feature (auth, blog, chat, payments, a forum, an embed system) out of an existing project and into the AI DevKit as a reusable module, or when porting a module from another stack (Supabase, Node/Express, Next.js) onto DevKit's stack. The result is a folder that passes the DevKit quality gate and that any agent can copy into a site.
 
-The DevKit spec (`SPEC.md` in the DevKit repo; the design doc "AI DevKit Spec") is the contract. Re-read sections 4 to 13 and 16 before starting, because the spec changes. Where this skill and the spec disagree, the spec wins. If the `devkit` CLI isn't built yet, do its steps by hand as spec section 12 describes.
+The DevKit spec (`SPEC.md` in the DevKit repo, its only copy) is the contract. Re-read sections 4 to 13 and 16 before starting, because the spec changes. Where this skill and the spec disagree, the spec wins. If the `devkit` CLI isn't built yet, do its steps by hand as spec section 12 describes.
 
 **The stack:** Python 3.12+, FastAPI, Pydantic v2 (strict), async SQLAlchemy 2 with asyncpg, Postgres, Alembic with one branch per module; React 19, Vite, TypeScript strict, React Router 7, TanStack Query, design tokens as CSS variables.
 

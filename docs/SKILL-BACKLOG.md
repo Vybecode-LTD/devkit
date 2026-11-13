@@ -26,6 +26,8 @@ Account copies are saved by the owner from the review cards Claude proposes; `sk
 
 **Updated 2026-11-12:** the account copy of `devkit-module-extractor` now uses `backend/<id_>/` (the id with hyphens turned into underscores) and decision 0009's fixed names.
 
+**To carry into the account copy at the next batch (2026-11-13):** `devkit-module-extractor` no longer names the retired Spec doc (decision 0017); `skills/` already has the change.
+
 ## Waiting to be built
 
 | Skill | What it would do | Raised | Blocks anything? |

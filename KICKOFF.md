@@ -22,7 +22,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 - **Tests first.** Auth starts from the contract tests in SPEC.md 14.13, seen failing. Every bug fix gets a test seen failing before the fix.
 - **One logical change per PR,** on its own branch, with conventional commits. Read the staged diff for secrets before each commit. Auth PRs get the full review: tests, a migration round trip, a live check in the harness, then a self-review against SPEC.md section 14.
 - **Second failed fix for the same symptom: stop** and follow `C:\DEV\DEBUG_PROTOCOL.md`.
-- **Spec changes** need a decision record, a change-log line in `SPEC.md`, and a note to the owner of which sections to sync into the design doc.
+- **Spec changes** need a decision record, a change-log line in `SPEC.md`, and a note to the owner of which sections changed (the claude.ai Spec doc is retired, decision 0017).
 - **Skills:** don't build new skills. Add any idea to `docs/SKILL-BACKLOG.md` with the date and whether it blocks anything.
 - **Windows:** the owner's terminal is PowerShell. Python commands use `python -m ...`.
 
@@ -128,7 +128,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 - Every row of SPEC.md section 16 passes for the kernel, in CI.
 - The auth contract tests pass.
 - The brand check, gitleaks, pip-audit and npm audit are clean.
-- `CLAUDE.md` (commands, current state), `docs/HANDOFF.md` and the decision records are current, and the owner has the list of spec sections to sync into the design doc.
+- `CLAUDE.md` (commands, current state), `docs/HANDOFF.md` and the decision records are current, and the owner has the list of spec sections that changed.
 
 Then write the next kickoff, `dev plans\<date>-next-session-modules-wave-1.md`: `pages`, `blog`, `embeds`, `contact` and `campaigns` from VybeSite with the `devkit-module-extractor` skill, on the Vibrant Mindz build order (`docs/plans/vibrant-mindz-module-plan.md`, section 11).
 
