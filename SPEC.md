@@ -489,7 +489,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 
 **Passwords**, following [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b/authenticators) section 3.1.1.2 and the [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html):
 
-- Hashed with Argon2id (argon2-cffi), at least 19 MiB of memory, 2 iterations and parallelism 1, which is OWASP's minimum. Setup benchmarks the host and raises memory where it can. Hashes are upgraded at sign-in when parameters rise.
+- Hashed with Argon2id (argon2-cffi), at least 19 MiB of memory, 2 iterations and parallelism 1, which is OWASP's minimum (`ARGON2_MEMORY_KIB`, `ARGON2_TIME_COST`, `ARGON2_LANES`). Setup benchmarks the host and raises memory where it can. Hashes are upgraded at sign-in when parameters rise. Hashing runs on a pool of its own, `ARGON2_CONCURRENCY` wide; a request that can't get a slot within 5 seconds answers 503 `kernel.busy` with `Retry-After` (decision 0014).
 - At least 12 characters for every account, the owner's call (Q7). That is below NIST's 15 for a password used alone, so the blocklist below, the rate limits in 14.6 and passkeys offered first make up the gap. Staff always have a second factor, which puts them above NIST's 8. At least 64 characters are accepted; DevKit caps input at 256 to bound hashing cost.
 - Unicode allowed and NFC-normalized, with each code point counted as one character.
 - No composition rules, no forced rotation, no hints and no security questions.
@@ -558,7 +558,7 @@ Both limits are site settings (Q6).
 | Step-up | 5 failures per session in 15 minutes, then the session ends |
 
 - No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
-- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account still costs one Argon2 hash. A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
+- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
 - Limits keyed on an email use the normalized address, so case variants share one budget.
 - Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
 - Rate-limit windows run on real time, not on `kernel.clock`; expiries, the resend wait and the growing delays read `kernel.clock` (decision 0013).
@@ -781,6 +781,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | Password hashing is bounded: its own pool, 503 `kernel.busy`, parameters from the config, one verify for a missing account (decision 0014; 14, 14.6) |
 | 2026-11-12 | Auth rules from the audit (decision 0013): who can grant what (14.1), no pre-claiming an address (14.3), confirmed second factors only (14.4), `role_version` and known devices (14.5), the step-up limit, 429 answers, normalized keys, sign-up notices and which clock limits read (14.6), override precedence (14.8), API keys follow their creator (14.9) |
 | 2026-11-12 | One-time tokens, codes and recovery codes are kept as keyed hashes; sign-in codes aren't unique by hash; sessions keep the user agent; every foreign key is indexed (decision 0012; 14.2, 14.4, 14.11, 14.12) |
 | 2026-11-12 | The repo is public for now, the code still proprietary (decision 0011); the client folder's name and the inventory moved out of git |
