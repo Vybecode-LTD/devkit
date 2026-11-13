@@ -249,3 +249,29 @@ async def test_each_request_gets_one_redacted_access_line(
     assert lines[0].status == 200  # type: ignore[attr-defined]
     assert "abc" not in caplog.text
     assert "ana@site.test" not in caplog.text
+
+
+def test_a_region_cut_in_the_middle_stays_hidden() -> None:
+    """Review of #13: "[parameters: " in the dropped middle, its values in the kept end."""
+    frames = "".join(f'  File "/app/x.py", line {n}, in f\n    call()\n' for n in range(350))
+    values = ", ".join(f"'value-{n}'" for n in range(900)) + ", 'hunter2')]"
+    text = (
+        "sqlalchemy.exc.IntegrityError: duplicate key\n"
+        + frames
+        + "[SQL: INSERT INTO auth_user ...]\n[parameters: ("
+        + values
+    )
+    assert len(text) > MAX_TEXT
+    assert text.index("[parameters: ") < len(text) - MAX_TEXT  # the marker is in the middle
+    cleaned = clean_text(text)
+    assert "hunter2" not in cleaned
+    assert "value-899" not in cleaned
+
+
+def test_huge_text_keeps_only_its_head() -> None:
+    """Past SCRUB_WHOLE the regions aren't scrubbed whole, so no end is kept."""
+    text = "head line\n" + "[parameters: (" + "'x', " * 300_000 + "'hunter2')]"
+    cleaned = clean_text(text)
+    assert cleaned.startswith("head line")
+    assert "hunter2" not in cleaned
+    assert len(cleaned) <= MAX_TEXT
