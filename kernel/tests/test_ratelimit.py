@@ -124,3 +124,63 @@ async def test_the_trusted_header_only_when_it_holds_one_address() -> None:
         assert (await untrusting.get("/who", headers={"X-Real-IP": "198.51.100.1"})).json() == {
             "key": "203.0.113.9"
         }
+
+
+async def test_a_scope_and_key_cant_spell_another_budget() -> None:
+    """`limits` joins its identifiers with "/": a key holding a slash must not
+    land on another scope's budget."""
+    limiter = RateLimiter()
+    for _ in range(2):
+        await limiter.hit("2/1m", "auth", "code/victim@x.test")
+    assert await limiter.used_up("2/1m", "auth", "code/victim@x.test")
+    assert not await limiter.used_up("2/1m", "auth/code", "victim@x.test")
+
+
+def _routers_app() -> FastAPI:
+    """Two modules with the same relative path, one router mounted twice and a
+    nested router: each route's budget is its own full path."""
+    from fastapi import APIRouter
+
+    app = FastAPI()
+    install_handlers(app)
+    app.state.limiter = RateLimiter()
+    app.state.client_ip_header = ""
+    for module in ("alpha", "beta"):
+        router = APIRouter()
+
+        @router.post("/sign-in", dependencies=[Depends(rate_limit("1/1m"))])
+        async def sign_in() -> dict[str, bool]:
+            return {"ok": True}
+
+        nested = APIRouter(prefix="/admin")
+
+        @nested.post("/run", dependencies=[Depends(rate_limit("1/1m"))])
+        async def run() -> dict[str, bool]:
+            return {"ok": True}
+
+        router.include_router(nested)
+        app.include_router(router, prefix=f"/api/{module}")
+    shared = APIRouter()
+
+    @shared.post("/ping", dependencies=[Depends(rate_limit("1/1m"))])
+    async def ping() -> dict[str, bool]:
+        return {"ok": True}
+
+    app.include_router(shared, prefix="/api/one")
+    app.include_router(shared, prefix="/api/two")
+    return app
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("/api/alpha/sign-in", "/api/beta/sign-in"),
+        ("/api/alpha/admin/run", "/api/beta/admin/run"),
+        ("/api/one/ping", "/api/two/ping"),
+    ],
+)
+async def test_each_route_has_its_own_budget_under_its_full_path(first: str, second: str) -> None:
+    async with _client(_routers_app()) as client:
+        assert (await client.post(first)).status_code == 200
+        assert (await client.post(first)).status_code == 429
+        assert (await client.post(second)).status_code == 200
