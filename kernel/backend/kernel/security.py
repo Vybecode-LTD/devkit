@@ -81,8 +81,13 @@ class ContentSecurityPolicy:
         `directive`, while `module` is on (always, for None)."""
         if directive not in OPENABLE:
             raise ValueError(f"Modules can't add hosts to {directive}.")
-        if not _HOST_SOURCE.match(source):
+        if not _HOST_SOURCE.fullmatch(source):
             raise ValueError(f"{source!r} isn't an https origin, such as https://js.stripe.com.")
+        if directive == "script-src" and "*" in source:
+            raise ValueError(
+                f"script-src takes exact hosts, not {source!r}: anyone can serve script "
+                "from a shared host's subdomain."
+            )
         entry = (directive, source, module)
         if entry not in self._extra:
             self._extra.append(entry)
@@ -114,6 +119,7 @@ class SecurityHeaders:
         refresh: Callable[[], Awaitable[object]] | None = None,
         hsts_max_age: int = 0,
         noindex: bool = False,
+        https_site: bool = False,
     ) -> None:
         self.app = app
         self.policy = policy
@@ -122,11 +128,14 @@ class SecurityHeaders:
         #: (`ModuleRegistry.current`); never raises.
         self.refresh = refresh
         self.hsts_max_age = hsts_max_age
+        #: SITE_URL is https: send HSTS even when the app sees http, as it does
+        #: behind a host's TLS edge (browsers ignore HSTS over plain http anyway).
+        self.https_site = https_site
         self.noindex = noindex
 
     def headers_for(self, scope: Scope) -> list[tuple[str, str]]:
         extra = [*_ALWAYS, ("Content-Security-Policy", self.policy.render(self.modules_on()))]
-        if self.hsts_max_age > 0 and scope.get("scheme") == "https":
+        if self.hsts_max_age > 0 and (self.https_site or scope.get("scheme") == "https"):
             extra.append(("Strict-Transport-Security", f"max-age={self.hsts_max_age}"))
         if self.noindex:
             extra.append(("X-Robots-Tag", "noindex"))

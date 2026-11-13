@@ -19,7 +19,7 @@ from .conftest import AppFactory, Client, manifest
 
 
 def test_refuses_to_start_on_a_bad_secret(app_factory: AppFactory) -> None:
-    with pytest.raises(RuntimeError, match="SECRET_KEY is shorter than 32 bytes"):
+    with pytest.raises(RuntimeError, match="SECRET_KEY is shorter than 43 characters"):
         app_factory(secret_key="short")
 
 

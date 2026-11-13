@@ -42,15 +42,17 @@ def test_good_values_pass() -> None:
 @pytest.mark.parametrize(
     ("secret", "problem"),
     [
-        ("", "SECRET_KEY is shorter than 32 bytes."),
-        ("short", "SECRET_KEY is shorter than 32 bytes."),
+        ("", "SECRET_KEY is shorter than 43 characters."),
+        ("short", "SECRET_KEY is shorter than 43 characters."),
+        ("my-company-production-secret-2026", "SECRET_KEY is shorter than 43 characters."),
+        (secrets.token_urlsafe(24), "SECRET_KEY is shorter than 43 characters."),
         (
-            "change-me-change-me-change-me-change-me",
+            "change-me-change-me-change-me-change-me-change",
             "SECRET_KEY is a placeholder, not a random secret.",
         ),
-        ("a" * 40, "SECRET_KEY is a placeholder, not a random secret."),
+        ("a" * 50, "SECRET_KEY is a placeholder, not a random secret."),
         (
-            "this-is-just-an-example-secret-key-1234567",
+            "this-is-just-an-example-secret-key-1234567890",
             "SECRET_KEY is a placeholder, not a random secret.",
         ),
     ],
@@ -105,7 +107,7 @@ def test_debug_only_logs(caplog: pytest.LogCaptureFixture) -> None:
     with caplog.at_level(logging.WARNING, logger="kernel.config"):
         refuse_unsafe(config(secret_key="short", site_url="https://example.com", debug=True))
     assert [r.getMessage() for r in caplog.records] == [
-        "SECRET_KEY is shorter than 32 bytes. Allowed only because DEBUG is on.",
+        "SECRET_KEY is shorter than 43 characters. Allowed only because DEBUG is on.",
         "SITE_URL is a placeholder (example.com), not the site's own address. Allowed only because DEBUG is on.",
     ]
 
@@ -117,6 +119,41 @@ def test_modules_allowed() -> None:
     assert modules_allowed(config(modules=""), installed) == frozenset()
     with pytest.raises(ValueError, match=r"MODULES names blgo, which is not installed"):
         modules_allowed(config(modules="blgo,shop"), installed)
+
+
+def test_modules_cant_mix_every_module_with_names() -> None:
+    with pytest.raises(ValueError, match=r"MODULES mixes \* with names"):
+        modules_allowed(config(modules="*,blog"), {"blog", "shop"})
+
+
+def test_the_hint_makes_keys_that_pass() -> None:
+    for make in (lambda: secrets.token_urlsafe(32), lambda: secrets.token_urlsafe(48)):
+        assert all(unsafe_secrets(config(secret_key=make())) == [] for _ in range(200))
+    assert unsafe_secrets(config(secret_key=secrets.token_hex(32))) == []
+
+
+@pytest.mark.parametrize(
+    ("url", "problem"),
+    [
+        ("http://devkit.test", "SITE_URL must be https outside DEBUG."),
+        ("https://localhost:8000", "SITE_URL is a local address (localhost), not the site's own."),
+        ("https://127.0.0.1", "SITE_URL is a local address (127.0.0.1), not the site's own."),
+        ("https://[::1]:8443", "SITE_URL is a local address (::1), not the site's own."),
+    ],
+)
+def test_a_live_site_url_is_https_and_not_local(url: str, problem: str) -> None:
+    assert placeholder_addresses(config(site_url=url)) == [problem]
+    assert placeholder_addresses(config(site_url=url, debug=True)) == []  # local development
+
+
+def test_a_blank_client_ip_header_is_warned_about(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.WARNING, logger="kernel.config"):
+        refuse_unsafe(config(client_ip_header=""))
+        refuse_unsafe(config(client_ip_header="X-Real-IP"))
+        refuse_unsafe(config(client_ip_header="", debug=True))
+    assert [r.getMessage()[:40] for r in caplog.records] == [
+        "CLIENT_IP_HEADER is blank, so every visi"
+    ]
 
 
 def test_derived_values() -> None:

@@ -118,6 +118,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 
 - The commands in `cli/README.md`, run as `python -m devkit`, writing lock files that validate against `schema/lock.schema.json`.
 - `templates/site/` made from the harness.
+- The template's start command runs uvicorn with `--proxy-headers --forwarded-allow-ips` set to the host's edge, and its `.env.example` sets `CLIENT_IP_HEADER` (`X-Real-IP` on Railway). Without them every visitor shares the edge's address, and its rate limits.
 - `devkit catalog` regenerating `catalog.json`.
 
 **Gate:** in a temporary folder, `devkit new test-site` with the kernel only (no recipe modules exist yet) builds, migrates and passes its tests; `devkit check` passes on it.
