@@ -44,7 +44,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | Python environment, first time | `py -3.12 -m venv .venv`, then `.venv\Scripts\Activate.ps1` |
 | Install Python dependencies | `python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt` |
 | Re-pin after editing a `.in` file | `python -m uv pip compile requirements.in --generate-hashes --universal --python-version 3.12 -o requirements.txt`, and the same for `requirements-dev.in` into `requirements-dev.txt` |
-| Test Postgres (Docker) | `docker compose up -d db` |
+| Test Postgres | `docker compose up -d db`; or any local Postgres 16+ with a `devkit` role (CREATEDB) and `TEST_DATABASE_URL` pointing at it, as on the owner's machine |
 | Python tests | `python -m pytest` (add `-m "not db"` to run without Postgres) |
 | Lint, format, types | `python -m ruff check .`, `python -m black .`, `python -m mypy` |
 | Manifests against the schemas | `python -m tools.validate_schemas` |
@@ -107,7 +107,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 
 ## Gotchas
 
-- Windows: the owner's terminal is PowerShell. Python commands use the `python -m` form (`python -m pip`, `python -m pytest`).
+- Windows: the owner's terminal is PowerShell. Python commands use the `python -m` form (`python -m pip`, `python -m pytest`). PowerShell blocks scripts by default, `Activate.ps1` and `npm.ps1` included: use `.venv\Scripts\python.exe -m ...` and `npm.cmd`, unless the owner has run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 - FastAPI 0.16x keeps included routers whole in `app.routes`: walk routes with `fastapi.routing.iter_route_contexts`.
 - pytest runs with `--import-mode=importlib`; the root `conftest.py` imports the real `kernel` package before collection so `kernel/tests/*` can't shadow it.
 - React Router stays on 7.x (the spec) though 8.x is out; TypeScript stays on 6.0.x for typescript-eslint.

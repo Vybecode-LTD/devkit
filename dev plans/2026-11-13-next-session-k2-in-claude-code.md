@@ -14,8 +14,11 @@ K0 and K1 are done and audited: PRs #1 to #30 are merged, and the audit's notes 
 
 1. `git status` must be clean, on `main`, level with `origin/main`. A clone from before 2026-11-13 must first run `git fetch origin` and `git reset --hard origin/main` (history was rewritten once). If `.npmrc` or `.github\` is missing, run `git checkout -- .npmrc .github`.
 2. `py -3.12 -m venv .venv`, `.venv\Scripts\Activate.ps1`, `python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt`.
-3. `npm ci`, `python -m tools.link_skills`, Docker Desktop running, then `docker compose up -d db`. `gitleaks` must be on PATH for the pre-commit check.
-4. `python -m pytest --cov --cov-fail-under=85`: 271 passed, 83 xfailed, coverage about 94%. `npm test`: 7 passed. If those numbers differ, stop and find out why before writing code.
+3. `npm ci`, `python -m tools.link_skills`. `gitleaks` must be on PATH for the pre-commit check.
+4. **Test Postgres:** the owner's machine has no Docker. Its own Postgres 18 has a `devkit` role (password `devkit`, CREATEDB, local connections only), and the user variable `TEST_DATABASE_URL` points the tests at it. If the database tests skip with "No test Postgres", check that variable first. Elsewhere, `docker compose up -d db` does the same job.
+5. `python -m pytest --cov --cov-fail-under=85`: 270 passed, 1 skipped (a symlink test; Windows makes junctions), 83 xfailed, coverage about 94%. Linux CI shows 271 passed. `npm test`: 7 passed. If those numbers differ, stop and find out why before writing code.
+
+**Windows:** PowerShell blocks scripts unless the owner has allowed them (`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, his call). Until then use `npm.cmd` for `npm` and `.venv\Scripts\python.exe -m ...` for `python -m ...`. Claude Code's own shell is Git Bash, where `source .venv/Scripts/activate` works.
 
 ## Read first
 
