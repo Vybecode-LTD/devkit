@@ -161,6 +161,17 @@ async def test_lifetimes_come_from_the_caller(db: AsyncSession) -> None:
     assert await sessions.resume(db, token, lifetimes=short) is None
 
 
+async def test_a_short_idle_limit_is_kept_alive_by_use(db: AsyncSession) -> None:
+    """Visits are written often enough for any idle limit, not just hourly."""
+    short = sessions.Lifetimes(
+        member=sessions.Lifetime(idle=timedelta(minutes=5), absolute=timedelta(hours=1)),
+    )
+    token, _ = await _start(db, await _user(db), lifetimes=short)
+    for _ in range(10):  # a request a minute, for ten minutes
+        clock.advance(60)
+        assert await sessions.resume(db, token, lifetimes=short) is not None
+
+
 async def test_any_role_but_member_is_staff(db: AsyncSession) -> None:
     for roles, staff in ((("member",), False), (("owner",), True), (("member", "editor"), True)):
         user = await _user(db, *roles)

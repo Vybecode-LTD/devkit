@@ -23,7 +23,8 @@ while the old one stops working. When requests race that change, one of
 them issues the token; the others carry on without one, and any that
 arrives after it is no longer signed in.
 
-`last_seen_at` is written at most hourly. `start` and the `end…` calls run
+`last_seen_at` is written at most hourly, or every eighth of a shorter idle
+limit, so use keeps any session alive. `start` and the `end…` calls run
 in the caller's transaction, which the caller commits; `resume` commits
 what it changes itself, before the response sets a cookie that relies on it.
 
@@ -56,9 +57,13 @@ SESSION_COOKIE = "__Host-dk_session"
 DEVICE_COOKIE = "__Host-dk_device"
 DEVICE_DAYS = 365
 
-#: How often `last_seen_at` is written. An hour either way doesn't matter to
-#: an 8-hour idle limit, and it spares a write on every request.
+#: The longest gap between writes of `last_seen_at`. An hour either way
+#: doesn't matter to an 8-hour idle limit, and it spares a write on every
+#: request. A shorter idle limit writes more often (`Lifetime.touch_every`).
 TOUCH_EVERY = timedelta(hours=1)
+#: The share of the idle limit a visit may go unwritten: an eighth, as an
+#: hour is of the staff's 8 hours, so every limit keeps the same margin.
+_TOUCH_SHARE = 8
 #: How recent a sign-in must be for `require_recent_auth` (14.4).
 RECENT = timedelta(minutes=10)
 
@@ -79,6 +84,12 @@ class Lifetime:
 
     idle: timedelta
     absolute: timedelta
+
+    @property
+    def touch_every(self) -> timedelta:
+        """How often a visit is written: hourly, or an eighth of a shorter idle
+        limit, so a session in use never runs out between writes."""
+        return min(TOUCH_EVERY, self.idle / _TOUCH_SHARE)
 
 
 @dataclass(frozen=True)
@@ -334,7 +345,7 @@ async def resume(
 ) -> Resumed | None:
     """The live session a cookie's token is for, or None. After a role change
     it replaces the token (`Resumed.token`, for the caller to set); otherwise
-    it records the visit at most hourly. Either is committed here."""
+    it records the visit (`Lifetime.touch_every`). Either is committed here."""
     if not _plausible(token):
         return None
     old_hash = hash_token(cast(str, token))
@@ -353,7 +364,7 @@ async def resume(
         return None
     if session.role_version != user.role_version:
         return await _reissue(db, session, user, staff, old_hash, now, lifetimes)
-    if now - session.last_seen_at >= TOUCH_EVERY:
+    if now - session.last_seen_at >= lifetimes.of(staff).touch_every:
         session.last_seen_at = now
         await db.commit()
     return Resumed(session, user, staff)
