@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import pytest
 from fastapi import Depends, FastAPI, Request
@@ -41,6 +43,14 @@ async def test_budgets() -> None:
     await limiter.forget("2/1m", "sign-in", "a")
     assert not await limiter.used_up("2/1m", "sign-in", "a")
     assert await limiter.wait_seconds("2/1m", "sign-in", "a") == 0
+
+
+async def test_a_budget_comes_back_when_its_window_ends() -> None:
+    limiter = RateLimiter()
+    assert [await limiter.hit("1/1s", "resend", "a") for _ in range(2)] == [True, False]
+    await asyncio.sleep(1.1)
+    assert not await limiter.used_up("1/1s", "resend", "a")
+    assert await limiter.hit("1/1s", "resend", "a")
 
 
 async def test_switched_off() -> None:

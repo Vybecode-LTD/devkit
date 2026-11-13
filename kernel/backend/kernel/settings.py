@@ -2,8 +2,11 @@
 
 Lifted from VybeSite's conditional saves (`services/settings_versions.py`,
 `models/version.py`), for any module. A module declares a Pydantic model whose
-every field has a default; a field typed `SecretStr` is a secret, sealed at
-rest (`kernel.crypto`) and never shown or kept in a version.
+every field has a default; a field typed `SecretStr` (or `SecretStr | None`)
+is a secret, sealed at rest (`kernel.crypto`) and never shown or kept in a
+version. A secret anywhere else (in a list, a nested model, a union with
+another type, or as `SecretBytes`) can't be sealed field by field, so
+`register` refuses the model.
 
     class BlogSettings(BaseModel):
         posts_per_page: int = 10
@@ -26,21 +29,29 @@ merged field by field with what was saved since:
 - a field both changed to different values is a **conflict**: 409
   (`kernel.settings_conflict`) with both values, who and when, saving nothing.
 
-A secret is a change only when typed: `None` keeps it, `""` removes it, any
-other text replaces it. Both saves typing one is a conflict.
+A secret is a change only when typed: `None` keeps it, `""` removes it (back
+to its default), any other text or `SecretStr` replaces it. Both saves typing
+one is a conflict.
+
+Values are compared as the model reads them: a stale form sending `"10"` for
+an int that was 10, or a datetime at midnight for a date, hasn't changed it.
+A save that changes nothing ends its transaction (when it commits), so the
+lock goes with it.
 
 VybeSite also merges list fields item by item; here a list is one value.
 """
 
 from __future__ import annotations
 
+import types
+import typing
 import uuid
 import zlib
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
-from pydantic import BaseModel, SecretStr, ValidationError
+from pydantic import BaseModel, SecretBytes, SecretStr, ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,10 +65,44 @@ LOCK_CLASS = 84712031
 Model = TypeVar("Model", bound=BaseModel)
 
 
+_UNIONS = (typing.Union, types.UnionType)
+
+
 def _is_secret(annotation: Any) -> bool:
+    """`SecretStr`, or `SecretStr | None`: the shapes a field's secret takes."""
     if annotation is SecretStr:
         return True
-    return SecretStr in getattr(annotation, "__args__", ())
+    args = typing.get_args(annotation)
+    return (
+        typing.get_origin(annotation) in _UNIONS
+        and SecretStr in args
+        and all(arg in (SecretStr, type(None)) for arg in args)
+    )
+
+
+def _types_in(annotation: Any, seen: set[type] | None = None) -> Iterator[Any]:
+    """Every type an annotation can hold, through unions, containers and
+    nested models."""
+    seen = set() if seen is None else seen
+    yield annotation
+    for arg in typing.get_args(annotation):
+        yield from _types_in(arg, seen)
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        if annotation in seen:
+            return
+        seen.add(annotation)
+        for info in annotation.model_fields.values():
+            yield from _types_in(info.annotation, seen)
+
+
+def _unsealable(model: type[BaseModel]) -> list[str]:
+    """The fields holding a secret somewhere other than as a field's own value."""
+    return [
+        name
+        for name, info in model.model_fields.items()
+        if not _is_secret(info.annotation)
+        and any(kind in (SecretStr, SecretBytes) for kind in _types_in(info.annotation))
+    ]
 
 
 def secret_fields(model: type[BaseModel]) -> frozenset[str]:
@@ -89,6 +134,13 @@ class SettingsRegistry:
             raise ValueError(
                 f"{module_id}'s settings model needs a default for every field."
             ) from error
+        unsealable = _unsealable(model)
+        if unsealable:
+            raise ValueError(
+                f"{module_id}'s settings keep a secret only as a SecretStr field of its own "
+                f"(SecretStr or SecretStr | None); {', '.join(unsealable)} would be saved "
+                "unsealed or as its mask."
+            )
         self.models[module_id] = model
 
     def model(self, module_id: str) -> type[BaseModel]:
@@ -114,7 +166,9 @@ class SettingsRegistry:
                 continue
             if name in secrets:
                 sealed = (stored[name] or {}).get("sealed")
-                values[name] = SecretStr(crypto.open(sealed)) if sealed else None
+                if sealed:
+                    values[name] = SecretStr(crypto.open(sealed))
+                # Removed: the field's default.
             else:
                 values[name] = stored[name]
         return model.model_validate(values)
@@ -221,7 +275,9 @@ class SettingsRegistry:
 
         now = self._masked(model, stored)
         typed = {name for name in secrets if changes.get(name) is not None}
-        yours = {name: value for name, value in changes.items() if name not in secrets}
+        yours = self._as_read(
+            model, stored, {name: value for name, value in changes.items() if name not in secrets}
+        )
 
         merged: list[str] = []
         if version < current:
@@ -253,7 +309,8 @@ class SettingsRegistry:
             new_stored[name] = value
         for name in typed:
             entry = dict(stored.get(name) or {})
-            text_value = str(changes[name])
+            value = changes[name]
+            text_value = value.get_secret_value() if isinstance(value, SecretStr) else str(value)
             entry["sealed"] = crypto.seal(text_value) if text_value else None
             entry["changes"] = int(entry.get("changes", 0)) + 1
             new_stored[name] = entry
@@ -276,6 +333,8 @@ class SettingsRegistry:
         after = self._masked(model, new_stored)
         changed = sorted(name for name in after if after[name] != now[name])
         if not changed:
+            if commit:
+                await db.commit()  # ends the transaction, and the lock with it
             return Saved(version=current, changed=[], merged=merged)
 
         if row is None:
@@ -301,6 +360,20 @@ class SettingsRegistry:
             await db.flush()
         # K3: emit kernel.settings.changed and audit it.
         return Saved(version=current + 1, changed=changed, merged=merged)
+
+    def _as_read(
+        self, model: type[BaseModel], stored: Mapping[str, Any], sent: dict[str, Any]
+    ) -> dict[str, Any]:
+        """The sent values as the model reads and stores them (JSON mode), so
+        the merge compares like with like. Values the model refuses are left
+        as sent: the check after the merge reports them."""
+        if not sent:
+            return sent
+        try:
+            read = self._model_from(model, {**stored, **sent}).model_dump(mode="json")
+        except ValidationError:
+            return sent
+        return {name: read[name] for name in sent}
 
     @staticmethod
     def _merge(

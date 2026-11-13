@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+import zlib
+from datetime import date
+from enum import StrEnum
 
 import pytest
-from pydantic import BaseModel, Field, SecretStr
-from sqlalchemy import select
+from pydantic import BaseModel, Field, SecretBytes, SecretStr
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.auth.models import User
 from kernel.db import Database
 from kernel.errors import Problem
 from kernel.models import Setting
-from kernel.settings import SettingsRegistry, secret_fields
+from kernel.settings import LOCK_CLASS, SettingsRegistry, secret_fields
 
 from .conftest import unique_id
 
@@ -208,3 +211,138 @@ async def test_two_first_saves_at_once_both_land(
         current = await found.for_module(session, module_id)
     assert isinstance(current, Blog)
     assert (current.title, current.posts_per_page) == ("A", 7)
+
+
+# --- secrets typed in code, and secrets the registry can't seal (audit F12) ---
+
+
+async def test_a_secret_passed_as_secretstr_is_kept_as_typed(
+    db: AsyncSession, registry: tuple[SettingsRegistry, str]
+) -> None:
+    found, module_id = registry
+    await found.save(db, module_id, {"api_key": SecretStr("sk_live_REAL")}, version=0, via="cli")
+    current = await found.for_module(db, module_id)
+    assert isinstance(current, Blog)
+    assert current.api_key is not None
+    assert current.api_key.get_secret_value() == "sk_live_REAL"
+
+
+class _Inner(BaseModel):
+    token: SecretStr | None = None
+
+
+class _Nested(BaseModel):
+    inner: _Inner = _Inner()
+
+
+class _Bytes(BaseModel):
+    key: SecretBytes | None = None
+
+
+class _Listed(BaseModel):
+    keys: list[SecretStr] = []
+
+
+class _Mixed(BaseModel):
+    key: SecretStr | int = 0
+
+
+@pytest.mark.parametrize("model", [_Nested, _Bytes, _Listed, _Mixed])
+def test_secrets_it_cant_seal_are_refused_at_register(model: type[BaseModel]) -> None:
+    with pytest.raises(ValueError, match="SecretStr field of its own"):
+        SettingsRegistry().register("bad", model)
+
+
+class _Required(BaseModel):
+    signing_secret: SecretStr = SecretStr("")
+
+
+async def test_a_secret_without_none_saves_reads_and_removes(db: AsyncSession) -> None:
+    found, module_id = SettingsRegistry(), unique_id("hooks")
+    found.register(module_id, _Required)
+    assert secret_fields(_Required) == {"signing_secret"}
+    await found.save(db, module_id, {"signing_secret": "whsec_typed"}, version=0)
+    current = await found.for_module(db, module_id)
+    assert isinstance(current, _Required)
+    assert current.signing_secret.get_secret_value() == "whsec_typed"
+    saved = await found.save(db, module_id, {"signing_secret": ""}, version=1)
+    assert saved.changed == ["signing_secret"]
+    removed = await found.for_module(db, module_id)
+    assert isinstance(removed, _Required)
+    assert removed.signing_secret.get_secret_value() == ""  # back to its default
+
+
+# --- the merge compares normalised values (audit F13) ---
+
+
+class Tone(StrEnum):
+    CALM = "calm"
+    LOUD = "loud"
+
+
+class Shop(BaseModel):
+    posts_per_page: int = 10
+    opens: date = date(2026, 1, 1)
+    tone: Tone = Tone.CALM
+
+
+async def test_a_stale_form_sending_old_values_as_text_isnt_a_conflict(db: AsyncSession) -> None:
+    found, module_id = SettingsRegistry(), unique_id("shop")
+    found.register(module_id, Shop)
+    theirs = {"posts_per_page": 12, "opens": "2026-03-01", "tone": "loud"}
+    await found.save(db, module_id, theirs, version=0)
+    # A form read at version 0 sends the values it was shown, as text and objects.
+    stale = {"posts_per_page": "10", "opens": "2026-01-01T00:00:00", "tone": Tone.CALM}
+    saved = await found.save(db, module_id, stale, version=0)
+    assert (saved.version, saved.changed) == (1, [])
+    assert saved.merged == ["opens", "posts_per_page", "tone"]
+    current = await found.for_module(db, module_id)
+    assert current == Shop(posts_per_page=12, opens=date(2026, 3, 1), tone=Tone.LOUD)
+
+
+async def test_a_stale_change_sent_as_text_still_lands(db: AsyncSession) -> None:
+    found, module_id = SettingsRegistry(), unique_id("shop")
+    found.register(module_id, Shop)
+    await found.save(db, module_id, {"tone": "loud"}, version=0)
+    saved = await found.save(db, module_id, {"posts_per_page": "25", "tone": "calm"}, version=0)
+    assert (saved.version, saved.changed, saved.merged) == (2, ["posts_per_page"], ["tone"])
+
+
+# --- the advisory lock's lifetime (audit F45) ---
+
+
+async def _lock_is_free(database: Database, module_id: str) -> bool:
+    key = zlib.crc32(module_id.encode("utf-8")) - 2**31
+    async with database.sessions() as other:
+        free = (
+            await other.execute(
+                text("SELECT pg_try_advisory_xact_lock(:kind, :key)"),
+                {"kind": LOCK_CLASS, "key": key},
+            )
+        ).scalar_one()
+        await other.rollback()
+    return bool(free)
+
+
+async def test_commit_false_holds_the_lock_until_the_caller_commits(
+    database: Database, registry: tuple[SettingsRegistry, str]
+) -> None:
+    found, module_id = registry
+    async with database.sessions() as session:
+        saved = await found.save(session, module_id, {"title": "Mine"}, version=0, commit=False)
+        assert saved.version == 1
+        assert not await _lock_is_free(database, module_id)
+        await session.commit()
+    assert await _lock_is_free(database, module_id)
+    async with database.sessions() as session:
+        assert (await found.form(session, module_id))["values"]["title"] == "Mine"
+
+
+async def test_a_save_that_changes_nothing_lets_the_lock_go(
+    database: Database, registry: tuple[SettingsRegistry, str]
+) -> None:
+    found, module_id = registry
+    async with database.sessions() as session:
+        saved = await found.save(session, module_id, {"title": "Blog"}, version=0)
+        assert saved.changed == []
+        assert await _lock_is_free(database, module_id)
