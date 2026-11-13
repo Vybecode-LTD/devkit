@@ -6,11 +6,11 @@ import json
 from pathlib import Path
 
 import pytest
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, WebSocket
 
 import kernel
 from harness.layout import KERNEL
-from kernel.access import undeclared
+from kernel.access import ACCESS_MARK, public, undeclared
 from kernel.modules import InstalledModule
 
 from .conftest import AppFactory, Client, manifest
@@ -65,6 +65,54 @@ def test_a_route_with_no_access_fails_the_audit(app_factory: AppFactory) -> None
 
     app = app_factory([InstalledModule(manifest("leaky"), router=router)])
     assert undeclared(app) == ["POST /api/leaky/open"]
+
+
+def test_the_audit_sees_admin_routes_marked_public_by_their_router(
+    app_factory: AppFactory,
+) -> None:
+    router = APIRouter()
+    admin = APIRouter(prefix="/admin", dependencies=[Depends(public)])
+
+    @admin.delete("/users/{user_id}")
+    async def delete_user(user_id: str) -> None: ...
+
+    router.include_router(admin)
+    app = app_factory([InstalledModule(manifest("forum"), router=router)])
+    assert undeclared(app) == [
+        "DELETE /api/forum/admin/users/{user_id} (an admin route can't be public)"
+    ]
+
+
+def test_the_audit_refuses_public_beside_another_mark(app_factory: AppFactory) -> None:
+    def member() -> None: ...
+
+    setattr(member, ACCESS_MARK, "member")
+    router = APIRouter(dependencies=[Depends(public)])
+
+    @router.get("/mine", dependencies=[Depends(member)])
+    async def mine() -> None: ...
+
+    app = app_factory([InstalledModule(manifest("mixed"), router=router)])
+    assert undeclared(app) == ["GET /api/mixed/mine (public beside member)"]
+
+
+def test_the_audit_sees_websockets_and_mounts(app_factory: AppFactory) -> None:
+    from starlette.applications import Starlette
+
+    router = APIRouter()
+
+    @router.websocket("/live")
+    async def live(websocket: WebSocket) -> None: ...
+
+    @router.websocket("/open-live", dependencies=[Depends(public)])
+    async def open_live(websocket: WebSocket) -> None: ...
+
+    app = app_factory([InstalledModule(manifest("chat"), router=router)])
+    app.mount("/api/legacy", Starlette())
+    assert undeclared(app) == [
+        "MOUNT /api/legacy (a mounted app under /api can't declare access)",
+        "WEBSOCKET /api/chat/live",
+    ]
 
 
 def test_the_versions_agree() -> None:
