@@ -90,11 +90,11 @@ devkit/
     module.json
     MODULE.md
     CHANGELOG.md
-    backend/<id_>/        models.py schemas.py service.py router.py   (<id_> = id with _ for -)
+    backend/<id_>/        __init__.py models.py schemas.py service.py router.py   (<id_> = id with _ for -)
                           events.py jobs.py server_copy.py public.py
     migrations/           Alembic branch "<id>"
     openapi.json          generated and committed
-    web/                  module.web.ts routes.tsx pages/ components/ api.ts
+    web/                  module.web.ts api.ts public.ts pages/ components/   (routes are defined in module.web.ts)
     tests/                backend/ web/ e2e/ contract/
   themes/<name>/          tokens.json tokens.css
   recipes/<name>.json

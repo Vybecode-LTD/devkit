@@ -1,4 +1,4 @@
-"""The kernel's own tables (K1). Auth's arrive in K2, the outbox and jobs in K3.
+"""The kernel's own tables (K1). Auth's are in `kernel.auth.models`; the outbox and jobs come in K3.
 
 `updated_by_id` and `saved_by_id` hold an `auth_user` id, set to NULL when
 that account is deleted (migration kernel_0002 adds the foreign keys).

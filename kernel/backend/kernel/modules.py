@@ -193,7 +193,8 @@ class ModuleRegistry:
         return self._cached
 
     def on_cached(self) -> frozenset[str]:
-        """The last on-set read, for code that can't wait on the database."""
+        """The on-set this process last read, for code that can't wait on the
+        database. Before the first read, every module MODULES allows."""
         return self._cached
 
     async def set_enabled(

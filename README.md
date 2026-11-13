@@ -19,7 +19,7 @@ FastAPI, Pydantic v2, async SQLAlchemy and Postgres on the backend; React 19, Vi
 
 ## Status
 
-Spec v0.1. The kernel is next (`KICKOFF.md`). The first site built on DevKit is the new Vibrant Mindz site.
+Spec v0.1. The kernel is being built (`KICKOFF.md`): K0 and K1 are done, K2 (auth) is under way, and the audit of 2026-11-12 is fixed. The first site built on DevKit is the new Vibrant Mindz site. Decisions are in `docs/decisions/`.
 
 ## License
 

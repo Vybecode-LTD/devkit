@@ -86,7 +86,7 @@ modules/<id>/
                   events.py jobs.py server_copy.py public.py   (only those needed)
   migrations/     Alembic branch "<id>"
   openapi.json    generated, committed
-  web/            module.web.ts routes.tsx pages/ components/ api.ts public.ts
+  web/            module.web.ts api.ts public.ts pages/ components/
   tests/          backend/ web/ e2e/ contract/
 ```
 

@@ -19,5 +19,8 @@
 | `access.py` | Route access marks (`public`) and the audit of undeclared routes | K1 |
 | `models.py` | Kernel tables: `kernel_module_state`, `kernel_setting`, `kernel_setting_version` | K1 |
 | `routes.py` | `/api/kernel/health`, `/api/kernel/modules` | K1 |
+| `clock.py` | The kernel's clock, which tests can move forward (`advance`, `reset`) | K1 |
+| `version.py` | `__version__`, kept in step with `kernel.json` | K1 |
+| `auth/` | `models.py` (every auth table), `passwords.py` (Argon2id, the rules, the bundled list, Pwned Passwords), `hashing.py` (keyed hashes for one-time secrets), `data/` (the common-password list) | K2, started |
 
-Still to come: `auth` (K2: users, roles, sessions, passwords, passkeys, OAuth, TOTP, API keys); `email`, `storage`, `events`, `jobs`, `notifications`, `moderation`, `audit`, `retention`, public rendering and the AI client (K3).
+Still to come: the rest of `auth` (K2: sessions, sign-in, passkeys, OAuth, TOTP, API keys and the routes); `email`, `storage`, `events`, `jobs`, `notifications`, `moderation`, `audit`, `retention`, public rendering and the AI client (K3).

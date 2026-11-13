@@ -26,7 +26,7 @@ Use this when a site sells usage rights to music: beat leases, exclusive rights,
 | `licensing_tier` | Versioned tier definitions (schema below) |
 | `licensing_template` | Versioned agreement templates (Markdown with Jinja2 placeholders) |
 | `licensing_acceptance` | Checkout acceptance: order id, terms hash, time, IP, user agent |
-| `licensing_license` | Issued licenses: license id, order id, work id, licensee legal name, artist name, email, tier snapshot JSON, template version, rendered text, text SHA-256, PDF storage key, issued time (UTC), status (`active`, `revoked`) |
+| `licensing_license` | Issued licenses: license id, order id, work id, licensee legal name, artist name, email, tier snapshot JSON, `exclusive` (a boolean copied from the tier at sale, for the index below), template version, rendered text, text SHA-256, PDF storage key, issued time (UTC), status (`active`, `revoked`) |
 | `licensing_sync_request` | Custom license requests: use, media, territory, term, budget, status, the owner's quote |
 
 A partial unique index makes a second exclusive impossible:

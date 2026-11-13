@@ -86,11 +86,11 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `kernel/` | The always-installed core: `backend/kernel/` (Python), `migrations/`, `tests/`, `web/` |
 | `modules/` | One folder per module; `modules/_template/` is the starting point |
 | `recipes/` | Preset module bundles per kind of site |
-| `themes/` | Token sets (Machined Light, Depth) |
+| `themes/` | Token sets; Machined Light and Depth arrive in K4 (only the README so far) |
 | `templates/site/` | The empty site every project starts from (built in K5) |
 | `cli/` | The `devkit` CLI (built in K5) |
 | `harness/` | Dev app that mounts the kernel and modules for tests and local runs; `harness/alembic/` is the one Alembic environment, `harness/migrations.py` drives it |
-| `tools/` | Repo tooling: `validate_schemas.py`, `link_skills.py` |
+| `tools/` | Repo tooling: `validate_schemas.py`, `link_skills.py`, `build_common_passwords.py` (rebuilds the bundled list; steps in NOTICE) |
 | `tests/` | Repo-level tests: schemas, migrations round trip, tools |
 | `conftest.py` | The test run's made-up secrets and the throwaway Postgres fixtures |
 | `catalog.json` | Generated index of every module (empty until the first module) |

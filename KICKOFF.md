@@ -10,7 +10,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 
 1. `CLAUDE.md`. (`C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md` load on their own.)
 2. `SPEC.md`, all of it, once. Re-read the sections a task touches before starting it.
-3. `docs/decisions/` (0001 to 0008).
+3. `docs/decisions/` (every record; the index is its README).
 4. `docs/private/inventory.md` (on the owner's machine, not in git), section 4.1: where each kernel piece lives today.
 5. `skills/devkit-module-extractor/SKILL.md`. Its steps (choose the source, provenance gate, inventory, cut dependencies) apply to lifting kernel code too.
 
@@ -36,8 +36,8 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 4. **Python.** A root `pyproject.toml` for the dev environment. `requirements.in` compiled to a hash-pinned `requirements.txt` with `uv pip compile --generate-hashes`, following VybeSite's `backend/requirements.in` (floors above known vulnerabilities, a comment per package). Dev tools: ruff, Black, mypy (strict for `kernel/`), pytest, pytest-asyncio, httpx, jsonschema.
 5. **The harness.** `harness/` is a small FastAPI app that mounts the kernel and any modules in this repo. Tests and local runs use it, and K5 turns it into `templates/site/`.
 6. **Postgres for tests.** A `compose.yaml` with Postgres 16, and a pytest fixture that gives each test run a throwaway database.
-7. **Alembic.** One environment in `harness/alembic/`, with `version_locations` covering `kernel/migrations` and every `modules/*/migrations`. The kernel's branch is labelled `kernel`; each module's branch depends on the kernel's head. Add a round-trip test (upgrade, downgrade, upgrade).
-8. **Web.** A root `package.json` with npm workspaces (`kernel/web`, `modules/*/web`, `harness/web`), `.npmrc` with `ignore-scripts=true`, TypeScript strict, ESLint with zero warnings, Vitest with React Testing Library, and Playwright. React 19, Vite, React Router 7 in library mode, TanStack Query.
+7. **Alembic.** One environment in `harness/alembic/`, with `version_locations` covering `kernel/migrations` and every `modules/*/migrations`. The kernel's branch is labelled `kernel`; each module's first revision names the kernel revision it needs in `depends_on` (a revision id, never `kernel@head`). Add a round-trip test (upgrade, downgrade, upgrade).
+8. **Web.** A root `package.json` with npm workspaces (`kernel/web`, `modules/*/web`, `harness/web`), `.npmrc` with `ignore-scripts=true`, TypeScript strict, ESLint with zero warnings, Vitest with React Testing Library (Playwright joins in K4, with the first pages). React 19, Vite, React Router 7 in library mode, TanStack Query.
 9. **Schema checks.** `tools/validate_schemas.py` validates every `module.json`, recipe and `kernel/kernel.json` against `schema/`, with a pytest test that runs it.
 10. **CI.** One GitHub Actions workflow whose final job is named `CI result`: lint, types, backend tests (with a Postgres service), web tests, schema checks, gitleaks and pip-audit. Use path filters so a docs-only PR spends no minutes on the test jobs. The brand check runs locally, since CI can't reach `C:\DEV\VybeSite`.
 11. Fill in "Commands" in `CLAUDE.md` and `AGENTS.md`.
