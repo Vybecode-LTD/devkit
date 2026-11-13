@@ -275,3 +275,22 @@ def test_huge_text_keeps_only_its_head() -> None:
     assert cleaned.startswith("head line")
     assert "hunter2" not in cleaned
     assert len(cleaned) <= MAX_TEXT
+
+
+def test_a_quote_the_cut_left_open_hides_to_the_end() -> None:
+    """Review of #17: past SCRUB_WHOLE the head can drop an input_value's
+    closing quote; what's left of the value must not pass as plain text."""
+    text = (
+        "frame\n" * 1100
+        + "input_value='first hunter2 "
+        + "padding " * 1500
+        + "'\n"
+        + "frame\n" * 50000
+    )
+    assert len(text) > redact.SCRUB_WHOLE
+    assert "hunter2" not in clean_text(text)
+
+
+@pytest.mark.parametrize("quote", ["'", '"'])
+def test_an_unclosed_input_value_hides_to_the_end(quote: str) -> None:
+    assert clean_text(f"bad input_value={quote}a secret phrase") == f"bad input_value={REDACTED}"
