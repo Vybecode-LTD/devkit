@@ -1,18 +1,26 @@
 name: CI
 
-# Modelled on VybeSite's CI. Pull requests into main, and manual runs, which
-# check everything. Each job runs only when the PR touches what it checks
-# ("What changed"), so a docs-only PR spends a minute, not ten. The one check
-# a ruleset should require is "CI result": a skipped job passes there, a
-# failed or cancelled one doesn't. A newer push to a PR cancels the run it
-# replaces.
+# Modelled on VybeSite's CI. Pull requests into main check what they touch:
+# each job runs only when the PR changes what it checks ("What changed"), so a
+# docs-only PR spends a minute, not ten. A push to main (a merge, or a commit
+# that skipped review), the weekly run and a manual run check everything, so
+# a new advisory or a direct push is still caught. The one check a ruleset
+# should require is "CI result": a skipped job passes there, a failed or
+# cancelled one doesn't. A newer push to a PR cancels the run it replaces.
 #
 # The brand check (no past client's words) can't run here: it lives in
 # C:\DEV\VybeSite. It runs locally before every PR that lifts code (CLAUDE.md).
+#
+# SPEC.md section 16's Playwright, axe, server-copy and token rows join this
+# file in K4, with the first pages (decision 0015).
 
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * 1" # Mondays, 05:17 UTC: new advisories against unchanged pins
   workflow_dispatch:
 
 permissions:
@@ -46,14 +54,15 @@ jobs:
           if [ "$EVENT" = "pull_request" ]; then
             git diff --name-only HEAD^1 HEAD > changed.txt
           else
-            echo ".github/workflows/ci.yml" > changed.txt # a manual run checks everything
+            echo ".github/workflows/ci.yml" > changed.txt # push, schedule, manual: everything
           fi
           echo "Changed:"; cat changed.txt
           any() { grep -Eq "$1" changed.txt && echo true || echo false; }
           everything=$(any '^\.github/workflows/')
           pins=$(any '^requirements')
           # The Python job also validates every manifest, so schemas and recipes count.
-          python=$(any '^(kernel/(backend|migrations|tests)/|kernel/kernel\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|tools/|tests/|schema/|recipes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
+          # tests/test_link_skills.py reads skills/.
+          python=$(any '^(kernel/(backend|migrations|tests)/|kernel/kernel\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|tools/|tests/|skills/|schema/|recipes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
           # The web tests read kernel/kernel.json for the version.
           web=$(any '^(kernel/web/|kernel/kernel\.json$|harness/web/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|\.npmrc$)')
           if [ "$everything" = true ]; then python=true; pins=true; web=true; fi
@@ -113,17 +122,19 @@ jobs:
       - name: Format (Black)
         run: python -m black --check .
 
-      - name: Types (mypy, strict on the kernel)
+      - name: Types (mypy strict on the kernel, module backends, harness and tools)
         run: python -m mypy
 
       - name: Manifests against the schemas
         run: python -m tools.validate_schemas
 
-      - name: Tests, with Postgres, and line coverage
-        run: python -m pytest --cov --cov-report=term
+      - name: Tests, with Postgres, and coverage (85% floor, SPEC.md section 16)
+        run: python -m pytest --cov --cov-report=term --cov-fail-under=85
 
       - name: Audit the pinned dependencies (pip-audit)
         # Fails on any known vulnerability in either file; nothing is ignored.
+        # The pins are the same for every Python, so once is enough.
+        if: matrix.python-version == '3.12'
         run: >-
           python -m pip_audit --strict --progress-spinner off --require-hashes --disable-pip
           -r requirements.txt -r requirements-dev.txt
@@ -164,8 +175,9 @@ jobs:
         run: npm audit --audit-level=low
 
   secrets:
-    # Every PR, whatever it touches. Installed with `go install`, so the Go
-    # checksum database vouches for the code. Bump the version on purpose.
+    # Every run, whatever it touches. The release binary, checked against the
+    # SHA-256 pinned here: no build on every run. Bump both on purpose, taking
+    # the new sum from the release's gitleaks_<version>_checksums.txt.
     name: Secrets (gitleaks)
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -175,10 +187,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Scan the history for secrets
+      - name: Install gitleaks, checked
+        env:
+          VERSION: 8.28.0
+          SHA256: a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb
         run: |
-          go install github.com/zricethezav/gitleaks/v8@v8.28.0
-          "$(go env GOPATH)/bin/gitleaks" git --redact --no-banner --verbose .
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o gitleaks.tar.gz "$url"
+          echo "${SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/gitleaks"
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP/gitleaks" gitleaks
+          rm gitleaks.tar.gz
+          echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
+
+      - name: Scan the history for secrets
+        run: gitleaks git --redact --no-banner --verbose .
 
   result:
     # The one check a ruleset should require, by this name: renaming the job

@@ -661,7 +661,7 @@ The kernel sets these defaults for every site, and a module MUST NOT weaken them
 
 ## 16. Quality gate
 
-A module is `stable` only when it passes every row below in CI. `devkit check` runs the same checks inside a site.
+A module is `stable` only when it passes every row below in CI. `devkit check` runs the same checks inside a site. CI runs on every pull request, every push to `main` and weekly (decision 0015). The end-to-end, accessibility, public-pages and tokens rows run from K4, when there are pages to run them on.
 
 | Area | Bar | Tool |
 | --- | --- | --- |
@@ -781,6 +781,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | Section 16 says when CI runs and which rows start in K4 (decision 0015) |
 | 2026-11-12 | The module switches are cached per process for `MODULES_CACHE_SECONDS`, shared by `require_module` and the CSP (decision 0009, amended; section 12) |
 | 2026-11-12 | Password hashing is bounded: its own pool, 503 `kernel.busy`, parameters from the config, one verify for a missing account (decision 0014; 14, 14.6) |
 | 2026-11-12 | Auth rules from the audit (decision 0013): who can grant what (14.1), no pre-claiming an address (14.3), confirmed second factors only (14.4), `role_version` and known devices (14.5), the step-up limit, 429 answers, normalized keys, sign-up notices and which clock limits read (14.6), override precedence (14.8), API keys follow their creator (14.9) |

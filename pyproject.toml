@@ -71,17 +71,15 @@ known-first-party = ["kernel", "harness", "tools"]
 [tool.mypy]
 python_version = "3.12"
 mypy_path = "kernel/backend"
-files = ["kernel/backend/kernel", "harness", "tools"]
+# Spec section 16: mypy strict. Every module's backend package too (its name
+# is the module's id), so the strict flag is set for everything checked.
+files = ["kernel/backend/kernel", "modules/*/backend", "harness", "tools"]
 plugins = ["pydantic.mypy"]
+strict = true
 warn_unused_configs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 show_error_codes = true
-
-# Spec section 16: mypy strict on the kernel. The harness and tools follow it too.
-[[tool.mypy.overrides]]
-module = ["kernel.*", "harness.*", "tools.*"]
-strict = true
 
 [[tool.mypy.overrides]]
 module = ["alembic.*", "jsonschema.*"]
