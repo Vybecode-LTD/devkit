@@ -589,7 +589,7 @@ Both limits are site settings (Q6).
 
 ### 14.8 Authorization
 
-- Permissions are strings, `<module>.<resource>.<action>`, declared in each manifest with default roles. Owners hold all of them.
+- Permissions are strings, `<module>.<resource>.<action>`, declared in each manifest with default roles. Owners hold all of them. The kernel's own (`auth.*` and `kernel.*`) are declared in `kernel/kernel.json`, and a test holds the auth migration's seed to that list.
 - Roles map to permission sets that staff can edit in the admin.
 - Per-resource overrides grant or deny one permission on one thing, such as a single forum category (VybeMindz `per-resource-permission-overrides`), for one person or one role. A denial beats a grant, and a person's own override beats their role's.
 - `require_owner_or(permission)` covers "your own, or staff with the permission".
@@ -794,6 +794,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | `kernel/kernel.json` declares the kernel's permissions (14.8) |
 | 2026-11-12 | The spec says what the code does (audit F23, F24): section 5's manifest `settings` defers to the `Settings` model; section 6 lists the names built and when the rest arrive, with a table for sites; section 7 gives the discovery names, the problem `type` and the secret-field rules; section 15 lists the seven CSP directives a module may open (decision 0009) |
 | 2026-11-12 | Section 16 says when CI runs and which rows start in K4 (decision 0015) |
 | 2026-11-12 | The module switches are cached per process for `MODULES_CACHE_SECONDS`, shared by `require_module` and the CSP (decision 0009, amended; section 12) |

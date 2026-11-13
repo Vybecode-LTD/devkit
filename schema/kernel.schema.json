@@ -5,7 +5,7 @@
   "description": "SPEC.md sections 3 and 6: the kernel's version, its services and where its public surface is.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "version", "spec", "status", "services", "public_api", "source"],
+  "required": ["id", "version", "spec", "status", "services", "permissions", "public_api", "source"],
   "properties": {
     "$schema": {"type": "string"},
     "id": {"const": "kernel"},
@@ -19,6 +19,27 @@
       "type": "array",
       "items": {"type": "string", "pattern": "^[a-z][a-z_]*$"},
       "uniqueItems": true
+    },
+    "permissions": {
+      "description": "SPEC.md 14.8: the kernel's own permissions, as a module's manifest declares its. The owner role holds every permission; default_roles are the others that get it at install (the auth migration's seed, which a test holds to this list).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "description", "default_roles"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^(auth|kernel)\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          },
+          "description": {"type": "string", "minLength": 3},
+          "default_roles": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          }
+        }
+      }
     },
     "public_api": {
       "type": "object",

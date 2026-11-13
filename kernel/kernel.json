@@ -21,6 +21,50 @@
     "rate_limit",
     "modules"
   ],
+  "permissions": [
+    {
+      "key": "auth.user.manage",
+      "description": "See and edit people's accounts",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
+      "key": "auth.user.suspend",
+      "description": "Suspend and restore accounts",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
+      "key": "auth.role.assign",
+      "description": "Grant and remove roles, within the permissions you hold",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
+      "key": "auth.audit.read",
+      "description": "Read the audit log",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
+      "key": "kernel.module.manage",
+      "description": "Switch modules on and off",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
+      "key": "kernel.settings.manage",
+      "description": "Change any module's settings",
+      "default_roles": [
+        "admin"
+      ]
+    }
+  ],
   "public_api": {
     "backend": "backend/kernel/__init__.py",
     "web": "web/index.ts"
