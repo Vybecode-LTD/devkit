@@ -31,6 +31,9 @@ norecursedirs = ["node_modules", ".venv", "_template", "templates", "dist"]
 [tool.coverage.run]
 source = ["kernel/backend/kernel", "harness", "tools"]
 branch = true
+# SQLAlchemy's async layer runs on greenlets: without this, lines after a
+# database await inside a request go unmeasured.
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
 precision = 2
@@ -62,7 +65,13 @@ ignore = ["E501"]
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's dependency markers are meant as argument defaults.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body", "fastapi.Header", "fastapi.Cookie", "fastapi.Security"]
+extend-immutable-calls = [
+  "fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body", "fastapi.Header", "fastapi.Cookie", "fastapi.Security",
+  # The kernel's access dependency factories, which routes call inside Depends().
+  "kernel.require_permission", "kernel.require_owner_or", "kernel.require_recent_auth",
+  "kernel.auth.dependencies.require_permission", "kernel.auth.dependencies.require_owner_or",
+  "kernel.auth.dependencies.require_recent_auth",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["kernel", "harness", "tools"]

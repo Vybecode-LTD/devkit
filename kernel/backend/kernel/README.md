@@ -21,6 +21,6 @@
 | `routes.py` | `/api/kernel/health`, `/api/kernel/modules` | K1 |
 | `clock.py` | The kernel's clock, which tests can move forward (`advance`, `reset`) | K1 |
 | `version.py` | `__version__`, kept in step with `kernel.json` | K1 |
-| `auth/` | `models.py` (every auth table), `passwords.py` (Argon2id, the rules, the bundled list, Pwned Passwords), `hashing.py` (keyed hashes for one-time secrets), `sessions.py` (opaque cookie sessions, their limits and new tokens, the known-device cookie), `data/` (the common-password list) | K2, started |
+| `auth/` | `models.py` (every auth table), `passwords.py` (Argon2id, the rules, the bundled list, Pwned Passwords), `hashing.py` (keyed hashes for one-time secrets), `sessions.py` (opaque cookie sessions, their limits and new tokens, the known-device cookie), `permissions.py` (who holds what: owners, roles, per-resource overrides), `dependencies.py` (`current_user` and the other access dependencies, the admin gate, `SessionCookies`), `data/` (the common-password list) | K2, started |
 
-Still to come: the rest of `auth` (K2: the access dependencies, sign-in, passkeys, OAuth, TOTP, API keys and the routes); `email`, `storage`, `events`, `jobs`, `notifications`, `moderation`, `audit`, `retention`, public rendering and the AI client (K3).
+Still to come: the rest of `auth` (K2: sign-in, passkeys, OAuth, TOTP, API keys and the routes); `email`, `storage`, `events`, `jobs`, `notifications`, `moderation`, `audit`, `retention`, public rendering and the AI client (K3).

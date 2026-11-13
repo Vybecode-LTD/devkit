@@ -144,7 +144,13 @@ async def test_the_seeded_grants_are_the_kernel_manifests(tx: AsyncSession) -> N
 
     manifest = json.loads((Path(__file__).parents[2] / "kernel.json").read_text("utf-8"))
     declared = {item["key"]: set(item["default_roles"]) for item in manifest["permissions"]}
-    rows = await tx.execute(text("SELECT role_id, permission FROM auth_role_permission"))
+    # Built-in roles only: other tests add custom roles with grants of their own.
+    rows = await tx.execute(
+        text(
+            "SELECT p.role_id, p.permission FROM auth_role_permission p"
+            " JOIN auth_role r ON r.id = p.role_id WHERE r.builtin"
+        )
+    )
     seeded: dict[str, set[str]] = {}
     for role, permission in rows:
         seeded.setdefault(permission, set()).add(role)

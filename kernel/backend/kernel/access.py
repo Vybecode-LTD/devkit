@@ -1,7 +1,9 @@
 """Every route declares who may call it (SPEC.md section 7, 14.13).
 
-A route is **public** (`Depends(public)`), for **members** (`current_user`,
-K2) or behind a **permission** (`require_permission(key)`, K2). `undeclared`
+A route is **public** (`Depends(public)` or `optional_user`), for **members**
+(`current_user`, `require_recent_auth`), for **its owner or a permission
+holder** (`require_owner_or`) or behind a **permission**
+(`require_permission(key)`); the last four are in `kernel.auth.dependencies`. `undeclared`
 lists every API route under /api/ whose access is missing or can't be right;
 a test fails on any, so a route can't ship open by accident:
 
@@ -22,9 +24,9 @@ from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute, APIWebSocketRoute, iter_route_contexts
 from starlette.routing import Mount
 
-#: Marks set by the access dependencies; K2 adds member and permission.
+#: Set by the access dependencies: public, member, owner_or or permission.
 ACCESS_MARK = "__devkit_access__"
-#: Set by `require_recent_auth` (K2), so the step-up routes can be listed.
+#: Set by `require_recent_auth`, so the step-up routes can be listed.
 STEP_UP_MARK = "__devkit_step_up__"
 
 
