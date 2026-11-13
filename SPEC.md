@@ -506,7 +506,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 **Email codes and magic links**
 
 - Members only, and never a second factor. NIST forbids email as an out-of-band authenticator, so this counts as low-assurance convenience, like a password reset.
-- A 6-digit code or a 32-byte link token, valid 10 minutes, single use, stored hashed. Five wrong tries end it. A resend waits at least 60 seconds.
+- A 6-digit code or a 32-byte link token, valid 10 minutes, single use, stored as a keyed hash (14.12). Five wrong tries end it. A resend waits at least 60 seconds.
 - A link opens a confirm page, and only that page's POST signs in. Mail scanners that pre-open links can neither use them up nor sign anyone in.
 
 ### 14.3 Linking accounts without takeovers
@@ -519,7 +519,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 ### 14.4 Second factors and step-up
 
 - TOTP (RFC 6238, pyotp): 6 digits, 30-second steps, one step of drift either way, the secret sealed at rest, and a code refused if its step was already used.
-- Recovery codes: 10 single-use codes, stored hashed and shown once. Making new ones voids the old.
+- Recovery codes: 10 single-use codes, stored as keyed hashes and shown once. Making new ones voids the old.
 - Passkeys count as a second factor.
 - Required for staff. Optional for members, unless the site's setting requires it.
 - Step-up: changing email, password, second factors or passkeys, creating API keys, changing roles or payout details, and deleting the account all need a sign-in within the last 10 minutes (`require_recent_auth`).
@@ -596,15 +596,17 @@ Both limits are site settings (Q6).
 | `auth_identity` | Linked providers: provider, subject, email, verified flag |
 | `auth_passkey` | Credential id, public key, sign count, name, last use |
 | `auth_totp` | Sealed secret, last used step |
-| `auth_recovery_code` | Hashed codes, used time |
-| `auth_session` | Token hash, user, start, last seen, expiry, device details |
-| `auth_token` | Hashed one-time tokens: verification, reset, sign-in code, magic link, email change, invite |
+| `auth_recovery_code` | Keyed hashes of the codes, unique per person; used time |
+| `auth_session` | Token hash, user, start, last seen, expiry, user agent and device details |
+| `auth_token` | One-time tokens as keyed hashes: verification, reset, sign-in code, magic link, email change, invite. A 32-byte token is unique by its hash; a 6-digit code is found by its purpose and address |
 | `auth_api_key` | Id, secret hash, scopes, expiry, last use |
 | `auth_audit_event` | The audit log |
 
 ### 14.12 Crypto and secrets
 
 - Random values come from Python's `secrets`, and every token check is a constant-time comparison.
+- One-time tokens, sign-in codes and recovery codes are kept as HMAC-SHA256 under SECRET_KEY, over their purpose, owner and value (decision 0012). Session tokens and API-key secrets, 32 random bytes each, keep a plain SHA-256.
+- Every foreign key has an index.
 - Secrets at rest (TOTP secrets, stored provider tokens) are sealed by kernel crypto with MultiFernet, so keys rotate without downtime.
 - Outside debug, the app refuses to start on a default, placeholder or short secret (VybeSite's check).
 
@@ -771,6 +773,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-12 | One-time tokens, codes and recovery codes are kept as keyed hashes; sign-in codes aren't unique by hash; sessions keep the user agent; every foreign key is indexed (decision 0012; 14.2, 14.4, 14.11, 14.12) |
 | 2026-11-12 | The repo is public for now, the code still proprietary (decision 0011); the client folder's name and the inventory moved out of git |
 | 2026-11-12 | 14.13 points to the auth HTTP contract (`docs/contracts/auth-api.md`) and the harness's test support (decision 0010) |
 | 2026-11-12 | K1 conventions (decision 0009): `settings.for_module` takes the session; secret settings are `SecretStr` fields; problem types are `urn:devkit:problem:<code>`; ENCRYPTION_KEYS rotates with MultiFernet; module CSP hosts are https origins in a fixed set of directives |

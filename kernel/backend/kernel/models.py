@@ -29,7 +29,10 @@ class ModuleState(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     updated_by_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("auth_user.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
 
@@ -46,7 +49,10 @@ class Setting(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
     updated_by_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("auth_user.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
 
@@ -67,7 +73,10 @@ class SettingVersion(Base):
     via: Mapped[str] = mapped_column(String(20))
     saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     saved_by_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("auth_user.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
 
