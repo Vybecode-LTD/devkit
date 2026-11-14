@@ -7,6 +7,7 @@
   - **`POST /api/auth/verify-email/resend`**, for a signed-in account, with no body. It answers 202 `{"status": "check_email"}` and mails a new 24-hour link to the address the account has now. The last link stops working, so one is live at a time.
   - **409 `auth.already_verified`** once the address is verified. The account is the caller's own, so there is nothing to hide, and a client can say so plainly. This check comes before the limit, so a verified account's requests spend no budget. It is made again under the account's row lock, so a verification landing while a request waits wins.
   - **Limited as codes are, per account:** 3 in 15 minutes, and a request within 60 seconds of the last link (by `kernel.clock`) answers the same and sends nothing. The account row is locked while that is decided, so requests at once, from any number of browsers, send one link.
+  - **Verifying takes the same order** (Codex on #44): `verify-email` finds the link's owner without locking (`tokens.owner_of`), locks the account, then redeems the link. It used to take the link's row first and the account's when it marked the address, so a verify and a resend at once deadlocked.
   - **Audit:** `auth.verification_resent`, `success` or `waiting`, with the account as actor and subject.
 - **Alternatives:**
   - *A public route taking an address.* It would need the same answer for every address and the answer floor, and its mail could be aimed at anyone's inbox. An unverified account can sign in, so a signed-in route is enough.

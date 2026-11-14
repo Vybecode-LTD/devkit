@@ -931,3 +931,40 @@ async def test_a_verified_account_is_sent_no_new_link(api: Api) -> None:
 async def test_a_new_verification_link_needs_a_session(api: Api) -> None:
     refused = await api.http.post("/api/auth/verify-email/resend")
     assert (refused.status_code, refused.json()["code"]) == (401, "kernel.not_signed_in")
+
+
+async def test_a_new_verification_link_voids_the_last(api: Api) -> None:
+    user = await api.make_user(verified=False)
+    await api.signed_in_as(user)
+    await api.http.post("/api/auth/verify-email/resend")
+    first = await api.new_token(user.email, "/auth/verify", not_="")
+    await api.advance(61)  # past the wait
+    await api.http.post("/api/auth/verify-email/resend")
+    second = await api.new_token(user.email, "/auth/verify", not_=first)
+    gone = await api.http.post("/api/auth/verify-email", json={"token": first})
+    assert (gone.status_code, gone.json()["code"]) == (400, "auth.token_invalid")
+    kept = await api.http.post("/api/auth/verify-email", json={"token": second})
+    assert _shape(kept) == (200, {"status": "verified"})
+
+
+async def test_a_new_verification_link_within_60_seconds_sends_nothing(api: Api) -> None:
+    user = await api.make_user(verified=False)
+    await api.signed_in_as(user)
+    first = await api.http.post("/api/auth/verify-email/resend")
+    assert len(await api.mail(user.email, at_least=2)) == 2  # the sign-in's notice, the link
+    second = await api.http.post("/api/auth/verify-email/resend")
+    assert _shape(first) == _shape(second) == (202, {"status": "check_email"})
+    assert len(await api.mail(user.email)) == 2
+    await api.advance(61)
+    await api.http.post("/api/auth/verify-email/resend")
+    assert len(await api.mail(user.email, at_least=3)) == 3
+
+
+async def test_new_verification_links_3_per_account_per_15_minutes(api: Api) -> None:
+    user = await api.make_user(verified=False)
+    await api.signed_in_as(user)
+    for _ in range(3):
+        assert (await api.http.post("/api/auth/verify-email/resend")).status_code == 202
+        await api.advance(61)  # past the wait
+    fourth = await api.http.post("/api/auth/verify-email/resend")
+    assert (fourth.status_code, fourth.json()["code"]) == (429, "kernel.rate_limited")

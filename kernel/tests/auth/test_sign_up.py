@@ -647,3 +647,64 @@ async def test_a_failing_mailer_doesnt_fail_a_resend(site: Site) -> None:
     site.app.state.mailer.inner = Broken()
     clock.advance(61)
     assert (await _resend(site.http)).status_code == 202
+
+
+async def test_verifying_locks_the_account_before_its_link(site: Site) -> None:
+    """A resend locks the account, then voids the live link; verifying took
+    the link first, then the account when it marked the address, and the two
+    deadlocked (Codex on #44). Hold the account row, wait until verifying is
+    blocked, and check it hasn't taken its link's row yet."""
+    email, first = await _signed_up_and_in(site)
+    user = await site.user(email)
+    assert user is not None
+    async with site.db() as db:
+        row_id = await db.scalar(
+            select(Token.id).where(Token.token_hash == keyed_hash("verify_email", first))
+        )
+    async with site.db() as holder, site.db() as watcher:
+        await holder.execute(select(User.id).where(User.id == user.id).with_for_update())
+        verifying = asyncio.create_task(site.verify(first))
+        try:
+            blocked = False
+            for _ in range(250):
+                await asyncio.sleep(0.02)
+                blocked = bool(
+                    await watcher.scalar(
+                        text(
+                            "SELECT count(*) FROM pg_stat_activity"
+                            " WHERE wait_event_type = 'Lock' AND datname = current_database()"
+                        )
+                    )
+                )
+                await watcher.rollback()
+                if blocked:
+                    break
+            assert blocked, "verifying never waited for the account row"
+            free = await watcher.scalar(
+                text("SELECT id FROM auth_token WHERE id = :id FOR UPDATE NOWAIT"),
+                {"id": row_id},
+            )
+            assert free == row_id
+        finally:
+            await watcher.rollback()
+            await holder.rollback()
+            answer = await verifying
+    assert answer.json() == {"status": "verified"}
+
+
+async def test_a_verify_and_a_resend_at_once_never_fail(site: Site) -> None:
+    """The real overlap (CodeRabbit on #44): a verify of the live link and a
+    resend past the wait, at once. Either may come first, so the verify is a
+    200 or a 400 and the resend a 202 or a 409, but never a deadlock's 500."""
+    await _warm(site)
+    for _ in range(3):
+        email, first = await _signed_up_and_in(site)
+        other = _browser(site)
+        signed = await other.post("/api/auth/sign-in", json={"email": email, "password": PASSWORD})
+        assert signed.status_code == 200
+        clock.advance(61)
+        verified, resent = await asyncio.gather(
+            _browser(site).post("/api/auth/verify-email", json={"token": first}), _resend(other)
+        )
+        assert verified.status_code in {200, 400}
+        assert resent.status_code in {202, 409}

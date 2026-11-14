@@ -23,7 +23,8 @@ link counts toward the 3 but always goes out: there is only one per account,
 and notices from sign-ups racing it mustn't crowd it out.
 
 **Verifying** takes the link's token once, within 24 hours, and only while
-the account still has the address it was sent to. It signs nobody in.
+the account still has the address it was sent to. It signs nobody in. It
+locks the account before the link's row, as a resend does.
 
 **A new link** (`POST /verify-email/resend`, decision 0023) goes to a
 signed-in account whose address isn't verified yet, at the address it has
@@ -194,7 +195,11 @@ async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
 async def verify_email(
     body: VerifyEmail, request: Request, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
-    redeemed = await tokens.redeem(db, _VERIFY, body.token)
+    # The account before the link's row, as a resend takes them (Codex on #44).
+    owner = await tokens.owner_of(db, _VERIFY, body.token)
+    if owner is not None:
+        await accounts.lock(db, owner)
+    redeemed = await tokens.redeem(db, _VERIFY, body.token) if owner is not None else None
     user = (
         await db.get(User, redeemed.user_id, populate_existing=True)
         if redeemed is not None
