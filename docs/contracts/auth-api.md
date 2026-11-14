@@ -19,6 +19,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 - **Device cookie:** `__Host-dk_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
 - **Codes and links:** 3 per email per 15 minutes, 10 per IP per hour. A second `POST /api/auth/code` within 60 seconds answers the same 202 and sends nothing.
 - **Reset requests:** limited as codes are, the wait included: a second request within 60 seconds answers the same 202 and sends nothing.
+- **A new verification link:** 3 per account per 15 minutes. A second request within 60 seconds of the last link answers the same 202 and sends nothing.
 - **Sign-up:** 5 per IP per hour. Past 3 sign-up mails to one address in 15 minutes, a sign-up for an address that has an account answers the same 202 and sends no notice. A new account's verification link always goes out.
 - **Second factor:** 5 failures end the challenge (`auth.challenge_ended`). Past 10 failures on one account in an hour, its challenges answer 429 until the hour has passed.
 - **Step-up:** 5 failures per session in 15 minutes end the session (401 `kernel.not_signed_in` from then on).
@@ -27,7 +28,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 
 - **`POST /api/auth/code`:** one message holding both the 6-digit code and the link `/auth/link?token=…`.
 - **`POST /api/auth/password/reset-request`:** `/auth/reset?token=…`.
-- **Sign-up:** `/auth/verify?token=…`.
+- **Sign-up, and a new verification link:** `/auth/verify?token=…`.
 - **Email change:** `/auth/email?token=…` to the new address, and `/auth/email/undo?token=…` to the old one.
 
 ## Public
@@ -54,6 +55,7 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 
 | Method and path | Body | Answer |
 | --- | --- | --- |
+| `POST /api/auth/verify-email/resend` | | 202 `{"status": "check_email"}`: a new 24-hour link to the address the account has now, the last one void. 409 `auth.already_verified` once it is verified |
 | `POST /api/auth/step-up` | `{password}` or `{totp}` | 200 `{"status": "recent"}`; the session token is replaced. 401 `auth.invalid_credentials` for a wrong password or `auth.invalid_second_factor` for a wrong code, the session kept; the fifth failure answers 401 `kernel.not_signed_in` and ends it |
 | `POST /api/auth/password/change` | `{current_password, new_password}` | **step-up.** 200; every other session ends; 422 `auth.password_rejected` with the reason |
 | `POST /api/auth/email/change` | `{email}` | **step-up.** 202; the new address confirms it |

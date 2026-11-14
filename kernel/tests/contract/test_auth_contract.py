@@ -906,3 +906,28 @@ async def test_signing_in_cancels_a_deletion(api: Api) -> None:
     deleted = (await api.http.get("/api/_test/delete-hooks")).json()["deleted"]
     assert leaves.id in deleted  # the jobs ran
     assert keeps.id not in deleted
+
+
+# A signed-in account can ask for a new verification link (decision 0023)
+
+
+async def test_a_signed_in_account_can_ask_for_a_new_verification_link(api: Api) -> None:
+    user = await api.make_user(verified=False)
+    await api.signed_in_as(user)
+    sent = await api.http.post("/api/auth/verify-email/resend")
+    assert _shape(sent) == (202, {"status": "check_email"})
+    token = await api.new_token(user.email, "/auth/verify", not_="")
+    verified = await api.http.post("/api/auth/verify-email", json={"token": token})
+    assert _shape(verified) == (200, {"status": "verified"})
+    assert (await api.session()).json()["user"]["verified"] is True
+
+
+async def test_a_verified_account_is_sent_no_new_link(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    refused = await api.http.post("/api/auth/verify-email/resend")
+    assert (refused.status_code, refused.json()["code"]) == (409, "auth.already_verified")
+
+
+async def test_a_new_verification_link_needs_a_session(api: Api) -> None:
+    refused = await api.http.post("/api/auth/verify-email/resend")
+    assert (refused.status_code, refused.json()["code"]) == (401, "kernel.not_signed_in")

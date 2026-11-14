@@ -24,6 +24,15 @@ and notices from sign-ups racing it mustn't crowd it out.
 
 **Verifying** takes the link's token once, within 24 hours, and only while
 the account still has the address it was sent to. It signs nobody in.
+
+**A new link** (`POST /verify-email/resend`, decision 0023) goes to a
+signed-in account whose address isn't verified yet, at the address it has
+now, and voids the last one. It is limited as codes are: 3 per account in
+15 minutes, and a request within 60 seconds of the last link (by
+`kernel.clock`) answers the same and sends nothing. The account row is
+locked while that is decided, so requests at once send one link. A
+verified address answers 409 `auth.already_verified`: the account is the
+caller's own, so there is nothing to hide.
 """
 
 from __future__ import annotations
@@ -35,19 +44,21 @@ from typing import cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
 from kernel.access import public
 from kernel.auth import accounts, audit, tokens
-from kernel.auth.models import User, UserRole
+from kernel.auth.dependencies import current_user
+from kernel.auth.models import Token, User, UserRole
 from kernel.auth.passwords import Passwords, refusal, site_context
 from kernel.config import KernelConfig
 from kernel.db import get_db
 from kernel.email import MAX_ADDRESS, Mailer, is_address
 from kernel.errors import Problem
-from kernel.ratelimit import RateLimiter, rate_limit
+from kernel.ratelimit import RateLimiter, rate_limit, too_many
 
 log = logging.getLogger(__name__)
 
@@ -56,7 +67,10 @@ router = APIRouter()
 SIGN_UPS_PER_IP = "5/1h"
 SIGN_UP_MAILS = "3/15m"
 VERIFY_LIFETIME_HOURS = 24
+RESENDS_PER_ACCOUNT = "3/15m"
+RESEND_WAIT = timedelta(seconds=60)
 _MAIL_SCOPE = "auth.sign_up.mail"
+_RESEND_SCOPE = "auth.verify_email.resend"
 _VERIFY = "verify_email"
 _MEMBER = "member"
 
@@ -203,3 +217,62 @@ async def verify_email(
     audit.record(db, request, "auth.email_verified", "success", actor=user.id, subject=user.id)
     await db.commit()
     return {"status": "verified"}
+
+
+@router.post("/verify-email/resend", status_code=202)
+async def resend_verification(
+    request: Request,
+    background: BackgroundTasks,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """A new verification link for the signed-in account (decision 0023)."""
+    if user.email_verified_at is not None:
+        raise _already_verified()
+    limiter = cast(RateLimiter, request.app.state.limiter)
+    key = str(user.id)
+    if not await limiter.hit(RESENDS_PER_ACCOUNT, _RESEND_SCOPE, key):
+        raise too_many(await limiter.wait_seconds(RESENDS_PER_ACCOUNT, _RESEND_SCOPE, key))
+    await accounts.lock(db, user.id)  # before its token rows, as every route does
+    fresh = await db.get(User, user.id, populate_existing=True)
+    if fresh is None or fresh.email_verified_at is not None:
+        await db.rollback()
+        raise _already_verified()
+    recent = exists().where(
+        Token.purpose == _VERIFY,
+        Token.user_id == fresh.id,
+        Token.created_at > clock.now() - RESEND_WAIT,
+    )
+    if await db.scalar(select(recent)):
+        audit.record(
+            db, request, "auth.verification_resent", "waiting", actor=fresh.id, subject=fresh.id
+        )
+        await db.commit()
+        return {"status": "check_email"}
+    await tokens.void(db, fresh.id, (_VERIFY,))
+    token = await tokens.issue(
+        db, _VERIFY, fresh.id, fresh.email_normal, lifetime=timedelta(hours=VERIFY_LIFETIME_HOURS)
+    )
+    audit.record(
+        db, request, "auth.verification_resent", "success", actor=fresh.id, subject=fresh.id
+    )
+    to = fresh.email
+    await db.commit()
+    background.add_task(
+        _send, request.app.state.mailer, to, *_resend_mail(request.app.state.config, token)
+    )
+    return {"status": "check_email"}
+
+
+def _already_verified() -> Problem:
+    return Problem("auth.already_verified", 409, "This address is verified already.")
+
+
+def _resend_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+    return (
+        f"Confirm your email for {config.site_name}",
+        f"Here is a new link to confirm this is your {config.site_name} address. "
+        f"Open it within {VERIFY_LIFETIME_HOURS} hours:\n\n"
+        f"{_site(config)}/auth/verify?token={token}\n\n"
+        "Any earlier link no longer works.\n",
+    )

@@ -21,7 +21,7 @@ import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
@@ -453,3 +453,197 @@ async def test_a_failing_mailer_changes_nothing(
         assert await site.user(email) is not None
         assert "RuntimeError" in caplog.text
         assert email.lower() not in caplog.text.lower()
+
+
+# --- a new verification link (decision 0023) ------------------------------------
+
+
+async def _signed_up_and_in(site: Site) -> tuple[str, str]:
+    """A new account, signed in on `site.http`: its address and first link."""
+    email = _address()
+    await site.sign_up(email)
+    first = _last_link(site, email)
+    signed = await site.http.post("/api/auth/sign-in", json={"email": email, "password": PASSWORD})
+    assert signed.json()["status"] == "signed_in", signed.text
+    return email, first
+
+
+def _verify_mails(site: Site, email: str) -> list[str]:
+    return [m.text for m in site.mail.to(email) if "/auth/verify?" in m.text]
+
+
+def _last_link(site: Site, email: str) -> str:
+    mails = _verify_mails(site, email)
+    assert mails, site.mail.to(email)
+    return _token(mails[-1])
+
+
+async def _resend(http: httpx.AsyncClient) -> httpx.Response:
+    return await http.post("/api/auth/verify-email/resend")
+
+
+async def test_a_signed_in_account_gets_a_new_link_and_the_last_one_goes(site: Site) -> None:
+    email, first = await _signed_up_and_in(site)
+    clock.advance(61)
+    sent = await _resend(site.http)
+    assert (sent.status_code, sent.json()) == (202, {"status": "check_email"})
+    second = _last_link(site, email)
+    assert second != first
+    async with site.db() as db:
+        row = await db.scalar(
+            select(Token).where(Token.token_hash == keyed_hash("verify_email", second))
+        )
+    assert row is not None
+    assert row.expires_at - row.created_at == timedelta(hours=24)
+    gone = await site.verify(first)
+    assert (gone.status_code, gone.json()["code"]) == (400, "auth.token_invalid")
+    assert (await site.verify(second)).json() == {"status": "verified"}
+
+
+async def test_a_resend_within_60_seconds_sends_nothing(site: Site) -> None:
+    email, first = await _signed_up_and_in(site)
+    clock.advance(59)
+    sent = await _resend(site.http)
+    assert (sent.status_code, sent.json()) == (202, {"status": "check_email"})
+    assert len(_verify_mails(site, email)) == 1
+    assert (await site.verify(first)).json() == {"status": "verified"}  # still the live one
+
+
+async def test_resends_are_limited_per_account(site: Site) -> None:
+    email, _ = await _signed_up_and_in(site)
+    for _ in range(3):
+        clock.advance(61)  # past the wait, so each one sends
+        assert (await _resend(site.http)).status_code == 202
+    assert len(_verify_mails(site, email)) == 4  # sign-up's, then three
+    clock.advance(61)
+    refused = await _resend(site.http)
+    assert (refused.status_code, refused.json()["code"]) == (429, "kernel.rate_limited")
+
+
+async def test_a_verified_account_is_told_so(site: Site) -> None:
+    email, first = await _signed_up_and_in(site)
+    await site.verify(first)
+    clock.advance(61)
+    refused = await _resend(site.http)
+    assert (refused.status_code, refused.json()["code"]) == (409, "auth.already_verified")
+    assert len(_verify_mails(site, email)) == 1
+
+
+async def test_resending_needs_a_session(site: Site) -> None:
+    transport = httpx.ASGITransport(app=site.app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url=SITE, headers=_SAME_ORIGIN) as new:
+        refused = await _resend(new)
+    assert (refused.status_code, refused.json()["code"]) == (401, "kernel.not_signed_in")
+
+
+async def test_the_link_goes_to_the_address_the_account_has_now(site: Site) -> None:
+    email, _ = await _signed_up_and_in(site)
+    moved = _address("Moved")
+    async with site.db() as db:
+        await db.execute(
+            update(User)
+            .where(User.email_normal == normal_email(email))
+            .values(email=moved, email_normal=normal_email(moved))
+        )
+        await db.commit()
+    clock.advance(61)
+    await _resend(site.http)
+    assert (await site.verify(_last_link(site, moved))).json() == {"status": "verified"}
+
+
+def _browser(site: Site) -> httpx.AsyncClient:
+    transport = httpx.ASGITransport(app=site.app, raise_app_exceptions=False)
+    return httpx.AsyncClient(transport=transport, base_url=SITE, headers=_SAME_ORIGIN)
+
+
+async def _warm(site: Site) -> None:
+    """A warm pool, or requests at once never overlap (`test_codes.py:_warm`)."""
+    opened = [site.db() for _ in range(3)]
+    try:
+        await asyncio.gather(*(db.execute(select(1)) for db in opened))
+    finally:
+        for db in opened:
+            await db.close()
+
+
+async def test_resends_at_once_send_one_link(site: Site) -> None:
+    """From three browsers signed in to the account: one browser's requests
+    overlapped only some of the time, three browsers' every time (seen
+    without the account lock: two links from one browser, three from three)."""
+    email, _ = await _signed_up_and_in(site)
+    browsers = [_browser(site) for _ in range(3)]
+    for browser in browsers:
+        signed = await browser.post(
+            "/api/auth/sign-in", json={"email": email, "password": PASSWORD}
+        )
+        assert signed.status_code == 200
+    await _warm(site)
+    clock.advance(61)
+    answers = await asyncio.gather(*(_resend(b) for b in browsers))
+    assert [a.status_code for a in answers] == [202] * 3
+    assert len(_verify_mails(site, email)) == 2  # sign-up's, then one
+
+
+async def test_a_verified_accounts_requests_spend_no_budget(site: Site) -> None:
+    """The verified check comes before the limit: a verified account's
+    requests are all told so, never 429."""
+    _, first = await _signed_up_and_in(site)
+    await site.verify(first)
+    answers = [(await _resend(site.http)).status_code for _ in range(4)]
+    assert answers == [409] * 4
+
+
+async def test_a_verification_landing_while_a_resend_waits_wins(site: Site) -> None:
+    """The check under the account lock: a request waiting for the lock while
+    the address is verified answers 409 and sends nothing."""
+    email, _ = await _signed_up_and_in(site)
+    user = await site.user(email)
+    assert user is not None
+    clock.advance(61)
+    async with site.db() as holder, site.db() as watcher:
+        await holder.execute(select(User.id).where(User.id == user.id).with_for_update())
+        waiting = asyncio.create_task(_resend(site.http))
+        try:
+            for _ in range(250):
+                await asyncio.sleep(0.02)
+                blocked = await watcher.scalar(
+                    text(
+                        "SELECT count(*) FROM pg_stat_activity"
+                        " WHERE wait_event_type = 'Lock' AND datname = current_database()"
+                    )
+                )
+                await watcher.rollback()
+                if blocked:
+                    break
+            assert blocked, "the resend never waited for the account row"
+            await holder.execute(
+                update(User).where(User.id == user.id).values(email_verified_at=clock.now())
+            )
+            await holder.commit()
+        finally:
+            await holder.rollback()
+            answer = await waiting
+    assert (answer.status_code, answer.json()["code"]) == (409, "auth.already_verified")
+    assert len(_verify_mails(site, email)) == 1
+
+
+async def test_a_resend_is_audited(site: Site) -> None:
+    email, _ = await _signed_up_and_in(site)
+    clock.advance(61)
+    await _resend(site.http)
+    user = await site.user(email)
+    assert user is not None
+    [event] = await site.audit("auth.verification_resent")
+    assert (event.result, event.actor_id, event.subject_id) == ("success", user.id, user.id)
+    assert email.lower() not in str(event.details).lower()
+
+
+async def test_a_failing_mailer_doesnt_fail_a_resend(site: Site) -> None:
+    class Broken:
+        async def send(self, *args: object, **kwargs: object) -> None:
+            raise ConnectionError("the mail host is down")
+
+    await _signed_up_and_in(site)
+    site.app.state.mailer.inner = Broken()
+    clock.advance(61)
+    assert (await _resend(site.http)).status_code == 202
