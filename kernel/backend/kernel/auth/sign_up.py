@@ -17,8 +17,10 @@ sign-ups for one new address at once make one account: the insert skips a
 taken address, and the later one is sent the notice.
 
 **Limits:** 5 sign-ups per IP an hour (14.6). Past 3 sign-up mails to one
-address in 15 minutes, a sign-up is answered the same and sends nothing, so
-the form can't be used to flood someone's inbox.
+address in 15 minutes, a sign-up is answered the same and sends no notice, so
+the form can't be used to flood someone's inbox. An account's verification
+link counts toward the 3 but always goes out: there is only one per account,
+and notices from sign-ups racing it mustn't crowd it out.
 
 **Verifying** takes the link's token once, within 24 hours, and only while
 the account still has the address it was sent to. It signs nobody in.
@@ -143,7 +145,8 @@ async def sign_up(
         subject, text = _verify_mail(config, token)
     await db.commit()
     limiter = cast(RateLimiter, request.app.state.limiter)
-    if await limiter.hit(SIGN_UP_MAILS, _MAIL_SCOPE, normal):
+    allowed = await limiter.hit(SIGN_UP_MAILS, _MAIL_SCOPE, normal)
+    if allowed or made is not None:
         background.add_task(_send, request.app.state.mailer, to, subject, text)
     return {"status": "check_email"}
 

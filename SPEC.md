@@ -566,7 +566,7 @@ Both limits are site settings (Q6).
 | Password sign-in | 10 per IP per minute; past 5 failures on one account in 15 minutes, 10 in an hour or 20 in a day, every password waits, the right one too, except on a known device (decision 0019) |
 | Code or link sent | 3 per email per 15 minutes; 10 per IP per hour |
 | Password reset request | Same as a code send |
-| Sign-up | 5 per IP per hour; past 3 sign-up mails to one address in 15 minutes, the same answer and nothing sent (decision 0020) |
+| Sign-up | 5 per IP per hour; past 3 sign-up mails to one address in 15 minutes, the same answer and no notice sent, though an account's one verification link always goes (decision 0020) |
 | Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019) |
 | Step-up | 5 failures per session in 15 minutes, then the session ends |
 

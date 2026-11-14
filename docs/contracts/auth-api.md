@@ -19,7 +19,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 - **Device cookie:** `__Host-dk_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
 - **Codes and links:** 3 per email per 15 minutes, 10 per IP per hour. A second `POST /api/auth/code` within 60 seconds answers the same 202 and sends nothing.
 - **Reset requests:** limited as codes are.
-- **Sign-up:** 5 per IP per hour. Past 3 sign-up mails to one address in 15 minutes, a sign-up answers the same 202 and sends nothing.
+- **Sign-up:** 5 per IP per hour. Past 3 sign-up mails to one address in 15 minutes, a sign-up for an address that has an account answers the same 202 and sends no notice. A new account's verification link always goes out.
 - **Second factor:** 5 failures end the challenge (`auth.challenge_ended`). Past 10 failures on one account in an hour, its challenges answer 429 until the hour has passed.
 - **Step-up:** 5 failures per session in 15 minutes end the session (401 `kernel.not_signed_in` from then on).
 

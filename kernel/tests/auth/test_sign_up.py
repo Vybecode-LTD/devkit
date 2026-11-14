@@ -321,8 +321,8 @@ async def test_either_way_one_password_is_hashed(site: Site, known: bool) -> Non
 
 async def test_sign_ups_at_once_for_one_address_make_one_account(site: Site) -> None:
     email = _address()
-    answers = await asyncio.gather(*(site.sign_up(email) for _ in range(3)))
-    assert [answer.status_code for answer in answers] == [202] * 3
+    answers = await asyncio.gather(*(site.sign_up(email) for _ in range(5)))
+    assert [answer.status_code for answer in answers] == [202] * 5
     async with site.db() as db:
         made = await db.scalar(
             select(func.count()).select_from(User).where(User.email_normal == email.lower())
@@ -330,14 +330,30 @@ async def test_sign_ups_at_once_for_one_address_make_one_account(site: Site) -> 
     assert made == 1
     texts = [message.text for message in site.mail.to(email)]
     assert sum("/auth/verify?token=" in text for text in texts) == 1
-    assert len(texts) == 3
+    # The link, then notices until the address's budget of 3 is spent; one
+    # more when notices racing ahead spent it before the link went.
+    assert 3 <= len(texts) <= 4
 
 
-async def test_past_3_mails_in_15_minutes_an_address_is_sent_nothing(site: Site) -> None:
+async def test_past_3_mails_in_15_minutes_an_address_is_sent_no_more_notices(
+    site: Site,
+) -> None:
     email = _address()
     answers = [(await site.sign_up(email)).status_code for _ in range(5)]
     assert answers == [202] * 5
     assert len(site.mail.to(email)) == 3
+
+
+async def test_the_link_goes_out_even_when_notices_spent_the_budget(site: Site) -> None:
+    """Sign-ups racing the one that makes the account can find it made and
+    spend the address's budget on notices before its link is sent: the link
+    must still go, or the account could never be verified (Codex on #39)."""
+    email = _address()
+    for _ in range(3):
+        await site.app.state.limiter.hit("3/15m", "auth.sign_up.mail", email.lower())
+    assert (await site.sign_up(email)).status_code == 202
+    [message] = site.mail.to(email)
+    assert _token(message.text)
 
 
 # --- what's refused ----------------------------------------------------------------

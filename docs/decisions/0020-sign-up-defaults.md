@@ -11,7 +11,7 @@
   - **`SIGN_UP_MODE`** (`open`, `invite` or `closed`) is a kernel setting, **closed by default**. A site that forgets to choose then takes no accounts, rather than accounts nobody meant to allow. The harness is always open, as the contract suite expects. The site settings take it over when their admin page lands.
   - **Invite-only answers 403 `auth.invite_required` to every sign-up until invites exist.** No invite is valid yet, so the mode fails closed rather than letting sign-ups through.
   - **A verification link lasts 24 hours**, works once, and verifies only the address it was sent to: a token for an address the account has since left verifies nothing. Opening it signs nobody in.
-  - **Past 3 sign-up mails to one address in 15 minutes** (the limit codes have), a sign-up gets the same answer and nothing is sent. Answers never change with the limit, so it says nothing about the account.
+  - **Past 3 sign-up mails to one address in 15 minutes** (the limit codes have), a sign-up gets the same answer and no notice is sent. Answers never change with the limit, so it says nothing about the account. A new account's verification link counts toward the 3 but always goes out: an account has only one, and sign-ups racing the one that makes it could otherwise spend the budget on notices first and leave it unverifiable (Codex on #39).
 - **Alternatives:**
   - *Open by default.* It's simpler for a members' site, but a brochure site or a staging copy would take accounts from anyone until someone noticed.
   - *A 7-day link, as long as an unverified account lives.* There's no way to ask for a new link yet, but a shorter-lived link is the safer default, and a resend arrives with verification and resets (K2 step 5).
@@ -19,5 +19,5 @@
 - **Consequences:**
   - SPEC.md 14.6's sign-up row and 14.7's modes and verification lines change, with a change-log line.
   - `docs/contracts/auth-api.md`'s limits and its verify-email row say so too.
-  - `kernel/tests/auth/test_sign_up.py` holds the tests: the modes, the link's 24 hours, the address it was sent to, the mail limit, and one Argon2 hash whether the address is new or taken.
+  - `kernel/tests/auth/test_sign_up.py` holds the tests: the modes, the link's 24 hours, the address it was sent to, the mail limit and the link that always goes, and one Argon2 hash whether the address is new or taken.
 - **See:** SPEC.md 14.6 and 14.7; decision 0013; `kernel/backend/kernel/auth/sign_up.py`, `tokens.py`

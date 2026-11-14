@@ -23,9 +23,9 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
   10. Sign-up and verification (`kernel/auth/sign_up.py`, `tokens.py`, #39): `POST /api/auth/sign-up` and `/verify-email`.
      - `SIGN_UP_MODE` is open, invite or closed, **closed by default**; invite-only takes no sign-ups until invites exist (decision 0020). The harness is open, and its breach lookup answers the range API from `/api/_test/breached` (`create_app(breach_lookup=)`).
      - The password is judged first (rules, list, breach lookup), then one Argon2 hash is spent either way. A new address gets an unverified member account and a 24-hour link; a taken one gets a notice and its account is left alone. Sign-ups at once for one address make one account.
-     - 5 sign-ups per IP an hour; past 3 mails to one address in 15 minutes, nothing is sent. The mail goes out after the answer.
+     - 5 sign-ups per IP an hour; past 3 mails to one address in 15 minutes, no more notices, though a new account's one link always goes (Codex on #39). The mail goes out after the answer.
      - The link works once, only for the address it was sent to, and signs nobody in.
-     - 4 more contract tests pass (21 in all), and the timing test now signs up a new address each round. 30 kernel tests, 14 mutant checks, all caught, and the threat-model checklist in the PR body.
+     - 4 more contract tests pass (21 in all), and the timing test now signs up a new address each round. 31 kernel tests, 14 mutant checks, all caught, and the threat-model checklist in the PR body.
 - **Kernel changes from the audit:**
   - 500s keep their security headers, and request bodies have a limit (`MAX_BODY_BYTES`);
   - rate-limit keys can't collide, and each route has its own budget;
@@ -34,7 +34,7 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
   - logs keep a traceback's end, scrub in linear time and write one access line per request;
   - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
   - HSTS goes out behind a TLS edge.
-- **Tests:** 495 Python tests pass on Linux CI (on Windows, 494 and a skipped symlink test) with 63 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
+- **Tests:** 496 Python tests pass on Linux CI (on Windows, 495 and a skipped symlink test) with 63 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
 - **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
 - **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
 - **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
@@ -42,7 +42,7 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
 
 ## Next
 
-K2, in order: step 5 of `dev plans\2026-11-13-next-session-k2-in-claude-code.md`: sign-in codes and magic links (`POST /api/auth/code`, `/code/verify`, the link's confirm page), then reset, and a new verification link for a signed-in account. Its set-up is done on the owner's machine. The suite should show 495 passed (Windows: 494 and 1 skipped) and 63 xfailed with Postgres up.
+K2, in order: step 5 of `dev plans\2026-11-13-next-session-k2-in-claude-code.md`: sign-in codes and magic links (`POST /api/auth/code`, `/code/verify`, the link's confirm page), then reset, and a new verification link for a signed-in account. Its set-up is done on the owner's machine. The suite should show 496 passed (Windows: 495 and 1 skipped) and 63 xfailed with Postgres up.
 
 After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
 
