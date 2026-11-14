@@ -170,6 +170,18 @@ def account_or_address(request: Request) -> str:
 
 KeyFunc = Callable[[Request], str]
 
+
+def too_many(wait: int) -> Problem:
+    """The answer once a budget is spent: 429 with Retry-After, in seconds."""
+    return Problem(
+        "kernel.rate_limited",
+        429,
+        "Too many requests. Wait a moment, then try again.",
+        headers={"Retry-After": str(wait)},
+        extra={"retry_after": wait},
+    )
+
+
 _ROUTE_PATHS = "_devkit_route_paths"
 
 
@@ -227,13 +239,6 @@ def rate_limit(
         name = scope or route_name(request)
         who = key_func(request)
         if not await limiter.hit(rule, name, who):
-            wait = await limiter.wait_seconds(rule, name, who)
-            raise Problem(
-                "kernel.rate_limited",
-                429,
-                "Too many requests. Wait a moment, then try again.",
-                headers={"Retry-After": str(wait)},
-                extra={"retry_after": wait},
-            )
+            raise too_many(await limiter.wait_seconds(rule, name, who))
 
     return limited

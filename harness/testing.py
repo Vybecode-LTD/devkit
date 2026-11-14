@@ -7,10 +7,11 @@ captured mail, move the clock and make accounts, so the same suite can test
 a TypeScript port.
 
 Built: reset, clock, routes, breached (the fake breach lookup's list,
-which K2's password checks read from `app.state.breached`) and mail (what
+which K2's password checks read from `app.state.breached`), mail (what
 the app's mailer was handed, kept by a `CapturingMailer` behind the same
-checks a site's adapter gets). Still to come with K2 and K3: users,
-oauth/grant, jobs/run, delete-hooks.
+checks a site's adapter gets) and users (accounts made without judging
+their passwords). Still to come with K2 and K3: oauth/grant, jobs/run,
+delete-hooks.
 """
 
 from __future__ import annotations
@@ -18,17 +19,20 @@ from __future__ import annotations
 import os
 from typing import Any
 
+import pyotp
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.routing import APIRoute, iter_route_contexts
 from pydantic import BaseModel, Field
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from harness.registry import discover
-from kernel import clock, create_app
+from kernel import clock, create_app, crypto
 from kernel.access import needs_step_up, public, undeclared
-from kernel.auth.models import User
+from kernel.auth.accounts import normal_email
+from kernel.auth.models import Role, Totp, User, UserRole
 from kernel.config import KernelConfig
 from kernel.email import CapturingMailer
+from kernel.errors import Problem
 from kernel.ratelimit import RateLimiter
 
 router = APIRouter(dependencies=[Depends(public)])
@@ -85,6 +89,45 @@ async def mail(to: str, request: Request) -> dict[str, list[dict[str, str]]]:
             for message in _captured(request).to(to)
         ]
     }
+
+
+class NewUser(BaseModel):
+    email: str = Field(max_length=320)
+    password: str | None = None
+    roles: list[str] = Field(default_factory=lambda: ["member"])
+    verified: bool = False
+    totp: bool = False
+
+
+@router.post("/users", status_code=201)
+async def users(body: NewUser, request: Request) -> dict[str, str]:
+    """An account, made without judging its password (the suite needs ones a
+    person couldn't choose): its roles (member by default), a verified
+    address, and a confirmed TOTP whose secret comes back."""
+    passwords = request.app.state.passwords
+    async with request.app.state.database.sessions() as db:
+        unknown = sorted(set(body.roles) - set(await db.scalars(select(Role.id))))
+        if unknown:
+            raise Problem("harness.unknown_role", 422, f"There's no role {', '.join(unknown)}.")
+        user = User(
+            email=body.email,
+            email_normal=normal_email(body.email),
+            password_hash=await passwords.hash(body.password) if body.password else None,
+            email_verified_at=clock.now() if body.verified else None,
+        )
+        db.add(user)
+        await db.flush()
+        for role in body.roles:
+            db.add(UserRole(user_id=user.id, role_id=role))
+        made = {"id": str(user.id)}
+        if body.totp:
+            secret = pyotp.random_base32()
+            db.add(
+                Totp(user_id=user.id, secret_sealed=crypto.seal(secret), confirmed_at=clock.now())
+            )
+            made["totp_secret"] = secret
+        await db.commit()
+    return made
 
 
 @router.post("/clock", status_code=204)

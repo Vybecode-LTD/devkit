@@ -464,10 +464,18 @@ async def end(db: AsyncSession, user: User, session_id: uuid.UUID) -> bool:
     return await _delete(db, Session.user_id == user.id, Session.id == session_id) > 0
 
 
-async def end_by_token(db: AsyncSession, token: str | None) -> None:
-    """End the session a cookie's token is for, live or not (sign-out)."""
-    if _plausible(token):
-        await _delete(db, Session.token_hash == hash_token(cast(str, token)))
+async def end_by_token(db: AsyncSession, token: str | None) -> uuid.UUID | None:
+    """End the session a cookie's token is for, live or not (sign-out), and
+    say whose it was: None when there was none."""
+    if not _plausible(token):
+        return None
+    ended: uuid.UUID | None = await db.scalar(
+        delete(Session)
+        .where(Session.token_hash == hash_token(cast(str, token)))
+        .returning(Session.user_id)
+        .execution_options(synchronize_session=False)
+    )
+    return ended
 
 
 async def end_others(db: AsyncSession, user: User, keep: uuid.UUID) -> None:

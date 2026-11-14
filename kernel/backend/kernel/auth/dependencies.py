@@ -118,6 +118,15 @@ async def _resume(request: Request, db: AsyncSession) -> Resumed | None:
     return resumed
 
 
+def supersede(request: Request) -> None:
+    """Drop the token `_resume` left for `SessionCookies`: a route that sets
+    the session cookie itself (step-up) has replaced it again, and the
+    middleware's would land after its own and win."""
+    state = request.scope.get("state")  # `request.state` keeps its values here
+    if isinstance(state, dict):
+        state.pop(_REPLACED, None)
+
+
 async def signed_in(request: Request, db: AsyncSession = Depends(get_db)) -> Resumed:
     """The live session, through the admin gate on admin paths."""
     resumed = await _resume(request, db)

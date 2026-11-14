@@ -14,13 +14,13 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 
 - **Password sign-in:**
   - 10 per IP per minute.
-  - After 5 failures on one account in 15 minutes, 429 with growing waits, even for the right password, **except** on a browser holding that account's device cookie, where the right password answers 200.
+  - Past 5 failures on one account in 15 minutes, 10 in an hour or 20 in a day, 429 with the wait, even for the right password, **except** on a browser holding that account's device cookie, where the right password answers 200.
   - Unknown emails count the same way, so the answers match.
 - **Device cookie:** `__Host-dk_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
 - **Codes and links:** 3 per email per 15 minutes, 10 per IP per hour. A second `POST /api/auth/code` within 60 seconds answers the same 202 and sends nothing.
 - **Reset requests:** limited as codes are.
 - **Sign-up:** 5 per IP per hour.
-- **Second factor:** 5 failures end the challenge (`auth.challenge_ended`).
+- **Second factor:** 5 failures end the challenge (`auth.challenge_ended`). Past 10 failures on one account in an hour, its challenges answer 429 until the hour has passed.
 - **Step-up:** 5 failures per session in 15 minutes end the session (401 `kernel.not_signed_in` from then on).
 
 ## Mail the suite reads
@@ -37,7 +37,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 | `POST /api/auth/sign-up` | `{email, password, invite?}` | 202 `{"status": "check_email"}`. 403 `auth.sign_up_closed` or `auth.invite_required` by the site's mode; 422 `auth.password_rejected` with the reason |
 | `POST /api/auth/verify-email` | `{token}` | 200 `{"status": "verified"}`; 400 `auth.token_invalid` |
 | `POST /api/auth/sign-in` | `{email, password}` | 200 `{"status": "signed_in", "user": {...}}` and the cookie; or 200 `{"status": "second_factor", "challenge": "...", "methods": [...]}`; 401 `auth.invalid_credentials` |
-| `POST /api/auth/sign-in/second-factor` | `{challenge, totp}` or `{challenge, recovery_code}` | 200 signed in; 401 `auth.invalid_second_factor`; after 5 failures 401 `auth.challenge_ended` (start over) |
+| `POST /api/auth/sign-in/second-factor` | `{challenge, totp}` or `{challenge, recovery_code}` | 200 signed in; 401 `auth.invalid_second_factor`; after 5 failures, or for a challenge used, older than 10 minutes or unknown, 401 `auth.challenge_ended` (start over); 429 past the account's limit |
 | `POST /api/auth/code` | `{email}` | 202 `{"status": "check_email"}`. Members only: a staff account is sent nothing, with the same answer |
 | `POST /api/auth/code/verify` | `{email, code}` | 200 signed in; 401 `auth.invalid_code` |
 | `POST /api/auth/link/confirm` | `{token}` | 200 signed in; 401 `auth.invalid_link`. The emailed link opens the site's confirm page (`/auth/link?token=…`); only this POST signs in |
@@ -54,7 +54,7 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 
 | Method and path | Body | Answer |
 | --- | --- | --- |
-| `POST /api/auth/step-up` | `{password}` or `{totp}` | 200 `{"status": "recent"}`; the session token is replaced |
+| `POST /api/auth/step-up` | `{password}` or `{totp}` | 200 `{"status": "recent"}`; the session token is replaced. 401 `auth.invalid_credentials` for a wrong password or `auth.invalid_second_factor` for a wrong code, the session kept; the fifth failure answers 401 `kernel.not_signed_in` and ends it |
 | `POST /api/auth/password/change` | `{current_password, new_password}` | **step-up.** 200; every other session ends; 422 `auth.password_rejected` with the reason |
 | `POST /api/auth/email/change` | `{email}` | **step-up.** 202; the new address confirms it |
 | `POST /api/auth/totp/setup` | | **step-up.** 200 `{"secret", "otpauth_uri"}`; 403 `auth.email_unverified` until the email is verified (14.3). The TOTP counts as a second factor only once confirmed |

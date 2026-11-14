@@ -137,3 +137,82 @@ async def test_the_harness_mail_sits_behind_the_checks(
             assert got.json() == {"messages": []}
     finally:
         await app.state.database.dispose()
+
+
+async def test_users_makes_an_account_without_judging_its_password(
+    monkeypatch: pytest.MonkeyPatch, migrated_url: str
+) -> None:
+    """`POST /api/_test/users`: roles, a verified address and a confirmed TOTP,
+    and a password no rule would let a person choose."""
+    import uuid
+
+    from sqlalchemy import select
+
+    from kernel import crypto
+    from kernel.auth.models import Totp, User, UserRole
+
+    monkeypatch.setenv("HARNESS_TEST_SUPPORT", "1")
+    app = testing.build_test_app(migrated_url)
+    email = f"Quill.{uuid.uuid4().hex[:8]}@Site.test"
+    try:
+        async with _client(app) as client:
+            made = await client.post(
+                "/api/_test/users",
+                json={
+                    "email": email,
+                    "password": "password1234",
+                    "roles": ["admin"],
+                    "verified": True,
+                    "totp": True,
+                },
+            )
+        assert made.status_code == 201, made.text
+        body = made.json()
+        assert set(body) == {"id", "totp_secret"}
+        async with app.state.database.sessions() as db:
+            user = await db.get(User, uuid.UUID(body["id"]))
+            assert user is not None
+            assert (user.email, user.email_normal) == (email, email.lower())
+            assert user.email_verified_at is not None
+            assert await app.state.passwords.check("password1234", user.password_hash)
+            roles = await db.scalars(select(UserRole.role_id).where(UserRole.user_id == user.id))
+            assert set(roles) == {"admin"}
+            totp = await db.get(Totp, user.id)
+            assert totp is not None
+            assert totp.confirmed_at is not None
+            assert crypto.open(totp.secret_sealed) == body["totp_secret"]
+    finally:
+        await app.state.database.dispose()
+
+
+async def test_users_defaults_to_an_unverified_member_with_nothing_else(
+    monkeypatch: pytest.MonkeyPatch, migrated_url: str
+) -> None:
+    import uuid
+
+    from sqlalchemy import select
+
+    from kernel.auth.models import Totp, User, UserRole
+
+    monkeypatch.setenv("HARNESS_TEST_SUPPORT", "1")
+    app = testing.build_test_app(migrated_url)
+    try:
+        async with _client(app) as client:
+            made = await client.post(
+                "/api/_test/users", json={"email": f"{uuid.uuid4().hex[:8]}@site.test"}
+            )
+            refused = await client.post(
+                "/api/_test/users", json={"email": "wizard@site.test", "roles": ["wizard"]}
+            )
+        assert set(made.json()) == {"id"}
+        assert (refused.status_code, refused.json()["code"]) == (422, "harness.unknown_role")
+        async with app.state.database.sessions() as db:
+            user = await db.get(User, uuid.UUID(made.json()["id"]))
+            assert user is not None
+            assert (user.password_hash, user.email_verified_at) == (None, None)
+            roles = await db.scalars(select(UserRole.role_id).where(UserRole.user_id == user.id))
+            assert set(roles) == {"member"}
+            assert await db.get(Totp, user.id) is None
+            assert await db.scalar(select(User).where(User.email == "wizard@site.test")) is None
+    finally:
+        await app.state.database.dispose()

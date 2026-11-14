@@ -563,18 +563,18 @@ Both limits are site settings (Q6).
 
 | Action | Default limit |
 | --- | --- |
-| Password sign-in | 10 per IP per minute; after 5 failures on one account in 15 minutes, growing delays |
+| Password sign-in | 10 per IP per minute; past 5 failures on one account in 15 minutes, 10 in an hour or 20 in a day, every password waits, the right one too, except on a known device (decision 0019) |
 | Code or link sent | 3 per email per 15 minutes; 10 per IP per hour |
 | Password reset request | Same as a code send |
 | Sign-up | 5 per IP per hour |
-| Second-factor check | 5 failures per sign-in, then the sign-in starts over |
+| Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019) |
 | Step-up | 5 failures per session in 15 minutes, then the session ends |
 
 - No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
 - Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
 - Limits keyed on an email use the normalized address, so case variants share one budget.
 - Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
-- Rate-limit windows run on real time, not on `kernel.clock`; expiries, the resend wait and the growing delays read `kernel.clock` (decision 0013).
+- Rate-limit windows run on real time, not on `kernel.clock`, and so do the sign-in waits, which are tiers of windows (decision 0019). Expiries and the resend wait read `kernel.clock` (decision 0013).
 - Security emails go out on a sign-in from a new device, a password change, an email change (to the old address, with an undo link valid 7 days), a second factor or passkey added or removed, an API key created and a provider linked.
 
 ### 14.7 Account lifecycle
@@ -794,6 +794,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-13 | Sign-in's growing waits are rate-limit tiers on real time (5 in 15 minutes, 10 in an hour, 20 in a day), and second-factor failures are limited per account too, 10 an hour (14.6, decision 0019) |
 | 2026-11-13 | This file is the only copy of the spec: the claude.ai doc is retired, frozen as of 2026-11-12 (decision 0017; header) |
 | 2026-11-12 | Section 4's module layout is the template's: `__init__.py` listed, no `routes.tsx` (decision 0016) |
 | 2026-11-12 | `kernel/kernel.json` declares the kernel's permissions (14.8, decision 0016) |

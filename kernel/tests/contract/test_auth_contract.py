@@ -49,7 +49,6 @@ def _shape(response: httpx.Response) -> tuple[int, object]:
 # 1. Sign-in, sign-up and reset answer the same for a known and an unknown email
 
 
-@not_built
 async def test_sign_in_answers_the_same_for_known_and_unknown(api: Api) -> None:
     user = await api.make_user()
     known = await api.http.post(
@@ -96,7 +95,6 @@ async def test_codes_answer_the_same_and_staff_are_sent_nothing(api: Api) -> Non
     assert await api.mail(staff.email) == []
 
 
-@not_built
 async def test_a_missing_account_reaches_its_failure_limit_the_same_way(api: Api) -> None:
     user = await api.make_user()
     real = [await api.another_browser().sign_in(user, "a wrong password 1") for _ in range(6)]
@@ -120,8 +118,14 @@ async def _median(timed: Callable[[], Awaitable[object]], runs: int) -> float:
     return statistics.median(samples)
 
 
-@not_built
-@pytest.mark.parametrize("route", ["sign-in", "sign-up", "password/reset-request"])
+@pytest.mark.parametrize(
+    "route",
+    [
+        "sign-in",
+        pytest.param("sign-up", marks=not_built),
+        pytest.param("password/reset-request", marks=not_built),
+    ],
+)
 async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> None:
     """Interleaved, against a baseline that hashes nothing: an unknown email
     is answered in neither half nor twice the time of a known one."""
@@ -293,7 +297,6 @@ async def test_a_get_on_a_magic_link_signs_nobody_in(api: Api) -> None:
 # 4. A TOTP code can't be replayed within its step
 
 
-@not_built
 async def test_a_totp_code_cant_be_replayed(api: Api) -> None:
     user = await api.make_user(totp=True)
     assert user.totp_secret
@@ -462,7 +465,6 @@ async def test_stepping_up_lets_the_action_through_with_a_new_token(api: Api) ->
     assert len(codes.json()["recovery_codes"]) == 10
 
 
-@not_built
 async def test_five_failed_step_ups_end_the_session(api: Api) -> None:
     await api.signed_in_as(await api.make_user())
     await api.advance(11 * MINUTE)
@@ -635,7 +637,6 @@ async def test_next_stays_on_this_site(api: Api, next_: str) -> None:
 # 10. A state-changing request from another origin is refused
 
 
-@not_built
 @pytest.mark.parametrize(
     "headers",
     [
@@ -655,7 +656,6 @@ async def test_a_write_from_another_origin_is_refused(api: Api, headers: dict[st
 # 11. The session token changes at sign-in and on a role change
 
 
-@not_built
 async def test_the_token_changes_at_sign_in(api: Api) -> None:
     user = await api.make_user()
     api.plant_cookie("__Host-dk_session", "planted-by-an-attacker")
@@ -715,7 +715,6 @@ async def test_the_last_owner_stays(api: Api) -> None:
 # 12. Each rate limit in 14.6 triggers at its threshold
 
 
-@not_built
 async def test_password_sign_in_10_per_ip_per_minute(api: Api) -> None:
     codes = [
         (
@@ -729,7 +728,6 @@ async def test_password_sign_in_10_per_ip_per_minute(api: Api) -> None:
     assert codes == [401] * 10 + [429]
 
 
-@not_built
 async def test_five_failures_on_one_account_slow_it_down(api: Api) -> None:
     user = await api.make_user()
     browsers = [api.another_browser() for _ in range(6)]
@@ -747,7 +745,6 @@ async def _over_the_limit(api: Api, email: str) -> None:
         )
 
 
-@not_built
 async def test_a_known_browser_still_signs_in_over_the_limit(api: Api) -> None:
     user = await api.make_user()
     await api.signed_in_as(user)
@@ -757,7 +754,6 @@ async def test_a_known_browser_still_signs_in_over_the_limit(api: Api) -> None:
     assert (await api.sign_in(user)).status_code == 200
 
 
-@not_built
 async def test_a_known_browser_with_a_wrong_password_is_still_refused(api: Api) -> None:
     user = await api.make_user()
     await api.signed_in_as(user)
@@ -767,7 +763,6 @@ async def test_a_known_browser_with_a_wrong_password_is_still_refused(api: Api) 
     assert (await api.sign_in(user)).status_code == 200
 
 
-@not_built
 async def test_a_device_cookie_helps_only_its_own_account(api: Api) -> None:
     mine, theirs = await api.make_user(), await api.make_user()
     await api.signed_in_as(mine)
@@ -779,7 +774,6 @@ async def test_a_device_cookie_helps_only_its_own_account(api: Api) -> None:
     assert (await forged.sign_in(theirs)).status_code == 429
 
 
-@not_built
 async def test_the_device_cookie_outlives_sign_out_and_is_no_session(api: Api) -> None:
     await api.signed_in_as(await api.make_user())
     await api.http.post("/api/auth/sign-out")
@@ -862,7 +856,6 @@ async def test_a_breached_password_is_refused_with_its_reason(api: Api) -> None:
     assert "breach" in response.json()["detail"]
 
 
-@not_built
 async def test_five_second_factor_failures_end_the_sign_in(api: Api) -> None:
     user = await api.make_user(totp=True)
     assert user.totp_secret

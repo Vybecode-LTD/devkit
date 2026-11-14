@@ -11,8 +11,8 @@ What it does, in order:
 1. Reads the config and refuses to start on unsafe secrets (outside DEBUG).
 2. Sets up logging and, when SENTRY_DSN is set, error tracking.
 3. Checks MODULES against the installed modules and their requirements.
-4. Mounts the kernel's routes at /api/kernel and each module's router at
-   /api/<id>, behind `require_module(id)`.
+4. Mounts the kernel's routes at /api/kernel, auth's at /api/auth, and each
+   module's router at /api/<id>, behind `require_module(id)`.
 5. Adds the middleware: SecurityHeaders (outermost), WwwRedirect, CORS (when
    CORS_ORIGINS is set), SameOriginWrites, BodyLimit, SessionCookies (a
    replaced session token reaches the browser on any answer, errors too) and
@@ -37,6 +37,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from kernel import error_tracking, logs
 from kernel.auth.dependencies import SessionCookies
+from kernel.auth.passwords import Passwords
+from kernel.auth.routes import router as auth_router
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
 from kernel.email import Checked, LogMailer, Mailer
@@ -109,9 +111,18 @@ def create_app(
     app.state.limiter = RateLimiter(config.rate_limit_storage, enabled=config.rate_limit_enabled)
     app.state.client_ip_header = config.client_ip_header
     app.state.mailer = Checked(mailer if mailer is not None else LogMailer())
+    app.state.passwords = Passwords.from_config(config)
+    #: Every permission an installed module declares: an owner holds them all.
+    app.state.declared_permissions = frozenset(
+        permission["key"]
+        for module in installed
+        for permission in module.manifest.raw.get("permissions", [])
+        if isinstance(permission, dict) and isinstance(permission.get("key"), str)
+    )
     install_handlers(app)
 
     app.include_router(kernel_router, prefix="/api/kernel")
+    app.include_router(auth_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:
             app.include_router(
