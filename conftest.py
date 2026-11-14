@@ -94,9 +94,26 @@ async def _create(name: str) -> None:
 
 
 async def _drop(name: str) -> None:
+    """Drop a throwaway database, sessions and all.
+
+    WITH (FORCE) ends every session in it, but a role without superuser can't
+    end an autovacuum worker's, so FORCE is refused while one is in there
+    ("permission denied to terminate process"). The owner's machine runs the
+    tests as such a role; CI's is the container's superuser. Then end the
+    role's own sessions and run a plain DROP DATABASE, which stops autovacuum
+    by itself. Any other error fails the run (tests/test_conftest.py).
+    """
     admin = await _admin()
     try:
-        await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        try:
+            await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        except asyncpg.InsufficientPrivilegeError:
+            await admin.execute(
+                "SELECT pg_terminate_backend(pid, 5000) FROM pg_stat_activity"
+                " WHERE datname = $1 AND usename = current_user AND pid <> pg_backend_pid()",
+                name,
+            )
+            await admin.execute(f'DROP DATABASE IF EXISTS "{name}"')
     finally:
         await admin.close()
 

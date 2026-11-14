@@ -34,7 +34,7 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
   - logs keep a traceback's end, scrub in linear time and write one access line per request;
   - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
   - HSTS goes out behind a TLS edge.
-- **Tests:** 496 Python tests pass on Linux CI (on Windows, 495 and a skipped symlink test) with 63 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
+- **Tests:** 498 Python tests pass on Linux CI (on Windows, 497 and a skipped symlink test) with 63 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
 - **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
 - **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
 - **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
@@ -42,7 +42,7 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
 
 ## Next
 
-The job is `dev plans\2026-11-14-next-session-k2-step-5.md`: the local teardown fix (Notes), then K2 step 5, sign-in codes and magic links (`POST /api/auth/code`, `/code/verify`, `/link/confirm`), then resets, and a new verification link for a signed-in account (no contract row yet). The owner's machine is set up. The suite should show 496 passed (Windows: 495 and 1 skipped) and 63 xfailed with Postgres up.
+The job is `dev plans\2026-11-14-next-session-k2-step-5.md`: the local teardown fix is done (#41, Notes), so K2 step 5, sign-in codes and magic links (`POST /api/auth/code`, `/code/verify`, `/link/confirm`), then resets, and a new verification link for a signed-in account (no contract row yet). The owner's machine is set up. The suite should show 498 passed (Windows: 497 and 1 skipped) and 63 xfailed with Postgres up.
 
 After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
 
@@ -75,7 +75,7 @@ After K2 and the kernel phases, and before blog, chat and payments are extracted
 - **The device cookie is signed over the session epoch,** so a reset or a password change makes every browser a stranger. A route that raises the epoch on a browser that stays signed in (a password change) should set a fresh one.
 - **React Router stays on 7** (8 is out; moving needs a decision record). TypeScript stays on 6.0.x for typescript-eslint.
 - **FastAPI 0.162** keeps included routers whole in `app.routes`: walk them with `fastapi.routing.iter_route_contexts`, as `kernel.ratelimit.route_name` does.
-- **A local-only teardown flake:** `conftest._drop` runs `DROP DATABASE … WITH (FORCE)`, which a role without superuser can't use while an autovacuum worker is in that database (`InsufficientPrivilegeError: permission denied to terminate process`). On the owner's machine `devkit` isn't a superuser (by design), so roughly one migration test per full run errors at teardown. CI's `devkit` is the container's superuser and never sees it. The fix: on that error, end the run's own sessions and use a plain `DROP DATABASE`, which stops autovacuum by itself.
+- **Dropping a test database without superuser:** a role without superuser can't use `DROP DATABASE … WITH (FORCE)` while an autovacuum worker is in that database (`InsufficientPrivilegeError: permission denied to terminate process`). On the owner's machine `devkit` isn't a superuser (by design), so `conftest._drop` then ends the role's own sessions and runs a plain `DROP DATABASE`, which stops autovacuum by itself (#41, `tests/test_conftest.py`). Any other error still fails the run. CI's `devkit` is the container's superuser and takes the FORCE path.
 - **Codex reviewed only #39's first push.** Its later commits got no Codex review, so a fix to a Codex finding is checked by its tests and CI, not by Codex.
 - **pytest runs with `--import-mode=importlib`.** Close any pool a test app opens: under coverage, an unclosed connection fails the next test.
 - **gitleaks in CI** is the release binary checked against a pinned SHA-256. Bump both together.
