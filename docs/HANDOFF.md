@@ -1,6 +1,6 @@
 # Handoff
 
-Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cloud container), then the first session in Claude Code on the owner's machine, from sessions (#32) to sign-up (#39).
+Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cloud container), then the first session in Claude Code on the owner's machine, from sessions (#32) to sign-up (#39), all merged: `main` is at a753cf1. This handoff is #40.
 
 ## State
 
@@ -42,7 +42,7 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
 
 ## Next
 
-K2, in order: step 5 of `dev plans\2026-11-13-next-session-k2-in-claude-code.md`: sign-in codes and magic links (`POST /api/auth/code`, `/code/verify`, the link's confirm page), then reset, and a new verification link for a signed-in account. Its set-up is done on the owner's machine. The suite should show 496 passed (Windows: 495 and 1 skipped) and 63 xfailed with Postgres up.
+The job is `dev plans\2026-11-14-next-session-k2-step-5.md`: the local teardown fix (Notes), then K2 step 5, sign-in codes and magic links (`POST /api/auth/code`, `/code/verify`, `/link/confirm`), then resets, and a new verification link for a signed-in account (no contract row yet). The owner's machine is set up. The suite should show 496 passed (Windows: 495 and 1 skipped) and 63 xfailed with Postgres up.
 
 After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
 
@@ -76,6 +76,7 @@ After K2 and the kernel phases, and before blog, chat and payments are extracted
 - **React Router stays on 7** (8 is out; moving needs a decision record). TypeScript stays on 6.0.x for typescript-eslint.
 - **FastAPI 0.162** keeps included routers whole in `app.routes`: walk them with `fastapi.routing.iter_route_contexts`, as `kernel.ratelimit.route_name` does.
 - **A local-only teardown flake:** `conftest._drop` runs `DROP DATABASE … WITH (FORCE)`, which a role without superuser can't use while an autovacuum worker is in that database (`InsufficientPrivilegeError: permission denied to terminate process`). On the owner's machine `devkit` isn't a superuser (by design), so roughly one migration test per full run errors at teardown. CI's `devkit` is the container's superuser and never sees it. The fix: on that error, end the run's own sessions and use a plain `DROP DATABASE`, which stops autovacuum by itself.
+- **Codex reviewed only #39's first push.** Its later commits got no Codex review, so a fix to a Codex finding is checked by its tests and CI, not by Codex.
 - **pytest runs with `--import-mode=importlib`.** Close any pool a test app opens: under coverage, an unclosed connection fails the next test.
 - **gitleaks in CI** is the release binary checked against a pinned SHA-256. Bump both together.
 - **The remote tools can't write `.npmrc` or `.github\`.** After a remote sync, run `git checkout -- .npmrc .github` before any `npm` command.
