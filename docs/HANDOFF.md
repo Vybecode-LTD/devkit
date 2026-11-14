@@ -19,7 +19,7 @@ Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud co
      - Failed passwords wait in tiers (5 in 15 minutes, 10 in an hour, 20 in a day), except on a known device. Second-factor failures are limited per sign-in (5) and per account (10 an hour), decision 0019. The fifth failed step-up ends the session.
      - TOTP with one step of drift, no replay, on real time; recovery codes; a 10-minute challenge that counts each try before checking it.
      - A new device is mailed a notice in the background, and every step writes an audit row with nothing secret or typed in it.
-     - 17 contract tests now pass. 40 kernel tests, 19 mutant checks (18 caught, 1 equivalent), the threat-model checklist in the PR body.
+     - 17 contract tests now pass. 43 kernel tests, 19 mutant checks (18 caught, 1 equivalent), the threat-model checklist in the PR body. Codex's two findings fixed: second-factor tries reserve their place in the account's budget first, and an owner holds the kernel's permissions (`KERNEL_PERMISSIONS`, held equal to `kernel.json` by a test).
 - **Kernel changes from the audit:**
   - 500s keep their security headers, and request bodies have a limit (`MAX_BODY_BYTES`);
   - rate-limit keys can't collide, and each route has its own budget;
@@ -28,7 +28,7 @@ Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud co
   - logs keep a traceback's end, scrub in linear time and write one access line per request;
   - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
   - HSTS goes out behind a TLS edge.
-- **Tests:** 457 Python tests pass on Linux CI (on Windows, 456 and a skipped symlink test) with 67 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
+- **Tests:** 461 Python tests pass on Linux CI (on Windows, 460 and a skipped symlink test) with 67 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
 - **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
 - **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
 - **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
@@ -36,7 +36,7 @@ Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud co
 
 ## Next
 
-K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`, step 4's second half (sign-up, `verify-email`, the existing-address notice, 5 sign-ups per IP an hour, the breach check through `app.state.breached`), then step 5; its set-up is done on the owner's machine. The suite should show 457 passed (Windows: 456 and 1 skipped) and 67 xfailed with Postgres up.
+K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`, step 4's second half (sign-up, `verify-email`, the existing-address notice, 5 sign-ups per IP an hour, the breach check through `app.state.breached`), then step 5; its set-up is done on the owner's machine. The suite should show 461 passed (Windows: 460 and 1 skipped) and 67 xfailed with Postgres up.
 
 After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
 
@@ -56,6 +56,7 @@ After K2 and the kernel phases, and before blog, chat and payments are extracted
 
 - **Session lifetimes are a parameter:** the dependencies read `app.state.session_lifetimes`, else the spec's defaults. Reading them from the site's settings (Q6) comes with their admin page, cached the way the module switches are, so `current_user` adds no query.
 - **`require_owner_or` gives a guard, and the route must call `await guard.check(owner_id)`** before touching the thing; a route that forgets lets any member through. `module-contract-lint` should gain a row for it when the first module uses it.
+- **Parallel password guesses can pass one tier by their own number:** sign-in checks the wait before verifying and counts a failure after, so requests in flight at once all get their verify (bounded by 10 a minute per address). Reserving first would count the owner's own sign-ins too. Second-factor tries do reserve first (Codex on #38).
 - **TOTP runs on real time,** not `kernel.clock`: codes come from the person's app. A test that moves the clock still gets codes from `pyotp`'s `now()`.
 - **`supersede(request)`** drops the token `SessionCookies` was going to set: any route that sets the session cookie itself after `signed_in` must call it, as step-up does (a role change and a step-up in one request left two cookies, the dead one last).
 - **The new-device mail is a background task.** Against a remote harness it can land after the suite reads `/api/_test/mail`.

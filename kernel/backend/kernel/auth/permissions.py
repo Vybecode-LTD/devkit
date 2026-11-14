@@ -24,6 +24,19 @@ from kernel.auth.models import PermissionOverride, RolePermission, UserRole
 
 OWNER = "owner"
 
+#: The kernel's own permissions, kept equal to `kernel/kernel.json`'s (a test
+#: holds it), so an owner holds them whether or not a role still grants them.
+KERNEL_PERMISSIONS = frozenset(
+    {
+        "auth.user.manage",
+        "auth.user.suspend",
+        "auth.role.assign",
+        "auth.audit.read",
+        "kernel.module.manage",
+        "kernel.settings.manage",
+    }
+)
+
 #: `(resource_type, resource_id)`, such as `("community.category", "42")`.
 Resource = tuple[str, str]
 

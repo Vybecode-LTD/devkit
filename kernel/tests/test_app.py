@@ -191,3 +191,10 @@ async def test_a_body_over_the_limit_is_refused(app_factory: AppFactory) -> None
             "/api/probe/echo", content=chunks(), headers={"Content-Type": "application/json"}
         )
         assert (streamed.status_code, streamed.json()["code"]) == (413, "kernel.too_large")
+
+
+def test_the_kernels_permissions_match_its_manifest() -> None:
+    from kernel.auth.permissions import KERNEL_PERMISSIONS
+
+    manifest = json.loads((KERNEL / "kernel.json").read_text("utf-8"))
+    assert {permission["key"] for permission in manifest["permissions"]} == KERNEL_PERMISSIONS

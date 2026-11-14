@@ -38,6 +38,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from kernel import error_tracking, logs
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.passwords import Passwords
+from kernel.auth.permissions import KERNEL_PERMISSIONS
 from kernel.auth.routes import router as auth_router
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
@@ -112,8 +113,9 @@ def create_app(
     app.state.client_ip_header = config.client_ip_header
     app.state.mailer = Checked(mailer if mailer is not None else LogMailer())
     app.state.passwords = Passwords.from_config(config)
-    #: Every permission an installed module declares: an owner holds them all.
-    app.state.declared_permissions = frozenset(
+    #: Every permission the kernel or an installed module declares: an owner
+    #: holds them all (14.8).
+    app.state.declared_permissions = KERNEL_PERMISSIONS | frozenset(
         permission["key"]
         for module in installed
         for permission in module.manifest.raw.get("permissions", [])

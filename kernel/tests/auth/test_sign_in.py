@@ -639,3 +639,72 @@ async def test_the_wait_grows_with_the_failures(site: Site) -> None:
     hour = await _sign_in(site.http, person)
     assert hour.status_code == 429
     assert int(hour.headers["retry-after"]) > 15 * 60
+
+
+async def test_an_owner_holds_the_kernels_permissions_though_no_role_grants_them(
+    site: Site,
+) -> None:
+    """14.8: an owner holds every permission, whether or not a role still grants it."""
+    from kernel.auth.accounts import permissions_of
+    from kernel.auth.models import RolePermission
+
+    owner = await _person(site, "owner")
+    async with site.db() as db:  # never committed: the other tests keep the grant
+        await db.execute(
+            delete(RolePermission).where(RolePermission.permission == "auth.audit.read")
+        )
+        held = await permissions_of(
+            db, owner.id, {"owner"}, declared=site.app.state.declared_permissions
+        )
+        await db.rollback()
+    assert "auth.audit.read" in held
+
+
+async def test_parallel_guesses_dont_outrun_the_accounts_budget(site: Site) -> None:
+    """Each try takes its place in the hour's budget before its code is
+    checked, so guesses sent at once over many sign-ins get 10 between them."""
+    import asyncio
+
+    person = await _person(site, totp=True)
+    browsers = [site.browser() for _ in range(3)]
+    challenges = [(await _sign_in(b, person)).json()["challenge"] for b in browsers]
+
+    async def guess(browser: httpx.AsyncClient, challenge: str) -> int:
+        response = await browser.post(
+            "/api/auth/sign-in/second-factor",
+            json={"challenge": challenge, "recovery_code": "wrong-code-0000"},
+        )
+        return response.status_code
+
+    answers = await asyncio.gather(
+        *(guess(b, c) for b, c in zip(browsers, challenges, strict=True) for _ in range(5))
+    )
+    for browser in browsers:
+        await browser.aclose()
+    assert sorted(answers) == [401] * 10 + [429] * 5
+
+
+async def test_a_right_code_clears_the_accounts_failures(site: Site) -> None:
+    """Three rounds of 4 wrong and 1 right: 12 failures in the hour, but
+    each right code proves the account's owner is there."""
+    person = await _person(site, totp=True)
+    for _ in range(3):
+        async with site.browser() as browser:
+            challenge = (await _sign_in(browser, person)).json()["challenge"]
+            for _ in range(4):
+                await browser.post(
+                    "/api/auth/sign-in/second-factor",
+                    json={"challenge": challenge, "recovery_code": "wrong-code-0000"},
+                )
+            done = await browser.post(
+                "/api/auth/sign-in/second-factor",
+                json={"challenge": challenge, "recovery_code": RECOVERY},
+            )
+            assert done.status_code == 200
+            async with site.db() as db:  # the next round may use the code again
+                await db.execute(
+                    update(RecoveryCode)
+                    .where(RecoveryCode.user_id == person.id)
+                    .values(used_at=None)
+                )
+                await db.commit()

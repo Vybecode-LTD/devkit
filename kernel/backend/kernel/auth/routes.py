@@ -16,7 +16,9 @@ the same failure limit, writes the same audit row and gets the same answer.
   owner still signs in where they have before (14.5).
 - *Second-factor failures:* 5 per sign-in end it (`auth.challenge_ended`),
   and past 10 in an hour the account takes no more codes, so knowing the
-  password isn't a way to guess codes for ever.
+  password isn't a way to guess codes for ever. Each try takes its place in
+  the hour's budget before its code is checked, so parallel guesses can't
+  outrun it, and a right code starts the account's count again.
 - *Step-up failures:* the fifth in 15 minutes ends the session.
 
 **A new device** (no device cookie for the account) is mailed a notice after
@@ -161,7 +163,9 @@ async def finish_with_second_factor(
         raise _challenge_ended()
     limiter = _limiter(request)
     key = str(challenge.user_id)
-    if await limiter.used_up(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key):
+    # The try takes its place in the account's budget before its code is
+    # checked, so guesses sent at once can't all pass a check made first.
+    if not await limiter.hit(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key):
         raise too_many(
             await limiter.wait_seconds(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key)
         )
@@ -171,7 +175,6 @@ async def finish_with_second_factor(
         method = "recovery_code"
         ok = await second_factor.use_recovery_code(db, challenge.user_id, body.recovery_code or "")
     if not ok:
-        await limiter.hit(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key)
         audit.record(
             db,
             request,
@@ -190,6 +193,8 @@ async def finish_with_second_factor(
     ):
         await db.rollback()
         raise _challenge_ended()
+    # A right code shows the owner is here: the account's count starts again.
+    await limiter.forget(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key)
     return await _finish(request, db, background, user, second_factor=True)
 
 
