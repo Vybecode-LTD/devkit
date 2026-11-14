@@ -34,7 +34,7 @@ from datetime import datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
@@ -65,11 +65,15 @@ _STEP_UP_SCOPE = "auth.step_up.failures"
 
 
 class SignIn(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     email: str = Field(max_length=320)
     password: str = Field(max_length=1024)
 
 
 class SecondFactor(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     challenge: str = Field(max_length=128)
     totp: str | None = Field(default=None, max_length=16)
     recovery_code: str | None = Field(default=None, max_length=64)
@@ -82,6 +86,8 @@ class SecondFactor(BaseModel):
 
 
 class StepUp(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     password: str | None = Field(default=None, max_length=1024)
     totp: str | None = Field(default=None, max_length=16)
 

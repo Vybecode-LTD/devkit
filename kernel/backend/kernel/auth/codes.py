@@ -56,7 +56,7 @@ from datetime import timedelta
 from typing import cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
@@ -95,15 +95,21 @@ _SIX_DIGITS = re.compile(r"[0-9]{6}")
 
 
 class AskForCode(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     email: str = Field(max_length=320)
 
 
 class VerifyCode(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     email: str = Field(max_length=320)
     code: str = Field(max_length=32)
 
 
 class ConfirmLink(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     token: str = Field(max_length=128)
 
 

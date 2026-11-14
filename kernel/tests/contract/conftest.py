@@ -20,6 +20,7 @@ and a call to a route the contract doesn't name raises `UnknownRoute`.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 import time
@@ -37,6 +38,8 @@ import pytest
 import pytest_asyncio
 
 SITE = "https://devkit.test"
+#: Seconds `Api.mail` waits for mail a running server sends after its answer.
+MAIL_WAIT = 5.0
 #: Not on the bundled list and not seen by Have I Been Pwned (checked 2026-11-12).
 PASSWORD = "quiet orbit lantern 4471 marsh"
 NEW_PASSWORD = "copper heron valley 2093 tide"
@@ -203,14 +206,23 @@ class Api:
         response = await self.http.post("/api/_test/reset", json={"accounts": True})
         assert response.status_code == 204, response.text
 
-    async def mail(self, to: str) -> list[dict[str, str]]:
-        response = await self.http.get("/api/_test/mail", params={"to": to})
-        assert response.status_code == 200, response.text
-        messages: list[dict[str, str]] = response.json()["messages"]
-        return messages
+    async def mail(self, to: str, *, at_least: int = 0) -> list[dict[str, str]]:
+        """The messages to `to`, oldest first. With `at_least`, it waits up
+        to `MAIL_WAIT` seconds for that many: a running server (CONTRACT_BASE_URL)
+        sends mail after the answer, so it can land a moment later. In process
+        it is there already. A check that nothing more was sent reads once:
+        no wait can prove a message will never come."""
+        deadline = time.monotonic() + MAIL_WAIT
+        while True:
+            response = await self.http.get("/api/_test/mail", params={"to": to})
+            assert response.status_code == 200, response.text
+            messages: list[dict[str, str]] = response.json()["messages"]
+            if len(messages) >= at_least or time.monotonic() > deadline:
+                return messages
+            await asyncio.sleep(0.05)
 
     async def last_mail(self, to: str) -> dict[str, str]:
-        messages = await self.mail(to)
+        messages = await self.mail(to, at_least=1)
         assert messages, f"no mail to {to}"
         return messages[-1]
 

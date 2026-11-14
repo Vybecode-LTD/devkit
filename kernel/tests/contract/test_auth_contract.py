@@ -91,7 +91,7 @@ async def test_codes_answer_the_same_and_staff_are_sent_nothing(api: Api) -> Non
         for email in (member.email, UNKNOWN, staff.email)
     ]
     assert answers == [(202, {"status": "check_email"})] * 3
-    assert len(await api.mail(member.email)) == 1
+    assert len(await api.mail(member.email, at_least=1)) == 1
     assert await api.mail(staff.email) == []
 
 
@@ -148,7 +148,7 @@ async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> Non
             await _median(lambda: api.http.post(f"/api/auth/{route}", json=body(user.email)), 1)
         )
         if route == "code":  # the positive control: the known address took the sending path
-            assert len(await api.mail(user.email)) == 1
+            assert len(await api.mail(user.email, at_least=1)) == 1
         missing = f"new-{uuid.uuid4().hex[:12]}@site.test" if route == "sign-up" else UNKNOWN
         unknown.append(
             await _median(partial(api.http.post, f"/api/auth/{route}", json=body(missing)), 1)
@@ -219,9 +219,9 @@ async def test_a_sign_in_code_lasts_10_minutes(api: Api) -> None:
     assert still.status_code == 200  # the control: alive at 9 minutes
 
     other = api.another_browser()
-    sent = len(await api.mail(user.email))  # the code, and the sign-in's security mail
+    sent = len(await api.mail(user.email, at_least=2))  # the code and the sign-in's notice
     await other.http.post("/api/auth/code", json={"email": user.email})  # past the resend wait
-    assert len(await api.mail(user.email)) == sent + 1
+    assert len(await api.mail(user.email, at_least=sent + 1)) == sent + 1
     late = code_in((await api.last_mail(user.email))["text"])
     await api.advance(11 * MINUTE)
     gone = await other.http.post("/api/auth/code/verify", json={"email": user.email, "code": late})
@@ -244,10 +244,10 @@ async def test_a_resend_within_60_seconds_sends_nothing(api: Api) -> None:
     first = await api.http.post("/api/auth/code", json={"email": user.email})
     second = await api.http.post("/api/auth/code", json={"email": user.email})
     assert _shape(first) == _shape(second) == (202, {"status": "check_email"})
-    assert len(await api.mail(user.email)) == 1
+    assert len(await api.mail(user.email, at_least=1)) == 1
     await api.advance(61)
     await api.http.post("/api/auth/code", json={"email": user.email})
-    assert len(await api.mail(user.email)) == 2
+    assert len(await api.mail(user.email, at_least=2)) == 2
 
 
 async def test_a_magic_link_works_once(api: Api) -> None:
@@ -789,7 +789,7 @@ async def test_codes_3_per_email_per_15_minutes(api: Api) -> None:
     for _ in range(3):
         await api.http.post("/api/auth/code", json={"email": user.email})
         await api.advance(61)  # past the resend wait
-    assert len(await api.mail(user.email)) == 3
+    assert len(await api.mail(user.email, at_least=3)) == 3
     fourth = await api.http.post("/api/auth/code", json={"email": user.email})
     assert fourth.status_code == 429
 

@@ -198,3 +198,23 @@ def test_the_kernels_permissions_match_its_manifest() -> None:
 
     manifest = json.loads((KERNEL / "kernel.json").read_text("utf-8"))
     assert {permission["key"] for permission in manifest["permissions"]} == KERNEL_PERMISSIONS
+
+
+def test_every_request_body_is_strict(app_factory: AppFactory) -> None:
+    """SPEC.md 7: every body is a Pydantic model in strict mode, so nothing is
+    coerced silently that a port would have to copy (CodeRabbit on #42)."""
+    from fastapi.routing import APIRoute, iter_route_contexts
+
+    bodies: dict[str, object] = {}
+    for context in iter_route_contexts(app_factory().routes):
+        route = context.original_route
+        if isinstance(route, APIRoute) and route.body_field is not None:
+            name = f"{','.join(sorted(route.methods))} {context.path}"
+            bodies[name] = route.body_field.field_info.annotation
+    assert "POST /api/auth/code" in bodies  # the control: the walk finds the bodies
+    loose = sorted(
+        name
+        for name, model in bodies.items()
+        if getattr(model, "model_config", {}).get("strict") is not True
+    )
+    assert loose == []

@@ -35,7 +35,7 @@ from typing import cast
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -63,6 +63,8 @@ _MEMBER = "member"
 
 
 class SignUp(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     email: str = Field(max_length=MAX_ADDRESS + 64)
     password: str = Field(max_length=1024)
     invite: str | None = Field(default=None, max_length=128)
@@ -77,6 +79,8 @@ class SignUp(BaseModel):
 
 
 class VerifyEmail(BaseModel):
+    model_config = ConfigDict(strict=True)
+
     token: str = Field(max_length=128)
 
 
