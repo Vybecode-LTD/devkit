@@ -1,0 +1,23 @@
+# 0020: Sign-up is closed until a site opens it, and its mail and links have limits
+
+- **Date:** 2026-11-14
+- **Status:** Applied
+- **Context:** K2's sign-up and email verification routes needed four answers SPEC.md didn't give.
+  - **The default mode.** 14.7 names three sign-up modes (open, invite-only, closed) but no default. The site settings that will hold the mode (Q6) don't exist yet.
+  - **Invite mode.** Invites arrive with K2's API keys and invites, after sign-up.
+  - **The verification link's lifetime.** 14.7 gives resets 30 minutes and codes 10, and says unverified accounts go after 7 days. It gives no lifetime for the verification link.
+  - **Mail to an address that has an account.** 14.6 limits sign-ups per IP only. Each sign-up for a taken address mails that address a notice, so many IPs could flood one inbox through the form.
+- **Decision:**
+  - **`SIGN_UP_MODE`** (`open`, `invite` or `closed`) is a kernel setting, **closed by default**. A site that forgets to choose then takes no accounts, rather than accounts nobody meant to allow. The harness is always open, as the contract suite expects. The site settings take it over when their admin page lands.
+  - **Invite-only answers 403 `auth.invite_required` to every sign-up until invites exist.** No invite is valid yet, so the mode fails closed rather than letting sign-ups through.
+  - **A verification link lasts 24 hours**, works once, and verifies only the address it was sent to: a token for an address the account has since left verifies nothing. Opening it signs nobody in.
+  - **Past 3 sign-up mails to one address in 15 minutes** (the limit codes have), a sign-up gets the same answer and nothing is sent. Answers never change with the limit, so it says nothing about the account.
+- **Alternatives:**
+  - *Open by default.* It's simpler for a members' site, but a brochure site or a staging copy would take accounts from anyone until someone noticed.
+  - *A 7-day link, as long as an unverified account lives.* There's no way to ask for a new link yet, but a shorter-lived link is the safer default, and a resend arrives with verification and resets (K2 step 5).
+  - *No per-address mail limit.* The per-IP limit then bounds only one sender, not many.
+- **Consequences:**
+  - SPEC.md 14.6's sign-up row and 14.7's modes and verification lines change, with a change-log line.
+  - `docs/contracts/auth-api.md`'s limits and its verify-email row say so too.
+  - `kernel/tests/auth/test_sign_up.py` holds the tests: the modes, the link's 24 hours, the address it was sent to, the mail limit, and one Argon2 hash whether the address is new or taken.
+- **See:** SPEC.md 14.6 and 14.7; decision 0013; `kernel/backend/kernel/auth/sign_up.py`, `tokens.py`

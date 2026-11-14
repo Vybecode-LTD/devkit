@@ -96,6 +96,12 @@ class KernelConfig(BaseSettings):
     #: How many hashes run at once; each holds ARGON2_MEMORY_KIB while it runs.
     argon2_concurrency: int = Field(default=4, ge=1)
 
+    #: Who may make an account (SPEC.md 14.7, decision 0020): open, invite
+    #: (an invite is needed; invites arrive with K2's API keys and invites) or
+    #: closed. Closed until a site opens it, so an account nobody meant to
+    #: allow can't appear. The site settings (Q6) take it over with their page.
+    sign_up_mode: Literal["open", "invite", "closed"] = "closed"
+
     rate_limit_enabled: bool = True
     #: Where counts live: memory:// for one process, redis://… once a site
     #: runs more than one.

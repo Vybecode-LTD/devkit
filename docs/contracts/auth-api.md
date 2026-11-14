@@ -19,7 +19,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 - **Device cookie:** `__Host-dk_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
 - **Codes and links:** 3 per email per 15 minutes, 10 per IP per hour. A second `POST /api/auth/code` within 60 seconds answers the same 202 and sends nothing.
 - **Reset requests:** limited as codes are.
-- **Sign-up:** 5 per IP per hour.
+- **Sign-up:** 5 per IP per hour. Past 3 sign-up mails to one address in 15 minutes, a sign-up answers the same 202 and sends nothing.
 - **Second factor:** 5 failures end the challenge (`auth.challenge_ended`). Past 10 failures on one account in an hour, its challenges answer 429 until the hour has passed.
 - **Step-up:** 5 failures per session in 15 minutes end the session (401 `kernel.not_signed_in` from then on).
 
@@ -34,8 +34,8 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 
 | Method and path | Body | Answer |
 | --- | --- | --- |
-| `POST /api/auth/sign-up` | `{email, password, invite?}` | 202 `{"status": "check_email"}`. 403 `auth.sign_up_closed` or `auth.invite_required` by the site's mode; 422 `auth.password_rejected` with the reason |
-| `POST /api/auth/verify-email` | `{token}` | 200 `{"status": "verified"}`; 400 `auth.token_invalid` |
+| `POST /api/auth/sign-up` | `{email, password, invite?}` | 202 `{"status": "check_email"}`; the account is a member, unverified. 403 `auth.sign_up_closed` or `auth.invite_required` by the site's mode; 422 `auth.password_rejected` with the reason; 422 `kernel.invalid_request` for anything but one email address |
+| `POST /api/auth/verify-email` | `{token}` | 200 `{"status": "verified"}`; signs nobody in. 400 `auth.token_invalid` for a token used, older than 24 hours, or sent to an address the account no longer has |
 | `POST /api/auth/sign-in` | `{email, password}` | 200 `{"status": "signed_in", "user": {...}}` and the cookie; or 200 `{"status": "second_factor", "challenge": "...", "methods": [...]}`; 401 `auth.invalid_credentials` |
 | `POST /api/auth/sign-in/second-factor` | `{challenge, totp}` or `{challenge, recovery_code}` | 200 signed in; 401 `auth.invalid_second_factor`; after 5 failures, or for a challenge used, older than 10 minutes or unknown, 401 `auth.challenge_ended` (start over); 429 past the account's limit |
 | `POST /api/auth/code` | `{email}` | 202 `{"status": "check_email"}`. Members only: a staff account is sent nothing, with the same answer |

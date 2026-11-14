@@ -19,7 +19,9 @@ What it does, in order:
    UnexpectedErrors (innermost, so even a 500 carries the security headers).
 6. Answers every error as problem details.
 7. Installs the mailer (`mailer=`, else `LogMailer`, which sends nothing)
-   behind `kernel.email.Checked`, as `app.state.mailer`.
+   behind `kernel.email.Checked`, as `app.state.mailer`, and the breach
+   lookup new passwords are checked against (`breach_lookup=`, else Have I
+   Been Pwned's range API), as `app.state.breach_lookup`.
 
 The API docs (/docs, /redoc, /openapi.json) are served only with DEBUG on: on
 a live site they would map every route for anyone.
@@ -37,9 +39,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from kernel import error_tracking, logs
 from kernel.auth.dependencies import SessionCookies
-from kernel.auth.passwords import Passwords
+from kernel.auth.passwords import Passwords, RangeLookup, ask_range
 from kernel.auth.permissions import KERNEL_PERMISSIONS
 from kernel.auth.routes import router as auth_router
+from kernel.auth.sign_up import router as sign_up_router
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
 from kernel.email import Checked, LogMailer, Mailer
@@ -61,6 +64,7 @@ def create_app(
     config: KernelConfig | None = None,
     database: Database | None = None,
     mailer: Mailer | None = None,
+    breach_lookup: RangeLookup | None = None,
 ) -> FastAPI:
     config = config or get_config()
     refuse_unsafe(config)
@@ -113,6 +117,7 @@ def create_app(
     app.state.client_ip_header = config.client_ip_header
     app.state.mailer = Checked(mailer if mailer is not None else LogMailer())
     app.state.passwords = Passwords.from_config(config)
+    app.state.breach_lookup = breach_lookup if breach_lookup is not None else ask_range
     #: Every permission the kernel or an installed module declares: an owner
     #: holds them all (14.8).
     app.state.declared_permissions = KERNEL_PERMISSIONS | frozenset(
@@ -125,6 +130,7 @@ def create_app(
 
     app.include_router(kernel_router, prefix="/api/kernel")
     app.include_router(auth_router, prefix="/api/auth")
+    app.include_router(sign_up_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:
             app.include_router(

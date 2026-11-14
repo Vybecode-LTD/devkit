@@ -1,6 +1,6 @@
 # Handoff
 
-Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud container), then the first session in Claude Code on the owner's machine, which added sessions (#32).
+Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cloud container), then the first session in Claude Code on the owner's machine, from sessions (#32) to sign-up (#39).
 
 ## State
 
@@ -20,6 +20,12 @@ Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud co
      - TOTP with one step of drift, no replay, on real time; recovery codes; a 10-minute challenge that counts each try before checking it.
      - A new device is mailed a notice in the background, and every step writes an audit row with nothing secret or typed in it.
      - 17 contract tests now pass. 43 kernel tests, 19 mutant checks (18 caught, 1 equivalent), the threat-model checklist in the PR body. Codex's two findings fixed: second-factor tries reserve their place in the account's budget first, and an owner holds the kernel's permissions (`KERNEL_PERMISSIONS`, held equal to `kernel.json` by a test).
+  10. Sign-up and verification (`kernel/auth/sign_up.py`, `tokens.py`, #39): `POST /api/auth/sign-up` and `/verify-email`.
+     - `SIGN_UP_MODE` is open, invite or closed, **closed by default**; invite-only takes no sign-ups until invites exist (decision 0020). The harness is open, and its breach lookup answers the range API from `/api/_test/breached` (`create_app(breach_lookup=)`).
+     - The password is judged first (rules, list, breach lookup), then one Argon2 hash is spent either way. A new address gets an unverified member account and a 24-hour link; a taken one gets a notice and its account is left alone. Sign-ups at once for one address make one account.
+     - 5 sign-ups per IP an hour; past 3 mails to one address in 15 minutes, nothing is sent. The mail goes out after the answer.
+     - The link works once, only for the address it was sent to, and signs nobody in.
+     - 4 more contract tests pass (21 in all), and the timing test now signs up a new address each round. 30 kernel tests, 14 mutant checks, all caught, and the threat-model checklist in the PR body.
 - **Kernel changes from the audit:**
   - 500s keep their security headers, and request bodies have a limit (`MAX_BODY_BYTES`);
   - rate-limit keys can't collide, and each route has its own budget;
@@ -28,7 +34,7 @@ Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud co
   - logs keep a traceback's end, scrub in linear time and write one access line per request;
   - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
   - HSTS goes out behind a TLS edge.
-- **Tests:** 461 Python tests pass on Linux CI (on Windows, 460 and a skipped symlink test) with 67 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
+- **Tests:** 495 Python tests pass on Linux CI (on Windows, 494 and a skipped symlink test) with 63 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
 - **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
 - **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
 - **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
@@ -36,7 +42,7 @@ Overwritten every session. 2026-11-13: a remote session (claude.ai in a cloud co
 
 ## Next
 
-K2, in order: `dev plans\2026-11-13-next-session-k2-in-claude-code.md`, step 4's second half (sign-up, `verify-email`, the existing-address notice, 5 sign-ups per IP an hour, the breach check through `app.state.breached`), then step 5; its set-up is done on the owner's machine. The suite should show 461 passed (Windows: 460 and 1 skipped) and 67 xfailed with Postgres up.
+K2, in order: step 5 of `dev plans\2026-11-13-next-session-k2-in-claude-code.md`: sign-in codes and magic links (`POST /api/auth/code`, `/code/verify`, the link's confirm page), then reset, and a new verification link for a signed-in account. Its set-up is done on the owner's machine. The suite should show 495 passed (Windows: 494 and 1 skipped) and 63 xfailed with Postgres up.
 
 After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
 
@@ -60,13 +66,16 @@ After K2 and the kernel phases, and before blog, chat and payments are extracted
 - **TOTP runs on real time,** not `kernel.clock`: codes come from the person's app. A test that moves the clock still gets codes from `pyotp`'s `now()`.
 - **`supersede(request)`** drops the token `SessionCookies` was going to set: any route that sets the session cookie itself after `signed_in` must call it, as step-up does (a role change and a step-up in one request left two cookies, the dead one last).
 - **The new-device mail is a background task.** Against a remote harness it can land after the suite reads `/api/_test/mail`.
-- **Mail goes out inside the request for now.** Step 4 must keep known and unknown addresses alike: a code or reset mailed only to a known address leaks it through timing unless the send runs after the answer has gone (a background task until K3's `jobs`), and a failing adapter mustn't change the answer either. Against a remote harness (`CONTRACT_BASE_URL`) a background send can land after the suite reads `/api/_test/mail`, so that read may need to wait for the message.
+- **Mail goes out after the answer** (a background task until K3's `jobs`), as sign-up's does: a code or reset mailed only to a known address would leak it through timing otherwise, and a failing adapter mustn't change the answer either. Against a remote harness (`CONTRACT_BASE_URL`) a background send can land after the suite reads `/api/_test/mail`, so that read may need to wait for the message.
+- **Someone else's address can be signed up first** (an unverified account with their password). The real owner's way back is a reset: when step 5 builds it, a reset should end every session (the epoch) and may mark the address verified, since it proves the inbox. The 7-day removal of unverified accounts and the `auth.user.verified` event wait for K3's `jobs` and `events`.
+- **`SIGN_UP_MODE` is closed by default:** a site's brief must say open or invite, and the site template (K5) should ask. The site settings (Q6) take it over with their page.
 - **How a site picks its adapter is K3's call:** from the config or through `create_app(mailer=)` (which SPEC 6 doesn't list yet, like `database=`), and whether a start outside DEBUG without one is refused.
 - **List the access dependency before `rate_limit(key="account")`:** FastAPI runs them in order, and the limit falls back to the address when no one is signed in yet.
 - **A replaced token is dead at once** (14.5): a request still carrying it after a role change or a step-up gets 401. The web kernel's session hook (K4) should retry once on a 401 that follows a new cookie.
 - **The device cookie is signed over the session epoch,** so a reset or a password change makes every browser a stranger. A route that raises the epoch on a browser that stays signed in (a password change) should set a fresh one.
 - **React Router stays on 7** (8 is out; moving needs a decision record). TypeScript stays on 6.0.x for typescript-eslint.
 - **FastAPI 0.162** keeps included routers whole in `app.routes`: walk them with `fastapi.routing.iter_route_contexts`, as `kernel.ratelimit.route_name` does.
+- **A local-only teardown flake:** `conftest._drop` runs `DROP DATABASE … WITH (FORCE)`, which a role without superuser can't use while an autovacuum worker is in that database (`InsufficientPrivilegeError: permission denied to terminate process`). On the owner's machine `devkit` isn't a superuser (by design), so roughly one migration test per full run errors at teardown. CI's `devkit` is the container's superuser and never sees it. The fix: on that error, end the run's own sessions and use a plain `DROP DATABASE`, which stops autovacuum by itself.
 - **pytest runs with `--import-mode=importlib`.** Close any pool a test app opens: under coverage, an unclosed connection fails the next test.
 - **gitleaks in CI** is the release binary checked against a pinned SHA-256. Bump both together.
 - **The remote tools can't write `.npmrc` or `.github\`.** After a remote sync, run `git checkout -- .npmrc .github` before any `npm` command.

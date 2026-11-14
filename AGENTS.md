@@ -10,15 +10,17 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 - **Path:** `C:\DEV\AI-DevKit`. **Remote:** `https://github.com/Vybecode-LTD/devkit`, **public** (decision 0011). Never commit secrets, client material or private notes; private notes go in `docs/private/` (gitignored).
 - **The contract:** `SPEC.md`. Every module, the kernel and the CLI follow it. Read the sections you touch before every change.
 
-## Current state (2026-11-13)
+## Current state (2026-11-14)
 
 - Spec v0.1 written, the owner's answers applied.
-- **K0 (repo foundation) and K1 (kernel core) are done and audited:** the audit's fixes and the review bots' follow-ups are merged (PRs #1 to #24), and the owner's follow-ups too (#25 to #31): history rewritten once, a ruleset on `main`, actions pinned, the claude.ai Spec doc retired, the Windows set-up. K2 (auth) has started: the contract suite is written as strict expected failures, and passwords, keyed hashes, every auth table, the sessions service (`kernel/auth/sessions.py`, #32, #33), the access dependencies (`kernel/auth/dependencies.py`, #36), the mail interface (`kernel/email.py`, #37) and sign-in (`kernel/auth/routes.py`: password, second factor, session, sign-out and step-up, #38) are in place. See `docs/HANDOFF.md`.
-- **Next:** K2's sign-up and email verification, then codes, links and resets (`dev plans\2026-11-13-next-session-k2-in-claude-code.md`, step 4's second half, then step 5).
+- **K0 (repo foundation) and K1 (kernel core) are done and audited:** the audit's fixes and the review bots' follow-ups are merged (PRs #1 to #24), and the owner's follow-ups too (#25 to #31): history rewritten once, a ruleset on `main`, actions pinned, the claude.ai Spec doc retired, the Windows set-up. K2 (auth) has started: the contract suite is written as strict expected failures, and passwords, keyed hashes, every auth table, the sessions service (`kernel/auth/sessions.py`, #32, #33), the access dependencies (`kernel/auth/dependencies.py`, #36), the mail interface (`kernel/email.py`, #37), sign-in (`kernel/auth/routes.py`: password, second factor, session, sign-out and step-up, #38) and sign-up with email verification (`kernel/auth/sign_up.py`, #39; closed unless `SIGN_UP_MODE` opens it, decision 0020) are in place. See `docs/HANDOFF.md`.
+- **Next:** K2's sign-in codes and magic links, then resets and a new verification link (`dev plans\2026-11-13-next-session-k2-in-claude-code.md`, step 5).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`). It doubles as the spec's validation build.
 - **After v1.0:** the module roadmap and ten contract hooks are decided (decision 0018, `docs/plans/module-roadmap.md`). The hooks land with `devkit-hook-designer` after the kernel phases and before blog, chat and payments are extracted (SPEC 19, phase 3), so the validation extractions exercise them too.
 
 ## Last Completed Task
+
+2026-11-14 (Claude Code, the owner's machine): K2's sign-up and email verification (#39, decision 0020).
 
 2026-11-13 (Claude Code, the owner's machine): the local Postgres locked down again (a chat agent had left it on `trust`); K2's sessions service (#32) and its step-up race fix (#33); then the claude.ai project's work: the `devkit-hook-designer` skill (#34), the module roadmap and decision 0018, with the owner's answers to the Vibrant Mindz questions (#35); then K2's access dependencies (#36), its mail interface (#37) and sign-in (#38, decision 0019).
 

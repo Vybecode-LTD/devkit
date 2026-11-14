@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import statistics
 import time
+import uuid
 from collections.abc import Awaitable, Callable
+from functools import partial
 
 import httpx
 import pyotp
@@ -61,7 +63,6 @@ async def test_sign_in_answers_the_same_for_known_and_unknown(api: Api) -> None:
     assert (known.status_code, known.json()["code"]) == (401, "auth.invalid_credentials")
 
 
-@not_built
 async def test_sign_up_answers_the_same_and_mails_a_notice_to_a_known_address(api: Api) -> None:
     user = await api.make_user()
     new = f"new-{user.id[:8]}@site.test"
@@ -122,13 +123,14 @@ async def _median(timed: Callable[[], Awaitable[object]], runs: int) -> float:
     "route",
     [
         "sign-in",
-        pytest.param("sign-up", marks=not_built),
+        "sign-up",
         pytest.param("password/reset-request", marks=not_built),
     ],
 )
 async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> None:
     """Interleaved, against a baseline that hashes nothing: an unknown email
-    is answered in neither half nor twice the time of a known one."""
+    is answered in neither half nor twice the time of a known one. A sign-up
+    makes its address known, so each of its rounds signs up a new one."""
     user = await api.make_user()
     password = {"sign-in": "a wrong password 1", "sign-up": PASSWORD}.get(route)
 
@@ -142,8 +144,9 @@ async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> Non
         known.append(
             await _median(lambda: api.http.post(f"/api/auth/{route}", json=body(user.email)), 1)
         )
+        missing = f"new-{uuid.uuid4().hex[:12]}@site.test" if route == "sign-up" else UNKNOWN
         unknown.append(
-            await _median(lambda: api.http.post(f"/api/auth/{route}", json=body(UNKNOWN)), 1)
+            await _median(partial(api.http.post, f"/api/auth/{route}", json=body(missing)), 1)
         )
     base = statistics.median(baseline)
     known_cost = max(statistics.median(known) - base, 1e-4)
@@ -833,7 +836,6 @@ async def test_resets_are_limited_as_codes_are(api: Api) -> None:
     assert by_ip == [202] * 10 + [429]
 
 
-@not_built
 async def test_sign_up_5_per_ip_per_hour(api: Api) -> None:
     codes = [
         (
@@ -846,7 +848,6 @@ async def test_sign_up_5_per_ip_per_hour(api: Api) -> None:
     assert codes == [202] * 5 + [429]
 
 
-@not_built
 async def test_a_breached_password_is_refused_with_its_reason(api: Api) -> None:
     await api.mark_breached(OTHER_PASSWORD)
     response = await api.http.post(

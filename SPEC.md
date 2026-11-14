@@ -566,7 +566,7 @@ Both limits are site settings (Q6).
 | Password sign-in | 10 per IP per minute; past 5 failures on one account in 15 minutes, 10 in an hour or 20 in a day, every password waits, the right one too, except on a known device (decision 0019) |
 | Code or link sent | 3 per email per 15 minutes; 10 per IP per hour |
 | Password reset request | Same as a code send |
-| Sign-up | 5 per IP per hour |
+| Sign-up | 5 per IP per hour; past 3 sign-up mails to one address in 15 minutes, the same answer and nothing sent (decision 0020) |
 | Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019) |
 | Step-up | 5 failures per session in 15 minutes, then the session ends |
 
@@ -579,8 +579,8 @@ Both limits are site settings (Q6).
 
 ### 14.7 Account lifecycle
 
-- **Sign-up modes,** per site: open, invite-only or closed (VybeMindz `invite-only-access-control`). Invites are single use, expire in 7 days and may name a role.
-- **Email verification** is required before posting public content or linking a provider. Unverified accounts are removed after 7 days.
+- **Sign-up modes,** per site: open, invite-only or closed (VybeMindz `invite-only-access-control`), set by `SIGN_UP_MODE` and closed until a site opens it (decision 0020). Invites are single use, expire in 7 days and may name a role. Until invites exist, an invite-only site takes no sign-ups.
+- **Email verification** is required before posting public content or linking a provider. The link lasts 24 hours, works once, verifies only the address it was sent to, and signs nobody in (decision 0020). Unverified accounts are removed after 7 days.
 - **Email change:** the new address confirms the change; the old one stays active until then and gets the undo link.
 - **Password reset:** a 32-byte token, valid 30 minutes, single use, stored hashed. Success raises the session epoch and sends a security email.
 - **Suspension:** staff only, audited, and it ends every session.
@@ -794,6 +794,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Sign-up is closed until a site opens it (`SIGN_UP_MODE`), invite-only takes no sign-ups until invites exist, the verification link lasts 24 hours for the address it was sent to, and sign-up mail is limited per address (14.6, 14.7, decision 0020) |
 | 2026-11-13 | Sign-in's growing waits are rate-limit tiers on real time (5 in 15 minutes, 10 in an hour, 20 in a day), and second-factor failures are limited per account too, 10 an hour (14.6, decision 0019) |
 | 2026-11-13 | This file is the only copy of the spec: the claude.ai doc is retired, frozen as of 2026-11-12 (decision 0017; header) |
 | 2026-11-12 | Section 4's module layout is the template's: `__init__.py` listed, no `routes.tsx` (decision 0016) |

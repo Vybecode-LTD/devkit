@@ -51,10 +51,16 @@ def _has_break(value: str) -> bool:
     return any(unicodedata.category(character) in _BREAKS for character in value)
 
 
+def is_address(text: str) -> bool:
+    """Whether `text` is one bare address a message can go to: what a form
+    taking an address (sign-up) accepts, so mail to it can't fail `check`."""
+    return len(text) <= MAX_ADDRESS and not _has_break(text) and bool(_ADDRESS.fullmatch(text))
+
+
 def check(to: str, subject: str, text: str, html: str | None = None) -> None:
     """Raises ValueError, naming the field, unless the message is safe to hand
     to any adapter."""
-    if len(to) > MAX_ADDRESS or _has_break(to) or not _ADDRESS.fullmatch(to):
+    if not is_address(to):
         raise ValueError("A message's `to` must be one bare email address.")
     if not subject.strip() or len(subject) > MAX_SUBJECT or _has_break(subject):
         raise ValueError(f"A message's subject must be one line of 1 to {MAX_SUBJECT} characters.")

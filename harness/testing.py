@@ -6,8 +6,11 @@ support"). They let a suite written against HTTP alone reset counts, read
 captured mail, move the clock and make accounts, so the same suite can test
 a TypeScript port.
 
-Built: reset, clock, routes, breached (the fake breach lookup's list,
-which K2's password checks read from `app.state.breached`), mail (what
+The harness's sign-up mode is open, and its breach lookup is a fake that
+answers Have I Been Pwned's range API from `app.state.breached`, so the suite
+never goes online and the real lookup's parsing still runs.
+
+Built: reset, clock, routes, breached (the fake breach lookup's list), mail (what
 the app's mailer was handed, kept by a `CapturingMailer` behind the same
 checks a site's adapter gets) and users (accounts made without judging
 their passwords). Still to come with K2 and K3: oauth/grant, jobs/run,
@@ -16,6 +19,7 @@ delete-hooks.
 
 from __future__ import annotations
 
+import hashlib
 import os
 from typing import Any
 
@@ -30,6 +34,7 @@ from kernel import clock, create_app, crypto
 from kernel.access import needs_step_up, public, undeclared
 from kernel.auth.accounts import normal_email
 from kernel.auth.models import Role, Totp, User, UserRole
+from kernel.auth.passwords import normal
 from kernel.config import KernelConfig
 from kernel.email import CapturingMailer
 from kernel.errors import Problem
@@ -164,9 +169,24 @@ def build_test_app(database_url: str | None = None) -> FastAPI:
     `database_url` when given (else DATABASE_URL)."""
     if not enabled():
         raise RuntimeError("HARNESS_TEST_SUPPORT=1 is needed to mount the test-support routes.")
-    config = KernelConfig(database_url=database_url) if database_url else KernelConfig()
+    config = (
+        KernelConfig(database_url=database_url, sign_up_mode="open")
+        if database_url
+        else KernelConfig(sign_up_mode="open")
+    )
     captured = CapturingMailer()
-    app = create_app(modules=discover(), config=config, mailer=captured)
+
+    async def fake_range(prefix: str) -> str:
+        """The range API's answer, from the passwords given to /breached."""
+        lines = []
+        for password in app.state.breached:
+            digest = hashlib.sha1(normal(password).encode(), usedforsecurity=False)
+            hexed = digest.hexdigest().upper()
+            if hexed.startswith(prefix):
+                lines.append(f"{hexed[5:]}:1")
+        return "\n".join(lines)
+
+    app = create_app(modules=discover(), config=config, mailer=captured, breach_lookup=fake_range)
     app.state.captured_mail = captured
     app.state.breached = set()
     app.include_router(router, prefix="/api/_test")
