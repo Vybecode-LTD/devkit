@@ -22,7 +22,7 @@ AI DevKit: website modules an agent copies into a site, around a FastAPI + Postg
 ## 4. The job, in order (one PR each, tests first)
 
 1. **The local teardown fix** (HANDOFF, Notes). When `WITH (FORCE)` is refused, `conftest._drop` should end its own sessions and run a plain `DROP DATABASE`. It goes first so full runs are reliable here.
-2. **Codes and magic links:** `POST /api/auth/code`, `/code/verify` and `/link/confirm` (`docs/contracts/auth-api.md`; SPEC 14.6 and 14.12). Reuse `kernel/auth/tokens.py`. Codes keep their owner in the hash (decision 0012, amended). Staff are sent no code, and get the same answer. Mail goes out after the answer, as in `kernel/auth/sign_up.py`. Unmark each contract test about codes, links and their limits as it passes (`@not_built` in `kernel/tests/contract/test_auth_contract.py`).
+2. **Codes and magic links:** `POST /api/auth/code`, `/code/verify` and `/link/confirm` (`docs/contracts/auth-api.md`; SPEC 14.6 and 14.12). Reuse `kernel/backend/kernel/auth/tokens.py`. Codes keep their owner in the hash (decision 0012, amended). Staff are sent no code, and get the same answer. Mail goes out after the answer, as in `kernel/backend/kernel/auth/sign_up.py`. Unmark each contract test about codes, links and their limits as it passes (`@not_built` in `kernel/tests/contract/test_auth_contract.py`).
 3. **Resets:** `password/reset-request` and `password/reset`. A reset token lasts 30 minutes, and a reset ends every session through the epoch. This also lets the real owner of a pre-claimed address back in. Unmark the reset tests.
 4. **Resending the verification link** to a signed-in account. It has no contract row, so it needs a decision record, a change-log line, and the owner told which spec sections changed.
 
