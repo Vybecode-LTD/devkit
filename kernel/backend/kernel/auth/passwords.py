@@ -50,6 +50,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeVar
+from urllib.parse import urlsplit
 
 import httpx
 from argon2 import PasswordHasher, extract_parameters
@@ -352,6 +353,13 @@ async def breached(password: str, lookup: RangeLookup = ask_range) -> bool | Non
         if suffix.upper() == digest[5:] and count.strip() not in ("", "0"):
             return True
     return False
+
+
+def site_context(config: KernelConfig, email: str) -> tuple[str, ...]:
+    """What a guesser starts from, for `refusal`: the site's name and host,
+    and the account's address."""
+    host = urlsplit(config.site_url).hostname or ""
+    return (config.site_name, host, host.split(".")[0], email, email.split("@")[0])
 
 
 async def refusal(

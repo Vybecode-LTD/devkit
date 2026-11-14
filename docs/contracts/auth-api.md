@@ -18,7 +18,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
   - Unknown emails count the same way, so the answers match.
 - **Device cookie:** `__Host-dk_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
 - **Codes and links:** 3 per email per 15 minutes, 10 per IP per hour. A second `POST /api/auth/code` within 60 seconds answers the same 202 and sends nothing.
-- **Reset requests:** limited as codes are.
+- **Reset requests:** limited as codes are, the wait included: a second request within 60 seconds answers the same 202 and sends nothing.
 - **Sign-up:** 5 per IP per hour. Past 3 sign-up mails to one address in 15 minutes, a sign-up for an address that has an account answers the same 202 and sends no notice. A new account's verification link always goes out.
 - **Second factor:** 5 failures end the challenge (`auth.challenge_ended`). Past 10 failures on one account in an hour, its challenges answer 429 until the hour has passed.
 - **Step-up:** 5 failures per session in 15 minutes end the session (401 `kernel.not_signed_in` from then on).
@@ -42,7 +42,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 | `POST /api/auth/code/verify` | `{email, code}` | 200 signed in, or for an account with a second factor 200 `{"status": "second_factor", …}` as sign-in answers; 401 `auth.invalid_code` |
 | `POST /api/auth/link/confirm` | `{token}` | 200 signed in, or the second-factor answer as for a code; 401 `auth.invalid_link`. The emailed link opens the site's confirm page (`/auth/link?token=…`); only this POST signs in |
 | `POST /api/auth/password/reset-request` | `{email}` | 202 `{"status": "check_email"}` |
-| `POST /api/auth/password/reset` | `{token, password}` | 200 `{"status": "password_reset"}`; 400 `auth.token_invalid`; 422 `auth.password_rejected` with the reason. Every session of the account ends |
+| `POST /api/auth/password/reset` | `{token, password}` | 200 `{"status": "password_reset"}`; 400 `auth.token_invalid`; 422 `auth.password_rejected` with the reason, the link still working. Every session of the account ends, it signs nobody in, and the address counts as verified |
 | `GET /api/auth/session` | | 200 `{"user": {"id", "email", "roles", "permissions", "verified", "second_factor"}}`; 401 `kernel.not_signed_in` |
 | `POST /api/auth/sign-out` | | 204, the cookie cleared |
 | `GET /api/auth/oauth/{provider}/start?next=/path` | | 302 to the provider, with `state`, PKCE S256 and, for OpenID providers, `nonce`. `next` must be a path on this site (one leading `/`, not `//`); anything else becomes `/` |

@@ -32,7 +32,6 @@ import logging
 import uuid
 from datetime import timedelta
 from typing import cast
-from urllib.parse import urlsplit
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -43,7 +42,7 @@ from kernel import clock
 from kernel.access import public
 from kernel.auth import accounts, audit, tokens
 from kernel.auth.models import User, UserRole
-from kernel.auth.passwords import Passwords, refusal
+from kernel.auth.passwords import Passwords, refusal, site_context
 from kernel.config import KernelConfig
 from kernel.db import get_db
 from kernel.email import MAX_ADDRESS, Mailer, is_address
@@ -88,12 +87,6 @@ def _site(config: KernelConfig) -> str:
     return config.site_url.rstrip("/")
 
 
-def _context(config: KernelConfig, email: str) -> tuple[str, ...]:
-    """What a guesser starts from: the site's name and host, and the address."""
-    host = urlsplit(config.site_url).hostname or ""
-    return (config.site_name, host, host.split(".")[0], email, email.split("@")[0])
-
-
 @router.post(
     "/sign-up",
     status_code=202,
@@ -114,7 +107,7 @@ async def sign_up(
         )
     email, normal = body.email, accounts.normal_email(body.email)
     reason = await refusal(
-        body.password, _context(config, email), lookup=request.app.state.breach_lookup
+        body.password, site_context(config, email), lookup=request.app.state.breach_lookup
     )
     if reason is not None:
         raise Problem("auth.password_rejected", 422, reason)

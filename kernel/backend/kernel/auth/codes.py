@@ -34,7 +34,7 @@ answer; a mailer that fails is logged and changes nothing.
 than an unknown one, and a wrong try on a live code writes where a try on
 an unknown address doesn't, so timing would tell which addresses have
 accounts. Every ask and every try therefore answers no sooner than
-`ANSWER_FLOOR` (real time), far above that work: the floor plays the part
+a fixed floor (`floor.py`), far above that work: the floor plays the part
 the dummy Argon2 verify plays at sign-in.
 
 **A link is used only by POST** `/link/confirm`, which the site's
@@ -44,11 +44,9 @@ up nor signs anyone in.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 import secrets
-import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -63,7 +61,7 @@ from starlette.responses import JSONResponse, Response
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, second_factor, sessions, tokens
+from kernel.auth import accounts, audit, floor, second_factor, sessions, tokens
 from kernel.auth.hashing import keyed_hash, same
 from kernel.auth.models import Token, User
 from kernel.auth.routes import finish_sign_in
@@ -82,11 +80,6 @@ ASKS_PER_ADDRESS = "3/15m"
 LIFETIME = timedelta(minutes=10)
 RESEND_WAIT = timedelta(seconds=60)
 TRIES = 5
-#: Seconds. An ask or a try takes a few milliseconds of queries, tens on a
-#: slow database: the floor stays well above both.
-ANSWER_FLOOR = 0.2
-#: asyncio runs a timer up to this early (`BaseEventLoop._clock_resolution`).
-_TICK = time.get_clock_info("monotonic").resolution
 _CODE = "sign_in_code"
 _LINK = "magic_link"
 _ADDRESS_SCOPE = "auth.code.address"
@@ -125,36 +118,9 @@ def _invalid_link() -> Problem:
     return Problem("auth.invalid_link", 401, "This link has expired or has already been used.")
 
 
-async def _no_sooner_than_the_floor(started: float) -> None:
-    """Sleep out what is left of the floor since `started` (`perf_counter`).
-    asyncio may wake a sleeper up to one tick of its clock early (about 16 ms
-    on Windows), so the sleep is a tick longer."""
-    left = ANSWER_FLOOR - (time.perf_counter() - started)
-    if left > 0:
-        await asyncio.sleep(left + _TICK)
-
-
-async def _lock_account(db: AsyncSession, user_id: uuid.UUID) -> None:
-    """Lock the account row until the commit. Every path takes it before any
-    of the account's code or link rows (an ask before voiding, a verify or a
-    confirm before using its token), so no two wait on each other's rows: a
-    code and its link used at once, or a code racing a new ask, would
-    otherwise deadlock (Codex on #42)."""
-    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
-
-
 async def _void(db: AsyncSession, user_id: uuid.UUID) -> None:
     """Use up every live code and link of the account."""
-    await db.execute(
-        update(Token)
-        .where(
-            Token.user_id == user_id,
-            Token.purpose.in_((_CODE, _LINK)),
-            Token.used_at.is_(None),
-        )
-        .values(used_at=clock.now())
-        .execution_options(synchronize_session=False)
-    )
+    await tokens.void(db, user_id, (_CODE, _LINK))
 
 
 # --- asking -------------------------------------------------------------------------
@@ -171,7 +137,7 @@ async def ask_for_code(
     background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    started = time.perf_counter()
+    started = floor.start()
     normal = accounts.normal_email(body.email)
     limiter = cast(RateLimiter, request.app.state.limiter)
     if not await limiter.hit(ASKS_PER_ADDRESS, _ADDRESS_SCOPE, normal):
@@ -192,7 +158,7 @@ async def ask_for_code(
     await db.commit()
     if mail is not None:
         background.add_task(_send, request.app.state.mailer, *mail)
-    await _no_sooner_than_the_floor(started)
+    await floor.wait_out(started)
     return {"status": "check_email"}
 
 
@@ -304,11 +270,11 @@ async def verify_code(
     background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    started = time.perf_counter()
+    started = floor.start()
     try:
         return await _verify_code(body, request, background, db)
     finally:  # a right code too: only the answer may differ, never the time
-        await _no_sooner_than_the_floor(started)
+        await floor.wait_out(started)
 
 
 async def _verify_code(
@@ -330,7 +296,7 @@ async def _verify_code(
         )
         await db.commit()
         raise _invalid_code()
-    await _lock_account(db, taken.user_id)
+    await accounts.lock(db, taken.user_id)
     if not await _use(db, taken.id):
         await db.rollback()
         raise _invalid_code()
@@ -348,7 +314,7 @@ async def confirm_link(
 ) -> Response:
     owner = await tokens.owner_of(db, _LINK, body.token)
     if owner is not None:
-        await _lock_account(db, owner)
+        await accounts.lock(db, owner)
     redeemed = await tokens.redeem(db, _LINK, body.token) if owner is not None else None
     if redeemed is None or redeemed.email_normal is None:
         await db.rollback()

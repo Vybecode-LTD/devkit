@@ -42,6 +42,7 @@ from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.passwords import Passwords, RangeLookup, ask_range
 from kernel.auth.permissions import KERNEL_PERMISSIONS
+from kernel.auth.resets import router as resets_router
 from kernel.auth.routes import router as auth_router
 from kernel.auth.sign_up import router as sign_up_router
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
@@ -133,6 +134,7 @@ def create_app(
     app.include_router(auth_router, prefix="/api/auth")
     app.include_router(sign_up_router, prefix="/api/auth")
     app.include_router(codes_router, prefix="/api/auth")
+    app.include_router(resets_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:
             app.include_router(

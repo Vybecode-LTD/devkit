@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock, crypto
 from kernel.app import create_app
-from kernel.auth import codes
+from kernel.auth import floor
 from kernel.auth.accounts import normal_email
 from kernel.auth.hashing import keyed_hash
 from kernel.auth.models import AuditEvent, Token, Totp, User, UserRole
@@ -307,11 +307,11 @@ async def test_asks_and_tries_answer_no_sooner_than_the_floor(site: Site) -> Non
     for call in timed:
         started = time.perf_counter()
         await call()
-        assert time.perf_counter() - started >= codes.ANSWER_FLOOR
+        assert time.perf_counter() - started >= floor.ANSWER_FLOOR
     code, _ = await _mailed(site, person)
     started = time.perf_counter()
     await _verify(site.http, person.email, f"{(int(code) + 1) % 1_000_000:06d}")
-    assert time.perf_counter() - started >= codes.ANSWER_FLOOR
+    assert time.perf_counter() - started >= floor.ANSWER_FLOOR
 
 
 # --- signing in with the code ------------------------------------------------------

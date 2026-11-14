@@ -32,6 +32,11 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
      - Five tries per code, counted first; 10 asks per IP an hour, 3 per address in 15 minutes, a 60-second resend wait under a row lock. Every path locks the account row before its code or link rows; without that order, a code and its link used at once deadlocked (Codex).
      - **Every ask and try answers no sooner than 0.2 s**: the contract's timing test, once it really sent a code each round, showed a known address at 7 ms and an unknown one at 3.5 ms.
      - 11 more contract tests pass (32 in all), and the timing test runs for `code`. 38 kernel tests, 26 mutant checks, all caught, and the threat-model checklist in the PR body.
+  12. Password resets (`kernel/auth/resets.py`, #43, decision 0022): `POST /api/auth/password/reset-request` and `/password/reset`.
+     - Limited as codes are, the 60-second wait included; staff get resets too (a reset signs nobody in, and their second factor stays). One 30-minute link per account, a new one voiding the last.
+     - The link is checked, then the password; a refused password leaves the link working. Then the account row is locked, the link used, the password replaced, every session ended (the epoch), every live code, link, reset link and second-factor challenge voided, and the address **marked verified** (the owner's answer: resets yes, code sign-ins no). A security mail follows.
+     - The request takes the 0.2 s floor, now in `kernel/auth/floor.py`; `accounts.lock` and `tokens.void` are shared with codes.
+     - 6 more contract tests pass (39 in all), the reset timing test included. 32 kernel tests and 2 for the floor, 21 mutant checks, all caught (two only after new tests: case variants, and a lock-order test that holds the account row, since Argon2 hides the race).
 - **Kernel changes from the audit:**
   - 500s keep their security headers, and request bodies have a limit (`MAX_BODY_BYTES`);
   - rate-limit keys can't collide, and each route has its own budget;
@@ -40,7 +45,7 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
   - logs keep a traceback's end, scrub in linear time and write one access line per request;
   - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
   - HSTS goes out behind a TLS edge.
-- **Tests:** 549 Python tests pass on Linux CI (on Windows, 548 and a skipped symlink test) with 52 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
+- **Tests:** 589 Python tests pass on Linux CI (on Windows, 588 and a skipped symlink test) with 46 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
 - **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
 - **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
 - **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
@@ -48,7 +53,7 @@ Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cl
 
 ## Next
 
-The job is `dev plans\2026-11-14-next-session-k2-step-5.md`: the local teardown fix (#41) and codes and magic links (#42) are done, so resets next (they can take #42's answer floor), then a new verification link for a signed-in account (no contract row yet). Before resets, ask the owner whether a reset, and a code or link sign-in, should mark the address verified (decision 0021, "Not decided"). Also worth a PR of its own: the race tests in `test_sessions.py`, `test_sign_in.py`, `test_sign_up.py`, `test_db.py` and `test_settings.py` race on a fresh app's cold pool, where #42 found requests never overlap; warm the pool as `test_codes.py:_warm` does and re-run their mutants. The owner's machine is set up. The suite should show 549 passed (Windows: 548 and 1 skipped) and 52 xfailed with Postgres up.
+The job is `dev plans\2026-11-14-next-session-k2-step-5.md`: the local teardown fix (#41), codes and magic links (#42) and resets (#43) are done, so the last step is a new verification link for a signed-in account. It has no contract row: ask the owner what shape the route takes, then write a decision record and a change-log line, and tell the owner which spec sections changed. Also worth a PR of its own: the race tests in `test_sessions.py`, `test_sign_in.py`, `test_sign_up.py`, `test_db.py` and `test_settings.py` race on a fresh app's cold pool, where #42 found requests never overlap; warm the pool as `test_codes.py:_warm` does and re-run their mutants. The owner's machine is set up. The suite should show 589 passed (Windows: 588 and 1 skipped) and 46 xfailed with Postgres up.
 
 After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
 

@@ -75,7 +75,6 @@ async def test_sign_up_answers_the_same_and_mails_a_notice_to_a_known_address(ap
     assert token_in((await api.last_mail(new))["text"], "/auth/verify")
 
 
-@not_built
 async def test_reset_answers_the_same_for_known_and_unknown(api: Api) -> None:
     user = await api.make_user()
     known = await api.http.post("/api/auth/password/reset-request", json={"email": user.email})
@@ -124,7 +123,7 @@ async def _median(timed: Callable[[], Awaitable[object]], runs: int) -> float:
         "sign-in",
         "sign-up",
         "code",
-        pytest.param("password/reset-request", marks=not_built),
+        "password/reset-request",
     ],
 )
 async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> None:
@@ -132,7 +131,7 @@ async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> Non
     is answered in neither half nor twice the time of a known one. A sign-up
     makes its address known, so each of its rounds signs up a new one. Each
     round moves the clock past the last one's resend wait, so a known address
-    is sent a code every round, not answered from the wait."""
+    is sent a code or a reset link every round, not answered from the wait."""
     user = await api.make_user()
     password = {"sign-in": "a wrong password 1", "sign-up": PASSWORD}.get(route)
 
@@ -147,7 +146,7 @@ async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> Non
         known.append(
             await _median(lambda: api.http.post(f"/api/auth/{route}", json=body(user.email)), 1)
         )
-        if route == "code":  # the positive control: the known address took the sending path
+        if route in {"code", "password/reset-request"}:  # the positive control: it sent mail
             assert len(await api.mail(user.email, at_least=1)) == 1
         missing = f"new-{uuid.uuid4().hex[:12]}@site.test" if route == "sign-up" else UNKNOWN
         unknown.append(
@@ -162,7 +161,6 @@ async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> Non
 # 2. A reset, code or link token works once, and never after it expires
 
 
-@not_built
 async def test_a_reset_token_works_once(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/password/reset-request", json={"email": user.email})
@@ -177,7 +175,6 @@ async def test_a_reset_token_works_once(api: Api) -> None:
     assert (again.status_code, again.json()["code"]) == (400, "auth.token_invalid")
 
 
-@not_built
 async def test_a_reset_token_lasts_30_minutes(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/password/reset-request", json={"email": user.email})
@@ -492,7 +489,6 @@ async def test_a_password_change_ends_every_other_session(api: Api) -> None:
     assert (await other.session()).status_code == 401
 
 
-@not_built
 async def test_a_reset_ends_every_session(api: Api) -> None:
     user = await api.make_user()
     await api.signed_in_as(user)
@@ -811,7 +807,6 @@ async def test_codes_10_per_ip_per_hour(api: Api) -> None:
     assert codes == [202] * 10 + [429]
 
 
-@not_built
 async def test_resets_are_limited_as_codes_are(api: Api) -> None:
     user = await api.make_user()
     for _ in range(3):

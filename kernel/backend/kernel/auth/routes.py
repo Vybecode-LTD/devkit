@@ -1,7 +1,7 @@
 """The auth routes at /api/auth: signing in and out, the second factor, the
 session and step-up (SPEC.md 14.2 to 14.6 and 14.10;
 docs/contracts/auth-api.md). Sign-up and verification are in `sign_up.py`,
-sign-in codes and magic links in `codes.py`; resets come next.
+sign-in codes and magic links in `codes.py`, password resets in `resets.py`.
 
 **Nothing says whether an account exists.** A sign-in for an unknown
 address, a suspended or deleted account, or one with no password costs the

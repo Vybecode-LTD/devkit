@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import secrets
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -57,6 +58,21 @@ async def issue(
     )
     await db.flush()
     return token
+
+
+async def void(db: AsyncSession, user_id: uuid.UUID, purposes: Iterable[str]) -> None:
+    """Use up every live token of these purposes the account has. The caller
+    holds the account's row lock (`accounts.lock`) and commits."""
+    await db.execute(
+        update(Token)
+        .where(
+            Token.user_id == user_id,
+            Token.purpose.in_(tuple(purposes)),
+            Token.used_at.is_(None),
+        )
+        .values(used_at=clock.now())
+        .execution_options(synchronize_session=False)
+    )
 
 
 async def owner_of(db: AsyncSession, purpose: str, token: str) -> uuid.UUID | None:

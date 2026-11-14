@@ -39,6 +39,13 @@ async def by_email(db: AsyncSession, email: str) -> User | None:
     return found
 
 
+async def lock(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Lock the account row until the commit. A route that touches the
+    account's one-time token rows takes this first, so every route takes
+    rows in one order and none deadlocks another (decision 0021)."""
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
+
+
 async def permissions_of(
     db: AsyncSession, user_id: uuid.UUID, roles: set[str], declared: Iterable[str] = ()
 ) -> list[str]:

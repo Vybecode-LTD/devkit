@@ -1,0 +1,28 @@
+# 0022: A reset ends every way in and marks the address verified
+
+- **Date:** 2026-11-14
+- **Status:** Applied
+- **Context:** K2's password resets (`POST /api/auth/password/reset-request` and `/password/reset`) needed six answers SPEC.md 14.7 didn't give.
+  - **Verification.** A reset link proves the inbox, as the verification link does. Should using it mark the address verified? Decision 0021 left the same question open for sign-in codes and links.
+  - **Staff.** Sign-in codes are for members only (14.2). Are resets?
+  - **Several live links, and asking again.** The contract says reset requests are "limited as codes are", but not whether that includes the 60-second resend wait, or whether an older link keeps working.
+  - **What a reset ends.** 14.5 says the session epoch goes up. A sign-in code, a magic link or a second-factor challenge opened before the reset isn't a session.
+  - **A refused password.** If the new password is refused, is the link used up?
+  - **The time.** A reset request answers "in similar time" for a known and an unknown address (14.6), and has no Argon2 hash to hide behind.
+- **Decision:**
+  - **A reset marks the address verified; a code or link sign-in doesn't** (the owner, 2026-11-14). A reset replaces the password and ends every session first, so anyone who signed up with someone else's address has lost every way in before the account counts as verified. That gives a pre-claimed address back to its real owner. A code sign-in removes nobody: someone who pre-claimed the address still knows the password, and marking it verified then would let them add the second factor, passkey or provider link 14.3 holds back. An earlier verification time is kept.
+  - **Staff are sent resets too.** A reset signs nobody in, so a staff account's second factor still stands between the new password and the admin.
+  - **As codes are, wait included.** 10 requests per IP an hour, 3 per address in 15 minutes, and a request within 60 seconds of the last link sends nothing. A new link voids the last one.
+  - **A reset ends every way in that came before it:** every session (the epoch, which also makes every browser a stranger to the device cookie), and every live sign-in code, magic link, reset link and second-factor challenge of the account. Whoever knew the old password and stood at the second-factor step is stopped too.
+  - **A refused password leaves the link working.** The link is checked first, then the password; the link is used only once the new password has been judged and hashed, so a typo or a breached password doesn't cost a new mail. Neither the breach lookup nor the hash holds a database connection.
+  - **Order:** the account row is locked before the link's row, as every route does (decision 0021). A security mail goes out after the answer.
+  - **The request takes decision 0021's floor:** it answers no sooner than 0.2 seconds. The floor now lives in `kernel/auth/floor.py`, with the account lock in `accounts.lock` and voiding in `tokens.void`, shared by codes and resets.
+- **Alternatives:**
+  - *Mark the address verified at a code sign-in too.* See above: it opens 14.3's gate to whoever pre-claimed the address. Doing it safely would mean wiping the password at every such sign-in, which would silently take the password from honest members who never clicked their verification link.
+  - *No resets for staff.* Their recovery would then need a support process, and a reset already leaves the second factor in place.
+  - *Use the link up on a refused password.* Simpler, but one typo would cost a new mail and a new wait.
+- **Consequences:**
+  - SPEC.md 14.7's reset line and 14.6's floor sentence change, with a change-log line. Decision 0021's open question is answered there.
+  - `docs/contracts/auth-api.md`'s reset limits and reset row say so.
+  - `kernel/tests/auth/test_resets.py` holds the tests; the contract suite's six reset tests now pass, its timing test included.
+- **See:** SPEC.md 14.3, 14.5, 14.6 and 14.7; decision 0021; `kernel/backend/kernel/auth/resets.py`

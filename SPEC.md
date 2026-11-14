@@ -572,7 +572,7 @@ Both limits are site settings (Q6).
 | Step-up | 5 failures per session in 15 minutes, then the session ends |
 
 - No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
-- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A code ask, and a try at a code, have no hash to hide behind: they answer no sooner than a fixed floor of 0.2 seconds, far above the few queries a known address costs (decision 0021). A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
+- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A code ask, a try at a code and a reset request have no hash to hide behind: they answer no sooner than a fixed floor of 0.2 seconds, far above the few queries a known address costs (decisions 0021 and 0022). A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
 - Limits keyed on an email use the normalized address, so case variants share one budget.
 - Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
 - Rate-limit windows run on real time, not on `kernel.clock`, and so do the sign-in waits, which are tiers of windows (decision 0019). Expiries and the resend wait read `kernel.clock` (decision 0013).
@@ -583,7 +583,7 @@ Both limits are site settings (Q6).
 - **Sign-up modes,** per site: open, invite-only or closed (VybeMindz `invite-only-access-control`), set by `SIGN_UP_MODE` and closed until a site opens it (decision 0020). Invites are single use, expire in 7 days and may name a role. Until invites exist, an invite-only site takes no sign-ups.
 - **Email verification** is required before posting public content or linking a provider. The link lasts 24 hours, works once, verifies only the address it was sent to, and signs nobody in (decision 0020). Unverified accounts are removed after 7 days.
 - **Email change:** the new address confirms the change; the old one stays active until then and gets the undo link.
-- **Password reset:** a 32-byte token, valid 30 minutes, single use, stored hashed. Success raises the session epoch and sends a security email.
+- **Password reset:** a 32-byte token, valid 30 minutes, single use, stored hashed. Success raises the session epoch and sends a security email. Staff get resets too: a reset signs nobody in and leaves the second factor in place. One link is live per account, and asking again within 60 seconds sends nothing. A refused new password leaves the link working. Success also voids the account's live sign-in codes, links and second-factor challenges, and marks the address verified, which gives a pre-claimed address back to its real owner (decision 0022).
 - **Suspension:** staff only, audited, and it ends every session.
 - **Deletion:** the person asks, with step-up. A 14-day grace period follows, and signing in cancels it. Then every module's `delete_user_data` runs and `auth.user.deleted` is emitted. The audit log keeps only a pseudonymous id.
 - **Export:** a ZIP of JSON from every module's `export_user_data`, built as a job and sent as an expiring download link.
@@ -795,6 +795,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | A reset goes to staff too, keeps one link live with the 60-second wait, leaves the link working after a refused password, ends every earlier way in, marks the address verified, and takes the answer floor; a code sign-in leaves verification alone (14.6, 14.7, decision 0022) |
 | 2026-11-14 | An email code or link replaces the password, so a second factor still follows; one code and link are live per account, and the account is checked again at use; a code ask and a try answer no sooner than 0.2 seconds (14.2, 14.6, decision 0021) |
 | 2026-11-14 | A 32-byte one-time token is keyed over its purpose and value, its owner and address kept beside it; codes keep the owner in the hash (14.12, decision 0012, amended) |
 | 2026-11-14 | Sign-up is closed until a site opens it (`SIGN_UP_MODE`), invite-only takes no sign-ups until invites exist, the verification link lasts 24 hours for the address it was sent to, and sign-up mail is limited per address (14.6, 14.7, decision 0020) |

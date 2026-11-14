@@ -22,10 +22,10 @@
   - *Audit every failed verify.* Without an account to key a limit on, that is unbounded writes from anyone.
   - *Pad the unknown path with matching dummy queries.* It hides only the queries written today, and any change to one path opens the gap again; a floor hides whatever the work becomes, as long as it stays under it.
   - *Send from a job, answering before any lookup.* The right shape once K3's job queue exists, and the floor can go then. Until then there is no queue.
-- **Not decided:** whether signing in by code or link should mark the address verified, since it proves the inbox as the verification link does. It is the same question the owner has open for resets, so both get one answer. Until then a code sign-in changes nothing about verification.
+- **Decided later (the owner, 2026-11-14):** signing in by code or link leaves verification as it is. It proves the inbox, but it removes nobody who knew the password, so marking the address verified then would open 14.3's gate to whoever pre-claimed it. A reset marks it verified instead (decision 0022).
 - **Consequences:**
   - SPEC.md 14.2's email-code lines gain the second factor, the one live mail and the check at use, and 14.6 the floor, with a change-log line.
   - `docs/contracts/auth-api.md`'s `/code/verify` and `/link/confirm` rows add the second-factor answer.
   - `kernel/tests/auth/test_codes.py` holds the tests: the stored rows, staff and blocked accounts, voiding, the resend wait, races, accounts that change, the second factor, the audit and the floor. The contract suite's 11 tests on codes, links and their limits now pass, and its timing test runs for `code` too.
-  - The reset request (next) answers "in similar time" too, and can take the same floor.
+  - The reset request answers "in similar time" too, and takes the same floor (decision 0022).
 - **See:** SPEC.md 14.2, 14.6, 14.10 and 14.12; decisions 0012 and 0019; `kernel/backend/kernel/auth/codes.py`
