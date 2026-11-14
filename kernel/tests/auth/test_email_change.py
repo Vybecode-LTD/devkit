@@ -192,7 +192,8 @@ async def test_a_change_mails_a_24_hour_link_to_the_new_address(site: Site) -> N
     [row] = await _rows(site, person.id)
     assert row.token_hash == keyed_hash(_CHANGE, token)
     assert row.email_normal == normal_email(new)
-    assert row.data == {"kind": "confirm", "email": new}
+    epoch = (await _account(site, person)).session_epoch
+    assert row.data == {"kind": "confirm", "email": new, "epoch": epoch}
     assert row.expires_at - row.created_at == timedelta(hours=24)
     assert (await _account(site, person)).email == person.email  # until it's confirmed
 
@@ -562,4 +563,55 @@ async def test_an_undo_for_an_account_that_cant_sign_in_is_refused(site: Site, s
         await db.execute(update(User).where(User.id == person.id).values(status=status))
         await db.commit()
     refused = await _undo(site.browser(), undo)
+    assert (refused.status_code, refused.json()["code"]) == (400, "auth.token_invalid")
+
+
+async def test_undoing_a_later_change_keeps_the_earlier_undo(site: Site) -> None:
+    """The reverse order (Codex on #45): whoever moved the address A to B to
+    C uses the undo link sent to B first. That must not void the owner's undo
+    link back to A, which then restores A."""
+    person = await _person(site)
+    first_address = person.email
+    second, undo_first = await _changed(site, person)
+    person.email = second
+    clock.advance(61)
+    _, undo_second = await _changed(site, person)
+    assert (await _undo(site.browser(), undo_second)).status_code == 200
+    assert (await _account(site, person)).email == second
+    assert (await _undo(site.browser(), undo_first)).status_code == 200
+    assert (await _account(site, person)).email == first_address
+
+
+async def test_a_pending_change_dies_with_a_password_reset(site: Site) -> None:
+    """Whoever asked for a change with the old password can't confirm it
+    after the owner resets (Codex on #45)."""
+    person = await _person(site)
+    new = _address()
+    await _change(person, new)
+    token = _last(site, new, "/auth/email")
+    await site.http.post("/api/auth/password/reset-request", json={"email": person.email})
+    reset = _last(site, person.email, "/auth/reset")
+    done = await site.http.post(
+        "/api/auth/password/reset",
+        json={"token": reset, "password": "amber walrus cello 5528 dune"},
+    )
+    assert done.status_code == 200
+    refused = await _confirm(site.browser(), token)
+    assert (refused.status_code, refused.json()["code"]) == (400, "auth.token_invalid")
+    assert (await _account(site, person)).email == person.email
+
+
+async def test_a_pending_change_dies_with_any_new_session_epoch(site: Site) -> None:
+    """The link is bound to the epoch it was asked under: a password change,
+    a second-factor reset or a suspension raises it too."""
+    person = await _person(site)
+    new = _address()
+    await _change(person, new)
+    token = _last(site, new, "/auth/email")
+    async with site.db() as db:
+        await db.execute(
+            update(User).where(User.id == person.id).values(session_epoch=User.session_epoch + 1)
+        )
+        await db.commit()
+    refused = await _confirm(site.browser(), token)
     assert (refused.status_code, refused.json()["code"]) == (400, "auth.token_invalid")

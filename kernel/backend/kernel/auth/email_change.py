@@ -19,11 +19,16 @@ signs nobody in.
 
 **Undoing** (`POST /email/undo`) puts the old address back, with its
 verification as it was, ends every session, and voids every live way in sent
-since: sign-in codes and links, reset links, second-factor challenges, and
-the account's other change and undo links. A later change never voids an
-earlier undo link: each restores the address it was sent to, so whoever
-changed the address can't change it again to cut the owner off. The old
-address must still be free. A notice follows.
+since: sign-in codes and links, reset links, second-factor challenges,
+pending change links, and the undo links of later changes. Earlier undo
+links always stay: each restores the address it was sent to, so whoever
+changed the address can neither change it again nor undo their own change
+to cut the owner off. The old address must still be free. A notice follows.
+
+**A change link is bound to the session epoch** it was asked under: a
+reset, a password change, a second-factor reset or a suspension in
+between makes it refuse, so whoever asked with the old password can't
+confirm it after the owner has taken the account back.
 
 **One purpose, two kinds.** Both links are `email_change` tokens, told apart
 by `data.kind` (`confirm` or `undo`); one used at the wrong route is refused
@@ -67,8 +72,9 @@ RESEND_WAIT = timedelta(seconds=60)
 _CHANGE = "email_change"
 _ACCOUNT_SCOPE = "auth.email_change.account"
 _MAIL_SCOPE = "auth.email_change.mail"
-#: Every way in an undo ends: what was sent or opened since the change.
-_ENDED = ("sign_in_code", "magic_link", "reset_password", "second_factor", _CHANGE)
+#: Every way in an undo ends besides change links: what was sent or opened
+#: since the change.
+_ENDED = ("sign_in_code", "magic_link", "reset_password", "second_factor")
 
 
 class EmailChange(BaseModel):
@@ -115,6 +121,29 @@ async def _write_address(db: AsyncSession) -> None:
     except IntegrityError:
         await db.rollback()
         raise _token_invalid() from None
+
+
+async def _void_after_undo(
+    db: AsyncSession, user_id: uuid.UUID, undone_at: datetime | None
+) -> None:
+    """After an undo: use up the pending change links, and the undo links
+    issued after this one, for changes this undo has rolled past. Earlier undo
+    links stay: whoever made a later change can't cancel the owner's way back
+    to the address before it by undoing their own (Codex on #45)."""
+    later = Token.data["kind"].astext == "undo"
+    if undone_at is not None:
+        later = later & (Token.created_at > undone_at)
+    await db.execute(
+        update(Token)
+        .where(
+            Token.user_id == user_id,
+            Token.purpose == _CHANGE,
+            Token.used_at.is_(None),
+            (Token.data["kind"].astext == "confirm") | later,
+        )
+        .values(used_at=clock.now())
+        .execution_options(synchronize_session=False)
+    )
 
 
 async def _void_confirms(db: AsyncSession, user_id: uuid.UUID) -> None:
@@ -168,7 +197,7 @@ async def change_email(
             user.id,
             normal,
             lifetime=CHANGE_LIFETIME,
-            data={"kind": "confirm", "email": new},
+            data={"kind": "confirm", "email": new, "epoch": user.session_epoch},
         )
         audit.record(db, request, action, "success", actor=user.id, subject=user.id)
         mail = (new, *_confirm_mail(config, token))
@@ -215,6 +244,9 @@ async def confirm_email_change(
         or redeemed.email_normal is None
         or user is None
         or user.status not in accounts.SIGNS_IN
+        # Asked under another epoch: a reset, a password change, a
+        # second-factor reset or a suspension has come between (Codex on #45).
+        or redeemed.data.get("epoch") != user.session_epoch
         or await _taken(db, redeemed.email_normal, user.id)
     ):
         await db.rollback()
@@ -279,6 +311,7 @@ async def undo_email_change(
     await _write_address(db)
     await sessions.end_all(db, user)
     await tokens.void(db, user.id, _ENDED)
+    await _void_after_undo(db, user.id, redeemed.created_at)
     audit.record(db, request, "auth.email_restored", "success", actor=user.id, subject=user.id)
     restored = user.email
     await db.commit()

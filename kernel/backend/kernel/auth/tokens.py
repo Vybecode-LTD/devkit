@@ -18,7 +18,7 @@ import secrets
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select, update
@@ -103,6 +103,7 @@ class Redeemed:
     email_normal: str | None
     #: What was kept beside the token at issue (never a secret).
     data: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime | None = None
 
 
 async def redeem(db: AsyncSession, purpose: str, token: str) -> Redeemed | None:
@@ -123,9 +124,9 @@ async def redeem(db: AsyncSession, purpose: str, token: str) -> Redeemed | None:
                 Token.user_id.is_not(None),
             )
             .values(used_at=now)
-            .returning(Token.user_id, Token.email_normal, Token.data)
+            .returning(Token.user_id, Token.email_normal, Token.data, Token.created_at)
         )
     ).first()
     if row is None or row.user_id is None:
         return None
-    return Redeemed(row.user_id, row.email_normal, dict(row.data or {}))
+    return Redeemed(row.user_id, row.email_normal, dict(row.data or {}), row.created_at)
