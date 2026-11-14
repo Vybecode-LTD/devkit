@@ -1,7 +1,7 @@
 """The auth routes at /api/auth: signing in and out, the second factor, the
 session and step-up (SPEC.md 14.2 to 14.6 and 14.10;
-docs/contracts/auth-api.md). Sign-up and verification are in `sign_up.py`;
-codes, links and resets come next.
+docs/contracts/auth-api.md). Sign-up and verification are in `sign_up.py`,
+sign-in codes and magic links in `codes.py`; resets come next.
 
 **Nothing says whether an account exists.** A sign-in for an unknown
 address, a suspended or deleted account, or one with no password costs the
@@ -148,7 +148,7 @@ async def sign_in(
         challenge = await second_factor.open_challenge(db, user)
         await db.commit()
         return JSONResponse({"status": "second_factor", "challenge": challenge, "methods": methods})
-    return await _finish(request, db, background, user, second_factor=False)
+    return await finish_sign_in(request, db, background, user, second_factor=False)
 
 
 @router.post("/sign-in/second-factor", dependencies=[Depends(public)])
@@ -196,18 +196,22 @@ async def finish_with_second_factor(
         raise _challenge_ended()
     # A right code shows the owner is here: the account's count starts again.
     await limiter.forget(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key)
-    return await _finish(request, db, background, user, second_factor=True)
+    return await finish_sign_in(
+        request, db, background, user, second_factor=True, method=challenge.method
+    )
 
 
-async def _finish(
+async def finish_sign_in(
     request: Request,
     db: AsyncSession,
     background: BackgroundTasks,
     user: User,
     *,
     second_factor: bool,
+    method: str = "password",
 ) -> JSONResponse:
-    """Start the session, after the password and any second factor."""
+    """Start the session, after the first factor (`method`: a password, a
+    code or a link) and any second factor."""
     known = sessions.knows_device(request.cookies.get(sessions.DEVICE_COOKIE), user)
     await sessions.end_by_token(db, request.cookies.get(sessions.SESSION_COOKIE))
     now = clock.now()
@@ -228,7 +232,7 @@ async def _finish(
         "success",
         actor=user.id,
         subject=user.id,
-        details={"second_factor": second_factor, "new_device": not known},
+        details={"method": method, "second_factor": second_factor, "new_device": not known},
     )
     shown = await accounts.view(db, user, declared=request.app.state.declared_permissions)
     await db.commit()

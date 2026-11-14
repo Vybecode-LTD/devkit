@@ -1,0 +1,31 @@
+# 0021: An email code or link is one first factor, live once per account
+
+- **Date:** 2026-11-14
+- **Status:** Applied
+- **Context:** K2's sign-in codes and magic links (`POST /api/auth/code`, `/code/verify` and `/link/confirm`) needed six answers SPEC.md 14.2 didn't give.
+  - **A member with a second factor.** 14.2 says an email code or link is "never a second factor", but not whether a member who has a TOTP or a passkey still gives it after one. The contract's rows said only "200 signed in".
+  - **Several live mails.** Each ask makes a code and a link. 14.2 doesn't say whether older ones keep working, or whether using the code leaves the link usable.
+  - **An account that changes after the mail.** A member could be made staff, suspended, or move to another address within the 10 minutes.
+  - **Asks at once.** The 60-second resend wait is a check, then an insert, so two asks at the same moment could both pass it.
+  - **The audit.** 14.10 lists sign-ins and failures, but a verify or confirm needs no account, so auditing every failure would let anyone fill the log.
+  - **The time.** 14.6 says a code ask answers "in similar time" for a known and an unknown address. Sign-in and sign-up hide the difference under one Argon2 hash either way; an ask has no such cost. Measured here, a known address took about 7 ms and an unknown one 3.5 ms, outside the contract suite's bounds once each round really sent a code. A wrong try on a live code writes where a try on an unknown address doesn't, and anyone can ask for a code, so `/code/verify`'s time would tell the same thing.
+- **Decision:**
+  - **A code or link replaces the password, not the second factor.** A right code or link opens the same challenge a right password does, and the sign-in finishes at `/sign-in/second-factor`. The challenge keeps the first factor's name, so the audit row says how the sign-in began. Both rows of the contract say so.
+  - **One live mail per account.** A new code voids the account's earlier code and link, and signing in with either uses up both. A code is then found as the address's latest live one, and five tries on it are all an attacker gets per mail.
+  - **The account is checked again at use:** still a member, still able to sign in, and still at the address the mail went to. Otherwise the answer is `auth.invalid_code` or `auth.invalid_link`, and the rollback leaves the code and link as they were.
+  - **The account row is locked while an ask is decided** (`SELECT … FOR UPDATE`), so asks at once send one message.
+  - **Audit rows:** every ask writes `auth.code_sent`, with `success`, `waiting` (within the resend wait) or `refused` (staff, an account that can't sign in, or no account, with no subject). A wrong try on a real code writes a failed `auth.sign_in` with `method: code`, at most five per mail. A try with no live code, or an unknown link, writes nothing. A successful sign-in's details now name its `method`: `password`, `code` or `link`.
+  - **Every ask and every try answers no sooner than 0.2 seconds** (`ANSWER_FLOOR`, real time), the part the dummy Argon2 verify plays at sign-in. The work for a known address is a few milliseconds, tens on a slow database, so the floor hides it with room to spare. The sleep starts after the transaction has committed, so it holds no database connection. The contract suite's timing test now covers `code`, and moves the clock past the resend wait each round so a code really goes out every time.
+- **Alternatives:**
+  - *Let a code or link sign in alone.* Simpler, but then anyone who reads a member's email gets past their TOTP, which is the very thing 14.2 rules out.
+  - *Keep every code live until it expires.* Asking three times would put three codes in play, and each guess would test them all.
+  - *Audit every failed verify.* Without an account to key a limit on, that is unbounded writes from anyone.
+  - *Pad the unknown path with matching dummy queries.* It hides only the queries written today, and any change to one path opens the gap again; a floor hides whatever the work becomes, as long as it stays under it.
+  - *Send from a job, answering before any lookup.* The right shape once K3's job queue exists, and the floor can go then. Until then there is no queue.
+- **Not decided:** whether signing in by code or link should mark the address verified, since it proves the inbox as the verification link does. It is the same question the owner has open for resets, so both get one answer. Until then a code sign-in changes nothing about verification.
+- **Consequences:**
+  - SPEC.md 14.2's email-code lines gain the second factor, the one live mail and the check at use, and 14.6 the floor, with a change-log line.
+  - `docs/contracts/auth-api.md`'s `/code/verify` and `/link/confirm` rows add the second-factor answer.
+  - `kernel/tests/auth/test_codes.py` holds the tests: the stored rows, staff and blocked accounts, voiding, the resend wait, races, accounts that change, the second factor, the audit and the floor. The contract suite's 11 tests on codes, links and their limits now pass, and its timing test runs for `code` too.
+  - The reset request (next) answers "in similar time" too, and can take the same floor.
+- **See:** SPEC.md 14.2, 14.6, 14.10 and 14.12; decisions 0012 and 0019; `kernel/backend/kernel/auth/codes.py`

@@ -519,8 +519,9 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 
 **Email codes and magic links**
 
-- Members only, and never a second factor. NIST forbids email as an out-of-band authenticator, so this counts as low-assurance convenience, like a password reset.
+- Members only, and never a second factor. NIST forbids email as an out-of-band authenticator, so this counts as low-assurance convenience, like a password reset. A code or link replaces the password: a member who has a second factor still gives it (decision 0021).
 - A 6-digit code or a 32-byte link token, valid 10 minutes, single use, stored as a keyed hash (14.12). Five wrong tries end it. A resend waits at least 60 seconds.
+- One live mail per account: a new code voids the last code and link, and signing in with either uses up both. The account is checked again at use, so one made staff, suspended or moved to another address since the mail isn't signed in (decision 0021).
 - A link opens a confirm page, and only that page's POST signs in. Mail scanners that pre-open links can neither use them up nor sign anyone in.
 
 ### 14.3 Linking accounts without takeovers
@@ -571,7 +572,7 @@ Both limits are site settings (Q6).
 | Step-up | 5 failures per session in 15 minutes, then the session ends |
 
 - No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
-- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
+- Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A code ask, and a try at a code, have no hash to hide behind: they answer no sooner than a fixed floor of 0.2 seconds, far above the few queries a known address costs (decision 0021). A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
 - Limits keyed on an email use the normalized address, so case variants share one budget.
 - Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
 - Rate-limit windows run on real time, not on `kernel.clock`, and so do the sign-in waits, which are tiers of windows (decision 0019). Expiries and the resend wait read `kernel.clock` (decision 0013).
@@ -794,6 +795,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | An email code or link replaces the password, so a second factor still follows; one code and link are live per account, and the account is checked again at use; a code ask and a try answer no sooner than 0.2 seconds (14.2, 14.6, decision 0021) |
 | 2026-11-14 | A 32-byte one-time token is keyed over its purpose and value, its owner and address kept beside it; codes keep the owner in the hash (14.12, decision 0012, amended) |
 | 2026-11-14 | Sign-up is closed until a site opens it (`SIGN_UP_MODE`), invite-only takes no sign-ups until invites exist, the verification link lasts 24 hours for the address it was sent to, and sign-up mail is limited per address (14.6, 14.7, decision 0020) |
 | 2026-11-13 | Sign-in's growing waits are rate-limit tiers on real time (5 in 15 minutes, 10 in an hour, 20 in a day), and second-factor failures are limited per account too, 10 an hour (14.6, decision 0019) |

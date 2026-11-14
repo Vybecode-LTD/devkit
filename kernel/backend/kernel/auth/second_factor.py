@@ -11,11 +11,12 @@ person's authenticator app, whose clock is the world's.
 compared after dropping case, spaces and hyphens, and used at most once (an
 update that only one request can make).
 
-**The challenge** a sign-in waits on once the password has passed: 32 random
-bytes, kept as a keyed hash in `auth_token` (purpose `second_factor`), valid
-10 minutes and single use. Each try is counted before the code is checked, by
-an update that refuses a sixth, so racing requests get 5 tries between them,
-never more.
+**The challenge** a sign-in waits on once its first factor (a password, or
+an email code or link) has passed: 32 random bytes, kept as a keyed hash in
+`auth_token` (purpose `second_factor`) with the first factor's name beside
+it, valid 10 minutes and single use. Each try is counted before the code is
+checked, by an update that refuses a sixth, so racing requests get 5 tries
+between them, never more.
 """
 
 from __future__ import annotations
@@ -137,9 +138,9 @@ def _challenge_hash(token: str) -> str:
     return keyed_hash(_PURPOSE, token)
 
 
-async def open_challenge(db: AsyncSession, user: User) -> str:
-    """A sign-in waiting on its second factor: the token for the client. The
-    caller commits."""
+async def open_challenge(db: AsyncSession, user: User, *, method: str = "password") -> str:
+    """A sign-in waiting on its second factor, after `method`: the token for
+    the client. The caller commits."""
     token = secrets.token_urlsafe(32)
     now = clock.now()
     db.add(
@@ -147,6 +148,7 @@ async def open_challenge(db: AsyncSession, user: User) -> str:
             purpose=_PURPOSE,
             token_hash=_challenge_hash(token),
             user_id=user.id,
+            data={"method": method},
             created_at=now,
             expires_at=now + CHALLENGE_LIFETIME,
         )
@@ -159,6 +161,8 @@ async def open_challenge(db: AsyncSession, user: User) -> str:
 class Challenge:
     id: uuid.UUID
     user_id: uuid.UUID
+    #: The first factor the sign-in passed: "password", "code" or "link".
+    method: str = "password"
 
 
 async def take_try(db: AsyncSession, token: str) -> Challenge | None:
@@ -178,13 +182,13 @@ async def take_try(db: AsyncSession, token: str) -> Challenge | None:
                 Token.attempts < CHALLENGE_TRIES,
             )
             .values(attempts=Token.attempts + 1)
-            .returning(Token.id, Token.user_id)
+            .returning(Token.id, Token.user_id, Token.data)
             .execution_options(synchronize_session=False)
         )
     ).first()
     if row is None or row.user_id is None:
         return None
-    return Challenge(row.id, row.user_id)
+    return Challenge(row.id, row.user_id, str((row.data or {}).get("method", "password")))
 
 
 async def close(db: AsyncSession, challenge: Challenge) -> bool:

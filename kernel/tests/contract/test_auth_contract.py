@@ -83,7 +83,6 @@ async def test_reset_answers_the_same_for_known_and_unknown(api: Api) -> None:
     assert _shape(known) == _shape(unknown) == (202, {"status": "check_email"})
 
 
-@not_built
 async def test_codes_answer_the_same_and_staff_are_sent_nothing(api: Api) -> None:
     member = await api.make_user()
     staff = await api.make_user(roles=["admin"], totp=True)
@@ -124,13 +123,16 @@ async def _median(timed: Callable[[], Awaitable[object]], runs: int) -> float:
     [
         "sign-in",
         "sign-up",
+        "code",
         pytest.param("password/reset-request", marks=not_built),
     ],
 )
 async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> None:
     """Interleaved, against a baseline that hashes nothing: an unknown email
     is answered in neither half nor twice the time of a known one. A sign-up
-    makes its address known, so each of its rounds signs up a new one."""
+    makes its address known, so each of its rounds signs up a new one. Each
+    round moves the clock past the last one's resend wait, so a known address
+    is sent a code every round, not answered from the wait."""
     user = await api.make_user()
     password = {"sign-in": "a wrong password 1", "sign-up": PASSWORD}.get(route)
 
@@ -138,12 +140,15 @@ async def test_a_missing_account_takes_similar_time(api: Api, route: str) -> Non
         return {"email": email} | ({"password": password} if password else {})
 
     known, unknown, baseline = [], [], []
-    for _ in range(7):
+    for round_ in range(7):
         await api.http.post("/api/_test/reset")  # counts start over: no 429s skew it
+        await api.advance(61 * (round_ + 1))  # the reset put the clock back
         baseline.append(await _median(api.session, 1))
         known.append(
             await _median(lambda: api.http.post(f"/api/auth/{route}", json=body(user.email)), 1)
         )
+        if route == "code":  # the positive control: the known address took the sending path
+            assert len(await api.mail(user.email)) == 1
         missing = f"new-{uuid.uuid4().hex[:12]}@site.test" if route == "sign-up" else UNKNOWN
         unknown.append(
             await _median(partial(api.http.post, f"/api/auth/{route}", json=body(missing)), 1)
@@ -193,7 +198,6 @@ async def test_a_reset_token_lasts_30_minutes(api: Api) -> None:
     assert (gone.status_code, gone.json()["code"]) == (400, "auth.token_invalid")
 
 
-@not_built
 async def test_a_sign_in_code_works_once(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/code", json={"email": user.email})
@@ -206,7 +210,6 @@ async def test_a_sign_in_code_works_once(api: Api) -> None:
     assert (again.status_code, again.json()["code"]) == (401, "auth.invalid_code")
 
 
-@not_built
 async def test_a_sign_in_code_lasts_10_minutes(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/code", json={"email": user.email})
@@ -225,7 +228,6 @@ async def test_a_sign_in_code_lasts_10_minutes(api: Api) -> None:
     assert (gone.status_code, gone.json()["code"]) == (401, "auth.invalid_code")
 
 
-@not_built
 async def test_five_wrong_tries_end_a_code(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/code", json={"email": user.email})
@@ -237,7 +239,6 @@ async def test_five_wrong_tries_end_a_code(api: Api) -> None:
     assert (ended.status_code, ended.json()["code"]) == (401, "auth.invalid_code")
 
 
-@not_built
 async def test_a_resend_within_60_seconds_sends_nothing(api: Api) -> None:
     user = await api.make_user()
     first = await api.http.post("/api/auth/code", json={"email": user.email})
@@ -249,7 +250,6 @@ async def test_a_resend_within_60_seconds_sends_nothing(api: Api) -> None:
     assert len(await api.mail(user.email)) == 2
 
 
-@not_built
 async def test_a_magic_link_works_once(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/code", json={"email": user.email})
@@ -260,7 +260,6 @@ async def test_a_magic_link_works_once(api: Api) -> None:
     assert (again.status_code, again.json()["code"]) == (401, "auth.invalid_link")
 
 
-@not_built
 async def test_a_magic_link_lasts_10_minutes(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/code", json={"email": user.email})
@@ -279,7 +278,6 @@ async def test_a_magic_link_lasts_10_minutes(api: Api) -> None:
 # 3. Opening a magic link with GET alone signs nobody in
 
 
-@not_built
 async def test_a_get_on_a_magic_link_signs_nobody_in(api: Api) -> None:
     user = await api.make_user()
     await api.http.post("/api/auth/code", json={"email": user.email})
@@ -786,7 +784,6 @@ async def test_the_device_cookie_outlives_sign_out_and_is_no_session(api: Api) -
     assert (await api.session()).status_code == 401
 
 
-@not_built
 async def test_codes_3_per_email_per_15_minutes(api: Api) -> None:
     user = await api.make_user()
     for _ in range(3):
@@ -797,7 +794,6 @@ async def test_codes_3_per_email_per_15_minutes(api: Api) -> None:
     assert fourth.status_code == 429
 
 
-@not_built
 async def test_code_limits_ignore_the_case_of_an_address(api: Api) -> None:
     user = await api.make_user()
     for variant in (user.email, user.email.upper(), user.email.title()):
@@ -807,7 +803,6 @@ async def test_code_limits_ignore_the_case_of_an_address(api: Api) -> None:
     assert fourth.status_code == 429
 
 
-@not_built
 async def test_codes_10_per_ip_per_hour(api: Api) -> None:
     codes = [
         (await api.http.post("/api/auth/code", json={"email": f"c{i}@site.test"})).status_code

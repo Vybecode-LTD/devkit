@@ -39,8 +39,8 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 | `POST /api/auth/sign-in` | `{email, password}` | 200 `{"status": "signed_in", "user": {...}}` and the cookie; or 200 `{"status": "second_factor", "challenge": "...", "methods": [...]}`; 401 `auth.invalid_credentials` |
 | `POST /api/auth/sign-in/second-factor` | `{challenge, totp}` or `{challenge, recovery_code}` | 200 signed in; 401 `auth.invalid_second_factor`; after 5 failures, or for a challenge used, older than 10 minutes or unknown, 401 `auth.challenge_ended` (start over); 429 past the account's limit |
 | `POST /api/auth/code` | `{email}` | 202 `{"status": "check_email"}`. Members only: a staff account is sent nothing, with the same answer |
-| `POST /api/auth/code/verify` | `{email, code}` | 200 signed in; 401 `auth.invalid_code` |
-| `POST /api/auth/link/confirm` | `{token}` | 200 signed in; 401 `auth.invalid_link`. The emailed link opens the site's confirm page (`/auth/link?token=…`); only this POST signs in |
+| `POST /api/auth/code/verify` | `{email, code}` | 200 signed in, or for an account with a second factor 200 `{"status": "second_factor", …}` as sign-in answers; 401 `auth.invalid_code` |
+| `POST /api/auth/link/confirm` | `{token}` | 200 signed in, or the second-factor answer as for a code; 401 `auth.invalid_link`. The emailed link opens the site's confirm page (`/auth/link?token=…`); only this POST signs in |
 | `POST /api/auth/password/reset-request` | `{email}` | 202 `{"status": "check_email"}` |
 | `POST /api/auth/password/reset` | `{token, password}` | 200 `{"status": "password_reset"}`; 400 `auth.token_invalid`; 422 `auth.password_rejected` with the reason. Every session of the account ends |
 | `GET /api/auth/session` | | 200 `{"user": {"id", "email", "roles", "permissions", "verified", "second_factor"}}`; 401 `kernel.not_signed_in` |

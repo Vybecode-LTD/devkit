@@ -24,3 +24,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0018](0018-module-roadmap-and-contract-hooks.md) | The module roadmap after v1.0, and the contract hooks it needs | Accepted; hooks not yet applied |
 | [0019](0019-sign-in-limits-as-tiers.md) | Sign-in waits are rate-limit tiers, and second factors are limited per account | Applied |
 | [0020](0020-sign-up-defaults.md) | Sign-up is closed until a site opens it, and its mail and links have limits | Applied |
+| [0021](0021-codes-and-links.md) | An email code or link is one first factor, live once per account | Applied |
