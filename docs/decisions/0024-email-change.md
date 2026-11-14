@@ -10,6 +10,7 @@
   - **Earlier undo links always survive.** Each undo restores the address it was sent to, and voids only the undo links issued after it, for changes it has rolled past. So whoever moved the address A to B to C can neither cancel the owner's link back to A with a further change, nor by using the undo link sent to B (Codex on #45, the reverse order).
   - **A change link is bound to the session epoch it was asked under.** A reset, a password change, a second-factor reset or a suspension in between makes it refuse, so whoever asked for a change with the old password can't confirm it after the owner has reset (Codex on #45). Undo links are not bound: they are the owner's way back, and must outlive a reset.
   - **Limits:** 3 requests per account in 15 minutes; a request within 60 seconds of the last link answers the same and sends nothing; past 3 mails to one address in 15 minutes, nothing more goes to it. A new link voids the last. The request answers no sooner than the 0.2-second floor (decision 0021).
+  - **Both answers leave the same trace** (CodeRabbit on #45). A request for an address with an account voids the last link and leaves a token of kind `notice`, never mailed and never confirmable, just as a free address leaves its link. Otherwise a request to one's own inbox straight after would have been mailed only after an address with an account, and the last link would have survived only then.
   - **A taken address stays a 400 even in a race.** Confirm and undo check that the address is free, then write it on its own before anything else. Another account taking the address between the check and the write is refused by the unique index and answered as taken. A mutant found the first version wrong: the write was left to a later query's autoflush, outside the handler, which made the race a 500.
   - **One token purpose, two kinds.** Both links are `email_change` tokens, told apart by `data.kind` (`confirm` or `undo`). A link used at the wrong route is refused and left as it was. Every route locks the account before a link's row (decision 0021).
   - **Audit:** `auth.email_change_requested` (`success`, `waiting` or `taken`), `auth.email_changed` and `auth.email_restored`, with no address in the details.
@@ -19,6 +20,7 @@
   - *Answer 409 for an address that has an account.* That would tell anyone with an account which addresses have accounts, three at a time.
   - *Void earlier undo links on a new change.* That hands whoever changed the address a way to cancel the owner's undo.
   - *Confirm only from a signed-in browser.* The link is often opened on another device; the step-up at the ask and the new inbox are the proof.
+- **Known limit:** the mail goes out after the answer and isn't retried. A failed undo mail is logged, and the old address learns nothing. K3's job queue will make security mail durable (CodeRabbit on #45).
 - **Consequences:**
   - SPEC.md 14.7's email-change line and a 14.6 limits row change, with a change-log line.
   - `docs/contracts/auth-api.md` gains the confirm and undo rows, the change row's answers, a limits line, and the mail lines' timing.

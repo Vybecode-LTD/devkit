@@ -72,6 +72,9 @@ RESEND_WAIT = timedelta(seconds=60)
 _CHANGE = "email_change"
 _ACCOUNT_SCOPE = "auth.email_change.account"
 _MAIL_SCOPE = "auth.email_change.mail"
+#: The kinds of a request still pending: a mailed change link, or the
+#: unmailed trace a request for an address with an account leaves.
+_PENDING = ("confirm", "notice")
 #: Every way in an undo ends besides change links: what was sent or opened
 #: since the change.
 _ENDED = ("sign_in_code", "magic_link", "reset_password", "second_factor")
@@ -139,7 +142,7 @@ async def _void_after_undo(
             Token.user_id == user_id,
             Token.purpose == _CHANGE,
             Token.used_at.is_(None),
-            (Token.data["kind"].astext == "confirm") | later,
+            Token.data["kind"].astext.in_(_PENDING) | later,
         )
         .values(used_at=clock.now())
         .execution_options(synchronize_session=False)
@@ -154,7 +157,7 @@ async def _void_confirms(db: AsyncSession, user_id: uuid.UUID) -> None:
             Token.user_id == user_id,
             Token.purpose == _CHANGE,
             Token.used_at.is_(None),
-            Token.data["kind"].astext == "confirm",
+            Token.data["kind"].astext.in_(_PENDING),
         )
         .values(used_at=clock.now())
         .execution_options(synchronize_session=False)
@@ -187,6 +190,14 @@ async def change_email(
     if await _waiting(db, user.id):
         audit.record(db, request, action, "waiting", actor=user.id, subject=user.id)
     elif (existing := await accounts.by_email(db, normal)) is not None:
+        # The same trace a free address leaves: the last link voided, and a
+        # token the wait counts, never mailed and never confirmable (its kind
+        # is `notice`). Otherwise the wait and the last link would tell an
+        # address with an account from a free one (CodeRabbit on #45).
+        await _void_confirms(db, user.id)
+        await tokens.issue(
+            db, _CHANGE, user.id, normal, lifetime=CHANGE_LIFETIME, data={"kind": "notice"}
+        )
         audit.record(db, request, action, "taken", actor=user.id, subject=user.id)
         mail = (existing.email, *_taken_notice(config))
     else:
@@ -215,7 +226,7 @@ async def _waiting(db: AsyncSession, user_id: uuid.UUID) -> bool:
     recent = exists().where(
         Token.purpose == _CHANGE,
         Token.user_id == user_id,
-        Token.data["kind"].astext == "confirm",
+        Token.data["kind"].astext.in_(_PENDING),
         Token.created_at > clock.now() - RESEND_WAIT,
     )
     return bool(await db.scalar(select(recent)))

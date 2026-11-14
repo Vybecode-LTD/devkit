@@ -60,10 +60,17 @@ class Site:
         return httpx.AsyncClient(transport=transport, base_url=SITE, headers=_SAME_ORIGIN)
 
 
+async def _no_breaches(prefix: str) -> str:
+    """The breach lookup, offline: no password is breached (CodeRabbit on #45)."""
+    return ""
+
+
 @pytest_asyncio.fixture
 async def site(migrated_url: str) -> AsyncIterator[Site]:
     mail = CapturingMailer()
-    app = create_app(config=make_config(database_url=migrated_url), mailer=mail)
+    app = create_app(
+        config=make_config(database_url=migrated_url), mailer=mail, breach_lookup=_no_breaches
+    )
     async with Client(app) as http:
         http.headers.update(_SAME_ORIGIN)
         made = Site(app, http, mail)
@@ -219,7 +226,8 @@ async def test_an_address_with_an_account_is_sent_a_notice(site: Site) -> None:
     notices = [m for m in site.mail.to(theirs.email) if "change" in m.subject.lower()]
     assert len(notices) == 1  # to the account's own form of its address (not the sign-in's)
     assert _links(site, theirs.email, "/auth/email") == []
-    assert await _rows(site, mine.id) == []
+    # Only the unmailed trace the wait counts; nothing that could confirm.
+    assert [r.data["kind"] for r in await _rows(site, mine.id)] == ["notice"]
     [event] = await _audit(site, "auth.email_change_requested")
     assert (event.result, event.subject_id) == ("taken", mine.id)
     assert "@" not in repr(event.details)
@@ -613,5 +621,37 @@ async def test_a_pending_change_dies_with_any_new_session_epoch(site: Site) -> N
             update(User).where(User.id == person.id).values(session_epoch=User.session_epoch + 1)
         )
         await db.commit()
+    refused = await _confirm(site.browser(), token)
+    assert (refused.status_code, refused.json()["code"]) == (400, "auth.token_invalid")
+
+
+@pytest.mark.parametrize("target_has_an_account", [False, True])
+async def test_the_wait_follows_any_request_whatever_the_address(
+    site: Site, target_has_an_account: bool
+) -> None:
+    """CodeRabbit on #45: after a request for an address with an account, a
+    request for an inbox of one's own within 60 seconds was mailed, while after
+    one for a free address it wasn't. Both now wait the same."""
+    mine = await _person(site)
+    target = (await _person(site)).email if target_has_an_account else _address("Free")
+    await _change(mine, target)
+    own = _address("Own")
+    await _change(mine, own)
+    assert _links(site, own, "/auth/email") == []
+
+
+@pytest.mark.parametrize("target_has_an_account", [False, True])
+async def test_any_request_voids_the_last_link_whatever_the_address(
+    site: Site, target_has_an_account: bool
+) -> None:
+    """And a request for an address with an account voids the last link, as
+    one for a free address does, so whether it still works tells nothing."""
+    mine = await _person(site)
+    own = _address("Own")
+    await _change(mine, own)
+    token = _last(site, own, "/auth/email")
+    clock.advance(61)
+    target = (await _person(site)).email if target_has_an_account else _address("Free")
+    await _change(mine, target)
     refused = await _confirm(site.browser(), token)
     assert (refused.status_code, refused.json()["code"]) == (400, "auth.token_invalid")
