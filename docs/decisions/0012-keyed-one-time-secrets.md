@@ -14,6 +14,7 @@
   - Recovery codes are unique per person, and every lookup names the person.
   - Session tokens and API-key secrets are 32 random bytes and keep a plain SHA-256 (14.5, 14.9).
   - `auth_session` keeps the user agent (up to 300 characters). An API key's mode is `live` or `test`. Every foreign key has an index.
+  - **Amended 2026-11-14 (#39):** a 32-byte token found by its hash (an email link, a second-factor challenge) is keyed over its purpose and value only. Whose it is isn't known until its row is found, and its 32 random bytes make it unique without the owner. The owner and the address are kept beside the hash and checked after the lookup: a verification link verifies only the address it was sent to. Binding them into the hash too would guard only against someone who can write the token table, who could already write the accounts themselves. Sign-in codes and recovery codes, found by purpose and address or by person, keep the owner in the hash.
   - Migration `kernel_0002` was amended in place, since no site has run it. A local database made from the old version needs `python -m harness.migrations downgrade kernel_0001`, then `upgrade`.
 - **Alternatives:**
   - A pepper separate from SECRET_KEY: one more secret to keep and rotate, for no gain while SECRET_KEY already signs links.

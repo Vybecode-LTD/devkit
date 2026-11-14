@@ -626,7 +626,7 @@ Both limits are site settings (Q6).
 ### 14.12 Crypto and secrets
 
 - Random values come from Python's `secrets`, and every token check is a constant-time comparison.
-- One-time tokens, sign-in codes and recovery codes are kept as HMAC-SHA256 under SECRET_KEY, over their purpose, owner and value (decision 0012). Session tokens and API-key secrets, 32 random bytes each, keep a plain SHA-256.
+- Sign-in codes and recovery codes are kept as HMAC-SHA256 under SECRET_KEY, over their purpose, owner and value. A 32-byte one-time token, found by its hash, is keyed over its purpose and value, with its owner and address kept beside it and checked after the lookup (decision 0012, amended). Session tokens and API-key secrets, 32 random bytes each, keep a plain SHA-256.
 - Every foreign key has an index.
 - Secrets at rest (TOTP secrets, stored provider tokens) are sealed by kernel crypto with MultiFernet, so keys rotate without downtime.
 - Outside debug, the app refuses to start on a default, placeholder or short secret (VybeSite's check).
@@ -794,6 +794,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | A 32-byte one-time token is keyed over its purpose and value, its owner and address kept beside it; codes keep the owner in the hash (14.12, decision 0012, amended) |
 | 2026-11-14 | Sign-up is closed until a site opens it (`SIGN_UP_MODE`), invite-only takes no sign-ups until invites exist, the verification link lasts 24 hours for the address it was sent to, and sign-up mail is limited per address (14.6, 14.7, decision 0020) |
 | 2026-11-13 | Sign-in's growing waits are rate-limit tiers on real time (5 in 15 minutes, 10 in an hour, 20 in a day), and second-factor failures are limited per account too, 10 an hour (14.6, decision 0019) |
 | 2026-11-13 | This file is the only copy of the spec: the claude.ai doc is retired, frozen as of 2026-11-12 (decision 0017; header) |

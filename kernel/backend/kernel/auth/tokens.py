@@ -3,7 +3,8 @@ in an email's link, for verifying an address now and for resets, magic links
 and email changes after it.
 
 A token is kept only as a keyed hash over its purpose and value (decision
-0012), unique by that hash, so it is found by hashing what the link carries.
+0012, amended), unique by that hash, so it is found by hashing what the link
+carries: whose it is can't be known before the row is.
 The address it was sent to is kept beside it, so a token sent to an address
 the account has since left proves nothing about the new one. Redeeming is one
 UPDATE that marks the row used only while it is unused and unexpired, so two
