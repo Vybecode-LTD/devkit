@@ -19,7 +19,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
@@ -57,6 +57,24 @@ async def issue(
     )
     await db.flush()
     return token
+
+
+async def owner_of(db: AsyncSession, purpose: str, token: str) -> uuid.UUID | None:
+    """Whose live token this is, locking nothing: a route that must lock the
+    account before the token (so every path takes rows in one order) asks
+    this first, then redeems. None when it was never issued, is used or has
+    expired."""
+    if not _LINK_TOKEN.fullmatch(token):
+        return None
+    owner: uuid.UUID | None = await db.scalar(
+        select(Token.user_id).where(
+            Token.purpose == purpose,
+            Token.token_hash == token_hash(purpose, token),
+            Token.used_at.is_(None),
+            Token.expires_at > clock.now(),
+        )
+    )
+    return owner
 
 
 @dataclass(frozen=True)

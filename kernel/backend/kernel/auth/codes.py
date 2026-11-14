@@ -19,6 +19,8 @@ that hash (`tokens.py`).
 and link, and signing in with either uses up both. Asking again within 60
 seconds (by `kernel.clock`) answers the same and sends nothing; the account
 row is locked while that is decided, so asks at once send one message.
+Every path locks the account row before any of its code or link rows, so a
+code and its link used at once, or a code racing a new ask, can't deadlock.
 
 **Tries:** five per code, each counted before the code is checked, by an
 update that refuses a sixth, so racing requests get five between them.
@@ -124,6 +126,15 @@ async def _no_sooner_than_the_floor(started: float) -> None:
     left = ANSWER_FLOOR - (time.perf_counter() - started)
     if left > 0:
         await asyncio.sleep(left + _TICK)
+
+
+async def _lock_account(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Lock the account row until the commit. Every path takes it before any
+    of the account's code or link rows (an ask before voiding, a verify or a
+    confirm before using its token), so no two wait on each other's rows: a
+    code and its link used at once, or a code racing a new ask, would
+    otherwise deadlock (Codex on #42)."""
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
 
 
 async def _void(db: AsyncSession, user_id: uuid.UUID) -> None:
@@ -313,6 +324,7 @@ async def _verify_code(
         )
         await db.commit()
         raise _invalid_code()
+    await _lock_account(db, taken.user_id)
     if not await _use(db, taken.id):
         await db.rollback()
         raise _invalid_code()
@@ -328,7 +340,10 @@ async def confirm_link(
     background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    redeemed = await tokens.redeem(db, _LINK, body.token)
+    owner = await tokens.owner_of(db, _LINK, body.token)
+    if owner is not None:
+        await _lock_account(db, owner)
+    redeemed = await tokens.redeem(db, _LINK, body.token) if owner is not None else None
     if redeemed is None or redeemed.email_normal is None:
         await db.rollback()
         raise _invalid_link()

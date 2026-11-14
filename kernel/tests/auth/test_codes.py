@@ -415,6 +415,38 @@ async def test_one_link_confirmed_twice_at_once_signs_in_once(site: Site) -> Non
         assert sorted(a.status_code for a in answers) == [200, 401, 401]
 
 
+async def test_the_code_and_the_link_used_at_once_sign_in_once(site: Site) -> None:
+    """Each path takes the account row before its token's, so neither waits
+    on a row the other holds: one signs in and the other is a 401, never a
+    deadlock's 500 (Codex on #42)."""
+    await _warm(site)
+    for _ in range(4):
+        person = await _person(site)
+        await _ask(site.http, person.email)
+        code, token = await _mailed(site, person)
+        answers = await asyncio.gather(
+            _verify(site.browser(), person.email, code), _confirm(site.browser(), token)
+        )
+        assert sorted(a.status_code for a in answers) == [200, 401]
+
+
+async def test_a_new_ask_racing_a_right_code_never_fails(site: Site) -> None:
+    """The ask locks the account row, then voids the mail; a verify takes the
+    same row first too. The code signs in or has been voided: 200 or 401,
+    and the ask is a 202, never a 500. Three rounds, six asks: under the IP's 10."""
+    await _warm(site)
+    for _ in range(3):
+        person = await _person(site)
+        await _ask(site.http, person.email)
+        code, _ = await _mailed(site, person)
+        clock.advance(61)  # past the resend wait, so the ask voids the mail
+        verified, asked = await asyncio.gather(
+            _verify(site.browser(), person.email, code), _ask(site.browser(), person.email)
+        )
+        assert verified.status_code in {200, 401}
+        assert asked.status_code == 202
+
+
 # --- the account changes after the mail ------------------------------------------
 
 
