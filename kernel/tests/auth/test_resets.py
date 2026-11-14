@@ -11,7 +11,7 @@ import asyncio
 import hashlib
 import time
 import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
@@ -20,16 +20,17 @@ import httpx
 import pyotp
 import pytest
 import pytest_asyncio
+from argon2 import PasswordHasher
 from fastapi import FastAPI
 from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock, crypto
 from kernel.app import create_app
-from kernel.auth import floor
+from kernel.auth import floor, second_factor
 from kernel.auth.accounts import normal_email
 from kernel.auth.hashing import keyed_hash
-from kernel.auth.models import AuditEvent, Token, Totp, User, UserRole
+from kernel.auth.models import AuditEvent, Session, Token, Totp, User, UserRole
 from kernel.email import CapturingMailer
 
 from ..conftest import SITE, Client, make_config
@@ -106,9 +107,10 @@ async def _person(
     status: str = "active",
     verified: bool = True,
     totp: bool = False,
+    password_hash: str | None = None,
 ) -> Person:
     email = f"Lee.{uuid.uuid4().hex[:10]}@Site.test"
-    hashed = await site.app.state.passwords.hash(PASSWORD)
+    hashed = password_hash or await site.app.state.passwords.hash(PASSWORD)
     async with site.db() as db:
         user = User(
             email=email,
@@ -443,41 +445,180 @@ async def test_a_reset_racing_a_new_ask_never_fails(site: Site) -> None:
         assert asked.status_code == 202
 
 
+_TOKEN_ROW_FREE = "SELECT id FROM auth_token WHERE id = :id FOR UPDATE NOWAIT"
+_SESSION_ROW_FREE = "SELECT id FROM auth_session WHERE id = :id FOR UPDATE NOWAIT"
+
+
+async def _with_the_account_held(
+    site: Site,
+    person: Person,
+    request: Callable[[], Awaitable[httpx.Response]],
+    probe: str,
+    row_id: uuid.UUID,
+) -> httpx.Response:
+    """Hold the account row, start `request`, wait until it's blocked, and
+    check with `probe` (a NOWAIT lock on one row) that it hasn't taken that
+    row yet: a route that took it before the account's would hold it while
+    it waited, and NOWAIT would fail. Then let go and give its answer. A race
+    can't show the order when a hash runs before the locks."""
+    async with site.db() as holder, site.db() as watcher:
+        await holder.execute(select(User.id).where(User.id == person.id).with_for_update())
+        running = asyncio.create_task(request())
+        try:
+            blocked = False
+            for _ in range(250):
+                await asyncio.sleep(0.02)
+                blocked = bool(
+                    await watcher.scalar(
+                        text(
+                            "SELECT count(*) FROM pg_stat_activity"
+                            " WHERE wait_event_type = 'Lock' AND datname = current_database()"
+                        )
+                    )
+                )
+                await watcher.rollback()
+                if blocked:
+                    break
+            assert blocked, "the request never waited for the account row"
+            assert await watcher.scalar(text(probe), {"id": row_id}) == row_id
+        finally:  # let the request finish either way, so nothing leaks
+            await watcher.rollback()
+            await holder.rollback()
+            answer = await running
+    return answer
+
+
 async def test_a_reset_locks_the_account_before_its_link(site: Site) -> None:
     """The race above can't show the order: the reset's Argon2 hash comes
-    before its locks, so the ask always finishes first. So hold the account
-    row, wait until the reset is blocked, and check it hasn't taken its
-    link's row yet; a reset that took the link first would hold that row
-    while it waited, and NOWAIT would fail."""
+    before its locks, so the ask always finishes first."""
     person = await _person(site)
     await _ask(site.http, person.email)
     token = _mailed(site, person)
     [row] = await _rows(site, person.id)
-    async with site.db() as holder, site.db() as watcher:
-        await holder.execute(select(User.id).where(User.id == person.id).with_for_update())
-        resetting = asyncio.create_task(_reset(site.browser(), token))
-        blocked = False
-        for _ in range(250):
-            await asyncio.sleep(0.02)
-            blocked = bool(
-                await watcher.scalar(
-                    text(
-                        "SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock'"
-                        " AND datname = current_database()"
-                    )
-                )
-            )
-            await watcher.rollback()
-            if blocked:
-                break
-        assert blocked, "the reset never waited for the account row"
-        free = await watcher.scalar(
-            text("SELECT id FROM auth_token WHERE id = :id FOR UPDATE NOWAIT"), {"id": row.id}
+    reset = await _with_the_account_held(
+        site, person, lambda: _reset(site.browser(), token), _TOKEN_ROW_FREE, row.id
+    )
+    assert reset.status_code == 200
+
+
+async def test_finishing_a_second_factor_locks_the_account_before_the_challenge(
+    site: Site,
+) -> None:
+    """A reset voids open challenges with the account locked; a sign-in that
+    closed its challenge first, then waited for the account, deadlocked
+    with it (Codex on #43)."""
+    person = await _person(site, totp=True)
+    assert person.totp_secret
+    secret = person.totp_secret
+    challenge = (await _sign_in(site.browser(), person, PASSWORD)).json()["challenge"]
+    [row] = await _rows(site, person.id, "second_factor")
+
+    def finish() -> Awaitable[httpx.Response]:
+        return site.browser().post(
+            "/api/auth/sign-in/second-factor",
+            json={"challenge": challenge, "totp": pyotp.TOTP(secret).now()},
         )
-        assert free == row.id
-        await watcher.rollback()
-        await holder.rollback()
+
+    finished = await _with_the_account_held(site, person, finish, _TOKEN_ROW_FREE, row.id)
+    assert finished.json()["status"] == "signed_in"
+
+
+async def test_signing_in_again_locks_the_account_before_the_old_session(site: Site) -> None:
+    """Signing in ends the browser's old session; a reset ends every session
+    with the account locked. The account comes first here too."""
+    person = await _person(site)
+    browser = site.browser()
+    assert (await _sign_in(browser, person, PASSWORD)).status_code == 200
+    async with site.db() as db:
+        [old] = list(await db.scalars(select(Session.id).where(Session.user_id == person.id)))
+    again = await _with_the_account_held(
+        site, person, lambda: _sign_in(browser, person, PASSWORD), _SESSION_ROW_FREE, old
+    )
+    assert again.json()["status"] == "signed_in"
+
+
+@pytest.mark.parametrize("meanwhile", ["reset", "suspension"])
+async def test_a_sign_in_rehashing_the_old_password_cant_undo_a_reset(
+    site: Site, monkeypatch: pytest.MonkeyPatch, meanwhile: str
+) -> None:
+    """A sign-in that has checked the old password and is re-hashing it (the
+    stored parameters are out of date) must neither write it back over a
+    reset that lands meanwhile nor sign in with it (Codex on #43), nor sign
+    in an account suspended meanwhile."""
+    other = PasswordHasher(memory_cost=24 * 1024, time_cost=3, parallelism=2).hash(PASSWORD)
+    person = await _person(site, password_hash=other)
+    passwords = site.app.state.passwords
+    real_hash = passwords.hash
+    rehashing, go_on = asyncio.Event(), asyncio.Event()
+
+    async def held(password: str) -> str:
+        if password == PASSWORD:  # the sign-in's re-hash of the old password
+            rehashing.set()
+            await go_on.wait()
+        hashed: str = await real_hash(password)
+        return hashed
+
+    monkeypatch.setattr(passwords, "hash", held)
+    signing_in = asyncio.create_task(_sign_in(site.browser(), person, PASSWORD))
+    await asyncio.wait_for(rehashing.wait(), 10)
+    if meanwhile == "reset":
+        await _ask(site.http, person.email)
+        assert (await _reset(site.http, _mailed(site, person))).status_code == 200
+    else:
+        await _change(site, person, status="suspended")
+    go_on.set()
+    late = await signing_in
+    assert (late.status_code, late.json()["code"]) == (401, "auth.invalid_credentials")
+    if meanwhile == "reset":
+        assert (await _sign_in(site.browser(), person, PASSWORD)).status_code == 401
+        assert (await _sign_in(site.browser(), person, NEW)).json()["status"] == "signed_in"
+    else:
+        assert (await _user(site, person)).password_hash == other  # nothing was written
+
+
+async def test_a_sign_in_holds_the_account_until_its_rehash_is_written(
+    site: Site, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Past its second look, a sign-in still holds the account until it
+    commits: a reset arriving then waits, and lands after it. Paused just
+    after the second look, a sign-in without that lock would let the reset
+    commit first, then write the old password's re-hash over it."""
+    other = PasswordHasher(memory_cost=24 * 1024, time_cost=3, parallelism=2).hash(PASSWORD)
+    person = await _person(site, password_hash=other)
+    await _ask(site.http, person.email)  # first: an ask takes the account lock too
+    token = _mailed(site, person)
+    real_methods = second_factor.methods_of
+    paused, go_on = asyncio.Event(), asyncio.Event()
+
+    async def held(db: AsyncSession, user_id: uuid.UUID) -> list[str]:
+        if not paused.is_set():  # the sign-in, just past its second look
+            paused.set()
+            await go_on.wait()
+        return await real_methods(db, user_id)
+
+    monkeypatch.setattr(second_factor, "methods_of", held)
+    signing_in = asyncio.create_task(_sign_in(site.browser(), person, PASSWORD))
+    await asyncio.wait_for(paused.wait(), 10)
+    resetting = asyncio.create_task(_reset(site.browser(), token))
+    await asyncio.wait({resetting}, timeout=1.0)  # done only if nothing held it back
+    go_on.set()
+    await signing_in
     assert (await resetting).status_code == 200
+    assert (await _sign_in(site.browser(), person, PASSWORD)).status_code == 401
+    assert (await _sign_in(site.browser(), person, NEW)).json()["status"] == "signed_in"
+
+
+async def test_a_reset_clears_the_failed_sign_ins(site: Site) -> None:
+    """After a reset every browser is a stranger, so strangers' guesses must
+    not keep the owner's new password waiting (CodeRabbit on #43)."""
+    person = await _person(site)
+    for _ in range(5):
+        await _sign_in(site.browser(), person, "a wrong password 1")
+    refused = await _sign_in(site.browser(), person, PASSWORD)
+    assert refused.status_code == 429  # the control: over the limit
+    await _ask(site.http, person.email)
+    await _reset(site.http, _mailed(site, person))
+    assert (await _sign_in(site.browser(), person, NEW)).json()["status"] == "signed_in"
 
 
 async def test_the_address_budget_ignores_case(site: Site) -> None:

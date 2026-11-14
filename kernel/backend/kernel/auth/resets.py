@@ -23,7 +23,9 @@ every live sign-in code and link, reset link and second-factor challenge of
 the account is voided; and the address is marked verified, since the link
 proved the inbox and the reset has shut out whoever else knew the old
 password, which gives a pre-claimed address back to its real owner (decision
-0022). A security mail goes out after the answer. It signs nobody in.
+0022). The address's failed sign-ins are cleared, so strangers' guesses
+don't keep the new password waiting. A security mail goes out after the
+answer. It signs nobody in.
 """
 
 from __future__ import annotations
@@ -42,6 +44,7 @@ from kernel.access import public
 from kernel.auth import accounts, audit, floor, sessions, tokens
 from kernel.auth.models import Token, User
 from kernel.auth.passwords import Passwords, refusal, site_context
+from kernel.auth.routes import forget_sign_in_failures
 from kernel.config import KernelConfig
 from kernel.db import get_db
 from kernel.email import Mailer
@@ -196,6 +199,7 @@ async def reset_password(
     await tokens.void(db, user.id, _ENDED)
     audit.record(db, request, "auth.password_reset", "success", actor=user.id, subject=user.id)
     await db.commit()
+    await forget_sign_in_failures(cast(RateLimiter, request.app.state.limiter), user.email_normal)
     background.add_task(_send, request.app.state.mailer, user.email, *_notice(config, now))
     return {"status": "password_reset"}
 

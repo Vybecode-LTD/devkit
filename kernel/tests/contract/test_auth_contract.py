@@ -186,7 +186,7 @@ async def test_a_reset_token_lasts_30_minutes(api: Api) -> None:
     assert still.status_code == 200  # the control: alive at 29 minutes
 
     await api.http.post("/api/auth/password/reset-request", json={"email": user.email})
-    late = token_in((await api.last_mail(user.email))["text"], "/auth/reset")
+    late = await api.new_token(user.email, "/auth/reset", not_=early)
     assert late != early
     await api.advance(31 * MINUTE)
     gone = await api.http.post(
@@ -266,7 +266,7 @@ async def test_a_magic_link_lasts_10_minutes(api: Api) -> None:
 
     other = api.another_browser()
     await other.http.post("/api/auth/code", json={"email": user.email})
-    late = token_in((await api.last_mail(user.email))["text"], "/auth/link")
+    late = await api.new_token(user.email, "/auth/link", not_=early)
     await api.advance(11 * MINUTE)
     gone = await other.http.post("/api/auth/link/confirm", json={"token": late})
     assert (gone.status_code, gone.json()["code"]) == (401, "auth.invalid_link")

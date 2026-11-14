@@ -22,6 +22,11 @@ the same failure limit, writes the same audit row and gets the same answer.
   outrun it, and a right code starts the account's count again.
 - *Step-up failures:* the fifth in 15 minutes ends the session.
 
+**One lock order** (decision 0021): a route that touches an account's token
+or session rows locks the account row first. A password sign-in takes it
+after the password is checked and looks at the account again, so a reset
+or a suspension that landed meanwhile wins over the old password.
+
 **A new device** (no device cookie for the account) is mailed a notice after
 it signs in, without delaying the answer; a mailer that fails is logged and
 changes nothing.
@@ -110,6 +115,14 @@ def _challenge_ended() -> Problem:
     return Problem("auth.challenge_ended", 401, "This sign-in has ended. Start again.")
 
 
+async def forget_sign_in_failures(limiter: RateLimiter, email: str) -> None:
+    """Clear the address's failed sign-ins: a finished reset calls this. It
+    makes every browser a stranger (the epoch), so a stranger's guesses
+    mustn't keep the owner's new password waiting for up to a day."""
+    for rule in SIGN_IN_FAILURES:
+        await limiter.forget(rule, _SIGN_IN_SCOPE, accounts.normal_email(email))
+
+
 async def _wait(limiter: RateLimiter, rules: tuple[str, ...], scope: str, key: str) -> int:
     return max([await limiter.wait_seconds(rule, scope, key) for rule in rules])
 
@@ -147,8 +160,19 @@ async def sign_in(
         raise Problem(
             "auth.invalid_credentials", 401, "That email and password don't match an account."
         )
-    if passwords.needs_rehash(hashed):
-        user.password_hash = await passwords.hash(body.password)
+    rehashed = await passwords.hash(body.password) if passwords.needs_rehash(hashed) else None
+    # Lock the account, then look again: a reset or a suspension may have
+    # landed while the password was being checked or re-hashed, and the
+    # password checked above must not win over it (Codex on #43).
+    await accounts.lock(db, user.id)
+    user = await db.get(User, user.id, populate_existing=True)
+    if user is None or user.status not in accounts.SIGNS_IN or user.password_hash != hashed:
+        await db.rollback()
+        raise Problem(
+            "auth.invalid_credentials", 401, "That email and password don't match an account."
+        )
+    if rehashed is not None:
+        user.password_hash = rehashed
     methods = await second_factor.methods_of(db, user.id)
     if methods:
         challenge = await second_factor.open_challenge(db, user)
@@ -192,6 +216,8 @@ async def finish_with_second_factor(
         )
         await db.commit()
         raise Problem("auth.invalid_second_factor", 401, "That code didn't work. Try again.")
+    # The account before the challenge's row, as a reset takes them (Codex on #43).
+    await accounts.lock(db, challenge.user_id)
     user = await db.get(User, challenge.user_id, populate_existing=True)
     if (
         user is None
@@ -217,7 +243,10 @@ async def finish_sign_in(
     method: str = "password",
 ) -> JSONResponse:
     """Start the session, after the first factor (`method`: a password, a
-    code or a link) and any second factor."""
+    code or a link) and any second factor. Every caller holds the account's
+    row lock already, taken before any token or session row; it is taken
+    again here, at no cost, so a new caller can't get the order wrong."""
+    await accounts.lock(db, user.id)
     known = sessions.knows_device(request.cookies.get(sessions.DEVICE_COOKIE), user)
     await sessions.end_by_token(db, request.cookies.get(sessions.SESSION_COOKIE))
     now = clock.now()

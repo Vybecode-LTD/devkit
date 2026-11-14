@@ -221,6 +221,21 @@ class Api:
                 return messages
             await asyncio.sleep(0.05)
 
+    async def new_token(self, to: str, path: str, *, not_: str) -> str:
+        """The token of a `path` link mailed to `to` other than `not_`,
+        waiting up to `MAIL_WAIT` for one. It's picked by its link, not its
+        place: a running server's mail lands after its answers, in any order,
+        so the newest message may be an older link or a security notice."""
+        deadline = time.monotonic() + MAIL_WAIT
+        while True:
+            for message in reversed(await self.mail(to)):
+                if _links_to(message["text"], path):
+                    token = token_in(message["text"], path)
+                    if token != not_:
+                        return token
+            assert time.monotonic() < deadline, f"no new {path} link to {to}"
+            await asyncio.sleep(0.05)
+
     async def last_mail(self, to: str) -> dict[str, str]:
         messages = await self.mail(to, at_least=1)
         assert messages, f"no mail to {to}"
@@ -285,13 +300,17 @@ def code_in(text: str) -> str:
     return str(codes[0])
 
 
-def token_in(text: str, path: str) -> str:
-    """The `token` of the one link to `path` a message holds."""
-    links = [
+def _links_to(text: str, path: str) -> list[str]:
+    return [
         url
         for url in re.findall(r"https?://\S+|/\S+", text)
         if urlsplit(url.rstrip(".,)")).path == path
     ]
+
+
+def token_in(text: str, path: str) -> str:
+    """The `token` of the one link to `path` a message holds."""
+    links = _links_to(text, path)
     assert len(links) == 1, f"expected one {path} link in: {text!r}"
     tokens = parse_qs(urlsplit(links[0].rstrip(".,)")).query).get("token")
     assert tokens, f"no token in {links[0]!r}"
