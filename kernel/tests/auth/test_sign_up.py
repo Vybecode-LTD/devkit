@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
 from kernel.app import create_app
-from kernel.auth import passwords
+from kernel.auth import passwords, tokens
 from kernel.auth.accounts import normal_email
 from kernel.auth.hashing import keyed_hash
 from kernel.auth.models import AuditEvent, Token, User, UserRole
@@ -708,3 +708,12 @@ async def test_a_verify_and_a_resend_at_once_never_fail(site: Site) -> None:
         )
         assert verified.status_code in {200, 400}
         assert resent.status_code in {202, 409}
+
+
+async def test_a_token_never_issued_is_refused_before_any_lookup(site: Site) -> None:
+    """Every route asks `owner_of` before `redeem`, so `redeem`'s own check of
+    the token's form only guards a future caller; both refuse the same way."""
+    async with site.db() as db:
+        for bad in ("not a token", "x" * 44, ""):
+            assert await tokens.owner_of(db, "verify_email", bad) is None
+            assert await tokens.redeem(db, "verify_email", bad) is None

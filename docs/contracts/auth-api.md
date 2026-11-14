@@ -19,6 +19,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 - **Device cookie:** `__Host-dk_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
 - **Codes and links:** 3 per email per 15 minutes, 10 per IP per hour. A second `POST /api/auth/code` within 60 seconds answers the same 202 and sends nothing.
 - **Reset requests:** limited as codes are, the wait included: a second request within 60 seconds answers the same 202 and sends nothing.
+- **Email change:** 3 requests per account per 15 minutes; a request within 60 seconds of the last answers the same 202 and sends nothing. Past 3 mails to one address in 15 minutes, nothing more is sent to it.
 - **A new verification link:** 3 per account per 15 minutes. A second request within 60 seconds of the last link answers the same 202 and sends nothing.
 - **Sign-up:** 5 per IP per hour. Past 3 sign-up mails to one address in 15 minutes, a sign-up for an address that has an account answers the same 202 and sends no notice. A new account's verification link always goes out.
 - **Second factor:** 5 failures end the challenge (`auth.challenge_ended`). Past 10 failures on one account in an hour, its challenges answer 429 until the hour has passed.
@@ -29,7 +30,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 - **`POST /api/auth/code`:** one message holding both the 6-digit code and the link `/auth/link?token=…`.
 - **`POST /api/auth/password/reset-request`:** `/auth/reset?token=…`.
 - **Sign-up, and a new verification link:** `/auth/verify?token=…`.
-- **Email change:** `/auth/email?token=…` to the new address, and `/auth/email/undo?token=…` to the old one.
+- **Email change:** `/auth/email?token=…` to the new address when it is asked for, and `/auth/email/undo?token=…` to the old one once it is confirmed.
 
 ## Public
 
@@ -44,6 +45,8 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 | `POST /api/auth/link/confirm` | `{token}` | 200 signed in, or the second-factor answer as for a code; 401 `auth.invalid_link`. The emailed link opens the site's confirm page (`/auth/link?token=…`); only this POST signs in |
 | `POST /api/auth/password/reset-request` | `{email}` | 202 `{"status": "check_email"}` |
 | `POST /api/auth/password/reset` | `{token, password}` | 200 `{"status": "password_reset"}`; 400 `auth.token_invalid`; 422 `auth.password_rejected` with the reason, the link still working. Every session of the account ends, it signs nobody in, and the address counts as verified |
+| `POST /api/auth/email/confirm` | `{token}` | 200 `{"status": "email_changed"}`: the account takes the new address, verified, and the old address is mailed an undo link valid 7 days. 400 `auth.token_invalid`. The emailed link opens the site's page (`/auth/email?token=…`); only this POST changes anything, and it signs nobody in |
+| `POST /api/auth/email/undo` | `{token}` | 200 `{"status": "email_restored"}`: the old address is back and every session of the account ends. 400 `auth.token_invalid` |
 | `GET /api/auth/session` | | 200 `{"user": {"id", "email", "roles", "permissions", "verified", "second_factor"}}`; 401 `kernel.not_signed_in` |
 | `POST /api/auth/sign-out` | | 204, the cookie cleared |
 | `GET /api/auth/oauth/{provider}/start?next=/path` | | 302 to the provider, with `state`, PKCE S256 and, for OpenID providers, `nonce`. `next` must be a path on this site (one leading `/`, not `//`); anything else becomes `/` |
@@ -58,7 +61,7 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | `POST /api/auth/verify-email/resend` | | 202 `{"status": "check_email"}`: a new 24-hour link to the address the account has now, the last one void. 409 `auth.already_verified` once it is verified |
 | `POST /api/auth/step-up` | `{password}` or `{totp}` | 200 `{"status": "recent"}`; the session token is replaced. 401 `auth.invalid_credentials` for a wrong password or `auth.invalid_second_factor` for a wrong code, the session kept; the fifth failure answers 401 `kernel.not_signed_in` and ends it |
 | `POST /api/auth/password/change` | `{current_password, new_password}` | **step-up.** 200; every other session ends; 422 `auth.password_rejected` with the reason |
-| `POST /api/auth/email/change` | `{email}` | **step-up.** 202; the new address confirms it |
+| `POST /api/auth/email/change` | `{email}` | **step-up.** 202 `{"status": "check_email"}` whatever the address: the new address is mailed a link to confirm it, valid 24 hours, or a notice instead when it has an account. The old address works until then. 422 `kernel.invalid_request` for anything but one other address |
 | `POST /api/auth/totp/setup` | | **step-up.** 200 `{"secret", "otpauth_uri"}`; 403 `auth.email_unverified` until the email is verified (14.3). The TOTP counts as a second factor only once confirmed |
 | `POST /api/auth/totp/confirm` | `{code}` | 200 `{"recovery_codes": [10 codes]}` |
 | `DELETE /api/auth/totp` | | **step-up.** 204 |

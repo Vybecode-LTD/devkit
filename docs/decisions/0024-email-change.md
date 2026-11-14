@@ -1,0 +1,26 @@
+# 0024: Email change is confirmed by the new address and undone by the old
+
+- **Date:** 2026-11-14
+- **Status:** Applied
+- **Context:** SPEC.md 14.7 says the new address confirms an email change, the old one stays active until then and gets the undo link, and 14.6 says the undo link lasts 7 days. The contract had `POST /api/auth/email/change` (step-up) and the two links' mail lines, but no routes to use the links. It also left open how long the confirm link lasts, what an undo ends, what happens for an address that has an account, and the limits.
+- **Decision** (the shape the owner approved, 2026-11-14):
+  - **`POST /api/auth/email/change {email}`** (step-up) answers 202 `{"status": "check_email"}` for any address but the account's own (422 `kernel.invalid_request` for that, or anything but one address). A free address is mailed a link to `/auth/email?token=…`, valid **24 hours**. An address that has an account is sent a notice instead, so the answer says nothing about it. The account keeps its address until the link is used.
+  - **`POST /api/auth/email/confirm {token}`:** the account takes the new address, marked verified (the link proved the inbox), and the old address is mailed the undo link to `/auth/email/undo?token=…`, valid 7 days. 400 `auth.token_invalid` for a bad, used or expired link, an account that can't sign in now, or a new address another account has taken since. It signs nobody in. The site's `/auth/email` page sends this POST; opening the link changes nothing.
+  - **`POST /api/auth/email/undo {token}`:** the old address comes back, with its verification as it was, every session ends, and every live way in sent since is voided: sign-in codes and links, reset links, second-factor challenges, and the account's other change and undo links. A notice goes to the restored address. 400 `auth.token_invalid` as for a confirm, or when the old address has been taken since.
+  - **A later change never voids an earlier undo link.** Each undo restores the address it was sent to. So whoever changed the address can't change it again to cut the owner off; the owner's undo still works, and it voids the later one.
+  - **Limits:** 3 requests per account in 15 minutes; a request within 60 seconds of the last link answers the same and sends nothing; past 3 mails to one address in 15 minutes, nothing more goes to it. A new link voids the last. The request answers no sooner than the 0.2-second floor (decision 0021).
+  - **A taken address stays a 400 even in a race.** Confirm and undo check that the address is free, then write it on its own before anything else. Another account taking the address between the check and the write is refused by the unique index and answered as taken. A mutant found the first version wrong: the write was left to a later query's autoflush, outside the handler, which made the race a 500.
+  - **One token purpose, two kinds.** Both links are `email_change` tokens, told apart by `data.kind` (`confirm` or `undo`). A link used at the wrong route is refused and left as it was. Every route locks the account before a link's row (decision 0021).
+  - **Audit:** `auth.email_change_requested` (`success`, `waiting` or `taken`), `auth.email_changed` and `auth.email_restored`, with no address in the details.
+- **Alternatives:**
+  - *A purpose of its own for the undo link.* It would need a migration of `auth_token`'s purpose check. The kind in `data`, checked by each route, does the same job.
+  - *Send the undo link when the change is asked for.* There is nothing to undo until the new address confirms.
+  - *Answer 409 for an address that has an account.* That would tell anyone with an account which addresses have accounts, three at a time.
+  - *Void earlier undo links on a new change.* That hands whoever changed the address a way to cancel the owner's undo.
+  - *Confirm only from a signed-in browser.* The link is often opened on another device; the step-up at the ask and the new inbox are the proof.
+- **Consequences:**
+  - SPEC.md 14.7's email-change line and a 14.6 limits row change, with a change-log line.
+  - `docs/contracts/auth-api.md` gains the confirm and undo rows, the change row's answers, a limits line, and the mail lines' timing.
+  - The contract suite's step-up tests are now marked per action, so the built ones (email change is the first) run while the rest stay not built. Seven contract tests cover email change.
+  - `kernel/tests/auth/test_email_change.py` holds the kernel tests.
+- **See:** SPEC.md 14.4, 14.6 and 14.7; decisions 0021 and 0022; `kernel/backend/kernel/auth/email_change.py`

@@ -27,3 +27,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0021](0021-codes-and-links.md) | An email code or link is one first factor, live once per account | Applied |
 | [0022](0022-password-resets.md) | A reset ends every way in and marks the address verified | Applied |
 | [0023](0023-verification-resend.md) | A signed-in account can ask for a new verification link | Applied |
+| [0024](0024-email-change.md) | Email change is confirmed by the new address and undone by the old | Applied |

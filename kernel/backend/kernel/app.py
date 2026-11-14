@@ -40,6 +40,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from kernel import error_tracking, logs
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
+from kernel.auth.email_change import router as email_change_router
 from kernel.auth.passwords import Passwords, RangeLookup, ask_range
 from kernel.auth.permissions import KERNEL_PERMISSIONS
 from kernel.auth.resets import router as resets_router
@@ -135,6 +136,7 @@ def create_app(
     app.include_router(sign_up_router, prefix="/api/auth")
     app.include_router(codes_router, prefix="/api/auth")
     app.include_router(resets_router, prefix="/api/auth")
+    app.include_router(email_change_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:
             app.include_router(

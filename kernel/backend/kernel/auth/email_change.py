@@ -1,0 +1,339 @@
+"""Changing an account's address at /api/auth (SPEC.md 14.6 and 14.7;
+docs/contracts/auth-api.md; decision 0024).
+
+**Asking** (`POST /email/change`, step-up) answers 202 `{"status":
+"check_email"}` for any address but the account's own. A free address is
+mailed a link to `/auth/email?token=…`, valid 24 hours; an address that has
+an account is sent a notice instead, so the answer says nothing about it.
+The account keeps its address until the link is used. 3 requests per
+account in 15 minutes; a request within 60 seconds of the last link (by
+`kernel.clock`) answers the same and sends nothing; past 3 mails to one
+address in 15 minutes, nothing more goes to it. A new link voids the last.
+Every request answers no sooner than the floor (`floor.py`).
+
+**Confirming** (`POST /email/confirm`): the account takes the new address,
+marked verified, since the link proved the inbox, and the old address is
+mailed an undo link to `/auth/email/undo?token=…`, valid 7 days. The new
+address must still be free, and the account still able to sign in. It
+signs nobody in.
+
+**Undoing** (`POST /email/undo`) puts the old address back, with its
+verification as it was, ends every session, and voids every live way in sent
+since: sign-in codes and links, reset links, second-factor challenges, and
+the account's other change and undo links. A later change never voids an
+earlier undo link: each restores the address it was sent to, so whoever
+changed the address can't change it again to cut the owner off. The old
+address must still be free. A notice follows.
+
+**One purpose, two kinds.** Both links are `email_change` tokens, told apart
+by `data.kind` (`confirm` or `undo`); one used at the wrong route is refused
+and left as it was. Every route locks the account before a link's row
+(decision 0021).
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime, timedelta
+from typing import cast
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import exists, select, update
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from kernel import clock
+from kernel.access import public
+from kernel.auth import accounts, audit, floor, sessions, tokens
+from kernel.auth.dependencies import require_recent_auth
+from kernel.auth.models import Token, User
+from kernel.config import KernelConfig
+from kernel.db import get_db
+from kernel.email import MAX_ADDRESS, Mailer, is_address
+from kernel.errors import Problem
+from kernel.ratelimit import RateLimiter, too_many
+
+log = logging.getLogger(__name__)
+
+router = APIRouter()
+
+CHANGES_PER_ACCOUNT = "3/15m"
+MAILS_PER_ADDRESS = "3/15m"
+CHANGE_LIFETIME = timedelta(hours=24)
+UNDO_LIFETIME = timedelta(days=7)
+RESEND_WAIT = timedelta(seconds=60)
+_CHANGE = "email_change"
+_ACCOUNT_SCOPE = "auth.email_change.account"
+_MAIL_SCOPE = "auth.email_change.mail"
+#: Every way in an undo ends: what was sent or opened since the change.
+_ENDED = ("sign_in_code", "magic_link", "reset_password", "second_factor", _CHANGE)
+
+
+class EmailChange(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    email: str = Field(max_length=MAX_ADDRESS + 64)
+
+    @field_validator("email")
+    @classmethod
+    def _one_address(cls, value: str) -> str:
+        value = value.strip()
+        if not is_address(value):
+            raise ValueError("Enter one email address, like name@example.com.")
+        return value
+
+
+class EmailLink(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    token: str = Field(max_length=128)
+
+
+def _token_invalid() -> Problem:
+    return Problem("auth.token_invalid", 400, "This link has expired or has already been used.")
+
+
+def _site(config: KernelConfig) -> str:
+    return config.site_url.rstrip("/")
+
+
+async def _taken(db: AsyncSession, normal: str, user_id: uuid.UUID) -> bool:
+    """Whether another account has the address."""
+    other = exists().where(User.email_normal == normal, User.id != user_id)
+    return bool(await db.scalar(select(other)))
+
+
+async def _write_address(db: AsyncSession) -> None:
+    """Write the account's new address now, on its own. Another account can
+    take the address between `_taken` and this write; the unique index then
+    refuses it, and the route answers as for a taken address. Left to the next
+    query's autoflush, the refusal would land outside any handler as a 500."""
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise _token_invalid() from None
+
+
+async def _void_confirms(db: AsyncSession, user_id: uuid.UUID) -> None:
+    """Use up the account's pending change links; its undo links stay."""
+    await db.execute(
+        update(Token)
+        .where(
+            Token.user_id == user_id,
+            Token.purpose == _CHANGE,
+            Token.used_at.is_(None),
+            Token.data["kind"].astext == "confirm",
+        )
+        .values(used_at=clock.now())
+        .execution_options(synchronize_session=False)
+    )
+
+
+# --- asking -------------------------------------------------------------------------
+
+
+@router.post("/email/change", status_code=202)
+async def change_email(
+    body: EmailChange,
+    request: Request,
+    background: BackgroundTasks,
+    user: User = Depends(require_recent_auth()),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    started = floor.start()
+    new, normal = body.email, accounts.normal_email(body.email)
+    if normal == user.email_normal:
+        raise Problem("kernel.invalid_request", 422, "That is the account's address already.")
+    limiter = cast(RateLimiter, request.app.state.limiter)
+    key = str(user.id)
+    if not await limiter.hit(CHANGES_PER_ACCOUNT, _ACCOUNT_SCOPE, key):
+        raise too_many(await limiter.wait_seconds(CHANGES_PER_ACCOUNT, _ACCOUNT_SCOPE, key))
+    await accounts.lock(db, user.id)  # before its token rows, as every route does
+    config = cast(KernelConfig, request.app.state.config)
+    action = "auth.email_change_requested"
+    mail: tuple[str, str, str] | None = None
+    if await _waiting(db, user.id):
+        audit.record(db, request, action, "waiting", actor=user.id, subject=user.id)
+    elif (existing := await accounts.by_email(db, normal)) is not None:
+        audit.record(db, request, action, "taken", actor=user.id, subject=user.id)
+        mail = (existing.email, *_taken_notice(config))
+    else:
+        await _void_confirms(db, user.id)
+        token = await tokens.issue(
+            db,
+            _CHANGE,
+            user.id,
+            normal,
+            lifetime=CHANGE_LIFETIME,
+            data={"kind": "confirm", "email": new},
+        )
+        audit.record(db, request, action, "success", actor=user.id, subject=user.id)
+        mail = (new, *_confirm_mail(config, token))
+    await db.commit()
+    if mail is not None and await limiter.hit(
+        MAILS_PER_ADDRESS, _MAIL_SCOPE, accounts.normal_email(mail[0])
+    ):
+        background.add_task(_send, request.app.state.mailer, *mail)
+    await floor.wait_out(started)
+    return {"status": "check_email"}
+
+
+async def _waiting(db: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Whether a change link went out for the account within the wait."""
+    recent = exists().where(
+        Token.purpose == _CHANGE,
+        Token.user_id == user_id,
+        Token.data["kind"].astext == "confirm",
+        Token.created_at > clock.now() - RESEND_WAIT,
+    )
+    return bool(await db.scalar(select(recent)))
+
+
+# --- confirming ---------------------------------------------------------------------
+
+
+@router.post("/email/confirm", dependencies=[Depends(public)])
+async def confirm_email_change(
+    body: EmailLink,
+    request: Request,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    owner = await tokens.owner_of(db, _CHANGE, body.token)
+    if owner is None:
+        await db.rollback()
+        raise _token_invalid()
+    await accounts.lock(db, owner)  # before the link's row, as every route does
+    redeemed = await tokens.redeem(db, _CHANGE, body.token)
+    user = await db.get(User, owner, populate_existing=True)
+    if (
+        redeemed is None
+        or redeemed.data.get("kind") != "confirm"
+        or redeemed.email_normal is None
+        or user is None
+        or user.status not in accounts.SIGNS_IN
+        or await _taken(db, redeemed.email_normal, user.id)
+    ):
+        await db.rollback()
+        raise _token_invalid()
+    now = clock.now()
+    old_email, old_normal, old_verified = user.email, user.email_normal, user.email_verified_at
+    user.email = str(redeemed.data["email"])
+    user.email_normal = redeemed.email_normal
+    user.email_verified_at = now
+    await _write_address(db)
+    await _void_confirms(db, user.id)
+    undo = await tokens.issue(
+        db,
+        _CHANGE,
+        user.id,
+        old_normal,
+        lifetime=UNDO_LIFETIME,
+        data={
+            "kind": "undo",
+            "email": old_email,
+            "verified_at": old_verified.isoformat() if old_verified else None,
+        },
+    )
+    audit.record(db, request, "auth.email_changed", "success", actor=user.id, subject=user.id)
+    await db.commit()
+    config = cast(KernelConfig, request.app.state.config)
+    background.add_task(_send, request.app.state.mailer, old_email, *_undo_mail(config, undo))
+    return {"status": "email_changed"}
+
+
+# --- undoing ------------------------------------------------------------------------
+
+
+@router.post("/email/undo", dependencies=[Depends(public)])
+async def undo_email_change(
+    body: EmailLink,
+    request: Request,
+    background: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    owner = await tokens.owner_of(db, _CHANGE, body.token)
+    if owner is None:
+        await db.rollback()
+        raise _token_invalid()
+    await accounts.lock(db, owner)  # before the link's row, as every route does
+    redeemed = await tokens.redeem(db, _CHANGE, body.token)
+    user = await db.get(User, owner, populate_existing=True)
+    if (
+        redeemed is None
+        or redeemed.data.get("kind") != "undo"
+        or redeemed.email_normal is None
+        or user is None
+        or user.status not in accounts.SIGNS_IN
+        or await _taken(db, redeemed.email_normal, user.id)
+    ):
+        await db.rollback()
+        raise _token_invalid()
+    verified = redeemed.data.get("verified_at")
+    user.email = str(redeemed.data["email"])
+    user.email_normal = redeemed.email_normal
+    user.email_verified_at = datetime.fromisoformat(verified) if verified else None
+    await _write_address(db)
+    await sessions.end_all(db, user)
+    await tokens.void(db, user.id, _ENDED)
+    audit.record(db, request, "auth.email_restored", "success", actor=user.id, subject=user.id)
+    restored = user.email
+    await db.commit()
+    config = cast(KernelConfig, request.app.state.config)
+    background.add_task(_send, request.app.state.mailer, restored, *_restored_notice(config))
+    return {"status": "email_restored"}
+
+
+# --- mail ---------------------------------------------------------------------------
+
+
+def _confirm_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+    return (
+        f"Confirm your new email for {config.site_name}",
+        f"Someone asked to move a {config.site_name} account to this address. "
+        "To confirm it's yours, open this link within 24 hours:\n\n"
+        f"{_site(config)}/auth/email?token={token}\n\n"
+        "Until then the account keeps its old address. "
+        "If you didn't ask, ignore this message: nothing changes.\n",
+    )
+
+
+def _taken_notice(config: KernelConfig) -> tuple[str, str]:
+    return (
+        f"Email change attempt on {config.site_name}",
+        f"Someone asked to move another {config.site_name} account to this address, "
+        "which already has an account, so nothing was changed.\n\n"
+        "If it wasn't you, there's nothing to do.\n",
+    )
+
+
+def _undo_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+    days = UNDO_LIFETIME.days
+    return (
+        f"Your {config.site_name} email was changed",
+        f"The email address of your {config.site_name} account was changed to another "
+        "one. If that was you, there's nothing to do.\n\n"
+        f"If it wasn't, open this link within {days} days to put this address back "
+        "and sign every device out:\n\n"
+        f"{_site(config)}/auth/email/undo?token={token}\n\n"
+        f"Then reset your password at {_site(config)}/sign-in.\n",
+    )
+
+
+def _restored_notice(config: KernelConfig) -> tuple[str, str]:
+    return (
+        f"Your {config.site_name} email was restored",
+        f"The email of your {config.site_name} account is this address again, and "
+        "every device was signed out.\n\n"
+        f"If someone else had changed it, reset your password now at {_site(config)}/sign-in.\n",
+    )
+
+
+async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+    try:
+        await mailer.send(to, subject, text)
+    except Exception as error:
+        log.warning("An email-change mail wasn't sent (%s).", type(error).__name__)

@@ -568,6 +568,7 @@ Both limits are site settings (Q6).
 | Code or link sent | 3 per email per 15 minutes; 10 per IP per hour |
 | Password reset request | Same as a code send |
 | New verification link | 3 per account per 15 minutes; a request within 60 seconds of the last link sends nothing (decision 0023) |
+| Email change | 3 per account per 15 minutes; a request within 60 seconds of the last link sends nothing; past 3 mails to one address in 15 minutes, no more (decision 0024) |
 | Sign-up | 5 per IP per hour; past 3 sign-up mails to one address in 15 minutes, the same answer and no notice sent, though an account's one verification link always goes (decision 0020) |
 | Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019) |
 | Step-up | 5 failures per session in 15 minutes, then the session ends |
@@ -583,7 +584,7 @@ Both limits are site settings (Q6).
 
 - **Sign-up modes,** per site: open, invite-only or closed (VybeMindz `invite-only-access-control`), set by `SIGN_UP_MODE` and closed until a site opens it (decision 0020). Invites are single use, expire in 7 days and may name a role. Until invites exist, an invite-only site takes no sign-ups.
 - **Email verification** is required before posting public content or linking a provider. The link lasts 24 hours, works once, verifies only the address it was sent to, and signs nobody in (decision 0020). A signed-in account can ask for a new one, which voids the last; once the address is verified it is told so (decision 0023). Unverified accounts are removed after 7 days.
-- **Email change:** the new address confirms the change; the old one stays active until then and gets the undo link.
+- **Email change:** step-up, then the new address confirms the change within 24 hours; the old one stays active until then and gets the undo link, valid 7 days. Confirming marks the new address verified. An undo restores the old address, ends every session and voids every way in sent since; a later change never voids an earlier undo. An address that has an account is sent a notice, not a link, and the answer is the same (decision 0024).
 - **Password reset:** a 32-byte token, valid 30 minutes, single use, stored hashed. Success raises the session epoch and sends a security email. Staff get resets too: a reset signs nobody in and leaves the second factor in place. One link is live per account, and asking again within 60 seconds sends nothing. A refused new password leaves the link working. Success also voids the account's live sign-in codes, links and second-factor challenges, clears the address's failed sign-ins, and marks the address verified, which gives a pre-claimed address back to its real owner (decision 0022).
 - **Suspension:** staff only, audited, and it ends every session.
 - **Deletion:** the person asks, with step-up. A 14-day grace period follows, and signing in cancels it. Then every module's `delete_user_data` runs and `auth.user.deleted` is emitted. The audit log keeps only a pseudonymous id.
@@ -796,6 +797,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | Email change: a 24-hour confirm link to the new address, a 7-day undo link to the old one that ends every session and survives later changes, a notice for an address that has an account, and its limits (14.6, 14.7, decision 0024) |
 | 2026-11-14 | A signed-in account can ask for a new verification link (`POST /api/auth/verify-email/resend`), limited per account, the last link voided, 409 once verified (14.6, 14.7, decision 0023) |
 | 2026-11-14 | A reset goes to staff too, keeps one link live with the 60-second wait, leaves the link working after a refused password, ends every earlier way in, clears the address's failed sign-ins, marks the address verified, and takes the answer floor; a code sign-in leaves verification alone (14.6, 14.7, decision 0022) |
 | 2026-11-14 | An email code or link replaces the password, so a second factor still follows; one code and link are live per account, and the account is checked again at use; a code ask and a try answer no sooner than 0.2 seconds (14.2, 14.6, decision 0021) |

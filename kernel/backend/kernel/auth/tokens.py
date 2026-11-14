@@ -17,8 +17,9 @@ import re
 import secrets
 import uuid
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
+from typing import Any
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,8 +43,10 @@ async def issue(
     email_normal: str,
     *,
     lifetime: timedelta,
+    data: dict[str, Any] | None = None,
 ) -> str:
-    """A new token for the link; the row joins the caller's transaction."""
+    """A new token for the link; the row joins the caller's transaction.
+    `data` is kept beside it, never anything secret."""
     token = secrets.token_urlsafe(32)
     now = clock.now()
     db.add(
@@ -52,6 +55,7 @@ async def issue(
             token_hash=token_hash(purpose, token),
             user_id=user_id,
             email_normal=email_normal,
+            data=data or {},
             created_at=now,
             expires_at=now + lifetime,
         )
@@ -97,6 +101,8 @@ async def owner_of(db: AsyncSession, purpose: str, token: str) -> uuid.UUID | No
 class Redeemed:
     user_id: uuid.UUID
     email_normal: str | None
+    #: What was kept beside the token at issue (never a secret).
+    data: dict[str, Any] = field(default_factory=dict)
 
 
 async def redeem(db: AsyncSession, purpose: str, token: str) -> Redeemed | None:
@@ -117,9 +123,9 @@ async def redeem(db: AsyncSession, purpose: str, token: str) -> Redeemed | None:
                 Token.user_id.is_not(None),
             )
             .values(used_at=now)
-            .returning(Token.user_id, Token.email_normal)
+            .returning(Token.user_id, Token.email_normal, Token.data)
         )
     ).first()
     if row is None or row.user_id is None:
         return None
-    return Redeemed(row.user_id, row.email_normal)
+    return Redeemed(row.user_id, row.email_normal, dict(row.data or {}))

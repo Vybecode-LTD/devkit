@@ -28,6 +28,7 @@ from .conftest import (
     UNCHECKED,
     Api,
     NotBuilt,
+    User,
     code_in,
     not_built,
     query_param,
@@ -375,26 +376,37 @@ async def test_an_unconfirmed_totp_is_no_second_factor(api: Api) -> None:
 
 # 6. Every action listed under step-up (14.4) demands it
 
+
+def _step_up(
+    method: str, path: str, body: dict[str, object] | None, *, built: bool = False
+) -> object:
+    """One step-up action; each is marked not built until its route lands."""
+    return pytest.param(method, path, body, id=f"{method} {path}", marks=() if built else not_built)
+
+
 STEP_UP = [
-    (
+    _step_up(
         "POST",
         "/api/auth/password/change",
         {"current_password": PASSWORD, "new_password": NEW_PASSWORD},
     ),
-    ("POST", "/api/auth/email/change", {"email": "new-address@site.test"}),
-    ("POST", "/api/auth/totp/setup", None),
-    ("DELETE", "/api/auth/totp", None),
-    ("POST", "/api/auth/recovery-codes", None),
-    ("POST", "/api/auth/passkeys/register/start", {"name": "Laptop"}),
-    ("DELETE", f"/api/auth/passkeys/{ZERO_ID}", None),
-    ("POST", "/api/auth/api-keys", {"name": "CI", "scopes": []}),
-    ("POST", "/api/auth/account/delete", None),
+    _step_up("POST", "/api/auth/email/change", {"email": "new-address@site.test"}, built=True),
+    _step_up("POST", "/api/auth/totp/setup", None),
+    _step_up("DELETE", "/api/auth/totp", None),
+    _step_up("POST", "/api/auth/recovery-codes", None),
+    _step_up("POST", "/api/auth/passkeys/register/start", {"name": "Laptop"}),
+    _step_up("DELETE", f"/api/auth/passkeys/{ZERO_ID}", None),
+    _step_up("POST", "/api/auth/api-keys", {"name": "CI", "scopes": []}),
+    _step_up("POST", "/api/auth/account/delete", None),
 ]
-STEP_UP_IDS = [f"{m} {p}" for m, p, _ in STEP_UP]
 
 
-@not_built
-@pytest.mark.parametrize(("method", "path", "body"), STEP_UP, ids=STEP_UP_IDS)
+def _route(param: object) -> str:
+    method, path, _ = param.values  # type: ignore[attr-defined]
+    return f"{method} {path}".replace(ZERO_ID, "{id}")
+
+
+@pytest.mark.parametrize(("method", "path", "body"), STEP_UP)
 async def test_step_up_actions_demand_a_recent_sign_in(
     api: Api, method: str, path: str, body: dict[str, str] | None
 ) -> None:
@@ -404,8 +416,7 @@ async def test_step_up_actions_demand_a_recent_sign_in(
     assert (response.status_code, response.json()["code"]) == (403, "auth.step_up_required")
 
 
-@not_built
-@pytest.mark.parametrize(("method", "path", "body"), STEP_UP, ids=STEP_UP_IDS)
+@pytest.mark.parametrize(("method", "path", "body"), STEP_UP)
 async def test_step_up_actions_go_through_after_a_recent_sign_in(
     api: Api, method: str, path: str, body: dict[str, str] | None
 ) -> None:
@@ -419,12 +430,13 @@ async def test_step_up_actions_go_through_after_a_recent_sign_in(
 
 @not_built
 async def test_every_step_up_action_is_marked(api: Api) -> None:
+    """Every built step-up action is marked now; the rest are not built."""
     listed = set((await api.test_routes()).get("step_up", []))
-    if not listed:
-        raise NotBuilt("no step-up routes yet")
-    expected = {f"{m} {p}".replace(ZERO_ID, "{id}") for m, p, _ in STEP_UP}
-    expected.add("PUT /api/auth/admin/users/{id}/roles")
-    assert expected <= listed
+    built = {_route(p) for p in STEP_UP if not p.marks}  # type: ignore[attr-defined]
+    assert built <= listed
+    expected = {_route(p) for p in STEP_UP} | {"PUT /api/auth/admin/users/{id}/roles"}
+    if not expected <= listed:
+        raise NotBuilt(f"not built yet: {sorted(expected - listed)}")
 
 
 @not_built
@@ -967,4 +979,121 @@ async def test_new_verification_links_3_per_account_per_15_minutes(api: Api) -> 
         assert (await api.http.post("/api/auth/verify-email/resend")).status_code == 202
         await api.advance(61)  # past the wait
     fourth = await api.http.post("/api/auth/verify-email/resend")
+    assert (fourth.status_code, fourth.json()["code"]) == (429, "kernel.rate_limited")
+
+
+# Email change (14.7; decision 0024)
+
+
+def _moved(user: User) -> str:
+    return f"moved-{user.id[:8]}-{uuid.uuid4().hex[:6]}@site.test"
+
+
+async def _change_and_confirm(api: Api, user: User) -> str:
+    """Move the signed-in account to a new address; give that address."""
+    new = _moved(user)
+    asked = await api.http.post("/api/auth/email/change", json={"email": new})
+    assert _shape(asked) == (202, {"status": "check_email"})
+    token = await api.new_token(new, "/auth/email", not_="")
+    confirmed = await api.http.post("/api/auth/email/confirm", json={"token": token})
+    assert _shape(confirmed) == (200, {"status": "email_changed"})
+    return new
+
+
+async def test_an_email_change_is_confirmed_by_the_new_address(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    new = _moved(user)
+    await api.http.post("/api/auth/email/change", json={"email": new})
+    token = await api.new_token(new, "/auth/email", not_="")
+    assert (await api.session()).json()["user"]["email"] == user.email  # until it's confirmed
+    confirmed = await api.http.post("/api/auth/email/confirm", json={"token": token})
+    assert _shape(confirmed) == (200, {"status": "email_changed"})
+    shown = (await api.session()).json()["user"]
+    assert (shown["email"], shown["verified"]) == (new, True)
+    assert await api.new_token(user.email, "/auth/email/undo", not_="")
+    again = await api.http.post("/api/auth/email/confirm", json={"token": token})
+    assert (again.status_code, again.json()["code"]) == (400, "auth.token_invalid")
+
+
+async def test_the_old_address_can_undo_a_change(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    new = await _change_and_confirm(api, user)
+    token = await api.new_token(user.email, "/auth/email/undo", not_="")
+    undone = await api.another_browser().http.post("/api/auth/email/undo", json={"token": token})
+    assert _shape(undone) == (200, {"status": "email_restored"})
+    assert (await api.session()).status_code == 401  # every session ended
+    assert (await api.another_browser().sign_in(user)).status_code == 200
+    moved = User(id=user.id, email=new, password=user.password)
+    assert (await api.another_browser().sign_in(moved)).status_code == 401
+
+
+async def test_an_undo_link_lasts_7_days(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    await _change_and_confirm(api, user)
+    early = await api.new_token(user.email, "/auth/email/undo", not_="")
+    await api.advance(7 * DAY - MINUTE)
+    kept = await api.http.post("/api/auth/email/undo", json={"token": early})
+    assert kept.status_code == 200  # the control: alive just under 7 days
+
+    await api.signed_in_as(user)
+    await _change_and_confirm(api, user)
+    late = await api.new_token(user.email, "/auth/email/undo", not_=early)
+    await api.advance(7 * DAY + MINUTE)
+    gone = await api.http.post("/api/auth/email/undo", json={"token": late})
+    assert (gone.status_code, gone.json()["code"]) == (400, "auth.token_invalid")
+
+
+async def test_a_change_link_lasts_24_hours(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    first = _moved(user)
+    await api.http.post("/api/auth/email/change", json={"email": first})
+    early = await api.new_token(first, "/auth/email", not_="")
+    await api.advance(DAY - MINUTE)
+    kept = await api.http.post("/api/auth/email/confirm", json={"token": early})
+    assert kept.status_code == 200  # the control: alive just under a day
+
+    await api.signed_in_as(User(id=user.id, email=first, password=user.password))
+    second = _moved(user)
+    await api.http.post("/api/auth/email/change", json={"email": second})
+    late = await api.new_token(second, "/auth/email", not_="")
+    await api.advance(DAY + MINUTE)
+    gone = await api.http.post("/api/auth/email/confirm", json={"token": late})
+    assert (gone.status_code, gone.json()["code"]) == (400, "auth.token_invalid")
+
+
+async def test_opening_a_change_link_with_get_changes_nothing(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    new = _moved(user)
+    await api.http.post("/api/auth/email/change", json={"email": new})
+    token = await api.new_token(new, "/auth/email", not_="")
+    scanner = api.another_browser()
+    for path in (f"/auth/email?token={token}", f"/api/auth/email/confirm?token={token}"):
+        await scanner.http.get(path, extensions=UNCHECKED)
+    assert (await api.session()).json()["user"]["email"] == user.email
+    confirmed = await api.http.post("/api/auth/email/confirm", json={"token": token})
+    assert confirmed.status_code == 200  # the scanner used nothing up
+
+
+async def test_a_change_to_an_address_with_an_account_sends_it_no_link(api: Api) -> None:
+    mine, theirs = await api.make_user(), await api.make_user()
+    await api.signed_in_as(mine)
+    asked = await api.http.post("/api/auth/email/change", json={"email": theirs.email})
+    assert _shape(asked) == (202, {"status": "check_email"})
+    notices = await api.mail(theirs.email, at_least=1)
+    assert all("/auth/email?token=" not in m["text"] for m in notices)
+
+
+async def test_email_changes_3_per_account_per_15_minutes(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    for _ in range(3):
+        asked = await api.http.post("/api/auth/email/change", json={"email": _moved(user)})
+        assert asked.status_code == 202
+        await api.advance(61)  # past the wait
+    fourth = await api.http.post("/api/auth/email/change", json={"email": _moved(user)})
     assert (fourth.status_code, fourth.json()["code"]) == (429, "kernel.rate_limited")
