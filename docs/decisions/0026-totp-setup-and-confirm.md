@@ -1,0 +1,25 @@
+# 0026: A TOTP is set up, then confirmed by a code that can't be used again
+
+- **Date:** 2026-11-15
+- **Status:** Applied
+- **Context:** The contract had `POST /api/auth/totp/setup` (step-up; 200 `{"secret", "otpauth_uri"}`; 403 `auth.email_unverified` until verified) and `POST /api/auth/totp/confirm {code}` (200 `{"recovery_codes": [10 codes]}`), and SPEC 14.4 says a TOTP counts only once confirmed. They didn't say what a setup does to a TOTP the account already has, what confirm answers with nothing to confirm or for a wrong code, whether wrong codes are limited, or how setup and confirm stand against a reset that lands while they run.
+- **Decision:**
+  - **Setup** (step-up) answers 403 `auth.email_unverified` until the address is verified (14.3), and **409 `auth.totp_exists`** while the account has a confirmed TOTP: that one is removed first, with `DELETE /api/auth/totp`, so a setup never takes away a factor that works. Otherwise it makes a 160-bit secret (RFC 4226's recommendation), sealed at rest, in place of any earlier one not yet confirmed. The URI names the site as the issuer and the account's address as the label.
+  - **Confirm** (signed in, not step-up: the setup was) takes a right code for the secret waiting, within one step of now. It answers **409 `auth.no_pending_totp`** with nothing to confirm (no setup, or confirmed already) and 403 `auth.email_unverified` if the address isn't verified now, whatever moved it since the setup.
+  - **The code that confirms is used up:** its step is recorded as the TOTP's last, so it can't also finish a sign-in (14.4: no code is taken twice).
+  - **A wrong code answers 401 `auth.invalid_second_factor`** and counts as a failed step-up, so the fifth in 15 minutes ends the session (14.6), as a wrong current password does at a password change (decision 0025).
+  - **10 new recovery codes,** `xxxxx-xxxxx` from Crockford's base32 in lower case (50 random bits each), kept as keyed hashes, in place of any the account had.
+  - **No caching:** both answers hold a secret, so both carry `Cache-Control: no-store`.
+  - **Lock order and resets:** both routes lock the account row before its TOTP and recovery-code rows (decision 0021), then look at the account and the session again: a reset, a password change or a suspension that ended this session while the request waited wins, and the request answers 401 `kernel.not_signed_in`. So whoever set up a TOTP with a stolen password can't confirm it after the owner's reset.
+  - **Audit and mail:** `auth.totp_setup_started` and `auth.totp_confirmed`; a wrong code writes the step-up's failure row. Confirming mails the account (14.6: a second factor added); setting up mails nothing, since nothing is added yet.
+  - **Adding a factor leaves the session epoch alone:** 14.5 raises it on a second-factor reset, not an addition.
+- **Alternatives:**
+  - *Setup over a confirmed TOTP, the old one working until the new is confirmed* (a phone swap in one step). It needs a second secret beside the first, a schema change; removing then setting up does the same in two steps, each behind step-up.
+  - *Setup over a confirmed TOTP, replacing it at once.* A setup never confirmed would leave the account with no factor, and a staff account out of the admin.
+  - *A limit of its own for wrong confirm codes, or tries counted on the setup.* The step-up budget already ends a session that keeps guessing, without a new column or a second budget.
+  - *Pending setups that expire.* A new setup replaces one, and a secret shown only to a session that had just stepped up is no way in alone.
+- **Consequences:**
+  - SPEC.md 14.4 and 14.6 say so, with a change-log line; `docs/contracts/auth-api.md`'s rows give the answers.
+  - The contract suite's setup step-up cases and its TOTP case of the unverified-account test now run, with eleven more tests; `test_an_unconfirmed_totp_is_no_second_factor` waits for the admin routes. `kernel/tests/auth/test_totp.py` holds the kernel tests.
+  - `DELETE /api/auth/totp` and `POST /api/auth/recovery-codes` come next, reusing `second_factor.new_recovery_codes`.
+- **See:** SPEC.md 14.3 to 14.6; decisions 0012, 0013, 0021 and 0025; `kernel/backend/kernel/auth/totp.py`

@@ -47,6 +47,7 @@ from kernel.auth.permissions import KERNEL_PERMISSIONS
 from kernel.auth.resets import router as resets_router
 from kernel.auth.routes import router as auth_router
 from kernel.auth.sign_up import router as sign_up_router
+from kernel.auth.totp import router as totp_router
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
 from kernel.email import Checked, LogMailer, Mailer
@@ -139,6 +140,7 @@ def create_app(
     app.include_router(resets_router, prefix="/api/auth")
     app.include_router(email_change_router, prefix="/api/auth")
     app.include_router(password_change_router, prefix="/api/auth")
+    app.include_router(totp_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:
             app.include_router(

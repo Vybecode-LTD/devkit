@@ -7,9 +7,10 @@ by an update that only one of two racing requests can make. TOTP runs on
 real time (`time.time()`), never `kernel.clock`: the codes come from the
 person's authenticator app, whose clock is the world's.
 
-**Recovery codes:** each kept as a keyed hash over the account and the code,
-compared after dropping case, spaces and hyphens, and used at most once (an
-update that only one request can make).
+**Recovery codes:** 10 at a time, each 50 random bits shown as `xxxxx-xxxxx`
+and kept as a keyed hash over the account and the code, compared after
+dropping case, spaces and hyphens, and used at most once (an update that only
+one request can make). New ones replace the old.
 
 **The challenge** a sign-in waits on once its first factor (a password, or
 an email code or link) has passed: 32 random bytes, kept as a keyed hash in
@@ -31,7 +32,7 @@ from datetime import timedelta
 from typing import Any, cast
 
 import pyotp
-from sqlalchemy import CursorResult, exists, select, update
+from sqlalchemy import CursorResult, delete, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock, crypto
@@ -42,6 +43,9 @@ STEP = 30
 DRIFT = 1
 CHALLENGE_LIFETIME = timedelta(minutes=10)
 CHALLENGE_TRIES = 5
+RECOVERY_CODES = 10
+#: Crockford's base32 in lower case: no i, l, o or u to misread.
+_RECOVERY_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz"
 _CODE = re.compile(r"[0-9]{6}")
 #: `secrets.token_urlsafe(32)` is 43 characters.
 _CHALLENGE = re.compile(r"[A-Za-z0-9_-]{43}")
@@ -53,6 +57,21 @@ def _rows(result: Any) -> int:
 
 
 # --- TOTP -----------------------------------------------------------------------
+
+
+def matching_step(secret: str, code: str, *, at: float | None = None) -> int | None:
+    """The newest step within one of `at` (now) that `code` is the code of,
+    or None. Whether the step was used already is the caller's to ask."""
+    if not _CODE.fullmatch(code):
+        return None
+    generator = pyotp.TOTP(secret)
+    current = int((time.time() if at is None else at) // STEP)
+    matched = [
+        step
+        for step in range(current - DRIFT, current + DRIFT + 1)
+        if hmac.compare_digest(generator.at(step * STEP), code)
+    ]
+    return max(matched) if matched else None
 
 
 async def check_totp(
@@ -67,16 +86,9 @@ async def check_totp(
     )
     if totp is None:
         return False
-    generator = pyotp.TOTP(crypto.open(totp.secret_sealed))
-    current = int((time.time() if at is None else at) // STEP)
-    matched = [
-        step
-        for step in range(current - DRIFT, current + DRIFT + 1)
-        if hmac.compare_digest(generator.at(step * STEP), code)
-    ]
-    if not matched:
+    step = matching_step(crypto.open(totp.secret_sealed), code, at=at)
+    if step is None:
         return False
-    step = max(matched)
     result = await db.execute(
         update(Totp)
         .where(Totp.user_id == user_id, Totp.last_step < step)
@@ -95,6 +107,26 @@ def normal_recovery_code(code: str) -> str:
 
 def recovery_code_hash(user_id: uuid.UUID, code: str) -> str:
     return keyed_hash("recovery_code", str(user_id), normal_recovery_code(code))
+
+
+def _recovery_code() -> str:
+    """50 random bits, shown as `xxxxx-xxxxx`."""
+    characters = "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(10))
+    return f"{characters[:5]}-{characters[5:]}"
+
+
+async def new_recovery_codes(db: AsyncSession, user_id: uuid.UUID) -> list[str]:
+    """Ten new recovery codes for the account, in place of any it had; only
+    their keyed hashes are kept. The caller commits, and shows them once."""
+    codes: set[str] = set()
+    while len(codes) < RECOVERY_CODES:
+        codes.add(_recovery_code())
+    await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user_id))
+    db.add_all(
+        RecoveryCode(user_id=user_id, code_hash=recovery_code_hash(user_id, code)) for code in codes
+    )
+    await db.flush()
+    return sorted(codes)
 
 
 async def use_recovery_code(db: AsyncSession, user_id: uuid.UUID, code: str) -> bool:

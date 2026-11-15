@@ -11,6 +11,7 @@ control, so a server that refuses everything doesn't pass.
 
 from __future__ import annotations
 
+import base64
 import statistics
 import time
 import uuid
@@ -392,7 +393,7 @@ STEP_UP = [
         built=True,
     ),
     _step_up("POST", "/api/auth/email/change", {"email": "new-address@site.test"}, built=True),
-    _step_up("POST", "/api/auth/totp/setup", None),
+    _step_up("POST", "/api/auth/totp/setup", None, built=True),
     _step_up("DELETE", "/api/auth/totp", None),
     _step_up("POST", "/api/auth/recovery-codes", None),
     _step_up("POST", "/api/auth/passkeys/register/start", {"name": "Laptop"}),
@@ -592,8 +593,13 @@ async def test_a_verified_provider_email_links_to_a_verified_account(api: Api) -
     assert (await api.session()).json()["user"]["id"] == user.id
 
 
-@not_built
-@pytest.mark.parametrize("path", ["/api/auth/totp/setup", "/api/auth/passkeys/register/start"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/auth/totp/setup",
+        pytest.param("/api/auth/passkeys/register/start", marks=not_built),
+    ],
+)
 async def test_an_unverified_account_adds_no_second_factor(api: Api, path: str) -> None:
     """No pre-claiming an address (14.3): whoever signed up with someone else's
     email can't leave a factor behind for the real owner to inherit."""
@@ -1131,3 +1137,169 @@ async def test_email_changes_3_per_account_per_15_minutes(api: Api) -> None:
         await api.advance(61)  # past the wait
     fourth = await api.http.post("/api/auth/email/change", json={"email": _moved(user)})
     assert (fourth.status_code, fourth.json()["code"]) == (429, "kernel.rate_limited")
+
+
+# TOTP setup and confirm (14.4; decision 0026)
+
+
+async def _set_up_totp(api: Api) -> str:
+    """Set up a TOTP on the signed-in account: its secret."""
+    response = await api.http.post("/api/auth/totp/setup")
+    assert response.status_code == 200, response.text
+    secret: str = response.json()["secret"]
+    return secret
+
+
+async def _confirm_totp(api: Api, code: str) -> httpx.Response:
+    return await api.http.post("/api/auth/totp/confirm", json={"code": code})
+
+
+def _next_step(secret: str) -> str:
+    """The code of the step after this one: within the drift, and never a
+    step a code was already taken for."""
+    return pyotp.TOTP(secret).at(time.time() + 30)
+
+
+async def _second_factor(api: Api, user: User) -> tuple[Api, dict[str, object]]:
+    """A sign-in on a new browser, as far as its second factor."""
+    browser = api.another_browser()
+    first = await browser.sign_in(user)
+    assert first.status_code == 200, first.text
+    body: dict[str, object] = first.json()
+    assert body["status"] == "second_factor", body
+    return browser, body
+
+
+async def test_setting_up_a_totp_gives_its_secret_and_uri(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    response = await api.http.post("/api/auth/totp/setup")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert set(body) == {"secret", "otpauth_uri"}
+    secret = body["secret"]
+    assert len(base64.b32decode(secret + "=" * (-len(secret) % 8))) >= 20  # 160 bits
+    parsed = pyotp.parse_uri(body["otpauth_uri"])
+    assert isinstance(parsed, pyotp.TOTP)
+    assert (parsed.secret, parsed.digits, parsed.interval) == (secret, 6, 30)
+    assert parsed.name == user.email
+    assert parsed.issuer
+
+
+async def test_a_confirmed_totp_is_a_second_factor_with_ten_recovery_codes(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    secret = await _set_up_totp(api)
+    confirmed = await _confirm_totp(api, pyotp.TOTP(secret).now())
+    assert (confirmed.status_code, set(confirmed.json())) == (200, {"recovery_codes"})
+    codes = confirmed.json()["recovery_codes"]
+    assert len(codes) == len(set(codes)) == 10
+    assert (await api.session()).json()["user"]["second_factor"] is True
+    browser, first = await _second_factor(api, user)
+    assert {"totp", "recovery_code"} <= set(first["methods"])  # type: ignore[arg-type]
+    finished = await browser.http.post(
+        "/api/auth/sign-in/second-factor",
+        json={"challenge": first["challenge"], "totp": _next_step(secret)},
+    )
+    assert (finished.status_code, finished.json()["status"]) == (200, "signed_in")
+
+
+async def test_each_recovery_code_works_once(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    secret = await _set_up_totp(api)
+    codes = (await _confirm_totp(api, pyotp.TOTP(secret).now())).json()["recovery_codes"]
+    for code, status in ((codes[0], 200), (codes[0], 401), (codes[1], 200)):
+        browser, first = await _second_factor(api, user)
+        response = await browser.http.post(
+            "/api/auth/sign-in/second-factor",
+            json={"challenge": first["challenge"], "recovery_code": code},
+        )
+        assert response.status_code == status, response.text
+
+
+async def test_an_unconfirmed_totp_leaves_signing_in_as_it_was(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    await _set_up_totp(api)  # never confirmed
+    assert (await api.session()).json()["user"]["second_factor"] is False
+    signed = await api.another_browser().sign_in(user)
+    assert (signed.status_code, signed.json()["status"]) == (200, "signed_in")
+
+
+async def test_a_wrong_code_confirms_nothing(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    secret = await _set_up_totp(api)
+    wrong = await _confirm_totp(api, wrong_totp(secret))
+    assert (wrong.status_code, wrong.json()["code"]) == (401, "auth.invalid_second_factor")
+    assert (await api.session()).json()["user"]["second_factor"] is False
+    assert (await _confirm_totp(api, pyotp.TOTP(secret).now())).status_code == 200  # the control
+
+
+async def test_five_wrong_codes_end_the_session(api: Api) -> None:
+    """A wrong code counts as a failed step-up (14.6)."""
+    await api.signed_in_as(await api.make_user())
+    secret = await _set_up_totp(api)
+    for _ in range(4):
+        wrong = await _confirm_totp(api, wrong_totp(secret))
+        assert (wrong.status_code, wrong.json()["code"]) == (401, "auth.invalid_second_factor")
+    assert (await api.session()).status_code == 200  # four leave it
+    fifth = await _confirm_totp(api, wrong_totp(secret))
+    assert (fifth.status_code, fifth.json()["code"]) == (401, "kernel.not_signed_in")
+    assert (await api.session()).status_code == 401
+
+
+async def test_the_code_that_confirms_cant_be_used_again(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    secret = await _set_up_totp(api)
+    code = pyotp.TOTP(secret).now()
+    assert (await _confirm_totp(api, code)).status_code == 200
+    browser, first = await _second_factor(api, user)
+    again = await browser.http.post(
+        "/api/auth/sign-in/second-factor", json={"challenge": first["challenge"], "totp": code}
+    )
+    assert (again.status_code, again.json()["code"]) == (401, "auth.invalid_second_factor")
+    later = await browser.http.post(
+        "/api/auth/sign-in/second-factor",
+        json={"challenge": first["challenge"], "totp": _next_step(secret)},
+    )
+    assert later.status_code == 200  # the control: the challenge and the TOTP work
+
+
+async def test_setting_up_again_replaces_the_unconfirmed_secret(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    first, second = await _set_up_totp(api), await _set_up_totp(api)
+    assert first != second
+    stale = await _confirm_totp(api, pyotp.TOTP(first).now())
+    assert (stale.status_code, stale.json()["code"]) == (401, "auth.invalid_second_factor")
+    assert (await _confirm_totp(api, pyotp.TOTP(second).now())).status_code == 200
+
+
+async def test_a_confirmed_totp_isnt_set_up_over(api: Api) -> None:
+    user = await api.make_user(totp=True)
+    assert user.totp_secret
+    await api.signed_in_as(user)
+    refused = await api.http.post("/api/auth/totp/setup")
+    assert (refused.status_code, refused.json()["code"]) == (409, "auth.totp_exists")
+    browser, first = await _second_factor(api, user)  # the TOTP it has still works
+    finished = await browser.http.post(
+        "/api/auth/sign-in/second-factor",
+        json={"challenge": first["challenge"], "totp": _next_step(user.totp_secret)},
+    )
+    assert finished.status_code == 200
+
+
+async def test_confirming_with_nothing_set_up_is_refused(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    nothing = await _confirm_totp(api, "123456")
+    assert (nothing.status_code, nothing.json()["code"]) == (409, "auth.no_pending_totp")
+    secret = await _set_up_totp(api)
+    assert (await _confirm_totp(api, pyotp.TOTP(secret).now())).status_code == 200  # the control
+    again = await _confirm_totp(api, _next_step(secret))
+    assert (again.status_code, again.json()["code"]) == (409, "auth.no_pending_totp")
+
+
+async def test_confirming_needs_a_session(api: Api) -> None:
+    refused = await _confirm_totp(api, "123456")
+    assert (refused.status_code, refused.json()["code"]) == (401, "kernel.not_signed_in")
