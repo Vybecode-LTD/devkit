@@ -16,7 +16,7 @@ import httpx
 import pytest
 import pytest_asyncio
 from fastapi import APIRouter, Depends, FastAPI, Request
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette._utils import get_route_path
 from starlette.types import Receive, Scope, Send
@@ -44,6 +44,7 @@ from kernel.auth.models import (
     UserRole,
 )
 from kernel.auth.permissions import can
+from kernel.db import get_db
 from kernel.errors import Problem
 from kernel.ratelimit import rate_limit
 
@@ -194,6 +195,15 @@ def _demo_router() -> APIRouter:
     @router.get("/missing", dependencies=[Depends(current_user)])
     async def missing() -> None:
         raise Problem("demo.post_not_found", 404)
+
+    @router.get("/rolled-back", dependencies=[Depends(current_user)])
+    async def rolled_back(db: AsyncSession = Depends(get_db)) -> dict[str, bool]:
+        """As a route that reads, changes nothing and lets its transaction go.
+        A rollback with no transaction begun since the last commit expires
+        nothing, so it reads first."""
+        await db.execute(select(1))
+        await db.rollback()
+        return {"ok": True}
 
     @router.get("/categories/{category}/comments/{owner_id}")
     async def comment_in(
@@ -408,6 +418,25 @@ async def test_the_new_cookie_goes_out_even_when_the_route_answers_an_error(
     await db.commit()
     response = await client.get("/api/demo/missing", headers=_as(old))
     assert response.status_code == 404
+    new = _session_cookie(response)
+    assert new
+    assert new != old
+    client.cookies.clear()
+    assert (await client.get("/api/demo/me", headers=_as(new))).status_code == 200
+
+
+async def test_the_new_cookie_goes_out_after_the_route_rolls_back(
+    db: AsyncSession, client: httpx.AsyncClient
+) -> None:
+    """A rollback expires every object the request's database session holds,
+    the replaced session among them; the cookie was read from it lazily, a
+    load outside the async context, so the answer failed (Codex on #48)."""
+    user = await _user(db)
+    old = await _token(db, user)
+    await db.execute(update(User).where(User.id == user.id).values(role_version=1))
+    await db.commit()
+    response = await client.get("/api/demo/rolled-back", headers=_as(old))
+    assert (response.status_code, response.json()) == (200, {"ok": True})
     new = _session_cookie(response)
     assert new
     assert new != old

@@ -220,7 +220,13 @@ def _set(response: Response, name: str, value: str, max_age: int) -> None:
 
 def set_session_cookie(response: Response, token: str, session: Session) -> None:
     """The session cookie, lasting until the session's absolute end."""
-    seconds = (session.expires_at - clock.now()).total_seconds()
+    set_session_cookie_until(response, token, session.expires_at)
+
+
+def set_session_cookie_until(response: Response, token: str, expires_at: datetime) -> None:
+    """The session cookie, lasting until `expires_at`, for a caller holding
+    the session's end rather than its row."""
+    seconds = (expires_at - clock.now()).total_seconds()
     _set(response, SESSION_COOKIE, token, math.ceil(seconds))
 
 
@@ -543,6 +549,7 @@ __all__ = [
     "resume",
     "set_device_cookie",
     "set_session_cookie",
+    "set_session_cookie_until",
     "start",
     "step_up",
 ]

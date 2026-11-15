@@ -556,6 +556,30 @@ async def test_new_recovery_codes_give_way_to_a_reset_that_lands_first(site: Sit
     }
 
 
+@pytest.mark.parametrize(
+    ("method", "path", "status"),
+    [("DELETE", "/api/auth/totp", 204), ("POST", "/api/auth/recovery-codes", 409)],
+)
+async def test_after_a_role_change_the_answers_that_roll_back_carry_the_new_cookie(
+    site: Site, method: str, path: str, status: int
+) -> None:
+    """With no TOTP, both let their transaction go; the session token the
+    role change replaced still reaches the browser (Codex on #48)."""
+    person = await _person(site)
+    async with site.db() as db:
+        await db.execute(
+            update(User).where(User.id == person.id).values(role_version=User.role_version + 1)
+        )
+        await db.commit()
+    old = person.browser.cookies.get("__Host-dk_session")
+    response = await person.browser.request(method, path)
+    assert response.status_code == status, response.text
+    new = _cookie(response, "__Host-dk_session")
+    assert new
+    assert new != old
+    assert (await person.browser.get("/api/auth/session")).status_code == 200
+
+
 # --- sign-in and step-up take the account first too (decision 0027) ------------------
 
 

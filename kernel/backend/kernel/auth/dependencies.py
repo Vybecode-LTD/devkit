@@ -30,7 +30,10 @@ order, so list the access dependency before the limit.
 change), the old one is already dead, so the new cookie has to reach the
 browser whatever the route answers, a 403 or a 404 included. The dependency
 leaves it on the request, and `SessionCookies`, a middleware that wraps the
-error handlers, adds it to the response.
+error handlers, adds it to the response. It leaves the token and the session's
+end as plain values, never the session row: a route that rolls back expires
+every row its database session holds, and reading one in the middleware
+would be a load outside the request's database work (Codex on #48).
 
 Session lifetimes come from `app.state.session_lifetimes` when it's set, else
 the spec's defaults; the site settings (Q6) arrive with their admin page.
@@ -113,7 +116,8 @@ async def _resume(request: Request, db: AsyncSession) -> Resumed | None:
     if resumed is None:
         return None
     if resumed.token is not None:
-        setattr(request.state, _REPLACED, (resumed.token, resumed.session))
+        # Plain values, read now, while the row is loaded (see the docstring).
+        setattr(request.state, _REPLACED, (resumed.token, resumed.session.expires_at))
     request.state.user_id = str(resumed.user.id)
     return resumed
 
@@ -234,7 +238,7 @@ class SessionCookies:
                 waiting = scope.get("state", {}).get(_REPLACED)
                 if waiting is not None:
                     carrier = Response()
-                    sessions.set_session_cookie(carrier, *waiting)
+                    sessions.set_session_cookie_until(carrier, *waiting)
                     headers = MutableHeaders(scope=message)
                     for value in carrier.headers.getlist("set-cookie"):
                         headers.append("set-cookie", value)
