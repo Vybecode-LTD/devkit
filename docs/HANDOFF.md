@@ -1,101 +1,51 @@
 # Handoff
 
-Overwritten every session. 2026-11-13 to 14: a remote session (claude.ai in a cloud container), then the first session in Claude Code on the owner's machine, from sessions (#32) to sign-up (#39), all merged: `main` is at a753cf1. This handoff is #40.
+Overwritten every session. 2026-11-14 (Claude Code, the owner's machine, mostly over Remote Control): the local teardown fix, then K2 steps 5 and 6 and password change, #41 to #46. `main` is at a60f87f (#45); **#46 holds password change and this handoff.**
 
 ## State
 
-- **K0 and K1 done**, and **audited** (2026-11-12). The audit found 55 issues, none of them a leak; the report is private (`docs/private/`). It and the review bots' follow-ups landed as 24 pull requests, #1 to #24, each with its tests seen failing first and CI green.
-- **K2 started:**
-  1. The contract suite (`kernel/tests/contract/`) speaks HTTP only, against `docs/contracts/auth-api.md`. Each of its 83 tests is a strict expected failure that fails only with "not built", so it can't pass by accident or fail for the wrong reason.
-  2. `kernel/auth/passwords.py` is done: a bounded Argon2id pool (503 `kernel.busy` when full), parameters from the config (`Passwords.from_config`), the rules, the bundled list and Pwned Passwords.
-  3. Every auth table is in place (`kernel/auth/models.py`, migration `kernel_0002`, amended in place by the audit with an index on every foreign key). Its six permissions are declared in `kernel/kernel.json`.
-  4. One-time secrets are kept as keyed hashes (`kernel/auth/hashing.py`, decision 0012).
-  5. Test support: `reset` (with `{"accounts": true}`), `clock`, `routes`, `breached`, `mail`, `users`.
-  6. Sessions (`kernel/auth/sessions.py`, #32): opaque tokens kept as SHA-256, member and staff limits (`Lifetimes`), the session epoch, a new token after a role change and at step-up (one per race, #33), `last_seen_at` at most hourly (or every eighth of a shorter idle limit), the `__Host-` cookie helpers and the signed known-device cookie. 49 tests, 100% of the module.
-  7. Access dependencies (`kernel/auth/dependencies.py` and `permissions.py`, #36): `current_user`, `optional_user`, `require_permission`, `require_owner_or` and `require_recent_auth`, in the public surface with their access marks. Owners hold every permission; on a resource a person's own overrides decide before their roles', and a denial beats a grant. `require_owner_or` lets through the owner, or staff holding the permission (14.8): a member's personal grant never opens someone else's thing. The admin gate (`/api/<id>/admin`: staff, then a confirmed TOTP or a passkey) reads the route's path by Starlette's own rule, so a proxy's `root_path` can't shift it. A token replaced mid-request reaches the browser on any answer, errors included (`SessionCookies`). 36 tests, 15 mutant checks, 100% of both modules.
-  8. The mail interface (`kernel/email.py`, #37): the `Mailer` protocol beneath K3's `email.send` (decision 0013), installed by `create_app(mailer=)` behind `Checked`. Every adapter gets one bare recipient, no line break in the address or the subject (CR, LF, NUL, NEL and Unicode's separators), and bounded sizes; a refusal is a ValueError naming the field, never its value. The default, `LogMailer`, sends nothing and logs a warning that holds nothing of the message. The harness keeps mail in a `CapturingMailer` behind the same checks, for `GET /api/_test/mail?to=`, and `reset` empties it. 43 tests, 14 mutant checks, 100% of the module.
-  9. Sign-in (`kernel/auth/routes.py`, `accounts.py`, `second_factor.py`, `audit.py`, #38): `POST /api/auth/sign-in`, `/sign-in/second-factor`, `/sign-out`, `/step-up` and `GET /api/auth/session`.
-     - An unknown, suspended or password-less account costs the same Argon2 verify, counts against the same limit and gets the same answer.
-     - Failed passwords wait in tiers (5 in 15 minutes, 10 in an hour, 20 in a day), except on a known device. Second-factor failures are limited per sign-in (5) and per account (10 an hour), decision 0019. The fifth failed step-up ends the session.
-     - TOTP with one step of drift, no replay, on real time; recovery codes; a 10-minute challenge that counts each try before checking it.
-     - A new device is mailed a notice in the background, and every step writes an audit row with nothing secret or typed in it.
-     - 17 contract tests now pass. 43 kernel tests, 19 mutant checks (18 caught, 1 equivalent), the threat-model checklist in the PR body. Codex's two findings fixed: second-factor tries reserve their place in the account's budget first, and an owner holds the kernel's permissions (`KERNEL_PERMISSIONS`, held equal to `kernel.json` by a test).
-  10. Sign-up and verification (`kernel/auth/sign_up.py`, `tokens.py`, #39): `POST /api/auth/sign-up` and `/verify-email`.
-     - `SIGN_UP_MODE` is open, invite or closed, **closed by default**; invite-only takes no sign-ups until invites exist (decision 0020). The harness is open, and its breach lookup answers the range API from `/api/_test/breached` (`create_app(breach_lookup=)`).
-     - The password is judged first (rules, list, breach lookup), then one Argon2 hash is spent either way. A new address gets an unverified member account and a 24-hour link; a taken one gets a notice and its account is left alone. Sign-ups at once for one address make one account.
-     - 5 sign-ups per IP an hour; past 3 mails to one address in 15 minutes, no more notices, though a new account's one link always goes (Codex on #39). The mail goes out after the answer.
-     - The link works once, only for the address it was sent to, and signs nobody in.
-     - 4 more contract tests pass (21 in all), and the timing test now signs up a new address each round. 31 kernel tests, 14 mutant checks, all caught, and the threat-model checklist in the PR body.
-  11. Sign-in codes and magic links (`kernel/auth/codes.py`, #42, decision 0021): `POST /api/auth/code`, `/code/verify` and `/link/confirm`.
-     - Members only: staff, a blocked account or an unknown address get the same 202 and no mail. One message holds a 6-digit code and a `/auth/link` link, 10 minutes, single use; the code is kept keyed over purpose, owner and value.
-     - One live mail per account: a new code voids the last code and link, and using either uses up both. The account is checked again at use (still a member, able to sign in, at the same address). A member with a second factor still gives it.
-     - Five tries per code, counted first; 10 asks per IP an hour, 3 per address in 15 minutes, a 60-second resend wait under a row lock. Every path locks the account row before its code or link rows; without that order, a code and its link used at once deadlocked (Codex).
-     - **Every ask and try answers no sooner than 0.2 s**: the contract's timing test, once it really sent a code each round, showed a known address at 7 ms and an unknown one at 3.5 ms.
-     - 11 more contract tests pass (32 in all), and the timing test runs for `code`. 38 kernel tests, 26 mutant checks, all caught, and the threat-model checklist in the PR body.
-  12. Password resets (`kernel/auth/resets.py`, #43, decision 0022): `POST /api/auth/password/reset-request` and `/password/reset`.
-     - Limited as codes are, the 60-second wait included; staff get resets too (a reset signs nobody in, and their second factor stays). One 30-minute link per account, a new one voiding the last.
-     - The link is checked, then the password; a refused password leaves the link working. Then the account row is locked, the link used, the password replaced, every session ended (the epoch), every live code, link, reset link and second-factor challenge voided, and the address **marked verified** (the owner's answer: resets yes, code sign-ins no). A security mail follows.
-     - The request takes the 0.2 s floor, now in `kernel/auth/floor.py`; `accounts.lock` and `tokens.void` are shared with codes.
-     - 6 more contract tests pass (39 in all), the reset timing test included. 38 kernel tests and 2 for the floor; 21 mutant checks on resets, all caught (two only after new tests: case variants, and a lock-order test that holds the account row, since Argon2 hides the race), and 6 on sign-in, one surviving by design (`finish_sign_in`'s own lock).
-     - From Codex and CodeRabbit: password sign-in locks the account after checking the password and looks again, so a re-hash in flight can't write the old password back over a reset; the second-factor step locks the account before its challenge; a reset clears the address's failed sign-ins.
-  13. A new verification link (`kernel/auth/sign_up.py`, #44, decision 0023): `POST /api/auth/verify-email/resend`, signed in, no body. 202 and a new 24-hour link to the address the account has now, the last one void; 409 `auth.already_verified` once verified (checked before the limit and again under the lock); 3 per account in 15 minutes and the 60-second wait. 6 contract tests, 13 kernel tests, 10 mutant checks, all caught; `verify-email` now locks the account before its link too (Codex: a verify and a resend at once deadlocked) (the race test uses three signed-in browsers: one browser's requests overlapped only sometimes).
-  14. Email change (`kernel/auth/email_change.py`, #45, decision 0024): `POST /api/auth/email/change` (step-up, the first step-up route), `/email/confirm` and `/email/undo`. A 24-hour confirm link to the new address (a notice instead if it has an account, the same answer); confirming moves and verifies the address and mails a 7-day undo link to the old one; an undo restores it, ends every session and voids every way in sent since. Earlier undo links always survive (a later change or undo voids only later ones), a change link is bound to the session epoch, so a reset kills it (both Codex on #45), and a request for an address with an account leaves the same trace as one for a free address (CodeRabbit). Mail isn't retried until K3's job queue. Both links are `email_change` tokens with `data.kind`, so no migration. 3 per account in 15 minutes, the 60-second wait, 3 mails per address, the floor. The step-up contract tests are now marked per action. 7 contract tests and 2 step-up cases, 37 kernel tests; 34 mutant checks, all caught but three equivalents: the two address-is-free checks (the unique index gives the same 400) and the undo voiding pending change links (the epoch already kills them). A mutant showed a taken-address race was a 500 (the write landed in a later autoflush); the address is now written first.
-- **Kernel changes from the audit:**
-  - 500s keep their security headers, and request bodies have a limit (`MAX_BODY_BYTES`);
-  - rate-limit keys can't collide, and each route has its own budget;
-  - the module switches are cached per process for `MODULES_CACHE_SECONDS`;
-  - settings keep typed secrets and work with strict models;
-  - logs keep a traceback's end, scrub in linear time and write one access line per request;
-  - the start-up checks are stricter (SECRET_KEY 43+ characters, an https SITE_URL outside DEBUG);
-  - HSTS goes out behind a TLS edge.
-- **Tests:** 661 Python tests pass on Linux CI (on Windows, 660 and a skipped symlink test) with 44 strict expected failures, and coverage is about 95% (CI fails under 85%). Coverage now follows SQLAlchemy's greenlets (`concurrency` in `pyproject.toml`); before #36, lines after a database await inside a request went unmeasured. There are 7 web tests. The migration tests compare the full Postgres catalog, run a seeded round trip and a stairway, and include 11 mutant controls.
-- **CI** runs on every PR, every push to `main`, weekly and by hand (decision 0015). Its first run was #1.
-- **GitHub:** `https://github.com/Vybecode-LTD/devkit`, public (decision 0011). Commits use the owner's no-reply address. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green; an API squash or rebase would stamp the token's address instead.
-- **Common-password list:** NOTICE gives each source's own terms, and the tool's docstring has the exact rebuild.
-- **Decisions:** 0012 to 0016 came from the audit, 0017 retired the Spec doc, and 0018 records the module roadmap after v1.0 and its ten contract hooks (none in SPEC.md yet). SPEC 4 to 7, 14 (14.1 to 14.13 in places), 15 and 16 changed in the audit.
+- **K0 and K1 done and audited** (2026-11-12; 55 findings fixed in #1 to #24, the report in `docs/private/`). The owner's follow-ups: #25 to #31.
+- **K2 so far** (each PR body has its threat-model table and mutant checks):
+  - Passwords, keyed hashes, every auth table, sessions, access dependencies, the mail interface, sign-in and sign-up (#32 to #39; decisions 0012, 0013, 0019, 0020).
+  - **Sign-in codes and magic links** (#42, `kernel/auth/codes.py`, decision 0021). Members only; one live mail per account; a member with a second factor still gives it; answers no sooner than 0.2 s (`kernel/auth/floor.py`).
+  - **Password resets** (#43, `resets.py`, decision 0022). They mark the address verified (the owner's answer) and end every way in. Sign-in gives way to a reset in flight.
+  - **A new verification link** (#44, `sign_up.py`, decision 0023): `POST /api/auth/verify-email/resend`, the shape the owner approved.
+  - **Email change** (#45, `email_change.py`, decision 0024): change (step-up), confirm and undo, the shape the owner approved. Earlier undo links always survive; a change link is bound to the session epoch.
+  - **Password change** (#46, `password_change.py`, decision 0025). It keeps its own session with a fresh device cookie; a wrong current password counts as a failed step-up; it gives way to a reset.
+- **One lock order everywhere:** a route that touches an account's token or session rows locks the account row first (`accounts.lock`, decision 0021). Every deadlock the bots found was a route that took them the other way.
+- **Tests:** 681 Python tests pass on Windows (1 skipped; 682 on Linux CI) and 41 strict expected failures; coverage 96.8% (CI fails under 85%). The contract suite: 60 passed, 41 not built. The step-up contract tests are marked per action (`_step_up(..., built=True)`).
+- **GitHub:** public `Vybecode-LTD/devkit`. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green, only with the owner's OK for that PR. The ruleset requires "CI result" and blocks force pushes. Codex reviews a PR's first push only; CodeRabbit is on its free tier and hits its limit.
 
 ## Next
 
-K2 steps 5 and 6 are done (#41 to #45: the teardown fix, codes and magic links, resets, a new verification link, email change). Next is **password change** (`POST /api/auth/password/change`, step-up, every other session ends; its contract row and a `@not_built` contract test exist), then KICKOFF K2 step 7: TOTP setup, confirm and removal, and recovery codes. Each step-up route lands with its `_step_up(..., built=True)` in the contract suite. Use #42's patterns: the account lock before token rows, `tokens.void`, and lock-order tests that hold the account row (`test_resets.py:_with_the_account_held`). Also worth a PR of its own: the race tests in `test_sessions.py`, `test_sign_in.py`, `test_sign_up.py`, `test_db.py` and `test_settings.py` race on a fresh app's cold pool, where #42 found requests never overlap; warm the pool as `test_codes.py:_warm` does and re-run their mutants. The owner's machine is set up. The suite should show 661 passed (Windows: 660 and 1 skipped) and 44 xfailed with Postgres up.
+1. If #46 is still open, ask the owner to land it once "CI result" is green.
+2. **KICKOFF K2 step 7, second factors:** `POST /api/auth/totp/setup` (step-up; 403 `auth.email_unverified` until verified), `/totp/confirm` (10 recovery codes), `DELETE /api/auth/totp` (step-up), `POST /api/auth/recovery-codes` (step-up; 409 `auth.no_second_factor`). The contract rows exist. Flip each route's `_step_up(..., built=True)` and unmark `test_an_unverified_account_adds_no_second_factor` and `test_an_unconfirmed_totp_is_no_second_factor` as they pass.
+3. Then step 8 (passkeys), 9 (OAuth), 10 (API keys and invites), 11 (lifecycle: deletion, export).
+4. A PR of its own: the race tests in `test_sessions.py`, `test_sign_in.py`, `test_sign_up.py`, `test_db.py` and `test_settings.py` may never overlap (a cold pool, one browser). Apply the memory note `race-tests-that-really-race` and rerun their mutants.
 
-After K2 and the kernel phases, and before blog, chat and payments are extracted (SPEC 19, phase 3): the ten contract hooks of decision 0018, one PR per hook with `skills/devkit-hook-designer`. Start with export and erase, which the spec nearly has already (it needs an export contract test). The modules that follow v1.0 are in `docs/plans/module-roadmap.md`.
+After K2 and the kernel phases: the ten contract hooks of decision 0018 (`skills/devkit-hook-designer`), before blog, chat and payments are extracted.
 
-## The owner's answers (2026-11-13)
+## Open questions for the owner
 
-- **History rewritten:** `main` from #1 on was rewritten so no commit carries the API token's address. Trees, messages and dates are unchanged; everything before #1 keeps its hashes. **A clone made before 2026-11-13 must reset:** `git fetch origin`, then `git reset --hard origin/main` (with nothing of its own to keep).
-- **Ruleset `main`:** on the default branch, it requires "CI result" to have passed on the exact commit (and the branch to be up to date for PR merges), and blocks force pushes and deletion (decision 0015). It has no "require a pull request" rule: that rule would force merges through GitHub's merge button, which stamps the API token's address on every merge. The check rule gives the same guarantee, since a commit only has a green "CI result" if it ran CI on a branch first.
-- **Merged branches deleted;** finished PR branches are deleted after landing from now on.
-- **Actions pinned** to commit SHAs, and Dependabot proposes the bumps weekly (#26).
-- **The claude.ai Spec doc is retired** (decision 0017): titled "(retired)", with a notice that it's frozen as of 2026-11-12. `SPEC.md` is the only copy.
-- **Review bots:** CodeRabbit stays on its free tier. When it's rate-limited, a PR lands on a green "CI result" and Codex's review.
-- **Security pass:** the `auth-threat-model-checklist` skill runs on K2's high-risk PRs (sign-in, reset, magic links, OAuth, step-up, API keys), not on the plumbing.
-- **Account skills:** the owner's claude.ai skills reach Claude Code through the account sync, so they aren't copied anywhere.
-- **Vibrant Mindz:** Q1 to Q6 are answered (`docs/plans/vibrant-mindz-module-plan.md`, section 12); comments take guests, with approval. The SMS provider is chosen at roadmap wave 3b.
+- Does removing a TOTP (`DELETE /api/auth/totp`) count as the "second-factor reset" that 14.5 says raises the session epoch, ending every other session?
+- Five throwaway test databases left by killed runs are still on the local Postgres (`devkit_test_*`, `devkit_empty_*`). Drop them?
+- Desk steps: reset the Postgres `postgres` password (the owner types it); `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` if wanted.
 
 ## Notes
 
-- **Session lifetimes are a parameter:** the dependencies read `app.state.session_lifetimes`, else the spec's defaults. Reading them from the site's settings (Q6) comes with their admin page, cached the way the module switches are, so `current_user` adds no query.
-- **`require_owner_or` gives a guard, and the route must call `await guard.check(owner_id)`** before touching the thing; a route that forgets lets any member through. `module-contract-lint` should gain a row for it when the first module uses it.
-- **Parallel password guesses can pass one tier by their own number:** sign-in checks the wait before verifying and counts a failure after, so requests in flight at once all get their verify (bounded by 10 a minute per address). Reserving first would count the owner's own sign-ins too. Second-factor tries do reserve first (Codex on #38).
-- **TOTP runs on real time,** not `kernel.clock`: codes come from the person's app. A test that moves the clock still gets codes from `pyotp`'s `now()`.
-- **`supersede(request)`** drops the token `SessionCookies` was going to set: any route that sets the session cookie itself after `signed_in` must call it, as step-up does (a role change and a step-up in one request left two cookies, the dead one last).
-- **The new-device mail is a background task.** Against a remote harness it can land after the suite reads `/api/_test/mail`.
-- **Mail goes out after the answer** (a background task until K3's `jobs`), as sign-up's does: a code or reset mailed only to a known address would leak it through timing otherwise, and a failing adapter mustn't change the answer either. Against a remote harness (`CONTRACT_BASE_URL`) a background send can land after the suite reads `/api/_test/mail`, so that read may need to wait for the message.
-- **Someone else's address can be signed up first** (an unverified account with their password). The real owner's way back is a reset: when step 5 builds it, a reset should end every session (the epoch) and may mark the address verified, since it proves the inbox. The 7-day removal of unverified accounts and the `auth.user.verified` event wait for K3's `jobs` and `events`.
-- **`SIGN_UP_MODE` is closed by default:** a site's brief must say open or invite, and the site template (K5) should ask. The site settings (Q6) take it over with their page.
-- **How a site picks its adapter is K3's call:** from the config or through `create_app(mailer=)` (which SPEC 6 doesn't list yet, like `database=`), and whether a start outside DEBUG without one is refused.
-- **List the access dependency before `rate_limit(key="account")`:** FastAPI runs them in order, and the limit falls back to the address when no one is signed in yet.
-- **A replaced token is dead at once** (14.5): a request still carrying it after a role change or a step-up gets 401. The web kernel's session hook (K4) should retry once on a 401 that follows a new cookie.
-- **The device cookie is signed over the session epoch,** so a reset or a password change makes every browser a stranger. A route that raises the epoch on a browser that stays signed in (a password change) should set a fresh one.
-- **React Router stays on 7** (8 is out; moving needs a decision record). TypeScript stays on 6.0.x for typescript-eslint.
-- **FastAPI 0.162** keeps included routers whole in `app.routes`: walk them with `fastapi.routing.iter_route_contexts`, as `kernel.ratelimit.route_name` does.
-- **Dropping a test database without superuser:** a role without superuser can't use `DROP DATABASE … WITH (FORCE)` while an autovacuum worker is in that database (`InsufficientPrivilegeError: permission denied to terminate process`). On the owner's machine `devkit` isn't a superuser (by design), so `conftest._drop` then ends the role's own sessions and runs a plain `DROP DATABASE`, which stops autovacuum by itself (#41, `tests/test_conftest.py`). Any other error still fails the run. CI's `devkit` is the container's superuser and takes the FORCE path.
-- **Codex reviewed only #39's first push.** Its later commits got no Codex review, so a fix to a Codex finding is checked by its tests and CI, not by Codex.
-- **pytest runs with `--import-mode=importlib`.** Close any pool a test app opens: under coverage, an unclosed connection fails the next test.
-- **gitleaks in CI** is the release binary checked against a pinned SHA-256. Bump both together.
-- **The remote tools can't write `.npmrc` or `.github\`.** After a remote sync, run `git checkout -- .npmrc .github` before any `npm` command.
+- **Race and lock-order tests must really race:** a warm pool, separate browsers, or hold the row and probe with `FOR UPDATE NOWAIT` (memory note; `test_resets.py:_with_the_account_held`). Run each new guard's mutant; four survived for want of that.
+- **A unique index only answers 400 if the write is flushed inside the handler** (`email_change._write_address`). Left to a later query's autoflush, the violation becomes a 500.
+- **A timing test must take the expensive path every round:** the code test passed hollowly until each round moved the clock past the resend wait and checked that mail went out.
+- **Mail goes out after the answer and isn't retried** until K3's job queue. The contract suite's mail reads wait up to 5 s (`Api.mail(at_least=)`, `Api.new_token`) for a running server.
+- **Every request body is strict** (`test_app.py::test_every_request_body_is_strict`).
+- **`conftest._drop`** falls back to ending its own sessions when `WITH (FORCE)` is refused during autovacuum (#41).
+- **Unverified accounts are removed after 7 days,** and `auth.user.verified` is emitted, once K3's jobs and events exist.
+- **`require_owner_or` gives a guard; the route must call `await guard.check(owner_id)`.**
+- **TOTP runs on real time,** not `kernel.clock`.
+- **React Router stays on 7; TypeScript stays on 6.0.x.** FastAPI 0.162: walk routes with `fastapi.routing.iter_route_contexts`.
 
 ## Warnings
 
 - Nothing from the client folder named in `docs/private/README.md`, and nothing from VybeSite's `dev plans\` or `snapshots\`. Run VybeSite's brand check on lifted code.
-- VybeSite's sessions (JWT for staff, cookies for members) and its split account tables differ from the spec. Port the behavior, not the shape.
+- VybeSite's sessions and split account tables differ from the spec: port the behavior, not the shape.
+- On this machine, Git Bash's `sed -i` strips CRLF and backticks inside double quotes run as commands: edit with scripts written by the Write tool, and write PR bodies to a file.

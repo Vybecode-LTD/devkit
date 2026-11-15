@@ -389,6 +389,7 @@ STEP_UP = [
         "POST",
         "/api/auth/password/change",
         {"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+        built=True,
     ),
     _step_up("POST", "/api/auth/email/change", {"email": "new-address@site.test"}, built=True),
     _step_up("POST", "/api/auth/totp/setup", None),
@@ -486,7 +487,6 @@ async def test_five_failed_step_ups_end_the_session(api: Api) -> None:
 # 7. A password change ends every other session (and a reset ends them all)
 
 
-@not_built
 async def test_a_password_change_ends_every_other_session(api: Api) -> None:
     user = await api.make_user()
     other = api.another_browser()
@@ -496,9 +496,43 @@ async def test_a_password_change_ends_every_other_session(api: Api) -> None:
         "/api/auth/password/change",
         json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
     )
-    assert response.status_code == 200
+    assert _shape(response) == (200, {"status": "password_changed"})
     assert (await api.session()).status_code == 200
     assert (await other.session()).status_code == 401
+
+
+async def test_after_a_password_change_only_the_new_one_signs_in(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    await api.http.post(
+        "/api/auth/password/change",
+        json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+    )
+    assert (await api.another_browser().sign_in(user)).status_code == 401
+    assert (await api.another_browser().sign_in(user, NEW_PASSWORD)).status_code == 200
+
+
+async def test_a_password_change_needs_the_current_password(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    refused = await api.http.post(
+        "/api/auth/password/change",
+        json={"current_password": OTHER_PASSWORD, "new_password": NEW_PASSWORD},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (401, "auth.invalid_credentials")
+    assert (await api.session()).status_code == 200  # the session is kept
+    assert (await api.another_browser().sign_in(user)).status_code == 200
+
+
+async def test_a_password_change_judges_the_new_one(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    refused = await api.http.post(
+        "/api/auth/password/change",
+        json={"current_password": PASSWORD, "new_password": "too short"},
+    )
+    assert (refused.status_code, refused.json()["code"]) == (422, "auth.password_rejected")
+    assert refused.json()["detail"]
 
 
 async def test_a_reset_ends_every_session(api: Api) -> None:

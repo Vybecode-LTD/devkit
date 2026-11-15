@@ -341,7 +341,7 @@ async def step_up(
         method = "totp"
         ok = await second_factor.check_totp(db, user.id, body.totp or "")
     if not ok:
-        await _failed_step_up(request, db, user, row)
+        await failed_step_up(request, db, user, row)
         if method == "password":
             raise Problem("auth.invalid_credentials", 401, "That password isn't right.")
         raise Problem("auth.invalid_second_factor", 401, "That code didn't work. Try again.")
@@ -363,8 +363,9 @@ async def step_up(
     return response
 
 
-async def _failed_step_up(request: Request, db: AsyncSession, user: User, row: Session) -> None:
-    """Count the failure; the fifth in 15 minutes ends the session (14.6)."""
+async def failed_step_up(request: Request, db: AsyncSession, user: User, row: Session) -> None:
+    """Count a failed step-up, or a wrong current password at a password
+    change; the fifth in 15 minutes ends the session (14.6)."""
     limiter = _limiter(request)
     key = str(row.id)
     await limiter.hit(STEP_UP_FAILURES, _STEP_UP_SCOPE, key)

@@ -549,6 +549,7 @@ Web sessions are opaque random tokens kept in a cookie and checked against the d
 - A new token is issued at sign-in, at step-up and on any role change, so a session can't be fixed in advance. Each session records the account's `role_version`; a role change raises it, the session's next request gets a new token, and the old one stops working.
 - Each session records when it started, when it was last seen, the user agent, a device label and a coarse location. The account page lists them, with sign-out for each and "sign out everywhere else" (VybeSite `SignedInDevices`).
 - `auth_user.session_epoch` goes up on a password change, a reset, a second-factor reset or a suspension, which ends every older session.
+- A password change keeps the session it came from, at the new epoch and with a fresh device cookie, and ends every other; it gives way to a reset that lands while it runs (decision 0025).
 - CSRF: SameSite=Lax plus an Origin check on every request that changes state (VybeSite `same_origin.py`).
 - **Known devices:** a browser that has signed in to an account keeps a signed, HttpOnly `__Host-dk_device` cookie naming that account. Over the account's failure limit (14.6), the right password still signs in on such a browser, so strangers' guesses can't lock an owner out. The cookie survives sign-out, is never the session, and helps no other account.
 - Native and third-party clients (14.14) get short-lived access tokens and rotating refresh tokens instead. Reusing an old refresh token revokes the whole chain.
@@ -571,7 +572,7 @@ Both limits are site settings (Q6).
 | Email change | 3 per account per 15 minutes; a request within 60 seconds of the last link sends nothing; past 3 mails to one address in 15 minutes, no more (decision 0024) |
 | Sign-up | 5 per IP per hour; past 3 sign-up mails to one address in 15 minutes, the same answer and no notice sent, though an account's one verification link always goes (decision 0020) |
 | Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019) |
-| Step-up | 5 failures per session in 15 minutes, then the session ends |
+| Step-up | 5 failures per session in 15 minutes, then the session ends; a wrong current password at a password change counts as one (decision 0025) |
 
 - No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
 - Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A code ask, a try at a code and a reset request have no hash to hide behind: they answer no sooner than a fixed floor of 0.2 seconds, far above the few queries a known address costs (decisions 0021 and 0022). A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
@@ -797,6 +798,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-14 | A password change keeps its own session with a fresh device cookie, ends every other, counts a wrong current password as a failed step-up, and gives way to a reset (14.5, 14.6, decision 0025) |
 | 2026-11-14 | Email change: a 24-hour confirm link to the new address, a 7-day undo link to the old one that ends every session and survives later changes, a notice for an address that has an account, and its limits (14.6, 14.7, decision 0024) |
 | 2026-11-14 | A signed-in account can ask for a new verification link (`POST /api/auth/verify-email/resend`), limited per account, the last link voided, 409 once verified (14.6, 14.7, decision 0023) |
 | 2026-11-14 | A reset goes to staff too, keeps one link live with the 60-second wait, leaves the link working after a refused password, ends every earlier way in, clears the address's failed sign-ins, marks the address verified, and takes the answer floor; a code sign-in leaves verification alone (14.6, 14.7, decision 0022) |

@@ -60,7 +60,7 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | --- | --- | --- |
 | `POST /api/auth/verify-email/resend` | | 202 `{"status": "check_email"}`: a new 24-hour link to the address the account has now, the last one void. 409 `auth.already_verified` once it is verified |
 | `POST /api/auth/step-up` | `{password}` or `{totp}` | 200 `{"status": "recent"}`; the session token is replaced. 401 `auth.invalid_credentials` for a wrong password or `auth.invalid_second_factor` for a wrong code, the session kept; the fifth failure answers 401 `kernel.not_signed_in` and ends it |
-| `POST /api/auth/password/change` | `{current_password, new_password}` | **step-up.** 200; every other session ends; 422 `auth.password_rejected` with the reason |
+| `POST /api/auth/password/change` | `{current_password, new_password}` | **step-up.** 200 `{"status": "password_changed"}`: this session stays, with a fresh device cookie, and every other ends. 401 `auth.invalid_credentials` for a wrong current password, the session kept; it counts as a failed step-up, so the fifth ends the session. 422 `auth.password_rejected` with the reason |
 | `POST /api/auth/email/change` | `{email}` | **step-up.** 202 `{"status": "check_email"}` whatever the address: the new address is mailed a link to confirm it, valid 24 hours, or a notice instead when it has an account. The old address works until then. 422 `kernel.invalid_request` for anything but one other address |
 | `POST /api/auth/totp/setup` | | **step-up.** 200 `{"secret", "otpauth_uri"}`; 403 `auth.email_unverified` until the email is verified (14.3). The TOTP counts as a second factor only once confirmed |
 | `POST /api/auth/totp/confirm` | `{code}` | 200 `{"recovery_codes": [10 codes]}` |
