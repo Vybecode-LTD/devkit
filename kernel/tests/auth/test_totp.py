@@ -137,16 +137,13 @@ async def test_the_secret_is_sealed_at_rest_and_confirmed_only_by_a_code(site: S
     assert secret not in row.secret_sealed
     assert crypto.open(row.secret_sealed) == secret
     assert (row.confirmed_at, row.last_step) == (None, 0)
-    code = pyotp.TOTP(secret).now()
-    step = int(time.time() // STEP)
+    now = time.time()  # one reading, so the code and its step agree (CodeRabbit on #47)
+    code, step = pyotp.TOTP(secret).at(now), int(now // STEP)
     assert (await _confirm(person.browser, code)).status_code == 200
     row = await _totp(site, person)
     assert row is not None
     assert row.confirmed_at is not None
-    # The step the code matched, so it can't be taken again (the clock may
-    # have moved on a step between the two lines above).
-    assert row.last_step in {step, step + 1}
-    assert pyotp.TOTP(secret).at(row.last_step * STEP) == code
+    assert row.last_step == step  # the code's step, so it can't be taken again
 
 
 async def test_recovery_codes_are_kept_as_keyed_hashes_only(site: Site) -> None:
