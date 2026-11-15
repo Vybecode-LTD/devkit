@@ -22,10 +22,12 @@ the same failure limit, writes the same audit row and gets the same answer.
   outrun it, and a right code starts the account's count again.
 - *Step-up failures:* the fifth in 15 minutes ends the session.
 
-**One lock order** (decision 0021): a route that touches an account's token
-or session rows locks the account row first. A password sign-in takes it
-after the password is checked and looks at the account again, so a reset
-or a suspension that landed meanwhile wins over the old password.
+**One lock order** (decision 0021): a route that touches an account's token,
+session, TOTP or recovery-code rows locks the account row first. A password
+sign-in takes it after the password is checked and looks at the account
+again, so a reset or a suspension that landed meanwhile wins over the old
+password. The second-factor step and step-up by TOTP take it before the
+code is checked, since checking one writes its row (decision 0027).
 
 **A new device** (no device cookie for the account) is mailed a notice after
 it signs in, without delaying the answer; a mailer that fails is logged and
@@ -200,6 +202,9 @@ async def finish_with_second_factor(
         raise too_many(
             await limiter.wait_seconds(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key)
         )
+    # The account before its TOTP or recovery-code row and the challenge's,
+    # as a reset and a TOTP removal take them (Codex on #43; decision 0027).
+    await accounts.lock(db, challenge.user_id)
     if body.totp is not None:
         method, ok = "totp", await second_factor.check_totp(db, challenge.user_id, body.totp)
     else:
@@ -216,8 +221,6 @@ async def finish_with_second_factor(
         )
         await db.commit()
         raise Problem("auth.invalid_second_factor", 401, "That code didn't work. Try again.")
-    # The account before the challenge's row, as a reset takes them (Codex on #43).
-    await accounts.lock(db, challenge.user_id)
     user = await db.get(User, challenge.user_id, populate_existing=True)
     if (
         user is None
@@ -339,6 +342,7 @@ async def step_up(
         ok = await _passwords(request).check(body.password, user.password_hash)
     else:
         method = "totp"
+        await accounts.lock(db, user.id)  # before its TOTP row (decision 0027)
         ok = await second_factor.check_totp(db, user.id, body.totp or "")
     if not ok:
         await failed_step_up(request, db, user, row)

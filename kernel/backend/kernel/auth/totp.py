@@ -1,5 +1,6 @@
-"""Setting up a TOTP at /api/auth (SPEC.md 14.3, 14.4 and 14.6;
-docs/contracts/auth-api.md; decision 0026).
+"""Setting up, confirming and removing a TOTP, and new recovery codes, at
+/api/auth (SPEC.md 14.3 to 14.6; docs/contracts/auth-api.md; decisions 0026
+and 0027).
 
 **`POST /totp/setup`**, step-up. 403 `auth.email_unverified` until the
 account's address is verified, so whoever signed up with someone else's
@@ -21,13 +22,27 @@ verified now. A wrong code answers 401 `auth.invalid_second_factor` and
 counts as a failed step-up, so the fifth in 15 minutes ends the session
 (14.6). A security mail follows the answer.
 
-Both answers hold a secret, so neither may be cached (`Cache-Control:
-no-store`). Both lock the account row before its TOTP and recovery-code
-rows, as every route takes the account first (decision 0021), and then look
-at the account again: a reset, a password change or a suspension that ended
-this session meanwhile wins, and the request answers 401
-`kernel.not_signed_in`, so nobody whose session a reset ended can still turn
-on a factor of theirs.
+**`DELETE /totp`**, step-up, 204. A confirmed TOTP goes with its recovery
+codes, and that is the second-factor reset of 14.5 (the owner's answer):
+the session epoch goes up, every other session ends, and this one carries
+on at the new epoch with a fresh device cookie, as at a password change.
+Every live sign-in code and link, reset link and second-factor challenge
+of the account is voided, and a security mail follows. A setup never
+confirmed was no factor: it goes, and nothing else ends. With no TOTP at
+all, nothing changes.
+
+**`POST /recovery-codes`**, step-up. 10 new recovery codes, the old ones
+void; 409 `auth.no_second_factor` while the account has no confirmed TOTP.
+A security mail follows, since new codes are a way in.
+
+The answers that hold a secret are never cached (`Cache-Control:
+no-store`). Every route here locks the account row before its TOTP,
+recovery-code, session and token rows, as every route takes the account
+first (decisions 0021 and 0027), and then looks at the account and the
+session again: a reset, a password change or a suspension that ended this
+session meanwhile wins, and the request answers 401 `kernel.not_signed_in`,
+so nobody whose session a reset ended can still change the account's
+factors.
 """
 
 from __future__ import annotations
@@ -40,13 +55,14 @@ from typing import cast
 import pyotp
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
 from kernel import clock, crypto
-from kernel.auth import accounts, audit, second_factor
+from kernel.auth import accounts, audit, second_factor, sessions, tokens
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
-from kernel.auth.models import Session, Totp, User
+from kernel.auth.models import RecoveryCode, Session, Totp, User
 from kernel.auth.routes import failed_step_up
 from kernel.auth.sessions import Resumed
 from kernel.config import KernelConfig
@@ -58,8 +74,10 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-#: Both answers hold a secret.
+#: The answers that hold a secret.
 _NO_STORE = {"Cache-Control": "no-store"}
+#: Every way in a removal ends besides sessions, as a password change does.
+_ENDED = ("sign_in_code", "magic_link", "reset_password", "second_factor")
 
 
 class TotpCode(BaseModel):
@@ -70,6 +88,10 @@ class TotpCode(BaseModel):
 
 def _unverified() -> Problem:
     return Problem("auth.email_unverified", 403, "Verify your email address first.")
+
+
+def _config(request: Request) -> KernelConfig:
+    return cast(KernelConfig, request.app.state.config)
 
 
 async def _held(db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID) -> User:
@@ -115,8 +137,9 @@ async def set_up_totp(
     else:  # an earlier setup never confirmed: its secret goes
         totp.secret_sealed, totp.last_step, totp.created_at = sealed, 0, now
     audit.record(db, request, "auth.totp_setup_started", "success", actor=user.id, subject=user.id)
-    config = cast(KernelConfig, request.app.state.config)
-    uri = pyotp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=config.site_name)
+    uri = pyotp.TOTP(secret).provisioning_uri(
+        name=user.email, issuer_name=_config(request).site_name
+    )
     await db.commit()
     return JSONResponse({"secret": secret, "otpauth_uri": uri}, headers=_NO_STORE)
 
@@ -150,21 +173,114 @@ async def confirm_totp(
     audit.record(db, request, "auth.totp_confirmed", "success", actor=user.id, subject=user.id)
     to = user.email
     await db.commit()
-    config = cast(KernelConfig, request.app.state.config)
-    background.add_task(_send, request.app.state.mailer, to, *_notice(config, now))
+    background.add_task(_send, request.app.state.mailer, to, *_added(_config(request), now))
     return JSONResponse({"recovery_codes": codes}, headers=_NO_STORE)
 
 
-def _notice(config: KernelConfig, at: datetime) -> tuple[str, str]:
-    when = f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
+@router.delete("/totp", status_code=204)
+async def remove_totp(
+    request: Request,
+    background: BackgroundTasks,
+    user: User = Depends(require_recent_auth()),
+    resumed: Resumed = Depends(signed_in),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    user = await _held(db, user.id, resumed.session.id)
+    totp = await db.get(Totp, user.id, populate_existing=True)
+    response = Response(status_code=204)
+    if totp is None:  # nothing to remove
+        await db.rollback()
+        return response
+    confirmed = totp.confirmed_at is not None
+    await db.delete(totp)
+    audit.record(
+        db,
+        request,
+        "auth.totp_removed",
+        "success",
+        actor=user.id,
+        subject=user.id,
+        details={"confirmed": confirmed},
+    )
+    if not confirmed:  # a setup never confirmed was no factor: nothing else ends
+        await db.commit()
+        return response
+    await db.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
+    await sessions.end_all_but(db, user, resumed.session)  # the second-factor reset
+    await tokens.void(db, user.id, _ENDED)
+    to, now = user.email, clock.now()
+    await db.commit()
+    sessions.set_device_cookie(response, user)  # signed over the new epoch
+    background.add_task(_send, request.app.state.mailer, to, *_removed(_config(request), now))
+    return response
+
+
+@router.post("/recovery-codes")
+async def replace_recovery_codes(
+    request: Request,
+    background: BackgroundTasks,
+    user: User = Depends(require_recent_auth()),
+    resumed: Resumed = Depends(signed_in),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    user = await _held(db, user.id, resumed.session.id)
+    confirmed = await db.scalar(
+        select(Totp.user_id).where(Totp.user_id == user.id, Totp.confirmed_at.is_not(None))
+    )
+    if confirmed is None:
+        await db.rollback()
+        raise Problem("auth.no_second_factor", 409, "Set up two-step sign-in first.")
+    codes = await second_factor.new_recovery_codes(db, user.id)
+    audit.record(
+        db, request, "auth.recovery_codes_replaced", "success", actor=user.id, subject=user.id
+    )
+    to, now = user.email, clock.now()
+    await db.commit()
+    background.add_task(_send, request.app.state.mailer, to, *_replaced(_config(request), now))
+    return JSONResponse({"recovery_codes": codes}, headers=_NO_STORE)
+
+
+# --- security mail ------------------------------------------------------------------
+
+
+def _when(at: datetime) -> str:
+    return f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
+
+
+def _added(config: KernelConfig, at: datetime) -> tuple[str, str]:
     site = config.site_url.rstrip("/")
     return (
         f"Two-step sign-in is on for your {config.site_name} account",
-        f"An authenticator app was added to your {config.site_name} account on {when}, "
+        f"An authenticator app was added to your {config.site_name} account on {_when(at)}, "
         "so signing in now asks for one of its codes too.\n\n"
         "If that was you, there's nothing to do. Keep your recovery codes somewhere safe.\n\n"
         f"If it wasn't, someone else has your password: reset it now at {site}/sign-in, "
         f"then ask {config.site_name} to remove the authenticator.\n",
+    )
+
+
+def _removed(config: KernelConfig, at: datetime) -> tuple[str, str]:
+    site = config.site_url.rstrip("/")
+    return (
+        f"Two-step sign-in is off for your {config.site_name} account",
+        f"The authenticator app was removed from your {config.site_name} account on "
+        f"{_when(at)}, and every other device was signed out. Signing in now needs only "
+        "your password.\n\n"
+        "If that was you, there's nothing to do.\n\n"
+        f"If it wasn't, reset your password now at {site}/sign-in: that signs every "
+        "device out, this one too. Then turn two-step sign-in on again.\n",
+    )
+
+
+def _replaced(config: KernelConfig, at: datetime) -> tuple[str, str]:
+    site = config.site_url.rstrip("/")
+    return (
+        f"New recovery codes for your {config.site_name} account",
+        f"New recovery codes were made for your {config.site_name} account on {_when(at)}, "
+        "and the old ones no longer work.\n\n"
+        "If that was you, keep the new ones somewhere safe.\n\n"
+        "If it wasn't, someone is signed in to your account: reset your password now at "
+        f"{site}/sign-in, which signs every device out, then make new codes.\n",
     )
 
 

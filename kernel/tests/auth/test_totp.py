@@ -1,6 +1,7 @@
-"""TOTP setup and confirm (SPEC.md 14.3, 14.4 and 14.6; docs/contracts/auth-api.md;
-decision 0026): what the contract suite can't see from outside, such as the
-sealed secret, the keyed hashes, the audit, the mail, races and lock order."""
+"""TOTP setup, confirm and removal, and new recovery codes (SPEC.md 14.3 to
+14.6; docs/contracts/auth-api.md; decisions 0026 and 0027): what the contract
+suite can't see from outside, such as the sealed secret, the keyed hashes,
+the audit, the mail, races and lock order, sign-in's and step-up's included."""
 
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kernel import clock, crypto
 from kernel.app import create_app
 from kernel.auth.accounts import normal_email
-from kernel.auth.models import AuditEvent, RecoveryCode, Totp, User, UserRole
+from kernel.auth.models import AuditEvent, RecoveryCode, Token, Totp, User, UserRole
 from kernel.auth.second_factor import STEP, recovery_code_hash
 from kernel.email import CapturingMailer
 
@@ -241,12 +242,13 @@ async def _with_the_account_held(
     requests: list[Callable[[], Awaitable[httpx.Response]]],
     probe: str | None = None,
     meanwhile: Callable[[AsyncSession], Awaitable[None]] | None = None,
+    row_id: uuid.UUID | None = None,
 ) -> list[httpx.Response]:
     """Hold the account row, start every request, and wait until each is
     blocked on a lock, so they really overlap once it's let go. With `probe`
-    (a NOWAIT lock on the TOTP row), check that none has taken that row
-    while it waits: one that took it before the account's would hold it, and
-    NOWAIT would fail. With `meanwhile`, make that change while holding the
+    (a NOWAIT lock on one row: the TOTP row, or `row_id`'s), check that none
+    has taken that row while it waits: one that took it before the account's
+    would hold it, and NOWAIT would fail. With `meanwhile`, make that change while holding the
     row and commit it, as a reset would. Then let go and give their answers."""
     async with site.db() as holder, site.db() as watcher:
         await holder.execute(select(User.id).where(User.id == person.id).with_for_update())
@@ -269,7 +271,8 @@ async def _with_the_account_held(
                     break
             assert blocked >= len(requests), "the requests never all waited for the account row"
             if probe is not None:
-                assert await watcher.scalar(text(probe), {"id": person.id}) == person.id
+                row = person.id if row_id is None else row_id
+                assert await watcher.scalar(text(probe), {"id": row}) == row
             if meanwhile is not None:
                 await meanwhile(holder)
                 await holder.commit()
@@ -370,3 +373,250 @@ async def test_two_confirms_at_once_give_one_set_of_codes(site: Site) -> None:
     assert {row.code_hash for row in rows} == {
         recovery_code_hash(person.id, c) for c in won.json()["recovery_codes"]
     }
+
+
+# --- removing a TOTP and new recovery codes (decision 0027) ---------------------------
+
+_CODE_ROW_FREE = "SELECT id FROM auth_recovery_code WHERE id = :id FOR UPDATE NOWAIT"
+
+
+async def _with_totp(site: Site, person: Person) -> tuple[str, list[str]]:
+    """A confirmed TOTP, set up over HTTP: its secret and recovery codes. The
+    step of the code that confirmed it is used up."""
+    secret = await _set_up(person.browser)
+    confirmed = await _confirm(person.browser, pyotp.TOTP(secret).now())
+    assert confirmed.status_code == 200, confirmed.text
+    codes: list[str] = confirmed.json()["recovery_codes"]
+    return secret, codes
+
+
+def _next_step(secret: str) -> str:
+    return pyotp.TOTP(secret).at(time.time() + 30)
+
+
+async def _challenge(site: Site, person: Person) -> tuple[httpx.AsyncClient, str]:
+    """A password sign-in on a new browser, waiting on its second factor."""
+    browser = site.browser()
+    started = await browser.post(
+        "/api/auth/sign-in", json={"email": person.email, "password": PASSWORD}
+    )
+    assert started.json()["status"] == "second_factor", started.text
+    return browser, started.json()["challenge"]
+
+
+def _cookie(response: httpx.Response, name: str) -> str | None:
+    for header in response.headers.get_list("set-cookie"):
+        if header.startswith(f"{name}="):
+            return header.split(";", 1)[0].split("=", 1)[1]
+    return None
+
+
+async def _tokens(site: Site, person: Person, purpose: str) -> list[Token]:
+    async with site.db() as db:
+        found = await db.scalars(
+            select(Token).where(Token.user_id == person.id, Token.purpose == purpose)
+        )
+        return list(found)
+
+
+async def test_removing_a_totp_deletes_it_and_its_codes_audited_and_mailed(site: Site) -> None:
+    person = await _person(site)
+    secret, _ = await _with_totp(site, person)
+    site.mail.clear()
+    removed = await person.browser.delete("/api/auth/totp")
+    assert removed.status_code == 204
+    assert await _totp(site, person) is None
+    assert await _code_rows(site, person) == []
+    [row] = await _audit(site, "auth.totp_removed")
+    assert (row.actor_id, row.subject_id, row.result) == (person.id, person.id, "success")
+    [notice] = site.mail.to(person.email)
+    assert "off" in notice.subject.lower()
+    assert secret not in notice.text
+
+
+async def test_removing_a_totp_gives_this_browser_a_fresh_device_cookie(site: Site) -> None:
+    """The epoch goes up, and the device cookie is signed over it: without a
+    fresh one, this browser would be a stranger over the failure limit."""
+    person = await _person(site)
+    await _with_totp(site, person)
+    removed = await person.browser.delete("/api/auth/totp")
+    assert _cookie(removed, "__Host-dk_device")
+    for _ in range(5):  # strangers push the address over its failure limit
+        await site.browser().post(
+            "/api/auth/sign-in", json={"email": person.email, "password": "a wrong password 1"}
+        )
+    right = {"email": person.email, "password": PASSWORD}
+    assert (await site.browser().post("/api/auth/sign-in", json=right)).status_code == 429
+    assert (await person.browser.post("/api/auth/sign-in", json=right)).status_code == 200
+
+
+async def test_removing_a_totp_voids_open_sign_ins_and_mailed_ways_in(site: Site) -> None:
+    person = await _person(site)
+    secret, _ = await _with_totp(site, person)
+    browser, challenge = await _challenge(site, person)
+    asked = await site.browser().post("/api/auth/code", json={"email": person.email})
+    assert asked.status_code == 202
+    assert (await person.browser.delete("/api/auth/totp")).status_code == 204
+    for purpose in ("second_factor", "sign_in_code"):
+        rows = await _tokens(site, person, purpose)
+        assert rows, purpose
+        assert all(row.used_at is not None for row in rows), purpose
+    late = await browser.post(
+        "/api/auth/sign-in/second-factor", json={"challenge": challenge, "totp": _next_step(secret)}
+    )
+    assert late.status_code == 401
+
+
+async def test_removing_a_setup_not_confirmed_ends_nothing(site: Site) -> None:
+    person = await _person(site)
+    await _set_up(person.browser)
+    other = site.browser()
+    signed = await other.post(
+        "/api/auth/sign-in", json={"email": person.email, "password": PASSWORD}
+    )
+    assert signed.json()["status"] == "signed_in"
+    site.mail.clear()
+    assert (await person.browser.delete("/api/auth/totp")).status_code == 204
+    assert await _totp(site, person) is None
+    assert (await other.get("/api/auth/session")).status_code == 200
+    assert site.mail.to(person.email) == []  # no factor was removed
+
+
+async def test_removing_locks_the_account_before_the_totp_row(site: Site) -> None:
+    person = await _person(site)
+    await _with_totp(site, person)
+    [removed] = await _with_the_account_held(
+        site, person, [lambda: person.browser.delete("/api/auth/totp")], _TOTP_ROW_FREE
+    )
+    assert removed.status_code == 204, removed.text
+
+
+async def test_a_removal_gives_way_to_a_reset_that_lands_first(site: Site) -> None:
+    person = await _person(site)
+    await _with_totp(site, person)
+    [late] = await _with_the_account_held(
+        site,
+        person,
+        [lambda: person.browser.delete("/api/auth/totp")],
+        meanwhile=lambda db: _new_epoch(db, person),
+    )
+    assert (late.status_code, late.json()["code"]) == (401, "kernel.not_signed_in")
+    assert await _totp(site, person) is not None
+    assert len(await _code_rows(site, person)) == 10
+
+
+async def test_new_recovery_codes_are_keyed_hashes_never_cached_audited_and_mailed(
+    site: Site,
+) -> None:
+    person = await _person(site)
+    _, old = await _with_totp(site, person)
+    site.mail.clear()
+    made = await person.browser.post("/api/auth/recovery-codes")
+    assert made.status_code == 200, made.text
+    assert made.headers.get("cache-control") == "no-store"
+    codes = made.json()["recovery_codes"]
+    assert all(re.fullmatch(r"[0-9a-z]{5}-[0-9a-z]{5}", code) for code in codes), codes
+    assert {row.code_hash for row in await _code_rows(site, person)} == {
+        recovery_code_hash(person.id, code) for code in codes
+    }
+    assert not set(old) & set(codes)
+    [row] = await _audit(site, "auth.recovery_codes_replaced")
+    assert (row.actor_id, row.subject_id, row.result) == (person.id, person.id, "success")
+    [notice] = site.mail.to(person.email)
+    assert "recovery codes" in notice.subject.lower()
+    assert not any(code in notice.text for code in codes)
+
+
+async def test_new_recovery_codes_lock_the_account_before_the_old_rows(site: Site) -> None:
+    person = await _person(site)
+    await _with_totp(site, person)
+    [first, *_] = await _code_rows(site, person)
+    [made] = await _with_the_account_held(
+        site,
+        person,
+        [lambda: person.browser.post("/api/auth/recovery-codes")],
+        _CODE_ROW_FREE,
+        row_id=first.id,
+    )
+    assert made.status_code == 200, made.text
+
+
+async def test_new_recovery_codes_give_way_to_a_reset_that_lands_first(site: Site) -> None:
+    person = await _person(site)
+    _, old = await _with_totp(site, person)
+    [late] = await _with_the_account_held(
+        site,
+        person,
+        [lambda: person.browser.post("/api/auth/recovery-codes")],
+        meanwhile=lambda db: _new_epoch(db, person),
+    )
+    assert (late.status_code, late.json()["code"]) == (401, "kernel.not_signed_in")
+    assert {row.code_hash for row in await _code_rows(site, person)} == {
+        recovery_code_hash(person.id, code) for code in old
+    }
+
+
+# --- sign-in and step-up take the account first too (decision 0027) ------------------
+
+
+async def test_finishing_a_sign_in_with_a_totp_locks_the_account_before_the_totp_row(
+    site: Site,
+) -> None:
+    """Removal holds the account, then deletes the TOTP row; a sign-in that
+    took the row first, then waited for the account, would deadlock with it."""
+    person = await _person(site)
+    secret, _ = await _with_totp(site, person)
+    browser, challenge = await _challenge(site, person)
+    code = _next_step(secret)
+    [finished] = await _with_the_account_held(
+        site,
+        person,
+        [
+            lambda: browser.post(
+                "/api/auth/sign-in/second-factor", json={"challenge": challenge, "totp": code}
+            )
+        ],
+        _TOTP_ROW_FREE,
+    )
+    assert finished.json()["status"] == "signed_in", finished.text
+
+
+async def test_finishing_a_sign_in_with_a_recovery_code_locks_the_account_first(
+    site: Site,
+) -> None:
+    person = await _person(site)
+    _, codes = await _with_totp(site, person)
+    browser, challenge = await _challenge(site, person)
+    [row] = [
+        row
+        for row in await _code_rows(site, person)
+        if row.code_hash == recovery_code_hash(person.id, codes[0])
+    ]
+    [finished] = await _with_the_account_held(
+        site,
+        person,
+        [
+            lambda: browser.post(
+                "/api/auth/sign-in/second-factor",
+                json={"challenge": challenge, "recovery_code": codes[0]},
+            )
+        ],
+        _CODE_ROW_FREE,
+        row_id=row.id,
+    )
+    assert finished.json()["status"] == "signed_in", finished.text
+
+
+async def test_stepping_up_with_a_totp_locks_the_account_before_the_totp_row(
+    site: Site,
+) -> None:
+    person = await _person(site)
+    secret, _ = await _with_totp(site, person)
+    code = _next_step(secret)
+    [stepped] = await _with_the_account_held(
+        site,
+        person,
+        [lambda: person.browser.post("/api/auth/step-up", json={"totp": code})],
+        _TOTP_ROW_FREE,
+    )
+    assert stepped.status_code == 200, stepped.text

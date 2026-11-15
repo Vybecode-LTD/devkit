@@ -1,0 +1,23 @@
+# 0027: Removing a TOTP is a second-factor reset; new recovery codes need one
+
+- **Date:** 2026-11-15
+- **Status:** Applied
+- **Context:** The contract had `DELETE /api/auth/totp` (step-up; 204) and `POST /api/auth/recovery-codes` (step-up; 200 with new codes, the old ones void; 409 `auth.no_second_factor` without a confirmed TOTP). SPEC 14.5 raises the session epoch on "a second-factor reset" without saying what one is. The handoff also found that sign-in's second-factor step and step-up by TOTP write the TOTP or recovery-code row before locking the account, the other way from every other route, and these two routes write those rows with the account held.
+- **Decision:**
+  - **Removing a confirmed TOTP is the second-factor reset of 14.5** (the owner's answer, 2026-11-15). It deletes the TOTP and its recovery codes, raises the session epoch so every other session ends, and keeps this session at the new epoch with a fresh device cookie, as a password change does (decision 0025). It voids every live sign-in code and link, reset link and second-factor challenge of the account, and mails the account (14.6).
+  - **A setup never confirmed** was no factor: removing it deletes it and nothing else ends; no mail. **With no TOTP at all,** the answer is still 204 and nothing changes.
+  - **Staff may remove their TOTP.** The admin gate then refuses them until they set one up again (14.4), which is the rule doing its job, not a reason to refuse the removal.
+  - **New recovery codes** need a confirmed TOTP (409 `auth.no_second_factor` otherwise, a setup not yet confirmed included). The 10 new codes replace the old, the answer is never cached, and the account is mailed: new codes are a way in, so their owner should hear of them, though 14.6's list didn't name them.
+  - **One lock order, sign-in included.** The second-factor step and step-up by TOTP now lock the account row before checking the code, since checking one writes its row. Every route that touches an account's TOTP, recovery-code, session or token rows takes the account first (decision 0021), so a sign-in and a removal can't deadlock.
+  - **Both routes give way to a reset** that lands while they wait, as setup and confirm do (decision 0026): 401 `kernel.not_signed_in`, and nothing changes.
+  - **Audit:** `auth.totp_removed` (with whether it was confirmed) and `auth.recovery_codes_replaced`.
+- **Alternatives:**
+  - *Removing a TOTP ends nothing else.* Whoever stole a session could then drop the factor and leave every other session they hold alive; ending them is the owner's answer.
+  - *Removal needs step-up by the second factor itself.* Step-up by password is what 14.4 asks for every factor change, and a session that has one came from a sign-in that passed the factor.
+  - *Refuse removal for staff.* It would lock a staff member into a factor they can't replace (setup refuses over a confirmed TOTP, decision 0026).
+  - *Keep sign-in's order and have removal take the rows first.* Every other route takes the account first, and one rule is easier to keep than two.
+- **Consequences:**
+  - SPEC.md 14.4, 14.5 and 14.6 say so, with a change-log line; `docs/contracts/auth-api.md`'s rows give the answers.
+  - The contract suite's removal and recovery-codes step-up cases, `test_step_up_counts_from_signing_in_not_from_activity` and `test_stepping_up_lets_the_action_through_with_a_new_token` now run, with five more tests. `kernel/tests/auth/test_totp.py` holds the kernel tests, the sign-in and step-up lock-order tests among them.
+  - K2 step 7 is done but for `test_an_unconfirmed_totp_is_no_second_factor`, which waits for the admin routes.
+- **See:** SPEC.md 14.4 to 14.6; decisions 0021, 0025 and 0026; `kernel/backend/kernel/auth/totp.py`, `kernel/backend/kernel/auth/routes.py`

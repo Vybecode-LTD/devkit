@@ -394,8 +394,8 @@ STEP_UP = [
     ),
     _step_up("POST", "/api/auth/email/change", {"email": "new-address@site.test"}, built=True),
     _step_up("POST", "/api/auth/totp/setup", None, built=True),
-    _step_up("DELETE", "/api/auth/totp", None),
-    _step_up("POST", "/api/auth/recovery-codes", None),
+    _step_up("DELETE", "/api/auth/totp", None, built=True),
+    _step_up("POST", "/api/auth/recovery-codes", None, built=True),
     _step_up("POST", "/api/auth/passkeys/register/start", {"name": "Laptop"}),
     _step_up("DELETE", f"/api/auth/passkeys/{ZERO_ID}", None),
     _step_up("POST", "/api/auth/api-keys", {"name": "CI", "scopes": []}),
@@ -441,7 +441,6 @@ async def test_every_step_up_action_is_marked(api: Api) -> None:
         raise NotBuilt(f"not built yet: {sorted(expected - listed)}")
 
 
-@not_built
 async def test_step_up_counts_from_signing_in_not_from_activity(api: Api) -> None:
     await api.signed_in_as(await api.make_user(totp=True))
     for _ in range(2):
@@ -464,7 +463,6 @@ async def test_changing_roles_demands_a_recent_sign_in(api: Api) -> None:
     assert (response.status_code, response.json()["code"]) == (403, "auth.step_up_required")
 
 
-@not_built
 async def test_stepping_up_lets_the_action_through_with_a_new_token(api: Api) -> None:
     await api.signed_in_as(await api.make_user(totp=True))
     await api.advance(11 * MINUTE)
@@ -1303,3 +1301,80 @@ async def test_confirming_with_nothing_set_up_is_refused(api: Api) -> None:
 async def test_confirming_needs_a_session(api: Api) -> None:
     refused = await _confirm_totp(api, "123456")
     assert (refused.status_code, refused.json()["code"]) == (401, "kernel.not_signed_in")
+
+
+# Removing a TOTP and new recovery codes (14.4, 14.5; decision 0027)
+
+
+async def _finish(browser: Api, challenge: object, **factor: str) -> httpx.Response:
+    return await browser.http.post(
+        "/api/auth/sign-in/second-factor", json={"challenge": challenge, **factor}
+    )
+
+
+async def test_removing_a_totp_ends_every_other_session(api: Api) -> None:
+    """The owner's answer: removing a TOTP is the second-factor reset that
+    14.5 says ends every other session. This one stays."""
+    user = await api.make_user(totp=True)
+    assert user.totp_secret
+    await api.signed_in_as(user)
+    other, first = await _second_factor(api, user)
+    assert (await _finish(other, first["challenge"], totp=_next_step(user.totp_secret))).is_success
+    assert (await other.session()).status_code == 200  # the control
+    removed = await api.http.delete("/api/auth/totp")
+    assert (removed.status_code, removed.content) == (204, b"")
+    assert (await other.session()).status_code == 401
+    mine = await api.session()
+    assert mine.status_code == 200
+    assert mine.json()["user"]["second_factor"] is False
+    signed = await api.another_browser().sign_in(user)
+    assert (signed.status_code, signed.json()["status"]) == (200, "signed_in")
+
+
+async def test_removing_a_totp_voids_its_recovery_codes(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    first = await _set_up_totp(api)
+    old = (await _confirm_totp(api, pyotp.TOTP(first).now())).json()["recovery_codes"]
+    assert (await api.http.delete("/api/auth/totp")).status_code == 204
+    second = await _set_up_totp(api)
+    new = (await _confirm_totp(api, pyotp.TOTP(second).now())).json()["recovery_codes"]
+    browser, started = await _second_factor(api, user)
+    stale = await _finish(browser, started["challenge"], recovery_code=old[0])
+    assert (stale.status_code, stale.json()["code"]) == (401, "auth.invalid_second_factor")
+    fresh = await _finish(browser, started["challenge"], recovery_code=new[0])
+    assert fresh.status_code == 200  # the control
+
+
+async def test_removing_with_no_totp_ends_nothing(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    other = api.another_browser()
+    await other.signed_in_as(user)
+    assert (await api.http.delete("/api/auth/totp")).status_code == 204
+    assert (await other.session()).status_code == 200
+
+
+async def test_new_recovery_codes_replace_the_old(api: Api) -> None:
+    user = await api.make_user(totp=True)
+    await api.signed_in_as(user)
+    first = await api.http.post("/api/auth/recovery-codes")
+    assert (first.status_code, set(first.json())) == (200, {"recovery_codes"})
+    old = first.json()["recovery_codes"]
+    assert len(old) == len(set(old)) == 10
+    new = (await api.http.post("/api/auth/recovery-codes")).json()["recovery_codes"]
+    assert len(new) == 10
+    assert not set(old) & set(new)
+    browser, started = await _second_factor(api, user)
+    stale = await _finish(browser, started["challenge"], recovery_code=old[0])
+    assert (stale.status_code, stale.json()["code"]) == (401, "auth.invalid_second_factor")
+    fresh = await _finish(browser, started["challenge"], recovery_code=new[0])
+    assert fresh.status_code == 200  # the control
+
+
+async def test_new_recovery_codes_need_a_confirmed_totp(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    for _ in range(2):  # with no TOTP, then with one set up but not confirmed
+        refused = await api.http.post("/api/auth/recovery-codes")
+        assert (refused.status_code, refused.json()["code"]) == (409, "auth.no_second_factor")
+        await _set_up_totp(api)

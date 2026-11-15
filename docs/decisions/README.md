@@ -30,3 +30,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0024](0024-email-change.md) | Email change is confirmed by the new address and undone by the old | Applied |
 | [0025](0025-password-change.md) | A password change keeps its own session and gives way to a reset | Applied |
 | [0026](0026-totp-setup-and-confirm.md) | A TOTP is set up, then confirmed by a code that can't be used again | Applied |
+| [0027](0027-totp-removal-and-recovery-codes.md) | Removing a TOTP is a second-factor reset; new recovery codes need one | Applied |

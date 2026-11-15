@@ -539,6 +539,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 - Passkeys count as a second factor.
 - A second factor counts only once confirmed: a TOTP secret set up but never confirmed with a code is not one.
 - Setting up a TOTP needs step-up and a verified address (14.3), and a confirmed TOTP is removed before another is set up, so a setup never takes away a factor that works. A new setup replaces one not yet confirmed. Confirming takes a right code, which then can't finish a sign-in, and gives 10 new recovery codes; a wrong code counts as a failed step-up (14.6). Setup and confirm give way to a reset that lands while they wait (decision 0026).
+- Removing a confirmed TOTP takes its recovery codes with it and is a second-factor reset (14.5). New recovery codes need a confirmed TOTP. Sign-in's second-factor step and step-up by TOTP lock the account before checking the code, as every route that touches an account's factor, session or token rows does (decision 0027).
 - Required for staff. Optional for members, unless the site's setting requires it.
 - Step-up: changing email, password, second factors or passkeys, creating API keys, changing roles or payout details, and deleting the account all need a sign-in within the last 10 minutes (`require_recent_auth`).
 
@@ -549,7 +550,7 @@ Web sessions are opaque random tokens kept in a cookie and checked against the d
 - The token is 32 random bytes in the cookie `__Host-dk_session`, set HttpOnly, Secure, SameSite=Lax, Path=/. The database stores only its SHA-256.
 - A new token is issued at sign-in, at step-up and on any role change, so a session can't be fixed in advance. Each session records the account's `role_version`; a role change raises it, the session's next request gets a new token, and the old one stops working.
 - Each session records when it started, when it was last seen, the user agent, a device label and a coarse location. The account page lists them, with sign-out for each and "sign out everywhere else" (VybeSite `SignedInDevices`).
-- `auth_user.session_epoch` goes up on a password change, a reset, a second-factor reset or a suspension, which ends every older session.
+- `auth_user.session_epoch` goes up on a password change, a reset, a second-factor reset (removing a confirmed TOTP, the owner's answer; decision 0027) or a suspension, which ends every older session. Removing a TOTP keeps the session it came from, with a fresh device cookie, as a password change does.
 - A password change keeps the session it came from, at the new epoch and with a fresh device cookie, and ends every other; it gives way to a reset that lands while it runs (decision 0025).
 - CSRF: SameSite=Lax plus an Origin check on every request that changes state (VybeSite `same_origin.py`).
 - **Known devices:** a browser that has signed in to an account keeps a signed, HttpOnly `__Host-dk_device` cookie naming that account. Over the account's failure limit (14.6), the right password still signs in on such a browser, so strangers' guesses can't lock an owner out. The cookie survives sign-out, is never the session, and helps no other account.
@@ -580,7 +581,7 @@ Both limits are site settings (Q6).
 - Limits keyed on an email use the normalized address, so case variants share one budget.
 - Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
 - Rate-limit windows run on real time, not on `kernel.clock`, and so do the sign-in waits, which are tiers of windows (decision 0019). Expiries and the resend wait read `kernel.clock` (decision 0013).
-- Security emails go out on a sign-in from a new device, a password change, an email change (to the old address, with an undo link valid 7 days), a second factor or passkey added or removed, an API key created and a provider linked.
+- Security emails go out on a sign-in from a new device, a password change, an email change (to the old address, with an undo link valid 7 days), a second factor or passkey added or removed, new recovery codes made, an API key created and a provider linked.
 
 ### 14.7 Account lifecycle
 
@@ -799,6 +800,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-15 | Removing a confirmed TOTP is a second-factor reset that ends every other session (the owner's answer) and voids its recovery codes; new recovery codes need a confirmed TOTP and are mailed; sign-in's second factor and step-up by TOTP lock the account first (14.4, 14.5, 14.6, decision 0027) |
 | 2026-11-15 | TOTP setup needs a verified address and refuses while a confirmed TOTP exists; confirming uses up its code, gives 10 new recovery codes, counts a wrong code as a failed step-up, and gives way to a reset (14.4, 14.6, decision 0026) |
 | 2026-11-14 | A password change keeps its own session with a fresh device cookie, ends every other, counts a wrong current password as a failed step-up, and gives way to a reset (14.5, 14.6, decision 0025) |
 | 2026-11-14 | Email change: a 24-hour confirm link to the new address, a 7-day undo link to the old one that ends every session and survives later changes, a notice for an address that has an account, and its limits (14.6, 14.7, decision 0024) |
