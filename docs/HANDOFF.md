@@ -19,7 +19,7 @@ Overwritten every session. 2026-11-14 (Claude Code, the owner's machine, mostly 
 ## Next
 
 1. If #46 is still open, ask the owner to land it once "CI result" is green.
-2. **KICKOFF K2 step 7, second factors:** `POST /api/auth/totp/setup` (step-up; 403 `auth.email_unverified` until verified), `/totp/confirm` (10 recovery codes), `DELETE /api/auth/totp` (step-up), `POST /api/auth/recovery-codes` (step-up; 409 `auth.no_second_factor`). The contract rows exist. Flip each route's `_step_up(..., built=True)` and unmark `test_an_unverified_account_adds_no_second_factor` and `test_an_unconfirmed_totp_is_no_second_factor` as they pass.
+2. **KICKOFF K2 step 7, second factors:** `POST /api/auth/totp/setup` (step-up; 403 `auth.email_unverified` until verified), `/totp/confirm` (10 recovery codes), `DELETE /api/auth/totp` (step-up), `POST /api/auth/recovery-codes` (step-up; 409 `auth.no_second_factor`). The contract rows exist. Flip each route's `_step_up(..., built=True)` and unmark `test_an_unconfirmed_totp_is_no_second_factor` as it passes. `test_an_unverified_account_adds_no_second_factor` covers TOTP and passkeys under one strict mark: move the mark onto the passkey case (`pytest.param(..., marks=not_built)`) when TOTP lands, or the TOTP case's pass fails as an XPASS.
 3. Then step 8 (passkeys), 9 (OAuth), 10 (API keys and invites), 11 (lifecycle: deletion, export).
 4. A PR of its own: the race tests in `test_sessions.py`, `test_sign_in.py`, `test_sign_up.py`, `test_db.py` and `test_settings.py` may never overlap (a cold pool, one browser). Apply the memory note `race-tests-that-really-race` and rerun their mutants.
 

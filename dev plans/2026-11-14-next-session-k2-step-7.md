@@ -22,7 +22,7 @@ AI DevKit: website modules an agent copies into a site, around a FastAPI + Postg
 ## 4. The job, in order (one PR each, tests first)
 
 1. If #46 is open, ask the owner whether to land it once "CI result" is green; then `git switch main` and `git pull --ff-only`.
-2. **TOTP setup and confirm:** `POST /api/auth/totp/setup` (step-up; 403 `auth.email_unverified` until verified) and `/totp/confirm` (10 recovery codes). The contract rows exist (`docs/contracts/auth-api.md`). Flip the routes' `_step_up(..., built=True)` in `kernel/tests/contract/test_auth_contract.py`, and unmark `test_an_unverified_account_adds_no_second_factor` and `test_an_unconfirmed_totp_is_no_second_factor` as they pass.
+2. **TOTP setup and confirm:** `POST /api/auth/totp/setup` (step-up; 403 `auth.email_unverified` until verified) and `/totp/confirm` (10 recovery codes). The contract rows exist (`docs/contracts/auth-api.md`). Flip the routes' `_step_up(..., built=True)` in `kernel/tests/contract/test_auth_contract.py`, and unmark `test_an_unconfirmed_totp_is_no_second_factor` as it passes. `test_an_unverified_account_adds_no_second_factor` covers TOTP and passkeys under one strict mark: move it onto the passkey case (`pytest.param(..., marks=not_built)`), or the TOTP pass fails as an XPASS.
 3. **`DELETE /api/auth/totp`** and **`POST /api/auth/recovery-codes`** (both step-up; 409 `auth.no_second_factor`).
 4. Then KICKOFF K2 steps 8 to 11. A cleanup PR can go anywhere: the five older race tests (`docs/HANDOFF.md`, Next, item 4).
 
