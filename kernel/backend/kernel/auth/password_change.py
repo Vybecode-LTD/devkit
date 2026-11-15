@@ -20,7 +20,9 @@ security mail follows the answer.
 hash. Then the account row is locked before any session or token row, as on
 every route, and the account is looked at again: a reset, another change,
 an email undo or a suspension that ended this session meanwhile wins, and
-this change answers 401 `kernel.not_signed_in`.
+this change answers 401 `kernel.not_signed_in`. Another change from this
+same session keeps it alive, so the epoch seen at the current-password
+check is compared too: if it moved, 401 `auth.invalid_credentials`.
 """
 
 from __future__ import annotations
@@ -83,6 +85,7 @@ async def change_password(
         await failed_step_up(request, db, user, resumed.session)  # the fifth ends it
         raise _wrong_password()
     user_id, session_id, email = user.id, resumed.session.id, user.email
+    epoch = user.session_epoch  # what the current password was checked under
     await db.rollback()  # no connection held through the lookup and the hash
     reason = await refusal(
         body.new_password, site_context(config, email), lookup=request.app.state.breach_lookup
@@ -90,7 +93,7 @@ async def change_password(
     if reason is not None:
         raise Problem("auth.password_rejected", 422, reason)
     hashed = await passwords.hash(body.new_password)
-    return await _change(request, db, background, user_id, session_id, hashed)
+    return await _change(request, db, background, user_id, session_id, epoch, hashed)
 
 
 async def _change(
@@ -99,6 +102,7 @@ async def _change(
     background: BackgroundTasks,
     user_id: uuid.UUID,
     session_id: uuid.UUID,
+    epoch: int,
     hashed: str,
 ) -> Response:
     """Under the account lock, if nothing changed meanwhile: the new password,
@@ -117,6 +121,13 @@ async def _change(
         # epoch, so this sees them all, and the other change stands.
         await db.rollback()
         raise Problem("kernel.not_signed_in", 401, "Sign in to continue.")
+    if user.session_epoch != epoch:
+        # This session lives on, but its epoch moved since the current
+        # password was checked: another change from this session landed
+        # first, keeping it, so the password given is no longer current
+        # (Codex on #46).
+        await db.rollback()
+        raise _wrong_password()
     now = clock.now()
     user.password_hash = hashed
     await sessions.end_all_but(db, user, session)

@@ -425,3 +425,37 @@ async def test_an_undo_landing_mid_change_ends_it(
     late = await changing
     assert (late.status_code, late.json()["code"]) == (401, "kernel.not_signed_in")
     assert await _hash(site, person) == before
+
+
+async def test_two_changes_from_one_session_at_once_change_it_once(
+    site: Site, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both check the old password, then wait for each other before hashing.
+    The first to commit moves this session to the new epoch with it, so a
+    session check alone would let the second through with a current password
+    no longer current (Codex on #46). The epoch seen at the check refuses it."""
+    person = await _person(site)
+    passwords = site.app.state.passwords
+    real_hash = passwords.hash
+    arrived: list[str] = []
+    both = asyncio.Event()
+
+    async def held(password: str) -> str:
+        if password in (NEW, OTHER):
+            arrived.append(password)
+            if len(arrived) == 2:
+                both.set()
+            await both.wait()
+        hashed: str = await real_hash(password)
+        return hashed
+
+    monkeypatch.setattr(passwords, "hash", held)
+    first, second = await asyncio.gather(
+        _change(person.browser, new=NEW), _change(person.browser, new=OTHER)
+    )
+    assert sorted([first.status_code, second.status_code]) == [200, 401]
+    winner, loser = (NEW, OTHER) if first.status_code == 200 else (OTHER, NEW)
+    refused = second if first.status_code == 200 else first
+    assert refused.json()["code"] == "auth.invalid_credentials"
+    assert (await _sign_in(site.browser(), person.email, loser)).status_code == 401
+    assert (await _sign_in(site.browser(), person.email, winner)).status_code == 200

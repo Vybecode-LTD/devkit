@@ -17,7 +17,7 @@ AI DevKit: website modules an agent copies into a site, around a FastAPI + Postg
 
 - `main` is at a60f87f (#45, email change). #41 to #45 are merged.
 - **#46** (`feat/k2-password-change`) holds password change, this file and the handoff, and is the only open PR. Its CI hadn't reported when this was written.
-- Tests on the owner's machine: 681 passed, 1 skipped, 41 xfailed. Nothing is half-done.
+- Tests on the owner's machine: 682 passed, 1 skipped, 41 xfailed. Nothing is half-done.
 
 ## 4. The job, in order (one PR each, tests first)
 

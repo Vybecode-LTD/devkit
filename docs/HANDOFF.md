@@ -13,7 +13,7 @@ Overwritten every session. 2026-11-14 (Claude Code, the owner's machine, mostly 
   - **Email change** (#45, `email_change.py`, decision 0024): change (step-up), confirm and undo, the shape the owner approved. Earlier undo links always survive; a change link is bound to the session epoch.
   - **Password change** (#46, `password_change.py`, decision 0025). It keeps its own session with a fresh device cookie; a wrong current password counts as a failed step-up; it gives way to a reset.
 - **One lock order everywhere:** a route that touches an account's token or session rows locks the account row first (`accounts.lock`, decision 0021). Every deadlock the bots found was a route that took them the other way.
-- **Tests:** 681 Python tests pass on Windows (1 skipped; 682 on Linux CI) and 41 strict expected failures; coverage 96.8% (CI fails under 85%). The contract suite: 60 passed, 41 not built. The step-up contract tests are marked per action (`_step_up(..., built=True)`).
+- **Tests:** 682 Python tests pass on Windows (1 skipped; 683 on Linux CI) and 41 strict expected failures; coverage 96.8% (CI fails under 85%). The contract suite: 60 passed, 41 not built. The step-up contract tests are marked per action (`_step_up(..., built=True)`).
 - **GitHub:** public `Vybecode-LTD/devkit`. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green, only with the owner's OK for that PR. The ruleset requires "CI result" and blocks force pushes. Codex reviews a PR's first push only; CodeRabbit is on its free tier and hits its limit.
 
 ## Next
