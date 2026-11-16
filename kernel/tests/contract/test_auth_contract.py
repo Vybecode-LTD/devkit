@@ -1791,3 +1791,89 @@ async def test_passkey_sign_in_10_per_ip_per_minute(api: Api) -> None:
         (await api.http.post(PASSKEY_FINISH, json=key.get(options))).status_code for _ in range(11)
     ]
     assert finishes == [401] * 10 + [429]
+
+
+# Undoing a second factor from its mail (14.7; decision 0030)
+
+UNDO = "/api/auth/second-factor/undo"
+UNDO_LINK = "/auth/second-factor/undo"
+
+
+async def test_a_passkey_added_is_undone_from_its_mail(api: Api) -> None:
+    user, key, _ = await _with_a_passkey(api)
+    token = await api.new_token(user.email, UNDO_LINK, not_="")
+    undone = await api.another_browser().http.post(UNDO, json={"token": token})
+    assert _shape(undone) == (200, {"status": "second_factor_undone"})
+    assert (await api.session()).status_code == 401  # every session ended
+    gone = await _sign_in_by_passkey(api.another_browser(), key)
+    assert _code(gone) == (401, "auth.invalid_passkey")
+    signed = await api.another_browser().sign_in(user)
+    assert signed.json()["status"] == "signed_in"  # no second factor left
+    again = await api.http.post(UNDO, json={"token": token})
+    assert _code(again) == (400, "auth.token_invalid")
+
+
+async def test_a_totp_added_is_undone_from_its_mail(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    secret = await _set_up_totp(api)
+    assert (await _confirm_totp(api, pyotp.TOTP(secret).now())).status_code == 200
+    asked = await api.another_browser().sign_in(user)
+    assert asked.json()["status"] == "second_factor"  # the control
+    token = await api.new_token(user.email, UNDO_LINK, not_="")
+    undone = await api.another_browser().http.post(UNDO, json={"token": token})
+    assert _shape(undone) == (200, {"status": "second_factor_undone"})
+    assert (await api.session()).status_code == 401
+    signed = await api.another_browser().sign_in(user)
+    assert signed.json()["status"] == "signed_in"  # the TOTP is gone
+
+
+async def test_an_undo_link_outlives_the_owners_reset(api: Api) -> None:
+    """The gap it closes: a reset leaves a passkey a thief added, and the
+    passkey signs in alone. The owner resets, then undoes it."""
+    user, key, _ = await _with_a_passkey(api)
+    token = await api.new_token(user.email, UNDO_LINK, not_="")
+    await api.http.post("/api/auth/password/reset-request", json={"email": user.email})
+    reset = await api.new_token(user.email, "/auth/reset", not_="")
+    done = await api.http.post(
+        "/api/auth/password/reset", json={"token": reset, "password": NEW_PASSWORD}
+    )
+    assert done.status_code == 200
+    assert (await _sign_in_by_passkey(api.another_browser(), key)).status_code == 200  # the gap
+    undone = await api.another_browser().http.post(UNDO, json={"token": token})
+    assert undone.status_code == 200
+    gone = await _sign_in_by_passkey(api.another_browser(), key)
+    assert _code(gone) == (401, "auth.invalid_passkey")
+
+
+async def test_each_undo_link_takes_its_own_passkey_and_outlives_the_others(api: Api) -> None:
+    """Whoever added two passkeys left two links. The first undo ends every
+    session and way in, but takes only its passkey and leaves the second link."""
+    user, key, _ = await _with_a_passkey(api)
+    first = await api.new_token(user.email, UNDO_LINK, not_="")
+    await _register(api, key, "Phone")
+    second = await api.new_token(user.email, UNDO_LINK, not_=first)
+    assert (await api.another_browser().http.post(UNDO, json={"token": first})).status_code == 200
+    first_key, second_key = key.credentials
+    gone = await _sign_in_by_passkey(api.another_browser(), key, credential=first_key)
+    assert _code(gone) == (401, "auth.invalid_passkey")
+    kept = await _sign_in_by_passkey(api.another_browser(), key, credential=second_key)
+    assert kept.status_code == 200  # only the first link's passkey went
+    assert (await api.another_browser().http.post(UNDO, json={"token": second})).status_code == 200
+    also = await _sign_in_by_passkey(api.another_browser(), key, credential=second_key)
+    assert _code(also) == (401, "auth.invalid_passkey")
+
+
+async def test_a_second_factor_undo_link_lasts_7_days(api: Api) -> None:
+    user, key, _ = await _with_a_passkey(api)
+    early = await api.new_token(user.email, UNDO_LINK, not_="")
+    await api.advance(7 * DAY - MINUTE)
+    kept = await api.http.post(UNDO, json={"token": early})
+    assert kept.status_code == 200  # the control: alive just under 7 days
+
+    await api.signed_in_as(user)
+    await _register(api, key, "Phone")
+    late = await api.new_token(user.email, UNDO_LINK, not_=early)
+    await api.advance(7 * DAY + MINUTE)
+    gone = await api.http.post(UNDO, json={"token": late})
+    assert _code(gone) == (400, "auth.token_invalid")

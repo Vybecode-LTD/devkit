@@ -64,7 +64,7 @@ from webauthn.helpers.structs import (
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, ceremonies, second_factor, sessions, tokens
+from kernel.auth import accounts, audit, ceremonies, factor_undo, second_factor, sessions, tokens
 from kernel.auth.ceremonies import AssertionCredential, RegistrationCredential
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
 from kernel.auth.models import Passkey, User
@@ -280,6 +280,7 @@ async def finish_registration(
     )
     db.add(passkey)
     await db.flush()
+    undo = await factor_undo.for_passkey(db, user, passkey.id)  # for whoever didn't (0030)
     audit.record(
         db,
         request,
@@ -291,7 +292,8 @@ async def finish_registration(
     )
     shown, to = view(passkey), user.email
     await db.commit()
-    background.add_task(_send, request.app.state.mailer, to, *_added(_config(request), now))
+    added = _added(_config(request), now, undo)
+    background.add_task(_send, request.app.state.mailer, to, *added)
     return JSONResponse(shown, status_code=201)
 
 
@@ -512,16 +514,13 @@ def _when(at: datetime) -> str:
     return f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
 
 
-def _added(config: KernelConfig, at: datetime) -> tuple[str, str]:
-    site = config.site_url.rstrip("/")
+def _added(config: KernelConfig, at: datetime, undo: str) -> tuple[str, str]:
     return (
         f"A passkey was added to your {config.site_name} account",
         f"A passkey was added to your {config.site_name} account on {_when(at)}. It can sign "
         "in on its own.\n\n"
         "If that was you, there's nothing to do.\n\n"
-        f"If it wasn't, someone is signed in to your account: reset your password now at "
-        f"{site}/sign-in, which signs every device out, then remove the passkey from your "
-        "account's settings.\n",
+        + factor_undo.undo_lines(config, undo, "passkey"),
     )
 
 

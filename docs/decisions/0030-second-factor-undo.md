@@ -1,0 +1,25 @@
+# 0030: A passkey or TOTP someone else added is undone from its mail
+
+- **Date:** 2026-11-16
+- **Status:** Applied
+- **Context:** A reset leaves the second factors in place (SPEC.md 14.7). A passkey signs in on its own (decision 0028), so whoever stole the password and added a passkey keeps a way in after the owner's reset; whoever added a TOTP leaves the owner, after the reset, asked for the thief's codes. The "added" mails told the owner to reset and ask the site to remove the factor: there was no way back of their own. The owner chose between an undo link in that mail, a reset that removes factors added since the owner's last sign-in, and leaving it to staff, and picked the undo link (2026-11-16).
+- **Decision:**
+  - **The mail sent when a passkey is registered or a TOTP is confirmed carries an undo link** to `/auth/second-factor/undo?token=…`, valid **7 days**, as email change's undo link is.
+  - **`POST /api/auth/second-factor/undo {token}`**, public. The passkey or TOTP the link was mailed for goes, a TOTP with its recovery codes, if it is still there. Either way, every session of the account ends (the epoch goes up) and every live way in is voided: sign-in codes and links, reset links and second-factor challenges. 200 `{"status": "second_factor_undone"}`, and a notice to the account's address saying to reset the password now. 400 `auth.token_invalid` for a bad, used or expired link, or an account that can't sign in. It signs nobody in. The site's page sends this POST; opening the link changes nothing.
+  - **A link is bound to its factor:** a passkey by its id, a TOTP by the moment it was confirmed. An old link never takes away a TOTP set up since, or another passkey.
+  - **Undo links outlive everything but their own use and their 7 days:** a reset, a password or email change, a second-factor reset, and another undo. They have a token purpose of their own, `factor_undo` (migration `kernel_0004`), which nothing else voids, so the owner can undo every factor a thief added, one link each, after resetting. A link still works after the account's address has changed: it proves the inbox it was sent to, as email change's undo does.
+  - **The account first:** the route finds whose link it is, locks the account, then uses the link and touches the factor, session and token rows (decision 0021).
+  - **Audit:** `auth.second_factor_undone`, with the method (`passkey` or `totp`) and whether the factor was still there to remove.
+  - **No limit** beyond the link's 32 random bytes, as for email change's undo.
+- **Known limits:**
+  - The undo doesn't change the password, and whoever added the factor has it. The undo ends their sessions, both mails say to reset the password, and a factor they add again sends a new mail with a new link. Making the undo set a new password too would turn a 7-day link into a reset link, which lives 30 minutes (14.7).
+  - The mail goes out after the answer and isn't retried until K3's job queue.
+- **Alternatives:**
+  - *A reset that removes the factors added since the owner's last sign-in:* that last sign-in may be the thief's, and it would take away factors the owner added on another device.
+  - *Leave it to staff:* not the owner's choice; it also leaves a site with no staff no way back.
+  - *Reuse the `second_factor` or `email_change` purpose with a kind in `data`:* both are voided by resets or undos, which an undo link must outlive.
+- **Consequences:**
+  - SPEC.md 14.7 gains the line, 14.6's security-mail line and 14.11's `auth_token` row change, with a change-log line.
+  - `docs/contracts/auth-api.md` gains the row, a mail line, and the link in the passkey and TOTP rows.
+  - `kernel/auth/factor_undo.py` holds the route; `kernel/tests/auth/test_factor_undo.py` its kernel tests; the contract suite gains five tests.
+- **See:** SPEC.md 14.4, 14.5 and 14.7; decisions 0021, 0024, 0026, 0027 and 0028

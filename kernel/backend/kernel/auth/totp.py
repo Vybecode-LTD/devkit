@@ -20,7 +20,8 @@ older ones. 409 `auth.no_pending_totp` with nothing to confirm (no setup,
 or confirmed already); 403 `auth.email_unverified` if the address isn't
 verified now. A wrong code answers 401 `auth.invalid_second_factor` and
 counts as a failed step-up, so the fifth in 15 minutes ends the session
-(14.6). A security mail follows the answer.
+(14.6). A security mail follows the answer, with a link that undoes the
+TOTP for whoever didn't add it (`factor_undo`, decision 0030).
 
 **`DELETE /totp`**, step-up, 204. A confirmed TOTP goes with its recovery
 codes, and that is the second-factor reset of 14.5 (the owner's answer):
@@ -59,7 +60,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
 from kernel import clock, crypto
-from kernel.auth import accounts, audit, second_factor, sessions, tokens
+from kernel.auth import accounts, audit, factor_undo, second_factor, sessions, tokens
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
 from kernel.auth.models import RecoveryCode, Totp, User
 from kernel.auth.routes import failed_step_up
@@ -152,10 +153,12 @@ async def confirm_totp(
     now = clock.now()
     totp.confirmed_at, totp.last_step = now, step  # this code can't be used again
     codes = await second_factor.new_recovery_codes(db, user.id)
+    undo = await factor_undo.for_totp(db, user, now)  # for whoever didn't add it (0030)
     audit.record(db, request, "auth.totp_confirmed", "success", actor=user.id, subject=user.id)
     to = user.email
     await db.commit()
-    background.add_task(_send, request.app.state.mailer, to, *_added(_config(request), now))
+    added = _added(_config(request), now, undo)
+    background.add_task(_send, request.app.state.mailer, to, *added)
     return JSONResponse({"recovery_codes": codes}, headers=_NO_STORE)
 
 
@@ -229,15 +232,13 @@ def _when(at: datetime) -> str:
     return f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
 
 
-def _added(config: KernelConfig, at: datetime) -> tuple[str, str]:
-    site = config.site_url.rstrip("/")
+def _added(config: KernelConfig, at: datetime, undo: str) -> tuple[str, str]:
     return (
         f"Two-step sign-in is on for your {config.site_name} account",
         f"An authenticator app was added to your {config.site_name} account on {_when(at)}, "
         "so signing in now asks for one of its codes too.\n\n"
         "If that was you, there's nothing to do. Keep your recovery codes somewhere safe.\n\n"
-        f"If it wasn't, someone else has your password: reset it now at {site}/sign-in, "
-        f"then ask {config.site_name} to remove the authenticator.\n",
+        + factor_undo.undo_lines(config, undo, "authenticator app"),
     )
 
 

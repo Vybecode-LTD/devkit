@@ -18,8 +18,8 @@ Overwritten every session. 2026-11-16 (Claude Code, the owner's machine): K2 ste
 
 **The order changed on 2026-11-16: the Vibrant Mindz site's modules come first (decision 0029).** The site's own sessions are waiting on them.
 
-1. Land **#52** (step-up by TOTP and by password re-check the session after the lock) and this order's PR once "CI result" is green, with the owner's OK for each.
-2. **The passkey reset gap** (Open questions, first item): if the owner chooses a fix, it's its own PR, tests first, with a decision record and a change-log line.
+1. #52 (the step-up fixes) and #53 (this order) landed on 2026-11-16.
+2. **The passkey reset gap is closed by #54** (the owner's answer, decision 0030): the mail for an added passkey or TOTP carries a 7-day undo link that removes it, ends every session and outlives resets. Land it once "CI result" is green, with the owner's OK.
 3. **The site's step 0:** copy `C:\DEV\VM Website\backend-handoff\devkit\` into this repo on its own branch (7 module scaffolds, `recipes/collective-with-store.json`, `docs/plans/vibrant-mindz-backend/`; every path is new here), then apply items 1 and 2 of its `kernel-additions.md` (`kernel.moderation.act`; custom roles count as staff for the second-factor rule), each with its decision record. The site's sessions must stay out of this checkout meanwhile. The empty local branch `vm-backend-scaffold` is left over from their first try.
 4. **K3**, the kernel services, in the order the site's modules use them: storage, email, jobs, events, audit, notifications, moderation, public rendering (`KICKOFF.md`, K3). Retention and the AI client later.
 5. **K4**, the web kernel, with the site's theme; then **K5**, the CLI and the site template (`devkit new`, `devkit check`).
@@ -30,7 +30,7 @@ Overwritten every session. 2026-11-16 (Claude Code, the owner's machine): K2 ste
 
 ## Open questions for the owner
 
-- **A passkey a thief adds outlives the owner's password reset** (14.7 leaves second factors in place), and a passkey alone signs in, so the thief keeps a way in after the reset. Options: an undo link in the "passkey added" mail that removes it and resets the second factors; a reset that removes passkeys added since the owner's last sign-in; or leave it to staff. The same question stands for a TOTP a thief adds (sharper for passkeys).
+- Answered 2026-11-16: a passkey or TOTP a thief adds is undone by a link in its mail (decision 0030, #54). Decision 0030's own calls: the link lives 7 days, ends every session even when its factor is already gone, binds a TOTP link to that TOTP's confirm time, and doesn't change the password. Keep them?
 - Decision 0028 settled what the owner's answers left open: 20 passkeys at most (409 `auth.too_many_passkeys`), names of 1 to 80 characters with no control characters, user verification preferred (not required) for a passkey as the second factor, 5-minute challenges, 10 passkey sign-ins per IP per minute. Keep them? And 0026 and 0027's calls (409 `auth.totp_exists`, 409 `auth.no_pending_totp`, a wrong confirm code as a failed step-up, new recovery codes mailed, staff may remove their TOTP)?
 - Eight throwaway test databases left by killed runs are on the local Postgres (`devkit_test_*`, `devkit_empty_*`; six before this session). Drop them?
 - Desk steps: reset the Postgres `postgres` password (the owner types it); `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` if wanted.

@@ -588,7 +588,7 @@ Both limits are site settings (Q6).
 - Limits keyed on an email use the normalized address, so case variants share one budget.
 - Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
 - Rate-limit windows run on real time, not on `kernel.clock`, and so do the sign-in waits, which are tiers of windows (decision 0019). Expiries and the resend wait read `kernel.clock` (decision 0013).
-- Security emails go out on a sign-in from a new device, a password change, an email change (to the old address, with an undo link valid 7 days), a second factor or passkey added or removed, new recovery codes made, an API key created and a provider linked.
+- Security emails go out on a sign-in from a new device, a password change, an email change (to the old address, with an undo link valid 7 days), a second factor or passkey added (with an undo link valid 7 days, decision 0030) or removed, new recovery codes made, an API key created and a provider linked.
 
 ### 14.7 Account lifecycle
 
@@ -596,6 +596,7 @@ Both limits are site settings (Q6).
 - **Email verification** is required before posting public content or linking a provider. The link lasts 24 hours, works once, verifies only the address it was sent to, and signs nobody in (decision 0020). A signed-in account can ask for a new one, which voids the last; once the address is verified it is told so (decision 0023). Unverified accounts are removed after 7 days.
 - **Email change:** step-up, then the new address confirms the change within 24 hours; the old one stays active until then and gets the undo link, valid 7 days. Confirming marks the new address verified. A change link dies if the session epoch changes first (a reset, a password change, a suspension). An undo restores the old address, ends every session and voids every way in sent since, but never an earlier undo link. An address that has an account is sent a notice, not a link, and the answer is the same (decision 0024).
 - **Password reset:** a 32-byte token, valid 30 minutes, single use, stored hashed. Success raises the session epoch and sends a security email. Staff get resets too: a reset signs nobody in and leaves the second factor in place. One link is live per account, and asking again within 60 seconds sends nothing. A refused new password leaves the link working. Success also voids the account's live sign-in codes, links and second-factor challenges, clears the address's failed sign-ins, and marks the address verified, which gives a pre-claimed address back to its real owner (decision 0022).
+- **A second factor someone else added:** a reset leaves it in place, so the mail sent when a passkey or TOTP is added carries an undo link, valid 7 days. It removes that factor (a TOTP with its recovery codes) if it is still there, ends every session and voids every live way in, and signs nobody in. Undo links outlive resets, every other change and each other, so the owner can undo each factor after resetting (decision 0030).
 - **Suspension:** staff only, audited, and it ends every session.
 - **Deletion:** the person asks, with step-up. A 14-day grace period follows, and signing in cancels it. Then every module's `delete_user_data` runs and `auth.user.deleted` is emitted. The audit log keeps only a pseudonymous id.
 - **Export:** a ZIP of JSON from every module's `export_user_data`, built as a job and sent as an expiring download link.
@@ -632,7 +633,7 @@ Both limits are site settings (Q6).
 | `auth_totp` | Sealed secret, last used step |
 | `auth_recovery_code` | Keyed hashes of the codes, unique per person; used time |
 | `auth_session` | Token hash, user, start, last seen, expiry, user agent and device details |
-| `auth_token` | One-time tokens as keyed hashes: verification, reset, sign-in code, magic link, email change, invite. A 32-byte token is unique by its hash; a 6-digit code is found by its purpose and address |
+| `auth_token` | One-time tokens as keyed hashes: verification, reset, sign-in code, magic link, email change, invite, second-factor undo. A 32-byte token is unique by its hash; a 6-digit code is found by its purpose and address |
 | `auth_api_key` | Id, secret hash, scopes, expiry, last use |
 | `auth_audit_event` | The audit log |
 
@@ -807,6 +808,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-16 | The mail for an added passkey or TOTP carries a 7-day undo link that removes that factor, ends every session and voids every live way in, and outlives resets and other undos (`POST /api/auth/second-factor/undo`; 14.6, 14.7, 14.11, decision 0030) |
 | 2026-11-16 | Passkeys: registration bound to its session, sign-in with a passkey alone for everyone (no second-factor step), a passkey as the second factor and at step-up through start routes, a list and renaming, every removal a second-factor reset, up to 20 per account, and their limits (14.2, 14.4, 14.5, 14.6, decision 0028) |
 | 2026-11-15 | Removing a confirmed TOTP is a second-factor reset that ends every other session (the owner's answer) and voids its recovery codes; new recovery codes need a confirmed TOTP and are mailed; sign-in's second factor and step-up by TOTP lock the account first (14.4, 14.5, 14.6, decision 0027) |
 | 2026-11-15 | TOTP setup needs a verified address and refuses while a confirmed TOTP exists; confirming uses up its code, gives 10 new recovery codes, counts a wrong code as a failed step-up, and gives way to a reset (14.4, 14.6, decision 0026) |

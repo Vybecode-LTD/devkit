@@ -33,3 +33,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0027](0027-totp-removal-and-recovery-codes.md) | Removing a TOTP is a second-factor reset; new recovery codes need one | Applied |
 | [0028](0028-passkeys.md) | Passkeys sign in alone or as a second factor; removing one is a second-factor reset | Applied |
 | [0029](0029-vibrant-mindz-order.md) | The kernel's remaining work, in the order the Vibrant Mindz site needs it | Accepted |
+| [0030](0030-second-factor-undo.md) | A passkey or TOTP someone else added is undone from its mail | Applied |
