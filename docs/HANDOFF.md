@@ -40,7 +40,7 @@ The order is decision 0029's; the site's own sessions wait on it.
 
 ## Notes
 
-- **A waiting module is skipped:** the harness, mypy and the web lint ignore `modules/_<id>/`, so its `requires` and models can't break the suite until its step renames it.
+- **A waiting module is skipped by the harness only** (`harness/layout.py`), so its `requires` and models can't break the app or the migrations until its step renames it. mypy, ESLint and `tsc` still check its code (they exclude only `_template`), so it has to keep passing them.
 - **Race and lock-order tests must really race:** hold the account row until every request waits on it, and probe with `FOR UPDATE NOWAIT` (`test_passkeys.py:_with_the_account_held`). Run each new guard's mutant.
 - **Never hand an ORM row past the route** (middleware, background tasks): a rollback expires it (memory note `rollback-expires-orm-rows`).
 - **Write and Edit decode `\u` escapes** into the real character (memory note `tool-params-decode-unicode-escapes`).

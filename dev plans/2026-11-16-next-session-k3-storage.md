@@ -47,7 +47,7 @@ AI DevKit: website modules an agent copies into a site, around a FastAPI + Postg
 
 ## 8. Candidates for `knowledge/`
 
-1. Park scaffolds where the harness and linters don't look (a leading `_`) until built (`devkit-module-extractor`).
+1. Park scaffolds where the harness doesn't discover them (a leading `_`) until built; the type checkers still see them (`devkit-module-extractor`).
 2. CodeRabbit's free tier skips PRs over 100 files; a stacked PR counts its base's (`git-and-ci-traps`).
 3. Under a lock, re-read only the column you check: `populate_existing` can overwrite what a later compare-and-swap needs (`auth-threat-model-checklist`).
 4. A route that waits on a lock re-checks its session after it (`auth-threat-model-checklist`).
