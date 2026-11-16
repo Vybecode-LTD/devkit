@@ -1,0 +1,122 @@
+{
+  "id": "licensing",
+  "name": "Licensing",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "commerce",
+  "summary": "Sells usage rights to digital files, such as beat leases, with tiers, agreements and license checks.",
+  "use_when": [
+    "The site sells beats, compositions, sample packs or stock media under license tiers",
+    "Each sale needs a license agreement the buyer and others can check"
+  ],
+  "avoid_when": [
+    "The files are sold outright with no usage terms; use downloads",
+    "The items are physical; use shop"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {
+      "shop": "^0.1",
+      "downloads": "^0.1",
+      "audio-player": "^0.1"
+    }
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "licensing.work.manage",
+      "description": "Add and edit works (artists may edit their own)",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
+    },
+    {
+      "key": "licensing.tier.manage",
+      "description": "License tiers, prices and agreement templates",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
+      "key": "licensing.license.read",
+      "description": "See every license issued",
+      "default_roles": [
+        "admin"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "free_download_for_email",
+      "type": "bool",
+      "default": false,
+      "secret": false,
+      "description": "Offer a tagged free download in exchange for an email"
+    },
+    {
+      "key": "credit_line",
+      "type": "string",
+      "default": "prod. by Vibrant Mindz",
+      "secret": false,
+      "description": "Credit printed on every agreement"
+    }
+  ],
+  "env": [],
+  "routes": {
+    "api": "/api/licensing",
+    "public": [
+      "/beats",
+      "/beats/:slug",
+      "/license/:id"
+    ],
+    "member": [
+      "/account/licenses"
+    ],
+    "admin": [
+      "/admin/licensing"
+    ]
+  },
+  "tables": [
+    "licensing_work",
+    "licensing_file",
+    "licensing_tier",
+    "licensing_license",
+    "licensing_split"
+  ],
+  "events": {
+    "emits": [
+      "licensing.license.issued",
+      "licensing.work.sold_exclusive"
+    ],
+    "listens": [
+      "payments.checkout.completed",
+      "auth.user.deleted"
+    ]
+  },
+  "slots": [
+    "nav.public",
+    "nav.admin",
+    "account.section"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [
+    {
+      "key": "licensing.license_issued",
+      "description": "Your license agreement and files are ready",
+      "default": "both"
+    }
+  ],
+  "data_hooks": {
+    "export": true,
+    "delete": true
+  },
+  "source": {
+    "from": "new (Vibrant Mindz backend scaffold, 2026-11-15)",
+    "commit": "n/a",
+    "license": "proprietary"
+  }
+}

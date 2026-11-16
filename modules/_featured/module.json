@@ -1,0 +1,89 @@
+{
+  "id": "featured",
+  "name": "Featured",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "content",
+  "summary": "Named slots of ordered, schedulable placements, such as a homepage spotlight or featured products.",
+  "use_when": [
+    "The homepage or a page shows hand-picked items that staff reorder or schedule",
+    "Staff need to swap featured content on a date without a deploy"
+  ],
+  "avoid_when": [
+    "The list is simply the newest items; query the module that owns them instead",
+    "Each item needs its own fields and pages; build it in its own module"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "featured.placement.manage",
+      "description": "Place, order and schedule items in a slot",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
+    },
+    {
+      "key": "featured.slot.manage",
+      "description": "Create, rename and remove slots",
+      "default_roles": [
+        "admin"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "oembed_titles",
+      "type": "bool",
+      "default": true,
+      "secret": false,
+      "description": "Fill a pasted YouTube link's title from YouTube's oEmbed"
+    }
+  ],
+  "env": [],
+  "routes": {
+    "api": "/api/featured",
+    "public": [],
+    "member": [],
+    "admin": [
+      "/admin/featured"
+    ]
+  },
+  "tables": [
+    "featured_slot",
+    "featured_placement"
+  ],
+  "events": {
+    "emits": [
+      "featured.placement.changed"
+    ],
+    "listens": []
+  },
+  "slots": [
+    "nav.admin",
+    "admin.dashboard.widget"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [
+    {
+      "name": "announce_boundaries",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "notifications": [],
+  "data_hooks": {
+    "export": false,
+    "delete": false
+  },
+  "source": {
+    "from": "new (Vibrant Mindz backend scaffold, 2026-11-15)",
+    "commit": "n/a",
+    "license": "proprietary"
+  }
+}

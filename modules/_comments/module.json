@@ -1,0 +1,115 @@
+{
+  "id": "comments",
+  "name": "Comments",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "community",
+  "summary": "Threaded discussions under any module's content, with reactions, mentions and approval for guests.",
+  "use_when": [
+    "Visitors should discuss posts, tracks, beats, artwork or videos",
+    "Several kinds of content need the same comment threads"
+  ],
+  "avoid_when": [
+    "The site wants live chat rooms rather than threads; use community",
+    "Comments would sit on a page nobody reads; leave them off"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {
+      "reactions": "^0.1"
+    }
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "comments.comment.approve",
+      "description": "Approve, hide and delete comments",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
+    },
+    {
+      "key": "comments.settings.manage",
+      "description": "Guest comments, edit window and link limits",
+      "default_roles": [
+        "admin"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "guest_comments",
+      "type": "bool",
+      "default": true,
+      "secret": false,
+      "description": "Guests may comment; every guest comment waits for approval (owner answer Q4)"
+    },
+    {
+      "key": "edit_window_minutes",
+      "type": "int",
+      "default": 15,
+      "secret": false,
+      "description": "Minutes a comment stays editable"
+    },
+    {
+      "key": "max_links",
+      "type": "int",
+      "default": 2,
+      "secret": false,
+      "description": "Links allowed in one comment"
+    }
+  ],
+  "env": [],
+  "routes": {
+    "api": "/api/comments",
+    "public": [],
+    "member": [],
+    "admin": [
+      "/admin/comments"
+    ]
+  },
+  "tables": [
+    "comments_thread",
+    "comments_comment",
+    "comments_subscription"
+  ],
+  "events": {
+    "emits": [
+      "comments.comment.created",
+      "comments.comment.approved"
+    ],
+    "listens": [
+      "auth.user.deleted"
+    ]
+  },
+  "slots": [
+    "nav.admin",
+    "admin.dashboard.widget"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [
+    {
+      "key": "comments.reply",
+      "description": "Someone replied to your comment",
+      "default": "both"
+    },
+    {
+      "key": "comments.mention",
+      "description": "Someone mentioned you in a comment",
+      "default": "both"
+    }
+  ],
+  "data_hooks": {
+    "export": true,
+    "delete": true
+  },
+  "source": {
+    "from": "new (Vibrant Mindz backend scaffold, 2026-11-15)",
+    "commit": "n/a",
+    "license": "proprietary"
+  }
+}

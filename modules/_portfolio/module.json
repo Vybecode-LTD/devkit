@@ -1,0 +1,84 @@
+{
+  "id": "portfolio",
+  "name": "Portfolio",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "content",
+  "summary": "Artwork, design, animation and video pieces grouped by discipline, each optionally linked to a shop listing.",
+  "use_when": [
+    "The site shows visual work such as paintings, graphic design, animation or video",
+    "Pieces need their own pages, with credits and an optional buy link"
+  ],
+  "avoid_when": [
+    "Pieces are only for sale and need no showcase; use shop",
+    "It's an uncurated photo dump; a gallery block on a page is enough"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "portfolio.piece.manage",
+      "description": "Add and edit pieces (artists may edit their own)",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "pieces_per_page",
+      "type": "int",
+      "default": 24,
+      "secret": false,
+      "description": "Pieces on each list page"
+    }
+  ],
+  "env": [],
+  "routes": {
+    "api": "/api/portfolio",
+    "public": [
+      "/art",
+      "/art/:discipline",
+      "/art/piece/:slug"
+    ],
+    "member": [],
+    "admin": [
+      "/admin/portfolio"
+    ]
+  },
+  "tables": [
+    "portfolio_piece",
+    "portfolio_image"
+  ],
+  "events": {
+    "emits": [
+      "portfolio.piece.published",
+      "portfolio.piece.deleted"
+    ],
+    "listens": [
+      "auth.user.deleted"
+    ]
+  },
+  "slots": [
+    "nav.public",
+    "nav.admin"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [],
+  "data_hooks": {
+    "export": true,
+    "delete": true
+  },
+  "source": {
+    "from": "new (Vibrant Mindz backend scaffold, 2026-11-15)",
+    "commit": "n/a",
+    "license": "proprietary"
+  }
+}

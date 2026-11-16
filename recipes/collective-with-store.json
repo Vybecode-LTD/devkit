@@ -1,0 +1,35 @@
+{
+  "id": "collective-with-store",
+  "name": "Artist collective with a store and community",
+  "fits": [
+    "An artist collective or label that shows music, art and video and also sells beats, merch and art",
+    "Everything in artist-or-band, plus on-site players, a fan community and a store"
+  ],
+  "modules": [
+    "pages",
+    "blog",
+    "media",
+    "embeds",
+    "contact",
+    "campaigns",
+    "discography",
+    "audio-player",
+    "featured",
+    "roster",
+    "portfolio",
+    "comments",
+    "reactions",
+    "community",
+    "payments",
+    "shop",
+    "downloads",
+    "licensing",
+    "print-on-demand"
+  ],
+  "settings": {
+    "comments.guest_comments": true,
+    "discography.default_audio_source": "upload",
+    "audio-player.autoplay_next": true
+  },
+  "theme": "machined-light"
+}

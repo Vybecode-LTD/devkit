@@ -1,0 +1,10 @@
+# What these modules need from the kernel
+
+Checked against `kernel/kernel.json` on 2026-11-15 (permissions declared: auth.user.manage, auth.user.suspend, auth.role.assign, auth.audit.read, kernel.module.manage, kernel.settings.manage).
+
+1. **Moderation permission.** `moderation` is a kernel service, but no permission is declared for acting on reports. The admin designs use `kernel.moderation.act` (admin, editor). Add it to `kernel.json` and the auth seed (decision record), or rename it in the designs.
+2. **A site's custom role.** Vibrant Mindz seeds an `artist` role (SPEC 14.1 allows custom roles): the second factor is required, and it holds the "own work" permissions through `require_owner_or` (`roster.profile.manage`, `portfolio.piece.manage`, `licensing.work.manage`). The site seed does this (`VM Website/site-additions/backend/app/site/seed.py`); the kernel only needs custom roles to count as staff for the second-factor rule. It may already: `is_staff` in `kernel/auth/sessions.py` counts any role other than `member` (line 250 on `main` at `80b4970`), so this is probably a test that an `artist` gets staff's rules, not a code change.
+3. **Storage keys, public and private.** `discography` (masters private, stream files public), `licensing` (files private behind `downloads`), `portfolio`, `roster`. Follows the object storage rules in the module plan section 10.
+4. **Jobs with ffmpeg.** Track processing (stream file, duration, peaks) and licensing previews need ffmpeg in the worker image (Dockerfile) and run as kernel jobs.
+5. **SSRF guard for oEmbed.** `featured` calls YouTube's oEmbed for titles; it goes through the kernel's outbound guard.
+6. **CSP.** `audio-player` adds `frame-src` and `script-src` `https://w.soundcloud.com` (SoundCloud widget API); `embeds` adds YouTube while the provider is on.

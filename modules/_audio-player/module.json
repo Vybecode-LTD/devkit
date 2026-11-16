@@ -1,0 +1,83 @@
+{
+  "id": "audio-player",
+  "name": "Audio player",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "media",
+  "summary": "One site-wide player with waveforms and a queue, where only one thing plays at a time across every player.",
+  "use_when": [
+    "The site plays its own audio: albums, singles, beats or readings",
+    "Several players on one page must never play over each other"
+  ],
+  "avoid_when": [
+    "The audio only lives on SoundCloud or Spotify and a provider embed is enough; use embeds"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "audio-player.stats.read",
+      "description": "See play counts",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "autoplay_next",
+      "type": "bool",
+      "default": true,
+      "secret": false,
+      "description": "Move to the next item in a queue when one ends"
+    },
+    {
+      "key": "count_after_seconds",
+      "type": "int",
+      "default": 30,
+      "secret": false,
+      "description": "Seconds of listening before a play counts"
+    }
+  ],
+  "env": [],
+  "routes": {
+    "api": "/api/audio-player",
+    "public": [],
+    "member": [],
+    "admin": []
+  },
+  "tables": [
+    "audio_player_play",
+    "audio_player_play_daily"
+  ],
+  "events": {
+    "emits": [],
+    "listens": []
+  },
+  "slots": [
+    "admin.dashboard.widget"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [
+    {
+      "name": "rollup_plays",
+      "schedule": "15 3 * * *"
+    }
+  ],
+  "notifications": [],
+  "data_hooks": {
+    "export": false,
+    "delete": false
+  },
+  "source": {
+    "from": "new (Vibrant Mindz backend scaffold, 2026-11-15)",
+    "commit": "n/a",
+    "license": "proprietary"
+  }
+}

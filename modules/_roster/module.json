@@ -1,0 +1,75 @@
+{
+  "id": "roster",
+  "name": "Roster",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "community",
+  "summary": "A profile per member of a collective, band or team, gathering their work from other modules.",
+  "use_when": [
+    "The site represents a group whose members each need their own page",
+    "Members should be able to edit their own profile"
+  ],
+  "avoid_when": [
+    "Every signed-up visitor needs a profile; use profiles",
+    "It's a single artist with one about page; use pages"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "roster.profile.manage",
+      "description": "Create and edit member profiles (members may edit their own)",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
+    }
+  ],
+  "settings": [],
+  "env": [],
+  "routes": {
+    "api": "/api/roster",
+    "public": [
+      "/collective",
+      "/collective/:slug"
+    ],
+    "member": [],
+    "admin": [
+      "/admin/roster"
+    ]
+  },
+  "tables": [
+    "roster_profile",
+    "roster_link"
+  ],
+  "events": {
+    "emits": [
+      "roster.profile.published",
+      "roster.profile.deleted"
+    ],
+    "listens": [
+      "auth.user.deleted"
+    ]
+  },
+  "slots": [
+    "nav.public",
+    "nav.admin"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [],
+  "data_hooks": {
+    "export": true,
+    "delete": true
+  },
+  "source": {
+    "from": "new (Vibrant Mindz backend scaffold, 2026-11-15)",
+    "commit": "n/a",
+    "license": "proprietary"
+  }
+}

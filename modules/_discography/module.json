@@ -1,0 +1,109 @@
+{
+  "id": "discography",
+  "name": "Discography",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "media",
+  "summary": "Albums, tracks, credits and streaming links, with an upload or a SoundCloud link as each track's audio.",
+  "use_when": [
+    "The site belongs to an artist, band, label or collective that releases music",
+    "Albums and tracks need their own pages, credits or an on-site player"
+  ],
+  "avoid_when": [
+    "Music is only linked out and never played on the site; use embeds",
+    "The audio is a beat or sample for sale; use licensing"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [
+    {
+      "key": "discography.release.manage",
+      "description": "Albums, tracks, uploads and credits",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
+    },
+    {
+      "key": "discography.settings.manage",
+      "description": "The default audio source and stream quality",
+      "default_roles": [
+        "admin"
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "default_audio_source",
+      "type": "string",
+      "default": "upload",
+      "secret": false,
+      "description": "upload or soundcloud, the default for new tracks"
+    },
+    {
+      "key": "stream_bitrate_kbps",
+      "type": "int",
+      "default": 256,
+      "secret": false,
+      "description": "Bitrate of the public stream file made from an uploaded master"
+    },
+    {
+      "key": "show_explicit_badge",
+      "type": "bool",
+      "default": true,
+      "secret": false,
+      "description": "Mark explicit tracks in lists and players"
+    }
+  ],
+  "env": [],
+  "routes": {
+    "api": "/api/discography",
+    "public": [
+      "/music",
+      "/music/:album",
+      "/music/:album/:track"
+    ],
+    "member": [],
+    "admin": [
+      "/admin/discography"
+    ]
+  },
+  "tables": [
+    "discography_album",
+    "discography_track",
+    "discography_credit",
+    "discography_link"
+  ],
+  "events": {
+    "emits": [
+      "discography.album.published",
+      "discography.album.deleted",
+      "discography.track.published",
+      "discography.track.deleted",
+      "discography.track.processed"
+    ],
+    "listens": []
+  },
+  "slots": [
+    "nav.public",
+    "nav.admin",
+    "admin.dashboard.widget"
+  ],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [],
+  "data_hooks": {
+    "export": false,
+    "delete": false
+  },
+  "source": {
+    "from": "new (Vibrant Mindz backend scaffold, 2026-11-15)",
+    "commit": "n/a",
+    "license": "proprietary"
+  }
+}

@@ -96,7 +96,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `AGENT-GUIDE.md` | Front door for an agent building a site with DevKit |
 | `schema/` | JSON Schemas: module manifest, recipe, lock file; event payload schemas land in `schema/events/` |
 | `kernel/` | The always-installed core: `backend/kernel/` (Python), `migrations/`, `tests/`, `web/` |
-| `modules/` | One folder per module; `modules/_template/` is the starting point |
+| `modules/` | One folder per module; `modules/_template/` is the starting point, and the Vibrant Mindz scaffolds wait as `modules/_<id>/` until built |
 | `recipes/` | Preset module bundles per kind of site |
 | `themes/` | Token sets; Machined Light and Depth arrive in K4 (only the README so far) |
 | `templates/site/` | The empty site every project starts from (built in K5) |
@@ -111,6 +111,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `docs/private/` | Not in git (the repo is public): the inventory of `C:\DEV` and the name of the client folder |
 | `docs/plans/` | Plans, such as the Vibrant Mindz module plan |
 | `docs/plans/module-roadmap.md` | The module roadmap after v1.0: five waves of Musts, after ten contract hooks (decision 0018) |
+| `docs/plans/vibrant-mindz-backend/` | The Vibrant Mindz backend plan: its kickoff (steps 0 to 7), specs, admin map, kernel additions and extraction briefs |
 | `docs/contracts/` | HTTP contracts the contract suites check, starting with `auth-api.md` |
 | `docs/SKILL-BACKLOG.md` | Skill ideas waiting to be built |
 | `skills/` | Project skills, the source copies; K0 links them into `.claude/skills/` |
