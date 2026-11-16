@@ -34,6 +34,7 @@ KERNEL_PERMISSIONS = frozenset(
         "auth.audit.read",
         "kernel.module.manage",
         "kernel.settings.manage",
+        "kernel.moderation.act",
     }
 )
 

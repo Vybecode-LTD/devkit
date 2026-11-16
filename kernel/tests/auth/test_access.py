@@ -552,6 +552,20 @@ async def test_a_confirmed_totp_or_a_passkey_opens_the_admin(
         assert response.status_code == 200
 
 
+async def test_a_custom_role_is_staff_and_needs_a_second_factor_too(
+    db: AsyncSession, client: httpx.AsyncClient
+) -> None:
+    """14.1: staff is any role but `member`, so a site's own role, such as the
+    Vibrant Mindz site's `artist`, meets the same gate as the built-in ones
+    (the site's kernel-additions item 2)."""
+    artist = await _user(db, await _role(db))
+    as_artist = _as(await _token(db, artist))
+    no_factor = await client.get("/api/demo/admin/ping", headers=as_artist)
+    assert (no_factor.status_code, _code(no_factor)) == (403, "auth.second_factor_required")
+    await _totp(db, artist)
+    assert (await client.get("/api/demo/admin/ping", headers=as_artist)).status_code == 200
+
+
 async def test_past_the_gate_an_admin_route_still_needs_its_permission(
     db: AsyncSession, client: httpx.AsyncClient
 ) -> None:

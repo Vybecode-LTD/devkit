@@ -20,7 +20,7 @@ Overwritten every session. 2026-11-16 (Claude Code, the owner's machine): K2 ste
 
 1. #52 (the step-up fixes) and #53 (this order) landed on 2026-11-16.
 2. **The passkey reset gap is closed by #54** (landed; the owner's answer, decision 0030): the mail for an added passkey or TOTP carries a 7-day undo link that removes it, ends every session and outlives resets.
-3. **The site's step 0:** the scaffold is in **#55** (7 modules waiting as `modules/_<id>/`, the recipe, `docs/plans/vibrant-mindz-backend/`); this repo's copy is the one kept up to date from now on. Then items 1 and 2 of its `kernel-additions.md` in their own PR: `kernel.moderation.act` (a decision record and a seed migration), and a test pinning that a custom role is staff (SPEC 14.1 already says so).
+3. **The site's step 0:** the scaffold is in **#55** (7 modules waiting as `modules/_<id>/`, the recipe, `docs/plans/vibrant-mindz-backend/`); this repo's copy is the one kept up to date from now on. Items 1 and 2 of its `kernel-additions.md` are in **#56** (decision 0031): `kernel.moderation.act` declared and granted to admin and editor (migration `kernel_0005`), and a test pinning that a custom role is staff. Items 3 to 6 (storage keys, ffmpeg jobs, the oEmbed guard, CSP) come with K3 and the modules.
 4. **K3**, the kernel services, in the order the site's modules use them: storage, email, jobs, events, audit, notifications, moderation, public rendering (`KICKOFF.md`, K3). Retention and the AI client later.
 5. **K4**, the web kernel, with the site's theme; then **K5**, the CLI and the site template (`devkit new`, `devkit check`).
 6. **The ten hooks of decision 0018** (`skills/devkit-hook-designer`), before blog is extracted.

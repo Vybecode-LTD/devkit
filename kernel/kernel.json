@@ -63,6 +63,14 @@
       "default_roles": [
         "admin"
       ]
+    },
+    {
+      "key": "kernel.moderation.act",
+      "description": "Act on moderation reports: hide, delete, time out and ban",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
     }
   ],
   "public_api": {

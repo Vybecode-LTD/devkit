@@ -211,7 +211,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `jobs.enqueue(name, payload, run_at)`, `@jobs.scheduled(cron)` | Background and scheduled work | Scheduled publishing | K3 |
 | `audit.record(actor, action, target, meta)` | An append-only audit entry | Role changed | K3 |
 | `notify(user, key, context)` | An in-site and email notice, sent by the person's preferences for that key, with one-click unsubscribe | Someone replied to your comment | K3 |
-| `moderation.report / queue / act` | Reports, the staff queue, word and link filters, and actions (hide, delete, time out, ban), all audited | A reported comment | K3 |
+| `moderation.report / queue / act` | Reports, the staff queue, word and link filters, and actions (hide, delete, time out, ban), all audited. Acting needs the kernel's `kernel.moderation.act` (admin and editor by default; decision 0031) | A reported comment | K3 |
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
@@ -485,7 +485,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 
 - One `auth_user` table for everyone; roles decide what an account is.
 - Built-in roles are `owner` (every permission; at least one must exist), `admin`, `editor` and `member`. Sites may add custom roles.
-- Staff means any account with a role other than `member`. Staff MUST have a second factor (14.4) before reaching the admin.
+- Staff means any account with a role other than `member`, a site's custom roles included. Staff MUST have a second factor (14.4) before reaching the admin.
 - Public sign-up creates only `member` accounts. Staff roles come from an owner or admin, or from an invite that names the role.
 - **Who can grant what** (decision 0013): a role can be granted or removed only by someone who holds every permission it carries. Only an owner grants, removes or suspends an owner, and the last owner can't be removed, demoted or suspended. Built-in roles can't be deleted. The same rules bind invites.
 - The first owner is made with `devkit create-owner`, or with a one-time setup token printed at first boot (VybeSite `setup_admin.py`).
@@ -808,6 +808,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-16 | The kernel declares `kernel.moderation.act`, granted to admin and editor, for acting on moderation reports; 14.1 says outright that a custom role is staff (6, 14.1, decision 0031) |
 | 2026-11-16 | The mail for an added passkey or TOTP carries a 7-day undo link that removes that factor, ends every session and voids every live way in, and outlives resets and other undos (`POST /api/auth/second-factor/undo`; 14.6, 14.7, 14.11, decision 0030) |
 | 2026-11-16 | Passkeys: registration bound to its session, sign-in with a passkey alone for everyone (no second-factor step), a passkey as the second factor and at step-up through start routes, a list and renaming, every removal a second-factor reset, up to 20 per account, and their limits (14.2, 14.4, 14.5, 14.6, decision 0028) |
 | 2026-11-15 | Removing a confirmed TOTP is a second-factor reset that ends every other session (the owner's answer) and voids its recovery codes; new recovery codes need a confirmed TOTP and are mailed; sign-in's second factor and step-up by TOTP lock the account first (14.4, 14.5, 14.6, decision 0027) |
