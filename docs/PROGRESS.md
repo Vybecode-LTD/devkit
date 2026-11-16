@@ -2,15 +2,15 @@
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
-Updated 2026-11-16, `main` at `850f394`. Progress counts steps, not effort: each row below is one step, whatever its size.
+Updated 2026-11-16, `main` at `44d57bf`. Progress counts steps, not effort: each row below is one step, whatever its size.
 
 ## Overall
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| DevKit v1.0 | 18 | 1 | 1 | 29 | 5 | 2 | ███░░░░░░░ 32% (18 of 56) |
+| DevKit v1.0 | 19 | 0 | 1 | 29 | 5 | 2 | ███░░░░░░░ 33% (19 of 56) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 18 | 1 | 1 | 114 | 5 | 5 | █░░░░░░░░░ 12% (18 of 144) |
+| Everything | 19 | 0 | 1 | 114 | 5 | 5 | █░░░░░░░░░ 13% (19 of 144) |
 
 ## DevKit v1.0
 
@@ -64,7 +64,7 @@ Gate: Every 14.13 contract test passes; each sign-in method works by hand; brand
 | 10. Invites and API keys | Waiting |  |  | Invites before the site's step 4; API keys after |
 | 11. Abuse protection, deletion and data export | Waiting |  |  | Before the site's launch at step 5 |
 
-### K3: kernel services · 2 of 11 done · gate not passed yet
+### K3: kernel services · 3 of 11 done · gate not passed yet
 
 Everything else modules rely on, in the order the site's modules use it.
 
@@ -74,7 +74,7 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 | --- | --- | --- | --- | --- |
 | Storage | Done | [#58](https://github.com/Vybecode-LTD/devkit/pull/58) | [0032](decisions/0032-kernel-storage.md) |  |
 | Email: templates, SMTP first, Resend where SMTP is blocked | Done | [#59](https://github.com/Vybecode-LTD/devkit/pull/59) | [0033](decisions/0033-kernel-email.md) |  |
-| The kernel's own mails as templates a site can reword | In review | [#60](https://github.com/Vybecode-LTD/devkit/pull/60) | [0033](decisions/0033-kernel-email.md) |  |
+| The kernel's own mails as templates a site can reword | Done | [#60](https://github.com/Vybecode-LTD/devkit/pull/60) | [0033](decisions/0033-kernel-email.md) |  |
 | Jobs: the Postgres queue, the scheduler, mail retries | Next |  |  |  |
 | Events: the outbox, dispatcher and dead letters | To do |  |  |  |
 | Audit, widened from auth's | To do |  |  |  |

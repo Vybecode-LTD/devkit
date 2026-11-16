@@ -1,6 +1,6 @@
 {
   "updated": "2026-11-16",
-  "main": "850f394",
+  "main": "44d57bf",
   "ledger_url": "https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm",
   "milestones": [
     {
@@ -81,7 +81,7 @@
       "items": [
         {"name": "Storage", "status": "done", "prs": [58], "decisions": ["0032"]},
         {"name": "Email: templates, SMTP first, Resend where SMTP is blocked", "status": "done", "prs": [59], "decisions": ["0033"]},
-        {"name": "The kernel's own mails as templates a site can reword", "status": "review", "prs": [60], "decisions": ["0033"]},
+        {"name": "The kernel's own mails as templates a site can reword", "status": "done", "prs": [60], "decisions": ["0033"]},
         {"name": "Jobs: the Postgres queue, the scheduler, mail retries", "status": "next"},
         {"name": "Events: the outbox, dispatcher and dead letters", "status": "todo"},
         {"name": "Audit, widened from auth's", "status": "todo"},

@@ -288,8 +288,8 @@
    "gate": "not passed",
    "step_order": 3,
    "step": "The kernel's own mails as templates a site can reword",
-   "status": "review",
-   "status_label": "In review",
+   "status": "done",
+   "status_label": "Done",
    "prs": "#60",
    "decisions": "0033",
    "note": ""
@@ -2034,7 +2034,7 @@
   },
   {
    "label": "main",
-   "value": "850f394"
+   "value": "44d57bf"
   }
  ]
 }
