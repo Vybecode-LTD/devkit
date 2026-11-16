@@ -230,6 +230,32 @@ async def test_an_unusable_file_name_falls_back(s3: Any) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("filename", "fallback"),
+    [
+        # Fullwidth quotes and a fullwidth backslash become ASCII ones when the
+        # ASCII fallback is normalized: they must not end or escape its quotes.
+        (
+            "Beat" + chr(0xFF02) + "; filename=" + chr(0xFF02) + "other.exe",
+            "Beat ; filename= other.exe",
+        ),
+        ("Beat" + chr(0xFF3C), "Beat"),
+        ("a" + chr(0xFF0F) + "b.zip", "a b.zip"),
+    ],
+)
+async def test_a_fullwidth_quote_cannot_add_a_file_name(
+    s3: Any, filename: str, fallback: str
+) -> None:
+    await storage.put("kernel/w.zip", b"PK", content_type="application/zip", filename=filename)
+    disposition = _head(s3, "kernel/w.zip")["ContentDisposition"]
+    assert disposition.startswith(f"attachment; filename=\"{fallback}\"; filename*=UTF-8''")
+    # Two quotes only: the ASCII name's own, so nothing inside ends it early.
+    assert disposition.count('"') == 2
+    assert "\\" not in disposition
+    url = await storage.signed_url("kernel/w.zip", filename=filename)
+    assert parse_qs(urlsplit(url).query)["response-content-disposition"] == [disposition]
+
+
 # --- refused before any call ---------------------------------------------------------
 
 BAD_KEYS = [

@@ -133,12 +133,9 @@ def _check_type(content_type: str) -> None:
         )
 
 
-def _attachment(filename: str | None) -> str:
-    """`attachment`, with the file name (RFC 6266) when there's a usable one:
-    control characters, quotes and slashes become spaces, and an ASCII
-    `filename` goes before the UTF-8 `filename*` for old clients."""
-    if filename is None:
-        return "attachment"
+def _clean_name(text: str) -> str:
+    """`text` with control characters, line breaks, quotes, backslashes and
+    slashes as spaces, and runs of space as one."""
     cleaned = "".join(
         (
             " "
@@ -147,13 +144,25 @@ def _attachment(filename: str | None) -> str:
             or unicodedata.category(character) in ("Zl", "Zp")
             else character
         )
-        for character in filename
+        for character in text
     )
-    name = " ".join(cleaned.split())[:MAX_FILENAME].strip()
+    return " ".join(cleaned.split())
+
+
+def _attachment(filename: str | None) -> str:
+    """`attachment`, with the file name (RFC 6266) when there's a usable one:
+    control characters, quotes and slashes become spaces, and an ASCII
+    `filename` goes before the UTF-8 `filename*` for old clients. The ASCII
+    form is cleaned again after it's made, since normalizing turns fullwidth
+    quotes and backslashes (U+FF02, U+FF3C) into ones that would end or escape
+    it."""
+    if filename is None:
+        return "attachment"
+    name = _clean_name(filename)[:MAX_FILENAME].strip()
     if not name:
         return "attachment"
-    fallback = " ".join(
-        unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").split()
+    fallback = _clean_name(
+        unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
     )
     return f"attachment; filename=\"{fallback or 'download'}\"; filename*=UTF-8''{quote(name, safe='')}"
 
