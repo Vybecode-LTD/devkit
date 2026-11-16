@@ -24,6 +24,11 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 - **Sign-up:** 5 per IP per hour. Past 3 sign-up mails to one address in 15 minutes, a sign-up for an address that has an account answers the same 202 and sends no notice. A new account's verification link always goes out.
 - **Second factor:** 5 failures end the challenge (`auth.challenge_ended`). Past 10 failures on one account in an hour, its challenges answer 429 until the hour has passed.
 - **Step-up:** 5 failures per session in 15 minutes end the session (401 `kernel.not_signed_in` from then on).
+- **Passkey sign-in:** 10 per IP per minute for `passkeys/sign-in/start`, and the same for `/finish`.
+
+## Passkeys (decision 0028)
+
+Options are the JSON form of WebAuthn's `PublicKeyCredentialCreationOptions` or `PublicKeyCredentialRequestOptions` (base64url for bytes), and a credential is the JSON a browser's `PublicKeyCredential.toJSON()` gives. The relying party is the site's host and the origin the site's origin. A challenge is valid 5 minutes and works once. Registration asks for a discoverable credential (`residentKey: "required"`) with user verification, and excludes the account's passkeys. Signing in with a passkey alone and stepping up with one require user verification; as a second factor it is preferred. A sign count that doesn't rise, when either count isn't zero, is refused.
 
 ## Mail the suite reads
 
@@ -39,7 +44,10 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
 | `POST /api/auth/sign-up` | `{email, password, invite?}` | 202 `{"status": "check_email"}`; the account is a member, unverified. 403 `auth.sign_up_closed` or `auth.invite_required` by the site's mode; 422 `auth.password_rejected` with the reason; 422 `kernel.invalid_request` for anything but one email address |
 | `POST /api/auth/verify-email` | `{token}` | 200 `{"status": "verified"}`; signs nobody in. 400 `auth.token_invalid` for a token used, older than 24 hours, or sent to an address the account no longer has |
 | `POST /api/auth/sign-in` | `{email, password}` | 200 `{"status": "signed_in", "user": {...}}` and the cookie; or 200 `{"status": "second_factor", "challenge": "...", "methods": [...]}`; 401 `auth.invalid_credentials` |
-| `POST /api/auth/sign-in/second-factor` | `{challenge, totp}` or `{challenge, recovery_code}` | 200 signed in; 401 `auth.invalid_second_factor`; after 5 failures, or for a challenge used, older than 10 minutes or unknown, 401 `auth.challenge_ended` (start over); 429 past the account's limit |
+| `POST /api/auth/sign-in/second-factor` | `{challenge, totp}`, `{challenge, recovery_code}` or `{challenge, passkey}` | 200 signed in; 401 `auth.invalid_second_factor`; after 5 failures, or for a challenge used, older than 10 minutes or unknown, 401 `auth.challenge_ended` (start over); 429 past the account's limit. A passkey answers the options its start route gave last |
+| `POST /api/auth/sign-in/second-factor/passkey` | `{challenge}` | 200 WebAuthn request options for the account's passkeys, each call replacing the last; it costs no try. 401 `auth.challenge_ended` as above; 409 `auth.no_passkey` for an account with none |
+| `POST /api/auth/passkeys/sign-in/start` | | 200 WebAuthn request options with no `allowCredentials` and user verification required. No email is asked |
+| `POST /api/auth/passkeys/sign-in/finish` | the credential | 200 `{"status": "signed_in", "user": {...}}` and the cookie, as sign-in answers, for anyone, staff included, and never a second-factor step. 401 `auth.invalid_passkey` for anything wrong, the same answer whatever it is |
 | `POST /api/auth/code` | `{email}` | 202 `{"status": "check_email"}`. Members only: a staff account is sent nothing, with the same answer |
 | `POST /api/auth/code/verify` | `{email, code}` | 200 signed in, or for an account with a second factor 200 `{"status": "second_factor", …}` as sign-in answers; 401 `auth.invalid_code` |
 | `POST /api/auth/link/confirm` | `{token}` | 200 signed in, or the second-factor answer as for a code; 401 `auth.invalid_link`. The emailed link opens the site's confirm page (`/auth/link?token=…`); only this POST signs in |
@@ -59,16 +67,19 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | Method and path | Body | Answer |
 | --- | --- | --- |
 | `POST /api/auth/verify-email/resend` | | 202 `{"status": "check_email"}`: a new 24-hour link to the address the account has now, the last one void. 409 `auth.already_verified` once it is verified |
-| `POST /api/auth/step-up` | `{password}` or `{totp}` | 200 `{"status": "recent"}`; the session token is replaced. 401 `auth.invalid_credentials` for a wrong password or `auth.invalid_second_factor` for a wrong code, the session kept; the fifth failure answers 401 `kernel.not_signed_in` and ends it |
+| `POST /api/auth/step-up` | `{password}`, `{totp}` or `{passkey}` | 200 `{"status": "recent"}`; the session token is replaced. 401 `auth.invalid_credentials` for a wrong password, `auth.invalid_second_factor` for a wrong code or `auth.invalid_passkey` for a wrong passkey, the session kept; the fifth failure answers 401 `kernel.not_signed_in` and ends it. A passkey answers the options `step-up/passkey` gave this session |
+| `POST /api/auth/step-up/passkey` | | 200 WebAuthn request options for the account's passkeys, user verification required; 409 `auth.no_passkey` for an account with none |
 | `POST /api/auth/password/change` | `{current_password, new_password}` | **step-up.** 200 `{"status": "password_changed"}`: this session stays, with a fresh device cookie, and every other ends. 401 `auth.invalid_credentials` for a wrong current password, the session kept; it counts as a failed step-up, so the fifth ends the session. 422 `auth.password_rejected` with the reason |
 | `POST /api/auth/email/change` | `{email}` | **step-up.** 202 `{"status": "check_email"}` whatever the address: the new address is mailed a link to confirm it, valid 24 hours, or a notice instead when it has an account. The old address works until then. 422 `kernel.invalid_request` for anything but one other address |
 | `POST /api/auth/totp/setup` | | **step-up.** 200 `{"secret", "otpauth_uri"}`: a new secret of at least 160 bits, in place of any earlier one not yet confirmed. 403 `auth.email_unverified` until the email is verified (14.3); 409 `auth.totp_exists` while the account has a confirmed TOTP (remove it first). The TOTP counts as a second factor only once confirmed |
 | `POST /api/auth/totp/confirm` | `{code}` | 200 `{"recovery_codes": [10 codes]}`, in place of any older ones: the TOTP is a second factor, and the code that confirmed it can't finish a sign-in. 401 `auth.invalid_second_factor` for a wrong code, the session kept; it counts as a failed step-up, so the fifth ends the session. 409 `auth.no_pending_totp` with nothing set up to confirm; 403 `auth.email_unverified` |
 | `DELETE /api/auth/totp` | | **step-up.** 204. A confirmed TOTP goes with its recovery codes, and every other session ends (the second-factor reset of 14.5); this one stays, with a fresh device cookie. Live sign-in codes and links, reset links and second-factor challenges stop working. A TOTP set up but not confirmed just goes; with none, nothing changes |
 | `POST /api/auth/recovery-codes` | | **step-up.** 200 `{"recovery_codes": [10 codes]}`; the old ones stop working; 409 `auth.no_second_factor` while the account has no confirmed TOTP |
-| `POST /api/auth/passkeys/register/start` | `{name}` | **step-up.** 200 WebAuthn creation options; 403 `auth.email_unverified` until the email is verified |
-| `POST /api/auth/passkeys/register/finish` | the credential | 201 |
-| `DELETE /api/auth/passkeys/{id}` | | **step-up.** 204 |
+| `POST /api/auth/passkeys/register/start` | `{name}` | **step-up.** 200 WebAuthn creation options, for this session only; 403 `auth.email_unverified` until the email is verified; 409 `auth.too_many_passkeys` at 20; 422 `kernel.invalid_request` for a name not 1 to 80 characters once trimmed |
+| `POST /api/auth/passkeys/register/finish` | the credential | 201 `{"id", "name", "created_at", "last_used_at"}`, the account mailed. 400 `auth.invalid_passkey` for a credential that doesn't verify, a challenge used, expired or another session's, or a passkey registered already; 403 `auth.email_unverified`; 409 `auth.too_many_passkeys` |
+| `GET /api/auth/passkeys` | | 200 `{"items": [{"id", "name", "created_at", "last_used_at"}]}`, oldest first |
+| `PATCH /api/auth/passkeys/{id}` | `{name}` | **step-up.** 200 the passkey, renamed; 404 `auth.passkey_not_found` for an id that isn't one of the account's; 422 `kernel.invalid_request` as at registration |
+| `DELETE /api/auth/passkeys/{id}` | | **step-up.** 204. Every other session ends (a second-factor reset, 14.5); this one stays, with a fresh device cookie. Live sign-in codes and links, reset links and second-factor challenges stop working, and the account is mailed. 404 `auth.passkey_not_found` for an id that isn't one of the account's |
 | `GET /api/auth/sessions` | | 200 `{"items": [...]}` with `current` marked |
 | `DELETE /api/auth/sessions/{id}` | | 204 |
 | `POST /api/auth/sessions/sign-out-others` | | 204 |

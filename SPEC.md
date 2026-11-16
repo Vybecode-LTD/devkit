@@ -508,7 +508,12 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 - No composition rules, no forced rotation, no hints and no security questions.
 - Checked against a bundled common-password list and the Pwned Passwords range API, where only the first 5 characters of the SHA-1 leave the server. If the API is down, the password is accepted and the miss is logged. A refused password is always explained.
 
-**Passkeys.** The `webauthn` library, discoverable credentials, and user verification required when the passkey is the only factor. An account may hold several named passkeys, and any of them can serve as a second factor.
+**Passkeys.** The `webauthn` library, discoverable credentials, and user verification required when the passkey is the only factor. An account may hold several named passkeys (up to 20), and any of them can serve as a second factor (decision 0028):
+
+- Each ceremony's challenge is 32 random bytes, kept as a keyed hash, valid 5 minutes and used once. The relying party is `SITE_URL`'s host and the origin is its origin; attestation is `none`.
+- Registering needs step-up and a verified address (14.3), asks for a discoverable credential with user verification, and is bound to the session that started it.
+- A passkey alone signs anyone in, staff included, with no second-factor step: a verified passkey is two factors. The sign-in asks for no email, and anything wrong gets the same answer.
+- A sign count that doesn't rise, when either count isn't zero, is refused as a cloned authenticator.
 
 **OAuth and OpenID Connect** (Authlib as the client)
 
@@ -536,7 +541,8 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 
 - TOTP (RFC 6238, pyotp): 6 digits, 30-second steps, one step of drift either way, the secret sealed at rest, and a code refused if its step was already used.
 - Recovery codes: 10 single-use codes, stored as keyed hashes and shown once. Making new ones voids the old.
-- Passkeys count as a second factor.
+- Passkeys count as a second factor: the sign-in's second-factor step and step-up each ask for options for the account's passkeys, then take one (decision 0028). As a second factor user verification is preferred; at step-up it is required.
+- Removing any passkey is a second-factor reset (14.5), whatever factors remain (the owner's answer; decision 0028). Renaming one opens nothing and changes nothing else.
 - A second factor counts only once confirmed: a TOTP secret set up but never confirmed with a code is not one.
 - Setting up a TOTP needs step-up and a verified address (14.3), and a confirmed TOTP is removed before another is set up, so a setup never takes away a factor that works. A new setup replaces one not yet confirmed. Confirming takes a right code, which then can't finish a sign-in, and gives 10 new recovery codes; a wrong code counts as a failed step-up (14.6). Setup and confirm give way to a reset that lands while they wait (decision 0026).
 - Removing a confirmed TOTP takes its recovery codes with it and is a second-factor reset (14.5). New recovery codes need a confirmed TOTP. Sign-in's second-factor step and step-up by TOTP lock the account before checking the code, as every route that touches an account's factor, session or token rows does (decision 0027).
@@ -550,7 +556,7 @@ Web sessions are opaque random tokens kept in a cookie and checked against the d
 - The token is 32 random bytes in the cookie `__Host-dk_session`, set HttpOnly, Secure, SameSite=Lax, Path=/. The database stores only its SHA-256.
 - A new token is issued at sign-in, at step-up and on any role change, so a session can't be fixed in advance. Each session records the account's `role_version`; a role change raises it, the session's next request gets a new token, and the old one stops working.
 - Each session records when it started, when it was last seen, the user agent, a device label and a coarse location. The account page lists them, with sign-out for each and "sign out everywhere else" (VybeSite `SignedInDevices`).
-- `auth_user.session_epoch` goes up on a password change, a reset, a second-factor reset (removing a confirmed TOTP, the owner's answer; decision 0027) or a suspension, which ends every older session. Removing a TOTP keeps the session it came from, with a fresh device cookie, as a password change does.
+- `auth_user.session_epoch` goes up on a password change, a reset, a second-factor reset (removing a confirmed TOTP or any passkey, the owner's answers; decisions 0027 and 0028) or a suspension, which ends every older session. Removing a TOTP or a passkey keeps the session it came from, with a fresh device cookie, as a password change does.
 - A password change keeps the session it came from, at the new epoch and with a fresh device cookie, and ends every other; it gives way to a reset that lands while it runs (decision 0025).
 - CSRF: SameSite=Lax plus an Origin check on every request that changes state (VybeSite `same_origin.py`).
 - **Known devices:** a browser that has signed in to an account keeps a signed, HttpOnly `__Host-dk_device` cookie naming that account. Over the account's failure limit (14.6), the right password still signs in on such a browser, so strangers' guesses can't lock an owner out. The cookie survives sign-out, is never the session, and helps no other account.
@@ -573,8 +579,9 @@ Both limits are site settings (Q6).
 | New verification link | 3 per account per 15 minutes; a request within 60 seconds of the last link sends nothing (decision 0023) |
 | Email change | 3 per account per 15 minutes; a request within 60 seconds of the last link sends nothing; past 3 mails to one address in 15 minutes, no more (decision 0024) |
 | Sign-up | 5 per IP per hour; past 3 sign-up mails to one address in 15 minutes, the same answer and no notice sent, though an account's one verification link always goes (decision 0020) |
-| Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019) |
-| Step-up | 5 failures per session in 15 minutes, then the session ends; a wrong current password at a password change counts as one (decision 0025), and so does a wrong code confirming a TOTP (decision 0026) |
+| Passkey sign-in | 10 per IP per minute for each of its two steps (decision 0028) |
+| Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019); a passkey counts as a code does (decision 0028) |
+| Step-up | 5 failures per session in 15 minutes, then the session ends; a wrong current password at a password change counts as one (decision 0025), and so does a wrong code confirming a TOTP (decision 0026) or a wrong passkey (decision 0028) |
 
 - No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
 - Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A code ask, a try at a code and a reset request have no hash to hide behind: they answer no sooner than a fixed floor of 0.2 seconds, far above the few queries a known address costs (decisions 0021 and 0022). A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
@@ -800,6 +807,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-16 | Passkeys: registration bound to its session, sign-in with a passkey alone for everyone (no second-factor step), a passkey as the second factor and at step-up through start routes, a list and renaming, every removal a second-factor reset, up to 20 per account, and their limits (14.2, 14.4, 14.5, 14.6, decision 0028) |
 | 2026-11-15 | Removing a confirmed TOTP is a second-factor reset that ends every other session (the owner's answer) and voids its recovery codes; new recovery codes need a confirmed TOTP and are mailed; sign-in's second factor and step-up by TOTP lock the account first (14.4, 14.5, 14.6, decision 0027) |
 | 2026-11-15 | TOTP setup needs a verified address and refuses while a confirmed TOTP exists; confirming uses up its code, gives 10 new recovery codes, counts a wrong code as a failed step-up, and gives way to a reset (14.4, 14.6, decision 0026) |
 | 2026-11-14 | A password change keeps its own session with a fresh device cookie, ends every other, counts a wrong current password as a failed step-up, and gives way to a reset (14.5, 14.6, decision 0025) |
