@@ -68,11 +68,12 @@ class FakeSMTP:
         if FakeSMTP.fail_on == name and FakeSMTP.error is not None:
             raise FakeSMTP.error
 
-    def __enter__(self) -> FakeSMTP:
-        return self
-
-    def __exit__(self, *_: object) -> None:
+    def quit(self) -> None:
         FakeSMTP.calls.append(("quit", None))
+        self._step("quit")
+
+    def close(self) -> None:
+        FakeSMTP.calls.append(("close", None))
 
     def starttls(self, *, context: ssl.SSLContext) -> None:
         FakeSMTP.calls.append(("starttls", context.verify_mode == ssl.CERT_REQUIRED))
@@ -358,3 +359,35 @@ async def test_a_resend_error_without_json_is_named_plainly() -> None:
     with pytest.raises(MailError, match=r"\(502 error\)") as caught:
         await resend(handler).send("reader@vibe.test", "Hello", "the body text")
     assert caught.value.retryable is True
+
+
+async def test_smtp_keeps_a_delivered_message_when_quit_fails(fake_smtp: type[FakeSMTP]) -> None:
+    # The server took the message, then answered QUIT with 421: the message
+    # was delivered, so a retry would send it twice (CodeRabbit on #59).
+    fake_smtp.fail_on = "quit"
+    fake_smtp.error = smtplib.SMTPResponseException(421, b"closing")
+    await smtp().send("reader@vibe.test", "Hello", "the body text")
+    assert [name for name, _ in fake_smtp.calls] == [
+        "connect",
+        "starttls",
+        "login",
+        "send",
+        "quit",
+        "close",
+    ]
+
+
+async def test_smtp_still_says_why_a_send_failed_when_quit_fails_too(
+    fake_smtp: type[FakeSMTP], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Twice(FakeSMTP):
+        def send_message(self, message: EmailMessage) -> None:
+            raise smtplib.SMTPDataError(554, b"rejected")
+
+        def quit(self) -> None:
+            raise smtplib.SMTPServerDisconnected("gone")
+
+    monkeypatch.setattr(mail_adapters.smtplib, "SMTP", Twice)
+    with pytest.raises(MailError, match="554") as caught:
+        await smtp().send("reader@vibe.test", "Hello", "the body text")
+    assert caught.value.retryable is False

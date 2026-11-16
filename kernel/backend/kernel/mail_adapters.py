@@ -123,12 +123,20 @@ class SmtpMailer:
             )
         else:
             server = smtplib.SMTP(self.host, self.port, timeout=SMTP_TIMEOUT_SECONDS)
-        with server:
+        try:
             if self.port != 465:
                 server.starttls(context=context)
             if self.username:
                 server.login(self.username, self.password)
             server.send_message(message)
+        finally:
+            # QUIT is best effort, never the result: a message the server took
+            # stays delivered when QUIT fails, so a retry can't send it twice,
+            # and a failed send keeps its own error.
+            try:
+                server.quit()
+            except (smtplib.SMTPException, OSError):
+                server.close()
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,10 @@ REPLY = Template(
 )
 
 
+def one(name: str, template: Template) -> InstalledModule:
+    return InstalledModule(manifest(name.split(".")[0]), emails={name: template})
+
+
 def blog(**emails: Template) -> InstalledModule:
     return InstalledModule(manifest("blog"), emails={"blog.comment_reply": REPLY, **emails})
 
@@ -158,6 +162,15 @@ def test_a_site_rewords_a_module_s_template() -> None:
             None,
             "blog.x",
         ),
+        # Fixed wording no send could get past Checked (CodeRabbit on #59).
+        ([one("blog.x", Template("", "Body"))], None, "blog.x's subject"),
+        ([one("blog.x", Template("   ", "Body"))], None, "blog.x's subject"),
+        ([one("blog.x", Template("S" * 256, "Body"))], None, "blog.x's subject"),
+        ([one("blog.x", Template("Subject", ""))], None, "blog.x's text"),
+        ([one("blog.x", Template("Subject", "a" + chr(0) + "b"))], None, "blog.x's text"),
+        ([one("blog.x", Template("Subject", "x" * (256 * 1024 + 1)))], None, "blog.x's text"),
+        ([one("blog.x", Template("Subject", "Body", " "))], None, "blog.x's html"),
+        ([blog()], {"blog.comment_reply": Template("", "$name")}, "blog.comment_reply's subject"),
     ],
 )
 def test_a_bad_template_stops_the_start(
@@ -213,3 +226,22 @@ def test_mail_before_any_app_is_set_up_says_so(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(email, "_postbox", None)
     with pytest.raises(RuntimeError, match="create_app installs"):
         email.render("blog.comment_reply", CONTEXT)
+
+
+async def test_a_worker_s_mailer_is_checked_too() -> None:
+    # email.install puts any mailer behind Checked, not only create_app's
+    # (CodeRabbit on #59): a bad address never reaches the adapter.
+    captured = CapturingMailer()
+    email.install(
+        captured, {"blog.comment_reply": REPLY}, site_name="Vibe Site", site_url="https://vibe.test"
+    )
+    with pytest.raises(ValueError, match="to"):
+        await email.send("blog.comment_reply", "a@b.test, c@d.test", CONTEXT)
+    assert captured.to("a@b.test, c@d.test") == []
+    await email.send("blog.comment_reply", "reader@vibe.test", CONTEXT)
+    assert len(captured.to("reader@vibe.test")) == 1
+
+
+def test_create_app_s_checked_mailer_is_not_wrapped_twice() -> None:
+    app, _ = build()
+    assert email._current().mailer is app.state.mailer

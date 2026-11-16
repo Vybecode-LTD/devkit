@@ -177,9 +177,19 @@ class Rendered:
 
 
 def _placeholders(name: str, template: Template) -> frozenset[str]:
-    """The template's placeholders; ValueError, naming it, if it can't render."""
-    if any(_has_break(character) for character in template.subject):
-        raise ValueError(f"Email template {name}'s subject must be one line.")
+    """The template's placeholders; ValueError, naming it, if it can't render
+    or if its fixed wording could never pass `check` (a blank or oversized
+    subject or body, a NUL)."""
+    subject = template.subject
+    if not subject.strip() or len(subject) > MAX_SUBJECT or any(map(_has_break, subject)):
+        raise ValueError(
+            f"Email template {name}'s subject must be one line of 1 to {MAX_SUBJECT} characters."
+        )
+    for field, body in (("text", template.text), ("html", template.html)):
+        if body is not None and (not body.strip() or len(body) > MAX_BODY or chr(0) in body):
+            raise ValueError(
+                f"Email template {name}'s {field} must hold 1 to {MAX_BODY} characters and no NUL."
+            )
     found: set[str] = set()
     for part in (template.subject, template.text, template.html):
         if part is None:
@@ -235,9 +245,11 @@ def install(
     mailer: Mailer, templates: Mapping[str, Template], *, site_name: str, site_url: str
 ) -> None:
     """Sets the mailer and the templates `send` uses: `create_app` calls it,
-    and so does a worker that sends mail outside a request."""
+    and so does a worker that sends mail outside a request. Any mailer goes
+    behind `Checked`, once, so a worker's mail gets the same checks."""
     global _postbox
-    _postbox = _Postbox(mailer, dict(templates), site_name, site_url.rstrip("/"))
+    checked = mailer if isinstance(mailer, Checked) else Checked(mailer)
+    _postbox = _Postbox(checked, dict(templates), site_name, site_url.rstrip("/"))
 
 
 def _current() -> _Postbox:
