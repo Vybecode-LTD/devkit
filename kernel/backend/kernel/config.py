@@ -15,6 +15,10 @@ Problems name the variable, never its value.
 for every module installed. The admin can switch any of those off at
 runtime (`kernel.modules`). A name that isn't installed stops the start, so a
 typo never silently leaves a module off.
+
+**Storage** (`kernel.storage`, decision 0032) is off until its variables are
+set. Set in part, it stops the start outside DEBUG, as an unsafe secret does
+(`storage_problems`).
 """
 
 from __future__ import annotations
@@ -27,7 +31,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 log = logging.getLogger(__name__)
@@ -101,6 +105,23 @@ class KernelConfig(BaseSettings):
     #: closed. Closed until a site opens it, so an account nobody meant to
     #: allow can't appear. The site settings (Q6) take it over with their page.
     sign_up_mode: Literal["open", "invite", "closed"] = "closed"
+
+    #: Object storage (kernel.storage, SPEC.md 15, decision 0032): an
+    #: S3-compatible store, Cloudflare R2 on a live site. All blank: storage is
+    #: off. STORAGE_ENDPOINT_URL is the account's endpoint
+    #: (https://<account>.r2.cloudflarestorage.com); a bucket path pasted onto it
+    #: is dropped. STORAGE_BUCKET is private: its files are reached only through
+    #: signed links. STORAGE_PUBLIC_BUCKET is optional and served to anyone at
+    #: STORAGE_PUBLIC_URL (R2: the bucket's custom domain).
+    storage_endpoint_url: str = ""
+    storage_region: str = "auto"
+    storage_access_key_id: str = ""
+    storage_secret_access_key: SecretStr = SecretStr("")
+    storage_bucket: str = ""
+    storage_public_bucket: str = ""
+    storage_public_url: str = ""
+    #: The largest file `storage.put` takes, in bytes.
+    storage_max_bytes: int = Field(default=2 * 1024**3, ge=1)
 
     rate_limit_enabled: bool = True
     #: Where counts live: memory:// for one process, redis://… once a site
@@ -202,11 +223,79 @@ def placeholder_addresses(config: KernelConfig) -> list[str]:
     return []
 
 
+#: What storage can't run without, by variable name.
+_STORAGE_REQUIRED = (
+    "STORAGE_ENDPOINT_URL",
+    "STORAGE_ACCESS_KEY_ID",
+    "STORAGE_SECRET_ACCESS_KEY",
+    "STORAGE_BUCKET",
+)
+
+
+def _storage_values(config: KernelConfig) -> dict[str, str]:
+    return {
+        "STORAGE_ENDPOINT_URL": config.storage_endpoint_url.strip(),
+        "STORAGE_ACCESS_KEY_ID": config.storage_access_key_id.strip(),
+        "STORAGE_SECRET_ACCESS_KEY": config.storage_secret_access_key.get_secret_value().strip(),
+        "STORAGE_BUCKET": config.storage_bucket.strip(),
+        "STORAGE_PUBLIC_BUCKET": config.storage_public_bucket.strip(),
+        "STORAGE_PUBLIC_URL": config.storage_public_url.strip(),
+    }
+
+
+def storage_missing(config: KernelConfig) -> list[str]:
+    """The variables storage needs that are blank, in order."""
+    values = _storage_values(config)
+    return [name for name in _STORAGE_REQUIRED if not values[name]]
+
+
+def _address_problem(name: str, url: str, debug: bool) -> str | None:
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        return f"{name} is not an http or https address."
+    if is_placeholder_domain(parts.hostname):
+        return f"{name} is a placeholder ({parts.hostname})."
+    if parts.scheme != "https" and not debug:
+        return f"{name} must be https outside DEBUG."
+    return None
+
+
+def storage_problems(config: KernelConfig) -> list[str]:
+    """What's wrong with the storage variables, by name, never by value.
+    None set is fine (storage is off); some set means all of them must be."""
+    values = _storage_values(config)
+    if not any(values.values()):
+        return []
+    problems = []
+    missing = storage_missing(config)
+    if missing:
+        problems.append(
+            f"Storage is set in part: {', '.join(missing)} {'is' if len(missing) == 1 else 'are'} blank."
+        )
+    for name in ("STORAGE_ENDPOINT_URL", "STORAGE_PUBLIC_URL"):
+        if values[name]:
+            problem = _address_problem(name, values[name], config.debug)
+            if problem:
+                problems.append(problem)
+    if bool(values["STORAGE_PUBLIC_BUCKET"]) != bool(values["STORAGE_PUBLIC_URL"]):
+        problems.append(
+            "STORAGE_PUBLIC_BUCKET and STORAGE_PUBLIC_URL go together: set both or neither."
+        )
+    if (
+        values["STORAGE_PUBLIC_BUCKET"]
+        and values["STORAGE_PUBLIC_BUCKET"] == values["STORAGE_BUCKET"]
+    ):
+        problems.append(
+            "STORAGE_BUCKET and STORAGE_PUBLIC_BUCKET name the same bucket: private files would be public."
+        )
+    return problems
+
+
 def refuse_unsafe(config: KernelConfig) -> None:
-    """Stop the start on unsafe secrets or a placeholder address, unless DEBUG
-    is on, when each problem is only logged."""
+    """Stop the start on unsafe secrets, a placeholder address or storage set
+    in part, unless DEBUG is on, when each problem is only logged."""
     secrets_wrong = unsafe_secrets(config)
-    problems = secrets_wrong + placeholder_addresses(config)
+    problems = secrets_wrong + placeholder_addresses(config) + storage_problems(config)
     if not config.debug and not config.client_ip_header.strip():
         log.warning(
             "CLIENT_IP_HEADER is blank, so every visitor counts as the address that "

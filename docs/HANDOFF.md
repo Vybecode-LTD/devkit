@@ -12,6 +12,7 @@ Overwritten every session. 2026-11-16, later (Claude Code, the owner's machine, 
   - Step-up by TOTP or password locks the account and re-checks the session (`accounts.held`, #52); `held` reads the session's epoch only, so the token's compare-and-swap keeps the hash it started with.
   - **An added passkey or TOTP is undone from its mail** (#54, decision 0030; `kernel/auth/factor_undo.py`, migration `kernel_0004`): a 7-day link removes that factor, ends every session, voids open codes and links, and outlives resets.
 - **The site's step 0 is done.** The scaffold (#55): seven modules waiting as `modules/_<id>/`, the recipe `recipes/collective-with-store.json`, the backend plan in `docs/plans/vibrant-mindz-backend/` (this repo's copy is the one kept current). Then `kernel.moderation.act`, granted to admin and editor (migration `kernel_0005`), and a test pinning that a custom role is staff (#56, decision 0031). Items 3 to 6 of `kernel-additions.md` come with K3 and the modules.
+- **K3 has started: storage** (#58, decision 0032; `kernel/storage.py`, contract `dev plans/contracts/k3-storage.md`). A private bucket reached only through signed links, an optional public one at `STORAGE_PUBLIC_URL`, unguessable keys for a provider's files, inline only for five raster types whose bytes match. Tested with moto; `kernel/tests/test_storage_live.py` runs against a real store when `TEST_STORAGE_*` is set, and is skipped until the owner makes test buckets. Contract change: `check_key` is public, and `signed_url` always signs `attachment` (the contract's dated lines).
 - **One lock order everywhere:** the account row first (`accounts.lock`); `accounts.held` locks it and re-checks the user and the session, so a reset that lands while a route waits wins with 401.
 - **Tests:** 823 Python tests pass on Windows (1 skipped) and 27 strict expected failures; coverage 97.0% (CI fails under 85%). CI passed on b9a6939. The contract suite on `main`: 128 passed, 27 not built (OAuth and the rest of K2).
 - **GitHub:** public `Vybecode-LTD/devkit`. PRs land by fast-forwarding `main` to the PR's head once "CI result" is green, only with the owner's OK for that PR. Codex reviews a PR's first push only. CodeRabbit is on its free tier and skips a PR of more than 100 files; a PR stacked on another counts both.
@@ -21,8 +22,8 @@ Overwritten every session. 2026-11-16, later (Claude Code, the owner's machine, 
 The order is decision 0029's; the site's own sessions wait on it.
 
 1. **K3, the kernel services**, in the order the site's modules use them (`KICKOFF.md`, K3; SPEC 6, 9, 11 and 15). One PR per service, tests first.
-   - **Storage first:** `storage.put / get / signed_url` (SPEC 6), boto3 against an S3-compatible store (SPEC 2, Cloudflare R2). Private files only through short-lived signed links; a file a provider must fetch gets an unguessable link that expires with its job (SPEC 15); the site's public and private keys (`kernel-additions.md`, item 3). How it's tested is the owner's call (Open questions).
-   - Then **email** (the real adapter behind `kernel/email.py`'s `Mailer`: SMTP, Mailgun, Resend), **jobs** (the Postgres queue; mail moves onto it and gains retries; unverified accounts are removed after 7 days; ffmpeg in the worker image, item 4), **events** (the outbox, dispatcher and dead letters, SPEC 11), **audit** (widened from `kernel/auth/audit.py`), **notifications**, **moderation** (the permission exists), **public rendering** (SPEC 9; the CSP additions, item 6). The outbound guard for oEmbed (item 5) comes with the first service that fetches a URL. Retention and the AI client later.
+   - **Storage is done** (#58). Uploads straight from the browser (a signed PUT: R2 has no POST policy), type detection and Pillow re-encoding come with discography and the first module that takes images (the contract's non-goals).
+   - Next **email** (the real adapter behind `kernel/email.py`'s `Mailer`: SMTP, Mailgun, Resend), **jobs** (the Postgres queue; mail moves onto it and gains retries; unverified accounts are removed after 7 days; ffmpeg in the worker image, item 4), **events** (the outbox, dispatcher and dead letters, SPEC 11), **audit** (widened from `kernel/auth/audit.py`), **notifications**, **moderation** (the permission exists), **public rendering** (SPEC 9; the CSP additions, item 6). The outbound guard for oEmbed (item 5) comes with the first service that fetches a URL. Retention and the AI client later.
    - Gate: tests for each service, an event delivered once to a handler that's safe to run twice, and a job that survives a worker restart.
 2. **K4**, the web kernel, with the site's theme; then **K5**, the CLI and the site template.
 3. **The ten hooks of decision 0018** (`skills/devkit-hook-designer`), before blog is extracted.
@@ -32,10 +33,8 @@ The order is decision 0029's; the site's own sessions wait on it.
 
 ## Open questions for the owner
 
-- **Storage tests:** an in-process fake of S3 (moto: a new dev dependency, nothing to run) or a local MinIO (a service on their machine and in CI)?
-- Decision 0030's own calls: the undo link lives 7 days, ends every session even when its factor is already gone, binds a TOTP link to that TOTP's confirm time, and doesn't change the password. Keep them?
-- Decision 0028's own calls (20 passkeys at most, names of 1 to 80 characters, user verification preferred for a passkey as the second factor, 5-minute challenges, 10 passkey sign-ins per IP per minute) and 0026 and 0027's (409 `auth.totp_exists` and `auth.no_pending_totp`, a wrong confirm code as a failed step-up, new recovery codes mailed, staff may remove their TOTP). Keep them?
-- Eight throwaway test databases left by killed runs are on the local Postgres (`devkit_test_*`, `devkit_empty_*`). Drop them?
+- Decision 0032's own calls: signed links of 5 minutes unless asked and 6 hours at most, `get`'s 32 MiB default, a 2 GiB `STORAGE_MAX_BYTES` default, three tries per call. Keep them?
+- When to make R2 test buckets (one private, one public with a custom domain) so `test_storage_live.py` runs: before the site's step 2 uploads its first master.
 - Desk steps: reset the Postgres `postgres` password (the owner types it); `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` if wanted.
 
 ## Notes

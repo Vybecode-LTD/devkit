@@ -15,6 +15,7 @@ from kernel.config import (
     placeholder_addresses,
     refuse_unsafe,
     reset_config,
+    storage_problems,
     unsafe_secrets,
 )
 
@@ -176,3 +177,80 @@ def test_get_config_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
     assert get_config().site_name == "Changed"
     monkeypatch.delenv("SITE_NAME")
     reset_config()
+
+
+# --- storage (kernel.storage, decision 0032) ---------------------------------------
+
+STORAGE_KEY_ID = "key-id-7f3a9b"
+STORAGE_SECRET = "storage-secret-2c8e41"
+STORAGE = {
+    "storage_endpoint_url": "https://acct.r2.cloudflarestorage.com",
+    "storage_access_key_id": STORAGE_KEY_ID,
+    "storage_secret_access_key": STORAGE_SECRET,
+    "storage_bucket": "site-private",
+    "storage_public_bucket": "site-public",
+    "storage_public_url": "https://files.site.test",
+}
+
+
+def test_storage_off_or_whole_passes() -> None:
+    assert storage_problems(config()) == []
+    assert storage_problems(config(**STORAGE)) == []
+    private_only = {**STORAGE, "storage_public_bucket": "", "storage_public_url": ""}
+    assert storage_problems(config(**private_only)) == []
+    assert config(**STORAGE).storage_secret_access_key.get_secret_value() == STORAGE_SECRET
+    assert STORAGE_SECRET not in repr(config(**STORAGE))
+
+
+@pytest.mark.parametrize(
+    ("values", "problem"),
+    [
+        (
+            {"storage_bucket": "x"},
+            "STORAGE_ENDPOINT_URL, STORAGE_ACCESS_KEY_ID, STORAGE_SECRET_ACCESS_KEY",
+        ),
+        ({**STORAGE, "storage_secret_access_key": ""}, "STORAGE_SECRET_ACCESS_KEY"),
+        (
+            {**STORAGE, "storage_endpoint_url": "acct.r2.cloudflarestorage.com"},
+            "STORAGE_ENDPOINT_URL is not",
+        ),
+        (
+            {**STORAGE, "storage_endpoint_url": "http://acct.r2.cloudflarestorage.com"},
+            "STORAGE_ENDPOINT_URL must be https",
+        ),
+        ({**STORAGE, "storage_public_url": ""}, "STORAGE_PUBLIC_BUCKET and STORAGE_PUBLIC_URL"),
+        ({**STORAGE, "storage_public_bucket": ""}, "STORAGE_PUBLIC_BUCKET and STORAGE_PUBLIC_URL"),
+        (
+            {**STORAGE, "storage_public_url": "http://files.site.test"},
+            "STORAGE_PUBLIC_URL must be https",
+        ),
+        (
+            {**STORAGE, "storage_public_url": "https://files.example.com"},
+            "STORAGE_PUBLIC_URL is a placeholder",
+        ),
+        ({**STORAGE, "storage_public_url": "files.site.test"}, "STORAGE_PUBLIC_URL is not"),
+        ({**STORAGE, "storage_public_bucket": "site-private"}, "the same bucket"),
+    ],
+)
+def test_storage_set_in_part_is_refused(values: dict[str, str], problem: str) -> None:
+    problems = storage_problems(config(**values))
+    assert any(problem in found for found in problems), problems
+    for found in problems:
+        assert STORAGE_SECRET not in found
+        assert STORAGE_KEY_ID not in found
+    with pytest.raises(RuntimeError, match="Refusing to start") as caught:
+        refuse_unsafe(config(**values))
+    assert STORAGE_SECRET not in str(caught.value)
+
+
+def test_storage_over_http_is_allowed_with_debug(caplog: pytest.LogCaptureFixture) -> None:
+    local = {
+        **STORAGE,
+        "storage_endpoint_url": "http://localhost:9000",
+        "storage_public_url": "http://localhost:9000/site-public",
+    }
+    assert storage_problems(config(debug=True, **local)) == []
+    assert storage_problems(config(debug=True, storage_bucket="x"))
+    with caplog.at_level(logging.WARNING):
+        refuse_unsafe(config(debug=True, storage_bucket="x"))
+    assert any("STORAGE_ENDPOINT_URL" in record.getMessage() for record in caplog.records)

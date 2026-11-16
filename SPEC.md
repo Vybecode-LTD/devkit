@@ -188,7 +188,7 @@ Every module MUST ship a `module.json` that validates against `devkit/schema/mod
 
 Modules MUST import only from the kernel's public surface: `kernel/__init__.py` on the backend and `kernel/web/index.ts` on the front end. Anything else in the kernel is private and may change in any release. The public surface follows semver.
 
-**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: anything marked K2 or later isn't in `kernel/__init__.py` yet.
+**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: a name is in `kernel/__init__.py` once it's built, and most of K3 isn't yet (storage is).
 
 | Name | Gives | Example | Since |
 | --- | --- | --- | --- |
@@ -206,7 +206,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `require_owner_or(permission)` | The resource's owner, or staff holding the permission (14.8) | Editing your own comment | K2 |
 | `require_recent_auth(minutes=10)` | Forces a fresh sign-in for sensitive actions | Changing a payout account | K2 |
 | `email.send(template, to, context)` | Sends through the site's mail adapter | Welcome email | K3 |
-| `storage.put / get / signed_url` | S3-compatible file storage | Uploads | K3 |
+| `storage.put / get / download / delete / signed_url / public_url` | S3-compatible file storage: a private bucket reached only through signed links, and a public one at its own address (15, decision 0032) | Uploads | K3 |
 | `events.emit(name, payload)`, `@events.on(name)` | Durable events between modules (section 11) | `blog.post.published` | K3 |
 | `jobs.enqueue(name, payload, run_at)`, `@jobs.scheduled(cron)` | Background and scheduled work | Scheduled publishing | K3 |
 | `audit.record(actor, action, target, meta)` | An append-only audit entry | Role changed | K3 |
@@ -677,7 +677,7 @@ The kernel sets these defaults for every site, and a module MUST NOT weaken them
 - **Third-party hosts:** a module declares the https origins it needs (`CSP` in its `__init__.py`), each in one of `script-src`, `img-src`, `connect-src`, `frame-src`, `media-src`, `form-action` or `font-src`, and they join the policy only while the module is on, each with a test. `script-src` takes exact hosts, never a wildcard.
 - **User HTML:** Markdown is rendered on the server, and any HTML is cleaned against an allowlist with nh3.
 - **Uploads:** the type is checked from the file's bytes, images are re-encoded with Pillow and stripped of metadata, sizes are capped, and files live in object storage. Anything that isn't an image is served as a download.
-- **Object storage:** private files are reached only through short-lived signed links. A file an outside provider must fetch, such as a print file, gets a public, unguessable link that expires with its job. Large files never go in Postgres.
+- **Object storage:** private files are reached only through short-lived signed links: 5 minutes unless asked, 6 hours at most, and always a download. Public files live in a second bucket at its own address. A file an outside provider must fetch, such as a print file, gets a public, unguessable key that its module deletes when the job ends. Only PNG, JPEG, GIF, WebP and AVIF whose bytes match are stored inline; everything else, SVG included, is stored as a download (decision 0032). Large files never go in Postgres.
 - **Outbound requests:** private and link-local addresses are blocked for user-supplied URLs, and every call has a timeout.
 - **Webhooks:** incoming ones are signature-checked with a replay window (Stripe's included). Outgoing ones are HMAC-signed.
 - **Secrets:** environment variables only, never in the repo or in logs. gitleaks runs in CI.
@@ -808,6 +808,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-16 | Kernel storage: a private bucket reached only through signed links (5 minutes unless asked, 6 hours at most, always a download) and an optional public bucket at its own address; a provider's file under an unguessable key in the public bucket, deleted with its job; inline only for five raster image types whose bytes match; the API adds `download`, `delete` and `public_url` (6, 15, decision 0032) |
 | 2026-11-16 | The kernel declares `kernel.moderation.act`, granted to admin and editor, for acting on moderation reports; 14.1 says outright that a custom role is staff (6, 14.1, decision 0031) |
 | 2026-11-16 | The mail for an added passkey or TOTP carries a 7-day undo link that removes that factor, ends every session and voids every live way in, and outlives resets and other undos (`POST /api/auth/second-factor/undo`; 14.6, 14.7, 14.11, decision 0030) |
 | 2026-11-16 | Passkeys: registration bound to its session, sign-in with a passkey alone for everyone (no second-factor step), a passkey as the second factor and at step-up through start routes, a list and renaming, every removal a second-factor reset, up to 20 per account, and their limits (14.2, 14.4, 14.5, 14.6, decision 0028) |

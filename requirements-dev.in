@@ -10,6 +10,7 @@ ruff>=0.14
 black>=25.1
 mypy>=1.15  # strict on the kernel (SPEC.md section 16)
 jsonschema>=4.23  # tools/validate_schemas.py
+moto[s3]>=5.1.0  # an in-process S3 for kernel.storage's tests (the owner's choice, decision 0032)
 pip-audit>=2.10.1  # checks both .txt files for known vulnerabilities, in CI too
 uv>=0.12.18  # makes both .txt files from their .in files
 filelock>=4.2.1  # pip-audit's, through cachecontrol: 4.0.3 has known CVEs

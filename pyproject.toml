@@ -24,6 +24,7 @@ asyncio_default_test_loop_scope = "session"
 addopts = ["--strict-markers", "--strict-config", "-ra", "--import-mode=importlib"]
 markers = [
     "db: needs the test Postgres (compose.yaml); skipped when it isn't running, unless DEVKIT_REQUIRE_DB=1",
+    "storage_live: needs a real S3-compatible store (TEST_STORAGE_*, kernel/tests/test_storage_live.py); skipped when none is set",
 ]
 filterwarnings = ["error", "ignore::DeprecationWarning:passlib.*"]
 norecursedirs = ["node_modules", ".venv", "_template", "templates", "dist"]
@@ -91,5 +92,5 @@ warn_redundant_casts = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = ["alembic.*", "jsonschema.*"]
+module = ["alembic.*", "jsonschema.*", "boto3.*", "botocore.*"]
 ignore_missing_imports = true

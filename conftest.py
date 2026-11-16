@@ -35,6 +35,17 @@ os.environ["HSTS_MAX_AGE"] = "0"
 os.environ["ROBOTS_NOINDEX"] = "false"
 os.environ["CORS_ORIGINS"] = ""
 os.environ.setdefault("LOG_FORMAT", "text")
+# Storage is off unless a test turns it on (kernel/tests/test_storage.py), so a
+# local .env's real bucket and keys are never used. The tests' fake S3 (moto)
+# answers for this endpoint; it reads the variable once, on first import, and
+# .test is reserved, so a request that escaped it would reach no server.
+os.environ["STORAGE_ENDPOINT_URL"] = ""
+os.environ["STORAGE_ACCESS_KEY_ID"] = ""
+os.environ["STORAGE_SECRET_ACCESS_KEY"] = ""
+os.environ["STORAGE_BUCKET"] = ""
+os.environ["STORAGE_PUBLIC_BUCKET"] = ""
+os.environ["STORAGE_PUBLIC_URL"] = ""
+os.environ["MOTO_S3_CUSTOM_ENDPOINTS"] = "https://r2.devkit.test"
 
 import asyncpg  # after the environment, which the kernel reads
 import pytest

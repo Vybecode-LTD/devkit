@@ -35,3 +35,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0029](0029-vibrant-mindz-order.md) | The kernel's remaining work, in the order the Vibrant Mindz site needs it | Accepted |
 | [0030](0030-second-factor-undo.md) | A passkey or TOTP someone else added is undone from its mail | Applied |
 | [0031](0031-moderation-permission.md) | The kernel declares `kernel.moderation.act`, and a custom role is staff | Applied |
+| [0032](0032-kernel-storage.md) | Kernel storage: two buckets, short signed links, downloads by default, and moto for the tests | Applied |
