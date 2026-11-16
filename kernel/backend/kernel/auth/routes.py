@@ -1,7 +1,8 @@
 """The auth routes at /api/auth: signing in and out, the second factor, the
 session and step-up (SPEC.md 14.2 to 14.6 and 14.10;
 docs/contracts/auth-api.md). Sign-up and verification are in `sign_up.py`,
-sign-in codes and magic links in `codes.py`, password resets in `resets.py`.
+sign-in codes and magic links in `codes.py`, password resets in `resets.py`,
+passkeys in `passkeys.py` (their second-factor and step-up checks are here).
 
 **Nothing says whether an account exists.** A sign-in for an unknown
 address, a suspended or deleted account, or one with no password costs the
@@ -26,8 +27,9 @@ the same failure limit, writes the same audit row and gets the same answer.
 session, TOTP or recovery-code rows locks the account row first. A password
 sign-in takes it after the password is checked and looks at the account
 again, so a reset or a suspension that landed meanwhile wins over the old
-password. The second-factor step and step-up by TOTP take it before the
-code is checked, since checking one writes its row (decision 0027).
+password. The second-factor step and step-up by TOTP or passkey take it
+before the code or passkey is checked, since checking one writes its row
+(decisions 0027 and 0028).
 
 **A new device** (no device cookie for the account) is mailed a notice after
 it signs in, without delaying the answer; a mailer that fails is logged and
@@ -37,20 +39,22 @@ changes nothing.
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, second_factor, sessions
+from kernel.auth import accounts, audit, ceremonies, second_factor, sessions
+from kernel.auth.ceremonies import AssertionCredential
 from kernel.auth.dependencies import current_user, lifetimes_of, signed_in, supersede
-from kernel.auth.models import Session, User
+from kernel.auth.models import Passkey, Session, User
 from kernel.auth.passwords import Passwords
 from kernel.auth.sessions import Resumed
 from kernel.config import KernelConfig
@@ -84,11 +88,13 @@ class SecondFactor(BaseModel):
     challenge: str = Field(max_length=128)
     totp: str | None = Field(default=None, max_length=16)
     recovery_code: str | None = Field(default=None, max_length=64)
+    passkey: AssertionCredential | None = None
 
     @model_validator(mode="after")
     def _one_method(self) -> SecondFactor:
-        if (self.totp is None) == (self.recovery_code is None):
-            raise ValueError("Send either a totp or a recovery_code.")
+        sent = (self.totp, self.recovery_code, self.passkey)
+        if sum(factor is not None for factor in sent) != 1:
+            raise ValueError("Send one of a totp, a recovery_code or a passkey.")
         return self
 
 
@@ -97,11 +103,12 @@ class StepUp(BaseModel):
 
     password: str | None = Field(default=None, max_length=1024)
     totp: str | None = Field(default=None, max_length=16)
+    passkey: AssertionCredential | None = None
 
     @model_validator(mode="after")
     def _one_method(self) -> StepUp:
-        if (self.password is None) == (self.totp is None):
-            raise ValueError("Send either a password or a totp.")
+        if sum(factor is not None for factor in (self.password, self.totp, self.passkey)) != 1:
+            raise ValueError("Send one of a password, a totp or a passkey.")
         return self
 
 
@@ -207,6 +214,11 @@ async def finish_with_second_factor(
     await accounts.lock(db, challenge.user_id)
     if body.totp is not None:
         method, ok = "totp", await second_factor.check_totp(db, challenge.user_id, body.totp)
+    elif body.passkey is not None:
+        method = "passkey"
+        ok = await _passkey_answers(
+            request, db, challenge.user_id, challenge.passkey, body.passkey, uv=False
+        )
     else:
         method = "recovery_code"
         ok = await second_factor.use_recovery_code(db, challenge.user_id, body.recovery_code or "")
@@ -335,11 +347,23 @@ async def step_up(
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """A fresh sign-in on this session (14.4), by password or TOTP."""
+    """A fresh sign-in on this session (14.4), by password, TOTP or passkey."""
     user, row = resumed.user, resumed.session
     if body.password is not None:
         method = "password"
         ok = await _passwords(request).check(body.password, user.password_hash)
+    elif body.passkey is not None:
+        method = "passkey"
+        await accounts.lock(db, user.id)  # before its token and passkey rows
+        # The options `step-up/passkey` gave this session, used up either way.
+        challenge = ceremonies.answered(body.passkey.response.client_data_json)
+        kept = challenge is not None and (
+            await ceremonies.use(
+                db, ceremonies.STEP_UP, challenge, user_id=user.id, session_id=row.id
+            )
+            is not None
+        )
+        ok = kept and await _passkey_answers(request, db, user.id, challenge, body.passkey, uv=True)
     else:
         method = "totp"
         await accounts.lock(db, user.id)  # before its TOTP row (decision 0027)
@@ -348,8 +372,10 @@ async def step_up(
         await failed_step_up(request, db, user, row)
         if method == "password":
             raise Problem("auth.invalid_credentials", 401, "That password isn't right.")
+        if method == "passkey":
+            raise Problem("auth.invalid_passkey", 401, "That passkey didn't work. Try again.")
         raise Problem("auth.invalid_second_factor", 401, "That code didn't work. Try again.")
-    token = await sessions.step_up(db, row, second_factor=method == "totp")
+    token = await sessions.step_up(db, row, second_factor=method != "password")
     audit.record(
         db,
         request,
@@ -365,6 +391,32 @@ async def step_up(
         supersede(request)
         sessions.set_session_cookie(response, token, row)
     return response
+
+
+async def _passkey_answers(
+    request: Request,
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    challenge: str | None,
+    credential: AssertionCredential,
+    *,
+    uv: bool,
+) -> bool:
+    """Whether `credential` is one of the account's passkeys answering
+    `challenge`, with user verification if `uv`. The caller holds the
+    account's lock; the passkey's count and last use are written."""
+    raw_id = credential.credential_id()
+    if challenge is None or raw_id is None:
+        return False
+    passkey = await db.scalar(
+        select(Passkey)
+        .where(Passkey.credential_id == raw_id, Passkey.user_id == user_id)
+        .execution_options(populate_existing=True)
+    )
+    if passkey is None:
+        return False
+    party = ceremonies.relying_party(request.app.state.config)
+    return ceremonies.used(passkey, credential, challenge, party, require_user_verification=uv)
 
 
 async def failed_step_up(request: Request, db: AsyncSession, user: User, row: Session) -> None:

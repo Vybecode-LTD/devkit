@@ -48,7 +48,6 @@ factors.
 from __future__ import annotations
 
 import logging
-import uuid
 from datetime import datetime
 from typing import cast
 
@@ -62,7 +61,7 @@ from starlette.responses import JSONResponse, Response
 from kernel import clock, crypto
 from kernel.auth import accounts, audit, second_factor, sessions, tokens
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
-from kernel.auth.models import RecoveryCode, Session, Totp, User
+from kernel.auth.models import RecoveryCode, Totp, User
 from kernel.auth.routes import failed_step_up
 from kernel.auth.sessions import Resumed
 from kernel.config import KernelConfig
@@ -94,23 +93,6 @@ def _config(request: Request) -> KernelConfig:
     return cast(KernelConfig, request.app.state.config)
 
 
-async def _held(db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID) -> User:
-    """Lock the account, before its TOTP and recovery-code rows, and look at
-    it again: if this session ended meanwhile, the other request stands."""
-    await accounts.lock(db, user_id)
-    user = await db.get(User, user_id, populate_existing=True)
-    session = await db.get(Session, session_id, populate_existing=True)
-    if (
-        user is None
-        or user.status not in accounts.SIGNS_IN
-        or session is None
-        or session.epoch != user.session_epoch
-    ):
-        await db.rollback()
-        raise Problem("kernel.not_signed_in", 401, "Sign in to continue.")
-    return user
-
-
 @router.post("/totp/setup")
 async def set_up_totp(
     request: Request,
@@ -118,7 +100,7 @@ async def set_up_totp(
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    user = await _held(db, user.id, resumed.session.id)
+    user = await accounts.held(db, user.id, resumed.session.id)
     if user.email_verified_at is None:
         await db.rollback()
         raise _unverified()
@@ -153,7 +135,7 @@ async def confirm_totp(
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    user = await _held(db, user.id, resumed.session.id)
+    user = await accounts.held(db, user.id, resumed.session.id)
     if user.email_verified_at is None:
         await db.rollback()
         raise _unverified()
@@ -185,7 +167,7 @@ async def remove_totp(
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    user = await _held(db, user.id, resumed.session.id)
+    user = await accounts.held(db, user.id, resumed.session.id)
     totp = await db.get(Totp, user.id, populate_existing=True)
     response = Response(status_code=204)
     if totp is None:  # nothing to remove
@@ -223,7 +205,7 @@ async def replace_recovery_codes(
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    user = await _held(db, user.id, resumed.session.id)
+    user = await accounts.held(db, user.id, resumed.session.id)
     confirmed = await db.scalar(
         select(Totp.user_id).where(Totp.user_id == user.id, Totp.confirmed_at.is_not(None))
     )

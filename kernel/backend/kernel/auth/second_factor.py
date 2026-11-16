@@ -18,6 +18,11 @@ an email code or link) has passed: 32 random bytes, kept as a keyed hash in
 it, valid 10 minutes and single use. Each try is counted before the code is
 checked, by an update that refuses a sixth, so racing requests get 5 tries
 between them, never more.
+
+**A passkey** as the second factor answers the WebAuthn challenge kept
+beside the sign-in's (`expect_passkey`), which each call to
+`/sign-in/second-factor/passkey` replaces and which costs no try; the
+check itself is `ceremonies.used` (decision 0028).
 """
 
 from __future__ import annotations
@@ -195,6 +200,46 @@ class Challenge:
     user_id: uuid.UUID
     #: The first factor the sign-in passed: "password", "code" or "link".
     method: str = "password"
+    #: The WebAuthn challenge (base64url) a passkey must answer: the one the
+    #: last `/sign-in/second-factor/passkey` gave, or None (decision 0028).
+    passkey: str | None = None
+
+
+def _live(token: str) -> list[Any]:
+    return [
+        Token.purpose == _PURPOSE,
+        Token.token_hash == _challenge_hash(token),
+        Token.used_at.is_(None),
+        Token.expires_at > clock.now(),
+        Token.attempts < CHALLENGE_TRIES,
+    ]
+
+
+async def owner_of_challenge(db: AsyncSession, token: str) -> uuid.UUID | None:
+    """Whose live challenge this is, locking nothing, so the caller can lock
+    the account before writing the challenge's row; None when it has ended."""
+    if not _CHALLENGE.fullmatch(token):
+        return None
+    owner: uuid.UUID | None = await db.scalar(select(Token.user_id).where(*_live(token)))
+    return owner
+
+
+async def expect_passkey(db: AsyncSession, token: str, challenge: str) -> bool:
+    """Keep the WebAuthn challenge a passkey must answer on the live sign-in
+    challenge, in place of any earlier one; it costs no try. False when the
+    challenge has ended. The caller holds the account's lock and commits."""
+    if not _CHALLENGE.fullmatch(token):
+        return False
+    row = (await db.execute(select(Token.id, Token.data).where(*_live(token)))).first()
+    if row is None:
+        return False
+    result = await db.execute(
+        update(Token)
+        .where(Token.id == row.id, *_live(token))
+        .values(data={**(row.data or {}), "passkey": challenge})
+        .execution_options(synchronize_session=False)
+    )
+    return _rows(result) == 1
 
 
 async def take_try(db: AsyncSession, token: str) -> Challenge | None:
@@ -206,13 +251,7 @@ async def take_try(db: AsyncSession, token: str) -> Challenge | None:
     row = (
         await db.execute(
             update(Token)
-            .where(
-                Token.purpose == _PURPOSE,
-                Token.token_hash == _challenge_hash(token),
-                Token.used_at.is_(None),
-                Token.expires_at > clock.now(),
-                Token.attempts < CHALLENGE_TRIES,
-            )
+            .where(*_live(token))
             .values(attempts=Token.attempts + 1)
             .returning(Token.id, Token.user_id, Token.data)
             .execution_options(synchronize_session=False)
@@ -220,7 +259,14 @@ async def take_try(db: AsyncSession, token: str) -> Challenge | None:
     ).first()
     if row is None or row.user_id is None:
         return None
-    return Challenge(row.id, row.user_id, str((row.data or {}).get("method", "password")))
+    data = row.data or {}
+    passkey = data.get("passkey")
+    return Challenge(
+        row.id,
+        row.user_id,
+        str(data.get("method", "password")),
+        passkey if isinstance(passkey, str) else None,
+    )
 
 
 async def close(db: AsyncSession, challenge: Challenge) -> bool:

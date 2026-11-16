@@ -21,8 +21,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.auth.dependencies import has_second_factor
-from kernel.auth.models import RolePermission, User
+from kernel.auth.models import RolePermission, Session, User
 from kernel.auth.permissions import OWNER, roles_of
+from kernel.errors import Problem
 
 #: The statuses that may sign in. Signing in cancels a pending deletion (14.7).
 SIGNS_IN = frozenset({"active", "deleting"})
@@ -44,6 +45,25 @@ async def lock(db: AsyncSession, user_id: uuid.UUID) -> None:
     account's one-time token rows takes this first, so every route takes
     rows in one order and none deadlocks another (decision 0021)."""
     await db.execute(select(User.id).where(User.id == user_id).with_for_update())
+
+
+async def held(db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID) -> User:
+    """Lock the account, before its factor, session and token rows, and look
+    at it again: if this session ended meanwhile (a reset, a password change,
+    a suspension), the other request stands and this one answers 401
+    (decisions 0026 and 0027)."""
+    await lock(db, user_id)
+    user = await db.get(User, user_id, populate_existing=True)
+    session = await db.get(Session, session_id, populate_existing=True)
+    if (
+        user is None
+        or user.status not in SIGNS_IN
+        or session is None
+        or session.epoch != user.session_epoch
+    ):
+        await db.rollback()
+        raise Problem("kernel.not_signed_in", 401, "Sign in to continue.")
+    return user
 
 
 async def permissions_of(

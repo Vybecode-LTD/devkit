@@ -237,8 +237,8 @@ class Session(Base):
 
 class Token(Base):
     """A one-time token, kept as a keyed hash: a verification, a reset, a
-    sign-in code or link, an email change, an invite, or a sign-in waiting on
-    its second factor.
+    sign-in code or link, an email change, an invite, a sign-in waiting on
+    its second factor, or a passkey ceremony's challenge (decision 0028).
 
     A 32-byte token is found by its hash, which is unique. A 6-digit sign-in
     code is not: two people can be sent the same digits, so a code is found by
@@ -248,7 +248,8 @@ class Token(Base):
     __table_args__ = (
         CheckConstraint(
             "purpose IN ('verify_email', 'reset_password', 'sign_in_code', 'magic_link', "
-            "'email_change', 'invite', 'second_factor')",
+            "'email_change', 'invite', 'second_factor', 'passkey_register', "
+            "'passkey_sign_in', 'passkey_step_up')",
             name="purpose_known",
         ),
         CheckConstraint(

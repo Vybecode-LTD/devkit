@@ -17,11 +17,13 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from functools import partial
+from typing import Any
 
 import httpx
 import pyotp
 import pytest
 
+from .authenticator import Authenticator, Credential, b64url, unb64url
 from .conftest import (
     NEW_PASSWORD,
     OTHER_PASSWORD,
@@ -396,8 +398,9 @@ STEP_UP = [
     _step_up("POST", "/api/auth/totp/setup", None, built=True),
     _step_up("DELETE", "/api/auth/totp", None, built=True),
     _step_up("POST", "/api/auth/recovery-codes", None, built=True),
-    _step_up("POST", "/api/auth/passkeys/register/start", {"name": "Laptop"}),
-    _step_up("DELETE", f"/api/auth/passkeys/{ZERO_ID}", None),
+    _step_up("POST", "/api/auth/passkeys/register/start", {"name": "Laptop"}, built=True),
+    _step_up("PATCH", f"/api/auth/passkeys/{ZERO_ID}", {"name": "Desk"}, built=True),
+    _step_up("DELETE", f"/api/auth/passkeys/{ZERO_ID}", None, built=True),
     _step_up("POST", "/api/auth/api-keys", {"name": "CI", "scopes": []}),
     _step_up("POST", "/api/auth/account/delete", None),
 ]
@@ -595,7 +598,7 @@ async def test_a_verified_provider_email_links_to_a_verified_account(api: Api) -
     "path",
     [
         "/api/auth/totp/setup",
-        pytest.param("/api/auth/passkeys/register/start", marks=not_built),
+        "/api/auth/passkeys/register/start",
     ],
 )
 async def test_an_unverified_account_adds_no_second_factor(api: Api, path: str) -> None:
@@ -1378,3 +1381,385 @@ async def test_new_recovery_codes_need_a_confirmed_totp(api: Api) -> None:
         refused = await api.http.post("/api/auth/recovery-codes")
         assert (refused.status_code, refused.json()["code"]) == (409, "auth.no_second_factor")
         await _set_up_totp(api)
+
+
+# Passkeys (14.2, 14.4, 14.5; decision 0028)
+
+REGISTER_START = "/api/auth/passkeys/register/start"
+REGISTER_FINISH = "/api/auth/passkeys/register/finish"
+PASSKEY_START = "/api/auth/passkeys/sign-in/start"
+PASSKEY_FINISH = "/api/auth/passkeys/sign-in/finish"
+SECOND_FACTOR_PASSKEY = "/api/auth/sign-in/second-factor/passkey"
+STEP_UP_PASSKEY = "/api/auth/step-up/passkey"
+
+
+def _key(api: Api, *, counter: bool = False) -> Authenticator:
+    """An authenticator for this site: a synced passkey, or with `counter` a
+    hardware key whose sign count rises."""
+    return Authenticator(str(api.http.base_url), counter=counter)
+
+
+async def _register(api: Api, key: Authenticator, name: str = "Laptop") -> dict[str, Any]:
+    """Register a passkey on the signed-in account: what finish answered."""
+    start = await api.http.post(REGISTER_START, json={"name": name})
+    assert start.status_code == 200, start.text
+    finish = await api.http.post(REGISTER_FINISH, json=key.create(start.json()))
+    assert finish.status_code == 201, finish.text
+    body: dict[str, Any] = finish.json()
+    return body
+
+
+async def _passkey_options(browser: Api) -> dict[str, Any]:
+    start = await browser.http.post(PASSKEY_START)
+    assert start.status_code == 200, start.text
+    options: dict[str, Any] = start.json()
+    return options
+
+
+async def _sign_in_by_passkey(browser: Api, key: Authenticator, **knobs: Any) -> httpx.Response:
+    options = await _passkey_options(browser)
+    return await browser.http.post(PASSKEY_FINISH, json=key.get(options, **knobs))
+
+
+async def _with_a_passkey(api: Api, **fields: Any) -> tuple[User, Authenticator, dict[str, Any]]:
+    """A signed-in account holding one passkey."""
+    user = await api.make_user(**fields)
+    await api.signed_in_as(user)
+    key = _key(api)
+    return user, key, await _register(api, key)
+
+
+def _code(response: httpx.Response) -> tuple[int, object]:
+    return response.status_code, response.json().get("code")
+
+
+async def test_registering_asks_for_a_discoverable_passkey_with_user_verification(
+    api: Api,
+) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    start = await api.http.post(REGISTER_START, json={"name": "Laptop"})
+    assert start.status_code == 200, start.text
+    options = start.json()
+    assert options["rp"]["id"] == api.http.base_url.host
+    assert options["authenticatorSelection"]["residentKey"] == "required"
+    assert options["authenticatorSelection"]["userVerification"] == "required"
+    assert options["attestation"] == "none"
+    assert len(unb64url(options["challenge"])) >= 32
+    assert options["user"]["name"] == user.email
+    assert user.email.encode() not in unb64url(options["user"]["id"])  # nothing personal
+
+
+async def test_a_registered_passkey_is_named_and_listed_oldest_first(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    first = await _register(api, _key(api), "  Work laptop ")
+    assert set(first) == {"id", "name", "created_at", "last_used_at"}
+    assert (first["name"], first["last_used_at"]) == ("Work laptop", None)
+    second = await _register(api, _key(api), "Phone")
+    listed = await api.http.get("/api/auth/passkeys")
+    assert listed.status_code == 200
+    items = listed.json()["items"]
+    assert [(item["id"], item["name"]) for item in items] == [
+        (first["id"], "Work laptop"),
+        (second["id"], "Phone"),
+    ]
+    assert set(items[0]) == {"id", "name", "created_at", "last_used_at"}
+
+
+async def test_registering_excludes_the_accounts_passkeys(api: Api) -> None:
+    _, key, _ = await _with_a_passkey(api)
+    options = (await api.http.post(REGISTER_START, json={"name": "Again"})).json()
+    excluded = [item["id"] for item in options["excludeCredentials"]]
+    assert excluded == [b64url(key.credentials[0].id)]
+
+
+async def test_a_registration_finishes_once_and_only_in_its_own_session(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    other = api.another_browser()
+    await other.signed_in_as(user)
+    key = _key(api)
+    options = (await api.http.post(REGISTER_START, json={"name": "Laptop"})).json()
+    credential = key.create(options)
+    elsewhere = await other.http.post(REGISTER_FINISH, json=credential)
+    assert _code(elsewhere) == (400, "auth.invalid_passkey")
+    here = await api.http.post(REGISTER_FINISH, json=credential)
+    assert here.status_code == 201, here.text  # the other session's try used nothing up
+    again = await api.http.post(REGISTER_FINISH, json=key.create(options))
+    assert _code(again) == (400, "auth.invalid_passkey")
+
+
+async def test_a_registration_challenge_lasts_5_minutes(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    key = _key(api)
+    late = (await api.http.post(REGISTER_START, json={"name": "Laptop"})).json()
+    await api.advance(5 * MINUTE + 1)
+    refused = await api.http.post(REGISTER_FINISH, json=key.create(late))
+    assert _code(refused) == (400, "auth.invalid_passkey")
+    await _register(api, key)  # the control: a new challenge works
+
+
+async def test_a_passkey_without_user_verification_isnt_registered(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    key = _key(api)
+    options = (await api.http.post(REGISTER_START, json={"name": "Laptop"})).json()
+    refused = await api.http.post(REGISTER_FINISH, json=key.create(options, uv=False))
+    assert _code(refused) == (400, "auth.invalid_passkey")
+    assert (await api.http.get("/api/auth/passkeys")).json()["items"] == []
+
+
+@pytest.mark.parametrize("name", ["", "   ", "x" * 81])
+async def test_a_passkey_needs_a_name_of_1_to_80_characters(api: Api, name: str) -> None:
+    await api.signed_in_as(await api.make_user())
+    refused = await api.http.post(REGISTER_START, json={"name": name})
+    assert _code(refused) == (422, "kernel.invalid_request")
+
+
+async def test_an_account_holds_at_most_20_passkeys(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    key = _key(api)
+    for number in range(20):
+        await _register(api, key, f"Key {number}")
+    refused = await api.http.post(REGISTER_START, json={"name": "One more"})
+    assert _code(refused) == (409, "auth.too_many_passkeys")
+
+
+@pytest.mark.parametrize("roles", [["member"], ["editor"]], ids=["member", "staff"])
+async def test_a_passkey_alone_signs_anyone_in(api: Api, roles: list[str]) -> None:
+    """Staff too, and with no second-factor step: a verified passkey is two
+    factors (the owner's answer)."""
+    user, key, _ = await _with_a_passkey(api, roles=roles, totp=True)
+    browser = api.another_browser()
+    options = await _passkey_options(browser)
+    assert not options.get("allowCredentials")  # no email asked, so nothing to name
+    assert options["userVerification"] == "required"
+    signed = await browser.http.post(PASSKEY_FINISH, json=key.get(options))
+    assert signed.status_code == 200, signed.text
+    assert (signed.json()["status"], signed.json()["user"]["id"]) == ("signed_in", user.id)
+    assert browser.session_cookie is not None
+    assert (await browser.session()).json()["user"]["id"] == user.id
+    [listed] = (await api.http.get("/api/auth/passkeys")).json()["items"]
+    assert listed["last_used_at"] is not None
+
+
+async def test_every_wrong_passkey_sign_in_gets_the_same_answer(api: Api) -> None:
+    _, key, _ = await _with_a_passkey(api)
+    registered = key.credentials[0]
+    stranger: Credential = key.make(registered.rp_id, registered.user_handle)  # never registered
+    wrongs: list[dict[str, Any]] = [
+        {"credential": registered, "uv": False},
+        {"credential": registered, "origin": "https://elsewhere.test"},
+        {"credential": registered, "rp_id": "elsewhere.test"},
+        {"credential": registered, "tamper": True},
+        {"credential": registered, "user_handle": bytes(16)},
+        {"credential": stranger},
+    ]
+    answers = [_shape(await _sign_in_by_passkey(api.another_browser(), key, **w)) for w in wrongs]
+    assert answers[0][0] == 401
+    assert answers[0][1]["code"] == "auth.invalid_passkey"  # type: ignore[index]
+    assert all(answer == answers[0] for answer in answers), answers
+    signed = await _sign_in_by_passkey(api.another_browser(), key, credential=registered)
+    assert signed.status_code == 200  # the control
+
+
+async def test_a_passkey_sign_in_challenge_works_once_and_for_5_minutes(api: Api) -> None:
+    _, key, _ = await _with_a_passkey(api)
+    options = await _passkey_options(api.another_browser())
+    first = await api.another_browser().http.post(PASSKEY_FINISH, json=key.get(options))
+    assert first.status_code == 200, first.text
+    again = await api.another_browser().http.post(PASSKEY_FINISH, json=key.get(options))
+    assert _code(again) == (401, "auth.invalid_passkey")
+    late = await _passkey_options(api.another_browser())
+    await api.advance(5 * MINUTE + 1)
+    expired = await api.another_browser().http.post(PASSKEY_FINISH, json=key.get(late))
+    assert _code(expired) == (401, "auth.invalid_passkey")
+
+
+async def test_a_passkey_whose_sign_count_goes_back_is_refused(api: Api) -> None:
+    """A hardware key counts its uses; a count that doesn't rise is a clone."""
+    await api.signed_in_as(await api.make_user())
+    key = _key(api, counter=True)
+    await _register(api, key)
+    assert (await _sign_in_by_passkey(api.another_browser(), key)).status_code == 200  # 1
+    replayed = await _sign_in_by_passkey(api.another_browser(), key, sign_count=1)
+    assert _code(replayed) == (401, "auth.invalid_passkey")
+    assert (await _sign_in_by_passkey(api.another_browser(), key)).status_code == 200  # 2
+
+
+async def _passkey_challenge(api: Api, user: User) -> tuple[Api, str, dict[str, Any]]:
+    """A password sign-in on a new browser waiting on its second factor, and
+    the passkey options for it."""
+    browser, first = await _second_factor(api, user)
+    challenge = str(first["challenge"])
+    options = await browser.http.post(SECOND_FACTOR_PASSKEY, json={"challenge": challenge})
+    assert options.status_code == 200, options.text
+    return browser, challenge, options.json()
+
+
+async def _finish_by_passkey(browser: Api, challenge: str, passkey: object) -> httpx.Response:
+    return await browser.http.post(
+        "/api/auth/sign-in/second-factor", json={"challenge": challenge, "passkey": passkey}
+    )
+
+
+async def test_a_passkey_is_a_second_factor_after_a_password(api: Api) -> None:
+    user, key, _ = await _with_a_passkey(api)
+    browser, first = await _second_factor(api, user)
+    assert first["methods"] == ["passkey"]
+    options = await browser.http.post(SECOND_FACTOR_PASSKEY, json={"challenge": first["challenge"]})
+    assert options.status_code == 200, options.text
+    allowed = [item["id"] for item in options.json()["allowCredentials"]]
+    assert allowed == [b64url(key.credentials[0].id)]
+    # As a second factor, user verification is preferred, not required.
+    passkey = key.get(options.json(), uv=False)
+    signed = await _finish_by_passkey(browser, str(first["challenge"]), passkey)
+    assert (signed.status_code, signed.json()["status"]) == (200, "signed_in")
+
+
+async def test_a_wrong_passkey_is_a_failed_second_factor(api: Api) -> None:
+    user, key, _ = await _with_a_passkey(api)
+    browser, challenge, options = await _passkey_challenge(api, user)
+    for _ in range(4):
+        wrong = await _finish_by_passkey(browser, challenge, key.get(options, tamper=True))
+        assert _code(wrong) == (401, "auth.invalid_second_factor")
+    right = await _finish_by_passkey(browser, challenge, key.get(options))
+    assert right.status_code == 200  # four tries spent, the fifth was right
+
+
+async def test_five_wrong_passkeys_end_the_sign_in(api: Api) -> None:
+    user, key, _ = await _with_a_passkey(api)
+    browser, challenge, options = await _passkey_challenge(api, user)
+    for _ in range(5):
+        await _finish_by_passkey(browser, challenge, key.get(options, tamper=True))
+    ended = await _finish_by_passkey(browser, challenge, key.get(options))
+    assert _code(ended) == (401, "auth.challenge_ended")
+
+
+async def test_passkey_options_cost_no_try_and_replace_the_last(api: Api) -> None:
+    user, key, _ = await _with_a_passkey(api)
+    browser, challenge, earlier = await _passkey_challenge(api, user)
+    for _ in range(5):
+        latest = await browser.http.post(SECOND_FACTOR_PASSKEY, json={"challenge": challenge})
+        assert latest.status_code == 200
+    stale = await _finish_by_passkey(browser, challenge, key.get(earlier))
+    assert _code(stale) == (401, "auth.invalid_second_factor")
+    right = await _finish_by_passkey(browser, challenge, key.get(latest.json()))
+    assert right.status_code == 200
+
+
+async def test_second_factor_passkey_options_need_a_live_sign_in_and_a_passkey(api: Api) -> None:
+    unknown = await api.http.post(SECOND_FACTOR_PASSKEY, json={"challenge": "x" * 43})
+    assert _code(unknown) == (401, "auth.challenge_ended")
+    browser, first = await _second_factor(api, await api.make_user(totp=True))
+    none = await browser.http.post(SECOND_FACTOR_PASSKEY, json={"challenge": first["challenge"]})
+    assert _code(none) == (409, "auth.no_passkey")
+
+
+async def test_stepping_up_with_a_passkey(api: Api) -> None:
+    _, key, made = await _with_a_passkey(api)
+    await api.advance(11 * MINUTE)
+    options = await api.http.post(STEP_UP_PASSKEY)
+    assert options.status_code == 200, options.text
+    assert options.json()["userVerification"] == "required"
+    assert [item["id"] for item in options.json()["allowCredentials"]] == [
+        b64url(key.credentials[0].id)
+    ]
+    before = api.session_cookie
+    stepped = await api.http.post("/api/auth/step-up", json={"passkey": key.get(options.json())})
+    assert (stepped.status_code, stepped.json()) == (200, {"status": "recent"})
+    assert api.session_cookie not in {None, before}
+    renamed = await api.http.patch(f"/api/auth/passkeys/{made['id']}", json={"name": "Desk"})
+    assert renamed.status_code == 200, renamed.text
+
+
+async def test_step_up_passkey_options_are_this_sessions_only(api: Api) -> None:
+    _, key, _ = await _with_a_passkey(api)
+    other = api.another_browser()
+    assert (await _sign_in_by_passkey(other, key)).status_code == 200
+    options = (await other.http.post(STEP_UP_PASSKEY)).json()
+    refused = await api.http.post("/api/auth/step-up", json={"passkey": key.get(options)})
+    assert _code(refused) == (401, "auth.invalid_passkey")
+    stepped = await other.http.post("/api/auth/step-up", json={"passkey": key.get(options)})
+    assert stepped.status_code == 200  # the control: the other session's try used nothing up
+
+
+async def test_five_wrong_passkeys_at_step_up_end_the_session(api: Api) -> None:
+    _, key, _ = await _with_a_passkey(api)
+    for attempt in range(5):
+        options = (await api.http.post(STEP_UP_PASSKEY)).json()
+        wrong = await api.http.post(
+            "/api/auth/step-up", json={"passkey": key.get(options, uv=False)}
+        )
+        expected = "auth.invalid_passkey" if attempt < 4 else "kernel.not_signed_in"
+        assert _code(wrong) == (401, expected)
+    assert (await api.session()).status_code == 401
+
+
+async def test_step_up_passkey_options_need_a_passkey(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    refused = await api.http.post(STEP_UP_PASSKEY)
+    assert _code(refused) == (409, "auth.no_passkey")
+
+
+async def test_renaming_a_passkey(api: Api) -> None:
+    _, _, made = await _with_a_passkey(api)
+    renamed = await api.http.patch(f"/api/auth/passkeys/{made['id']}", json={"name": " Desk "})
+    assert renamed.status_code == 200, renamed.text
+    assert (renamed.json()["id"], renamed.json()["name"]) == (made["id"], "Desk")
+    listed = (await api.http.get("/api/auth/passkeys")).json()["items"]
+    assert [item["name"] for item in listed] == ["Desk"]
+    too_long = await api.http.patch(f"/api/auth/passkeys/{made['id']}", json={"name": "x" * 81})
+    assert _code(too_long) == (422, "kernel.invalid_request")
+
+
+async def test_removing_a_passkey_ends_every_other_session(api: Api) -> None:
+    """The owner's answer: every removal is a second-factor reset (14.5),
+    though another passkey and a TOTP remain."""
+    _, key, made = await _with_a_passkey(api, totp=True)
+    kept = await _register(api, key, "Phone")
+    other = api.another_browser()
+    assert (await _sign_in_by_passkey(other, key)).status_code == 200  # by the one kept
+    removed = await api.http.delete(f"/api/auth/passkeys/{made['id']}")
+    assert (removed.status_code, removed.content) == (204, b"")
+    assert (await other.session()).status_code == 401
+    assert (await api.session()).status_code == 200
+    listed = (await api.http.get("/api/auth/passkeys")).json()["items"]
+    assert [item["id"] for item in listed] == [kept["id"]]
+    gone = await _sign_in_by_passkey(api.another_browser(), key, credential=key.credentials[0])
+    assert _code(gone) == (401, "auth.invalid_passkey")
+    still = await _sign_in_by_passkey(api.another_browser(), key, credential=key.credentials[1])
+    assert still.status_code == 200  # the control
+
+
+async def test_removing_a_passkey_voids_a_sign_in_waiting_on_it(api: Api) -> None:
+    user, key, made = await _with_a_passkey(api)
+    await _register(api, key, "Phone")
+    browser, challenge, options = await _passkey_challenge(api, user)
+    assert (await api.http.delete(f"/api/auth/passkeys/{made['id']}")).status_code == 204
+    voided = await _finish_by_passkey(browser, challenge, key.get(options))
+    assert _code(voided) == (401, "auth.challenge_ended")
+
+
+async def test_a_passkey_is_only_its_owners_to_rename_or_remove(api: Api) -> None:
+    _, key, made = await _with_a_passkey(api)
+    intruder = api.another_browser()
+    await intruder.signed_in_as(await api.make_user())
+    path = f"/api/auth/passkeys/{made['id']}"
+    renamed = await intruder.http.patch(path, json={"name": "Mine now"})
+    assert _code(renamed) == (404, "auth.passkey_not_found")
+    removed = await intruder.http.delete(path)
+    assert _code(removed) == (404, "auth.passkey_not_found")
+    assert (await intruder.http.get("/api/auth/passkeys")).json()["items"] == []
+    assert (await _sign_in_by_passkey(api.another_browser(), key)).status_code == 200
+
+
+async def test_passkey_sign_in_10_per_ip_per_minute(api: Api) -> None:
+    starts = [(await api.http.post(PASSKEY_START)).status_code for _ in range(11)]
+    assert starts == [200] * 10 + [429]
+    options = {"challenge": b64url(bytes(32)), "rpId": api.http.base_url.host}
+    key = _key(api)
+    key.make(api.http.base_url.host, bytes(16))  # a passkey this site never saw
+    finishes = [
+        (await api.http.post(PASSKEY_FINISH, json=key.get(options))).status_code for _ in range(11)
+    ]
+    assert finishes == [401] * 10 + [429]
