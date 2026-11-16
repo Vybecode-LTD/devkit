@@ -42,7 +42,7 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 
 ## Stack (decision 0001)
 
-Python 3.12+, FastAPI, Pydantic v2 (strict), async SQLAlchemy 2 + asyncpg, Postgres 16+, Alembic with one branch per module; React 19, Vite, TypeScript strict, React Router 7 (library mode), TanStack Query; design tokens as CSS custom properties with Tailwind v4 mapped to them; openapi-typescript + openapi-fetch for the typed client; Postgres-backed job queue; S3-compatible storage (Cloudflare R2); Docker on Railway. Tests: pytest, Vitest + React Testing Library, Playwright.
+Python 3.12+, FastAPI, Pydantic v2 (strict), async SQLAlchemy 2 + asyncpg, Postgres 16+, Alembic with one branch per module; auth by argon2-cffi, pyotp and webauthn (passkeys, decision 0028); React 19, Vite, TypeScript strict, React Router 7 (library mode), TanStack Query; design tokens as CSS custom properties with Tailwind v4 mapped to them; openapi-typescript + openapi-fetch for the typed client; Postgres-backed job queue; S3-compatible storage (Cloudflare R2); Docker on Railway. Tests: pytest, Vitest + React Testing Library, Playwright.
 
 ## Commands
 
