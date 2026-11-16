@@ -11,6 +11,7 @@ from cryptography.fernet import Fernet
 from kernel.config import (
     KernelConfig,
     get_config,
+    mail_problems,
     modules_allowed,
     placeholder_addresses,
     refuse_unsafe,
@@ -254,3 +255,56 @@ def test_storage_over_http_is_allowed_with_debug(caplog: pytest.LogCaptureFixtur
     with caplog.at_level(logging.WARNING):
         refuse_unsafe(config(debug=True, storage_bucket="x"))
     assert any("STORAGE_ENDPOINT_URL" in record.getMessage() for record in caplog.records)
+
+
+# --- mail (kernel.email, decision 0033) ---------------------------------------------
+
+MAIL_PASSWORD = "smtp-pass-31c7aa"
+MAIL_KEY = "made-up-resend-key"
+SMTP = {"mail_from": "hello@site.test", "smtp_host": "smtp.site.test"}
+RESEND = {"mail_from": "hello@site.test", "resend_api_key": MAIL_KEY}
+
+
+def test_mail_off_or_whole_passes() -> None:
+    assert mail_problems(config()) == []
+    assert mail_problems(config(**SMTP)) == []
+    assert mail_problems(config(**SMTP, smtp_username="u", smtp_password=MAIL_PASSWORD)) == []
+    assert mail_problems(config(**RESEND)) == []
+    assert MAIL_KEY not in repr(config(**RESEND))
+    assert MAIL_PASSWORD not in repr(config(**SMTP, smtp_password=MAIL_PASSWORD))
+
+
+@pytest.mark.parametrize(
+    ("values", "problem"),
+    [
+        ({**SMTP, "mail_from": ""}, "MAIL_FROM is blank"),
+        ({**SMTP, "mail_from": "Site <hello@site.test>"}, "MAIL_FROM is not one bare address"),
+        ({**SMTP, "mail_from": "a@site.test, b@site.test"}, "MAIL_FROM is not one bare address"),
+        ({**SMTP, "mail_from": "hello@example.com"}, "MAIL_FROM is a placeholder"),
+        ({**SMTP, "smtp_host": ""}, "Mail is set in part"),
+        ({"mail_from": "hello@site.test"}, "Mail is set in part"),
+        ({"smtp_username": "u", "smtp_password": MAIL_PASSWORD}, "Mail is set in part"),
+        ({**SMTP, "smtp_username": "u"}, "SMTP_USERNAME and SMTP_PASSWORD go together"),
+        ({**SMTP, "smtp_password": MAIL_PASSWORD}, "SMTP_USERNAME and SMTP_PASSWORD go together"),
+        ({**RESEND, "resend_api_key": ""}, "Mail is set in part"),
+        ({**RESEND, "mail_from": ""}, "MAIL_FROM is blank"),
+    ],
+)
+def test_mail_set_in_part_is_refused(values: dict[str, str], problem: str) -> None:
+    problems = mail_problems(config(**values))
+    assert any(problem in found for found in problems), problems
+    for found in problems:
+        assert MAIL_PASSWORD not in found
+        assert MAIL_KEY not in found
+    with pytest.raises(RuntimeError, match="Refusing to start"):
+        refuse_unsafe(config(**values))
+
+
+def test_smtp_comes_first_and_resend_only_without_it() -> None:
+    # The owner's rule (decision 0033): SMTP whenever it's set; Resend only on a
+    # host that blocks SMTP, where only its key is set.
+    assert config().mail_adapter == ""
+    assert config(**SMTP).mail_adapter == "smtp"
+    assert config(**RESEND).mail_adapter == "resend"
+    assert config(**SMTP, resend_api_key=MAIL_KEY).mail_adapter == "smtp"
+    assert config(**RESEND, smtp_host=" ").mail_adapter == "resend"

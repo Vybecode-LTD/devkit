@@ -7,7 +7,8 @@ fixed layout (SPEC.md section 4):
 - `backend/<id_>/router.py`'s `router`, mounted at /api/<id>;
 - `backend/<id_>/schemas.py`'s `Settings`, the module's settings model;
 - `backend/<id_>/__init__.py`'s `CSP`, the hosts it adds while it's on, as
-  (directive, https origin) pairs.
+  (directive, https origin) pairs;
+- `backend/<id_>/emails.py`'s `EMAILS`, its email templates (kernel.email).
 """
 
 from __future__ import annotations
@@ -41,6 +42,7 @@ def discover() -> list[InstalledModule]:
                 router=_attribute(f"{package}.router", "router"),
                 settings=_attribute(f"{package}.schemas", "Settings"),
                 csp=tuple(_attribute(package, "CSP") or ()),
+                emails=dict(_attribute(f"{package}.emails", "EMAILS") or {}),
             )
         )
     return found

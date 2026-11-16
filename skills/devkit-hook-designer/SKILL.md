@@ -24,7 +24,7 @@ Read the sections below and write down, for the hook you're adding, whether each
 | Extension point | Where in SPEC.md | Already used for |
 | --- | --- | --- |
 | Manifest field | 5 (`module.json`), `schema/module.schema.json` | `data_hooks`, `notifications`, `jobs`, `slots`, `events` |
-| Fixed-name module part, found by the kernel | 7 (decision 0009), 9, 10 | `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP`, `server_copy.py`'s functions, `export_user_data` / `delete_user_data` |
+| Fixed-name module part, found by the kernel | 7 (decision 0009), 9, 10 | `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP`, `emails.py`'s `EMAILS`, `server_copy.py`'s functions, `export_user_data` / `delete_user_data` |
 | Kernel public API | 6 (each row has a "Since" phase) | `require_permission`, `notify`, `moderation`, `rate_limit` |
 | UI slot | 8 | `admin.dashboard.widget`, `account.section`, `nav.*`, `site.footer` |
 | Kernel event | 11 | `auth.user.deleted`, `kernel.module.disabled`, `kernel.settings.changed` |

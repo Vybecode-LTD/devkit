@@ -18,10 +18,15 @@ What it does, in order:
    replaced session token reaches the browser on any answer, errors too) and
    UnexpectedErrors (innermost, so even a 500 carries the security headers).
 6. Answers every error as problem details.
-7. Installs the mailer (`mailer=`, else `LogMailer`, which sends nothing)
-   behind `kernel.email.Checked`, as `app.state.mailer`, and the breach
-   lookup new passwords are checked against (`breach_lookup=`, else Have I
-   Been Pwned's range API), as `app.state.breach_lookup`.
+7. Installs the mailer (`mailer=`, else SMTP when SMTP_HOST is set, else
+   Resend when only RESEND_API_KEY is, else `LogMailer`, which sends nothing)
+   behind `kernel.email.Checked`, as
+   `app.state.mailer`, and the breach lookup new passwords are checked against
+   (`breach_lookup=`, else Have I Been Pwned's range API), as
+   `app.state.breach_lookup`.
+8. Checks every module's email templates and the site's rewording of them
+   (`emails=`), refusing to start on a bad one, and installs them with the
+   mailer for `kernel.email.send`.
 
 The API docs (/docs, /redoc, /openapi.json) are served only with DEBUG on: on
 a live site they would map every route for anyone.
@@ -30,14 +35,14 @@ a live site they would map every route for anyone.
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Iterable
+from collections.abc import AsyncIterator, Iterable, Mapping
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from kernel import error_tracking, logs
+from kernel import email, error_tracking, logs
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
@@ -52,9 +57,10 @@ from kernel.auth.sign_up import router as sign_up_router
 from kernel.auth.totp import router as totp_router
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
-from kernel.email import Checked, LogMailer, Mailer
+from kernel.email import Checked, Mailer, Template, build_templates
 from kernel.errors import BodyLimit, UnexpectedErrors, install_handlers
 from kernel.logs import AccessLog
+from kernel.mail_adapters import mailer_from_config
 from kernel.modules import InstalledModule, ModuleRegistry, require_module
 from kernel.ratelimit import RateLimiter
 from kernel.routes import router as kernel_router
@@ -72,6 +78,7 @@ def create_app(
     database: Database | None = None,
     mailer: Mailer | None = None,
     breach_lookup: RangeLookup | None = None,
+    emails: Mapping[str, Template] | None = None,
 ) -> FastAPI:
     config = config or get_config()
     refuse_unsafe(config)
@@ -82,6 +89,12 @@ def create_app(
     try:
         allowed = modules_allowed(config, {module.id for module in installed})
         registry = ModuleRegistry(installed, allowed, ttl=config.modules_cache_seconds)
+    except ValueError as error:
+        raise RuntimeError(f"Refusing to start: {error}") from error
+    try:
+        templates = build_templates(
+            ((module.id, module.emails) for module in installed), emails or {}
+        )
     except ValueError as error:
         raise RuntimeError(f"Refusing to start: {error}") from error
 
@@ -122,7 +135,8 @@ def create_app(
     app.state.csp = policy
     app.state.limiter = RateLimiter(config.rate_limit_storage, enabled=config.rate_limit_enabled)
     app.state.client_ip_header = config.client_ip_header
-    app.state.mailer = Checked(mailer if mailer is not None else LogMailer())
+    app.state.mailer = Checked(mailer if mailer is not None else mailer_from_config(config))
+    email.install(app.state.mailer, templates, site_name=config.site_name, site_url=config.site_url)
     app.state.passwords = Passwords.from_config(config)
     app.state.breach_lookup = breach_lookup if breach_lookup is not None else ask_range
     #: Every permission the kernel or an installed module declares: an owner

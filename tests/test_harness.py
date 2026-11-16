@@ -35,6 +35,10 @@ def test_discover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
             "__init__.py": 'CSP = [("frame-src", "https://player.test")]\n',
             "router.py": "from fastapi import APIRouter\nrouter = APIRouter()\n",
             "schemas.py": "from pydantic import BaseModel\nclass Settings(BaseModel):\n    size: int = 3\n",
+            "emails.py": (
+                "from kernel import email\n"
+                'EMAILS = {"test-gallery.new_photo": email.Template("New photo on $site_name", "See it.")}\n'
+            ),
         },
     )
     bare = tmp_path / "modules" / "test-bare"
@@ -50,11 +54,13 @@ def test_discover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         for name in [n for n in sys.modules if n.startswith("test_gallery")]:
             del sys.modules[name]
     assert found["test-bare"].router is None
+    assert found["test-bare"].emails == {}
     gallery = found["test-gallery"]
     assert gallery.router is not None
     assert gallery.settings is not None
     assert gallery.settings().model_dump() == {"size": 3}
     assert gallery.csp == (("frame-src", "https://player.test"),)
+    assert gallery.emails["test-gallery.new_photo"].subject == "New photo on $site_name"
 
 
 def test_the_migrations_command(capsys: pytest.CaptureFixture[str]) -> None:

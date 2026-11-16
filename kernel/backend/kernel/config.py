@@ -18,7 +18,10 @@ typo never silently leaves a module off.
 
 **Storage** (`kernel.storage`, decision 0032) is off until its variables are
 set. Set in part, it stops the start outside DEBUG, as an unsafe secret does
-(`storage_problems`).
+(`storage_problems`). **Mail** (`kernel.email`, decision 0033) works the same
+way: nothing set, no mail; set in part, the start stops (`mail_problems`).
+SMTP comes first: SMTP_HOST set means SMTP. Resend is only for a host that
+blocks SMTP, where RESEND_API_KEY is set without SMTP_HOST.
 """
 
 from __future__ import annotations
@@ -128,10 +131,34 @@ class KernelConfig(BaseSettings):
     #: runs more than one.
     rate_limit_storage: str = "memory://"
 
+    #: Mail (kernel.email, decision 0033), SMTP first: with SMTP_HOST set,
+    #: mail goes out through any provider's SMTP (implicit TLS on port 465,
+    #: STARTTLS on any other). Only on a host that blocks outbound SMTP, such
+    #: as Railway's Hobby plan, set RESEND_API_KEY instead, without SMTP_HOST.
+    #: Neither set: nothing is sent (LogMailer). MAIL_FROM is the one address
+    #: mail comes from; MAIL_FROM_NAME (default: SITE_NAME) is shown beside it.
+    mail_from: str = ""
+    mail_from_name: str = ""
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    resend_api_key: SecretStr = SecretStr("")
+
     sentry_dsn: str = ""
     sentry_environment: str = ""
     log_format: Literal["json", "text"] = "json"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+
+    @property
+    def mail_adapter(self) -> Literal["", "smtp", "resend"]:
+        """Which adapter sends mail: SMTP whenever SMTP_HOST is set, Resend
+        only when RESEND_API_KEY is set without it, else none."""
+        if self.smtp_host.strip():
+            return "smtp"
+        if self.resend_api_key.get_secret_value().strip():
+            return "resend"
+        return ""
 
     @property
     def async_database_url(self) -> str:
@@ -291,11 +318,44 @@ def storage_problems(config: KernelConfig) -> list[str]:
     return problems
 
 
+def mail_problems(config: KernelConfig) -> list[str]:
+    """What's wrong with the mail variables, by name, never by value.
+    Nothing set is fine (no mail is sent); some set means mail needs the rest."""
+    from kernel.email import is_address
+
+    sender = config.mail_from.strip()
+    login = bool(config.smtp_username.strip()), bool(config.smtp_password.get_secret_value())
+    if not config.mail_adapter:
+        if sender or any(login):
+            return [
+                "Mail is set in part: set SMTP_HOST (or, only on a host that blocks SMTP, "
+                "RESEND_API_KEY), or nothing is sent."
+            ]
+        return []
+    problems = []
+    if not sender:
+        problems.append("MAIL_FROM is blank: mail needs the address it comes from.")
+    elif not is_address(sender):
+        problems.append(
+            "MAIL_FROM is not one bare address (no name or angle brackets: MAIL_FROM_NAME holds the name)."
+        )
+    elif is_placeholder_domain(sender.rpartition("@")[2]):
+        problems.append("MAIL_FROM is a placeholder address, not the site's own.")
+    if config.mail_adapter == "smtp" and login[0] != login[1]:
+        problems.append("SMTP_USERNAME and SMTP_PASSWORD go together: set both or neither.")
+    return problems
+
+
 def refuse_unsafe(config: KernelConfig) -> None:
-    """Stop the start on unsafe secrets, a placeholder address or storage set
-    in part, unless DEBUG is on, when each problem is only logged."""
+    """Stop the start on unsafe secrets, a placeholder address, or storage or
+    mail set in part, unless DEBUG is on, when each problem is only logged."""
     secrets_wrong = unsafe_secrets(config)
-    problems = secrets_wrong + placeholder_addresses(config) + storage_problems(config)
+    problems = (
+        secrets_wrong
+        + placeholder_addresses(config)
+        + storage_problems(config)
+        + mail_problems(config)
+    )
     if not config.debug and not config.client_ip_header.strip():
         log.warning(
             "CLIENT_IP_HEADER is blank, so every visitor counts as the address that "

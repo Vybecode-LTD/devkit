@@ -30,7 +30,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -44,6 +44,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.db import get_db
+from kernel.email import Template
 from kernel.errors import Problem
 from kernel.models import ModuleState
 
@@ -88,6 +89,9 @@ class InstalledModule:
     settings: type[BaseModel] | None = None
     #: Hosts the module adds to the CSP while it's on: (directive, https origin).
     csp: tuple[tuple[str, str], ...] = ()
+    #: The module's email templates, each named `<id>.<name>` (kernel.email).
+    #: A site may reword them through create_app(emails=...).
+    emails: Mapping[str, Template] = field(default_factory=dict)
 
     @property
     def id(self) -> str:

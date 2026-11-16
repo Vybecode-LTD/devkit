@@ -83,7 +83,7 @@ modules/<id>/
   MODULE.md
   CHANGELOG.md
   backend/<id_>/  models.py schemas.py service.py router.py   (<id_> = id with _ for -)
-                  events.py jobs.py server_copy.py public.py   (only those needed)
+                  events.py jobs.py server_copy.py public.py emails.py   (only those needed)
   migrations/     Alembic branch "<id>"
   openapi.json    generated, committed
   web/            module.web.ts api.ts public.ts pages/ components/

@@ -1,9 +1,22 @@
-"""Mail out of the kernel (SPEC.md sections 6 and 14; decision 0013).
+"""Mail out of the kernel (SPEC.md sections 6 and 14; decisions 0013 and 0033).
 
-A site's mail goes through one adapter, a `Mailer`: SMTP, Mailgun or Resend,
-chosen in K3, when `email.send(template, to, context)` arrives on top of it.
-Until then K2's sign-up, codes and resets reach the mailer through
-`get_mailer`.
+`send(template, to, context)` is how a module, the kernel or a job sends mail:
+
+- **Templates.** A `Template` holds a subject, a text body and an optional
+  HTML body in `string.Template` syntax (`$name`, `${name}`; `$$` for a dollar
+  sign). A module declares its own, named `<module id>.<name>`, on
+  `InstalledModule(emails=...)`; a site rewords any of them through
+  `create_app(emails=...)`, using only the placeholders the original uses.
+  `create_app` checks both and refuses to start on a bad one.
+- **Rendering.** Every template also gets `site_name` and `site_url`. In the
+  subject, each value is folded onto one line; in the HTML, each is
+  HTML-escaped; the text body takes them as they are. A missing value is
+  ValueError naming the template and the placeholder, never a value.
+- **The adapter** is the site's `Mailer` (`kernel.mail_adapters`: SMTP
+  first, Resend only on a host that blocks SMTP), behind `Checked`. `create_app` installs it and the
+  templates for `send`; a worker calls `install` itself. A failed delivery is
+  `MailError`, which says whether trying again can help. K2's routes still
+  reach the mailer through `get_mailer` until their mails move onto templates.
 
 - `Mailer`: `async send(to, subject, text, html=None)`. An adapter delivers or
   raises, and never logs the address, the subject or the body.
@@ -20,10 +33,13 @@ Until then K2's sign-up, codes and resets reach the mailer through
 
 from __future__ import annotations
 
+import html as html_escape
 import logging
 import re
+import string
 import unicodedata
 from collections import deque
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -123,3 +139,153 @@ def get_mailer(request: Request) -> Mailer:
     """The app's mailer, as a dependency: `mailer: Mailer = Depends(get_mailer)`."""
     mailer: Mailer = request.app.state.mailer
     return mailer
+
+
+# --- templates and send (decision 0033) ------------------------------------------
+
+#: A template's name: the owning module's id (or `kernel`), a dot, and a name.
+_TEMPLATE_NAME = re.compile(r"([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\.([a-z0-9_]+)")
+#: What every template gets without being passed it.
+SITE_VALUES = frozenset({"site_name", "site_url"})
+
+
+class MailError(RuntimeError):
+    """A message that wasn't delivered, or may not have been. `retryable` says
+    whether trying again can help (a limit, a provider's 5xx, a dropped
+    connection) or not (a bad key, an unverified domain, a refused address);
+    `retry_after` is the provider's wait in seconds, when it gave one. The
+    message never holds the address, the subject, the body or a credential."""
+
+    def __init__(self, message: str, *, retryable: bool, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retryable = retryable
+        self.retry_after = retry_after
+
+
+@dataclass(frozen=True)
+class Template:
+    subject: str
+    text: str
+    html: str | None = None
+
+
+@dataclass(frozen=True)
+class Rendered:
+    subject: str
+    text: str
+    html: str | None
+
+
+def _placeholders(name: str, template: Template) -> frozenset[str]:
+    """The template's placeholders; ValueError, naming it, if it can't render."""
+    if any(_has_break(character) for character in template.subject):
+        raise ValueError(f"Email template {name}'s subject must be one line.")
+    found: set[str] = set()
+    for part in (template.subject, template.text, template.html):
+        if part is None:
+            continue
+        compiled = string.Template(part)
+        if not compiled.is_valid():
+            raise ValueError(
+                f"Email template {name} has a $ that starts no placeholder: write $$ for a dollar sign."
+            )
+        found.update(compiled.get_identifiers())
+    return frozenset(found)
+
+
+def build_templates(
+    declared: Iterable[tuple[str, Mapping[str, Template]]], site: Mapping[str, Template]
+) -> dict[str, Template]:
+    """Every template, from (module id, its templates) pairs and the site's
+    rewording. Raises ValueError, naming the template, on any it can't take."""
+    templates: dict[str, Template] = {}
+    placeholders: dict[str, frozenset[str]] = {}
+    for owner, emails in declared:
+        for name, template in emails.items():
+            match = _TEMPLATE_NAME.fullmatch(name)
+            if match is None or match.group(1) != owner:
+                raise ValueError(
+                    f"{owner} may only declare {owner}.* email templates named in [a-z0-9_], not {name}."
+                )
+            placeholders[name] = _placeholders(name, template)
+            templates[name] = template
+    for name, template in site.items():
+        if name not in templates:
+            raise ValueError(f"The site rewords email template {name}, which no module declares.")
+        extra = _placeholders(name, template) - placeholders[name] - SITE_VALUES
+        if extra:
+            listed = ", ".join(f"${placeholder}" for placeholder in sorted(extra))
+            raise ValueError(f"The site's {name} uses {listed}, which its senders don't pass.")
+        templates[name] = template
+    return templates
+
+
+@dataclass(frozen=True)
+class _Postbox:
+    mailer: Mailer
+    templates: Mapping[str, Template]
+    site_name: str
+    site_url: str
+
+
+_postbox: _Postbox | None = None
+
+
+def install(
+    mailer: Mailer, templates: Mapping[str, Template], *, site_name: str, site_url: str
+) -> None:
+    """Sets the mailer and the templates `send` uses: `create_app` calls it,
+    and so does a worker that sends mail outside a request."""
+    global _postbox
+    _postbox = _Postbox(mailer, dict(templates), site_name, site_url.rstrip("/"))
+
+
+def _current() -> _Postbox:
+    if _postbox is None:
+        raise RuntimeError(
+            "Mail isn't set up: create_app installs the mailer and templates (a worker calls install)."
+        )
+    return _postbox
+
+
+def _one_line(value: str) -> str:
+    return " ".join(
+        "".join(" " if _has_break(character) else character for character in value).split()
+    )
+
+
+def render(template: str, context: Mapping[str, str | int]) -> Rendered:
+    """The message `template` makes with `context`."""
+    postbox = _current()
+    chosen = postbox.templates.get(template)
+    if chosen is None:
+        raise ValueError(
+            f"No email template {template}: a module declares it on InstalledModule(emails=...)."
+        )
+    for key in SITE_VALUES & set(context):
+        raise ValueError(f"An email's context can't set {key}: the kernel fills it in.")
+    values = {key: str(value) for key, value in context.items()}
+    values.update(site_name=postbox.site_name, site_url=postbox.site_url)
+    try:
+        subject = string.Template(chosen.subject).substitute(
+            {k: _one_line(v) for k, v in values.items()}
+        )
+        text = string.Template(chosen.text).substitute(values)
+        html = (
+            None
+            if chosen.html is None
+            else string.Template(chosen.html).substitute(
+                {k: html_escape.escape(v) for k, v in values.items()}
+            )
+        )
+    except KeyError as missing:
+        raise ValueError(f"Email template {template} needs ${missing.args[0]}.") from None
+    return Rendered(subject, text, html)
+
+
+async def send(template: str, to: str, context: Mapping[str, str | int]) -> None:
+    """Renders `template` with `context` and sends it to `to` through the
+    site's mailer. Raises ValueError on the caller's bug (an unknown template, a
+    missing value, a bad address) and MailError when delivery fails."""
+    rendered = render(template, context)
+    await _current().mailer.send(to, rendered.subject, rendered.text, rendered.html)

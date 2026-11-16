@@ -43,7 +43,7 @@ The backend is Python, modules are copied in, and auth is homemade. These were l
 | Realtime | FastAPI WebSockets; Redis pub/sub once a site runs more than one worker |
 | Background jobs | Kernel worker and scheduler on a Postgres-backed queue, so no extra service |
 | File storage | S3-compatible (Cloudflare R2) via boto3 |
-| Email | One adapter: SMTP, Mailgun or Resend |
+| Email | SMTP first; Resend's HTTPS API only where the host blocks SMTP (decision 0033) |
 | Payments | Stripe |
 | Deploy | Docker on Railway |
 | Dependencies | uv-compiled, hash-pinned, with pip-audit floors (the VybeSite pattern) |
@@ -91,7 +91,7 @@ devkit/
     MODULE.md
     CHANGELOG.md
     backend/<id_>/        __init__.py models.py schemas.py service.py router.py   (<id_> = id with _ for -)
-                          events.py jobs.py server_copy.py public.py
+                          events.py jobs.py server_copy.py public.py emails.py
     migrations/           Alembic branch "<id>"
     openapi.json          generated and committed
     web/                  module.web.ts api.ts public.ts pages/ components/   (routes are defined in module.web.ts)
@@ -205,7 +205,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `require_permission(key)` | 403 unless the user holds the permission | `Depends(require_permission("blog.post.publish"))` | K2 |
 | `require_owner_or(permission)` | The resource's owner, or staff holding the permission (14.8) | Editing your own comment | K2 |
 | `require_recent_auth(minutes=10)` | Forces a fresh sign-in for sensitive actions | Changing a payout account | K2 |
-| `email.send(template, to, context)` | Sends through the site's mail adapter | Welcome email | K3 |
+| `email.send(template, to, context)`, `email.Template` | Renders a template the module declares (in `emails.py`, named `<id>.<name>`; a site may reword it) and sends it through the site's adapter: SMTP, or Resend only where the host blocks SMTP (decision 0033) | Welcome email | K3 |
 | `storage.put / get / download / delete / signed_url / public_url` | S3-compatible file storage: a private bucket reached only through signed links, and a public one at its own address (15, decision 0032) | Uploads | K3 |
 | `events.emit(name, payload)`, `@events.on(name)` | Durable events between modules (section 11) | `blog.post.published` | K3 |
 | `jobs.enqueue(name, payload, run_at)`, `@jobs.scheduled(cron)` | Background and scheduled work | Scheduled publishing | K3 |
@@ -272,7 +272,7 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `devkit check` and code review enforce.
 
-**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9) and `public.py` (what other modules may call). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings` and `__init__.py`'s `CSP` (decision 0009).
+**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call) and `emails.py` (its email templates). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009) and `emails.py`'s `EMAILS` (decision 0033).
 
 **Routes**
 
@@ -808,6 +808,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-16 | Kernel email: `email.send` renders a template a module declares in `emails.py` (`EMAILS`, named `<id>.<name>`), which a site may reword with the same placeholders; the adapter is SMTP whenever `SMTP_HOST` is set, and Resend's HTTPS API only where the host blocks SMTP (`RESEND_API_KEY` alone) (2, 4, 6, 7, decision 0033) |
 | 2026-11-16 | Kernel storage: a private bucket reached only through signed links (5 minutes unless asked, 6 hours at most, always a download) and an optional public bucket at its own address; a provider's file under an unguessable key in the public bucket, deleted with its job; inline only for five raster image types whose bytes match; the API adds `download`, `delete` and `public_url` (6, 15, decision 0032) |
 | 2026-11-16 | The kernel declares `kernel.moderation.act`, granted to admin and editor, for acting on moderation reports; 14.1 says outright that a custom role is staff (6, 14.1, decision 0031) |
 | 2026-11-16 | The mail for an added passkey or TOTP carries a 7-day undo link that removes that factor, ends every session and voids every live way in, and outlives resets and other undos (`POST /api/auth/second-factor/undo`; 14.6, 14.7, 14.11, decision 0030) |

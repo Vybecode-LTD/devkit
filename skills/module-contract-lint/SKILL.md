@@ -25,7 +25,7 @@ Report every row as pass or fail with the command or file that shows it. A row t
 
 ```
 modules/<id>/module.json MODULE.md CHANGELOG.md
-  backend/<id_>/ models.py schemas.py service.py router.py [events.py jobs.py server_copy.py public.py]
+  backend/<id_>/ models.py schemas.py service.py router.py [events.py jobs.py server_copy.py public.py emails.py]
   migrations/     its own Alembic branch
   web/            module.web.ts api.ts public.ts pages/ components/
   tests/          backend/ web/ e2e/ contract/
