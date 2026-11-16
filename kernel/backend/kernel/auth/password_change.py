@@ -38,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
 from kernel import clock
-from kernel.auth import accounts, audit, sessions, tokens
+from kernel.auth import accounts, audit, mails, sessions, tokens
 from kernel.auth.dependencies import require_recent_auth, signed_in
 from kernel.auth.models import Session, User
 from kernel.auth.passwords import Passwords, refusal, site_context
@@ -142,21 +142,12 @@ async def _change(
     return response
 
 
-def _notice(config: KernelConfig, at: datetime) -> tuple[str, str]:
-    when = f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
-    site = config.site_url.rstrip("/")
-    return (
-        f"Your {config.site_name} password was changed",
-        f"The password of your {config.site_name} account was changed on {when}, and "
-        "every other device was signed out.\n\n"
-        "If that was you, there's nothing to do.\n\n"
-        f"If it wasn't, reset your password now at {site}/sign-in: that signs every "
-        "device out, this one too.\n",
-    )
+def _notice(config: KernelConfig, at: datetime) -> mails.Mail:
+    return mails.rendered("kernel.password_changed", when=mails.when(at))
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A password-change mail wasn't sent (%s).", type(error).__name__)

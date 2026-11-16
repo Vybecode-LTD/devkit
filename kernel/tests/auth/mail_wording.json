@@ -1,0 +1,82 @@
+{
+  "codes._message": [
+    "Your Vibe Site sign-in code",
+    "Your code to sign in to Vibe Site is 123456\n\nOr open this link to sign in on this device:\n\nhttps://vibe.test/auth/link?token=LINKTOKEN\n\nThe code and the link work once, within 10 minutes.\n\nIf you didn't ask to sign in, ignore this message: nobody can use it without reading your email.\n"
+  ],
+  "email_change._confirm_mail": [
+    "Confirm your new email for Vibe Site",
+    "Someone asked to move a Vibe Site account to this address. To confirm it's yours, open this link within 24 hours:\n\nhttps://vibe.test/auth/email?token=CONFIRMTOKEN\n\nUntil then the account keeps its old address. If you didn't ask, ignore this message: nothing changes.\n"
+  ],
+  "email_change._taken_notice": [
+    "Email change attempt on Vibe Site",
+    "Someone asked to move another Vibe Site account to this address, which already has an account, so nothing was changed.\n\nIf it wasn't you, there's nothing to do.\n"
+  ],
+  "email_change._undo_mail": [
+    "Your Vibe Site email was changed",
+    "The email address of your Vibe Site account was changed to another one. If that was you, there's nothing to do.\n\nIf it wasn't, open this link within 7 days to put this address back and sign every device out:\n\nhttps://vibe.test/auth/email/undo?token=UNDOTOKEN\n\nThen reset your password at https://vibe.test/sign-in.\n"
+  ],
+  "email_change._restored_notice": [
+    "Your Vibe Site email was restored",
+    "The email of your Vibe Site account is this address again, and every device was signed out.\n\nIf someone else had changed it, reset your password now at https://vibe.test/sign-in.\n"
+  ],
+  "factor_undo._undone/passkey": [
+    "A passkey was removed from your Vibe Site account",
+    "The link in our email was used: the passkey it was sent for is no longer on your Vibe Site account, and every device was signed out.\n\nWhoever added it knows your password. If you haven't yet, reset your password now at https://vibe.test/sign-in.\n"
+  ],
+  "factor_undo._undone/totp": [
+    "A authenticator app was removed from your Vibe Site account",
+    "The link in our email was used: the authenticator app it was sent for is no longer on your Vibe Site account, and every device was signed out.\n\nWhoever added it knows your password. If you haven't yet, reset your password now at https://vibe.test/sign-in.\n"
+  ],
+  "passkeys._added": [
+    "A passkey was added to your Vibe Site account",
+    "A passkey was added to your Vibe Site account on 5 March 2026 at 09:07 UTC. It can sign in on its own.\n\nIf that was you, there's nothing to do.\n\nIf it wasn't, someone else has your password. Open this link within 7 days to remove the passkey and sign every device out:\n\nhttps://vibe.test/auth/second-factor/undo?token=UNDOTOKEN\n\nThen reset your password at https://vibe.test/sign-in.\n"
+  ],
+  "passkeys._removed": [
+    "A passkey was removed from your Vibe Site account",
+    "A passkey was removed from your Vibe Site account on 5 March 2026 at 09:07 UTC, and every other device was signed out.\n\nIf that was you, there's nothing to do.\n\nIf it wasn't, reset your password now at https://vibe.test/sign-in: that signs every device out, this one too.\n"
+  ],
+  "password_change._notice": [
+    "Your Vibe Site password was changed",
+    "The password of your Vibe Site account was changed on 5 March 2026 at 09:07 UTC, and every other device was signed out.\n\nIf that was you, there's nothing to do.\n\nIf it wasn't, reset your password now at https://vibe.test/sign-in: that signs every device out, this one too.\n"
+  ],
+  "resets._reset_mail": [
+    "Reset your Vibe Site password",
+    "Someone asked to reset the password of your Vibe Site account. To choose a new one, open this link within 30 minutes:\n\nhttps://vibe.test/auth/reset?token=RESETTOKEN\n\nThe link works once. Resetting signs out every device.\n\nIf you didn't ask, ignore this message: your password stays as it is.\n"
+  ],
+  "resets._notice": [
+    "Your Vibe Site password was reset",
+    "The password of your Vibe Site account was reset on 5 March 2026 at 09:07 UTC, and every device was signed out.\n\nIf that was you, there's nothing to do.\n\nIf it wasn't, someone can read your email: secure your mailbox first, then reset your password again at https://vibe.test/sign-in.\n"
+  ],
+  "sign_up._verify_mail": [
+    "Confirm your email for Vibe Site",
+    "Welcome to Vibe Site. Confirm this is your address by opening this link within 24 hours:\n\nhttps://vibe.test/auth/verify?token=VERIFYTOKEN\n\nIf you didn't make an account, ignore this message: nothing more will be sent.\n"
+  ],
+  "sign_up._notice": [
+    "Sign-up attempt on Vibe Site",
+    "Someone tried to make a Vibe Site account with this address, which already has one, so no new account was made.\n\nIf it was you, sign in at https://vibe.test/sign-in instead, where you can also reset your password if you've forgotten it.\n\nIf it wasn't you, there's nothing to do.\n"
+  ],
+  "sign_up._resend_mail": [
+    "Confirm your email for Vibe Site",
+    "Here is a new link to confirm this is your Vibe Site address. Open it within 24 hours:\n\nhttps://vibe.test/auth/verify?token=VERIFYTOKEN\n\nAny earlier link no longer works.\n"
+  ],
+  "totp._added": [
+    "Two-step sign-in is on for your Vibe Site account",
+    "An authenticator app was added to your Vibe Site account on 5 March 2026 at 09:07 UTC, so signing in now asks for one of its codes too.\n\nIf that was you, there's nothing to do. Keep your recovery codes somewhere safe.\n\nIf it wasn't, someone else has your password. Open this link within 7 days to remove the authenticator app and sign every device out:\n\nhttps://vibe.test/auth/second-factor/undo?token=UNDOTOKEN\n\nThen reset your password at https://vibe.test/sign-in.\n"
+  ],
+  "totp._removed": [
+    "Two-step sign-in is off for your Vibe Site account",
+    "The authenticator app was removed from your Vibe Site account on 5 March 2026 at 09:07 UTC, and every other device was signed out. Signing in now needs only your password.\n\nIf that was you, there's nothing to do.\n\nIf it wasn't, reset your password now at https://vibe.test/sign-in: that signs every device out, this one too. Then turn two-step sign-in on again.\n"
+  ],
+  "totp._replaced": [
+    "New recovery codes for your Vibe Site account",
+    "New recovery codes were made for your Vibe Site account on 5 March 2026 at 09:07 UTC, and the old ones no longer work.\n\nIf that was you, keep the new ones somewhere safe.\n\nIf it wasn't, someone is signed in to your account: reset your password now at https://vibe.test/sign-in, which signs every device out, then make new codes.\n"
+  ],
+  "routes._mail_new_device/Firefox on Windows": [
+    "New sign-in to Vibe Site",
+    "Someone signed in to your Vibe Site account from a new device (Firefox on Windows) on 5 March 2026 at 09:07 UTC.\n\nIf that was you, there's nothing to do.\n\nIf it wasn't, reset your password from the sign-in page, https://vibe.test/sign-in: that signs every device out.\n"
+  ],
+  "routes._mail_new_device/unnamed": [
+    "New sign-in to Vibe Site",
+    "Someone signed in to your Vibe Site account from a new device (a browser we could not name) on 5 March 2026 at 09:07 UTC.\n\nIf that was you, there's nothing to do.\n\nIf it wasn't, reset your password from the sign-in page, https://vibe.test/sign-in: that signs every device out.\n"
+  ]
+}

@@ -51,7 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, tokens
+from kernel.auth import accounts, audit, mails, tokens
 from kernel.auth.dependencies import current_user
 from kernel.auth.models import Token, User, UserRole
 from kernel.auth.passwords import Passwords, refusal, site_context
@@ -145,7 +145,7 @@ async def sign_up(
             "existing",
             subject=existing.id if existing is not None else None,
         )
-        subject, text = _notice(config)
+        subject, text, html = _notice(config)
         if existing is not None:
             to = existing.email  # the owner's own form of it
     else:
@@ -154,39 +154,30 @@ async def sign_up(
             db, _VERIFY, made, normal, lifetime=timedelta(hours=VERIFY_LIFETIME_HOURS)
         )
         audit.record(db, request, "auth.sign_up", "success", actor=made, subject=made)
-        subject, text = _verify_mail(config, token)
+        subject, text, html = _verify_mail(config, token)
     await db.commit()
     limiter = cast(RateLimiter, request.app.state.limiter)
     allowed = await limiter.hit(SIGN_UP_MAILS, _MAIL_SCOPE, normal)
     if allowed or made is not None:
-        background.add_task(_send, request.app.state.mailer, to, subject, text)
+        background.add_task(_send, request.app.state.mailer, to, subject, text, html)
     return {"status": "check_email"}
 
 
-def _verify_mail(config: KernelConfig, token: str) -> tuple[str, str]:
-    return (
-        f"Confirm your email for {config.site_name}",
-        f"Welcome to {config.site_name}. Confirm this is your address by opening this link "
-        f"within {VERIFY_LIFETIME_HOURS} hours:\n\n"
-        f"{_site(config)}/auth/verify?token={token}\n\n"
-        "If you didn't make an account, ignore this message: nothing more will be sent.\n",
+def _verify_mail(config: KernelConfig, token: str) -> mails.Mail:
+    return mails.rendered(
+        "kernel.verify_email",
+        link=f"{_site(config)}/auth/verify?token={token}",
+        hours=VERIFY_LIFETIME_HOURS,
     )
 
 
-def _notice(config: KernelConfig) -> tuple[str, str]:
-    return (
-        f"Sign-up attempt on {config.site_name}",
-        f"Someone tried to make a {config.site_name} account with this address, which "
-        "already has one, so no new account was made.\n\n"
-        f"If it was you, sign in at {_site(config)}/sign-in instead, where you can also "
-        "reset your password if you've forgotten it.\n\n"
-        "If it wasn't you, there's nothing to do.\n",
-    )
+def _notice(config: KernelConfig) -> mails.Mail:
+    return mails.rendered("kernel.sign_up_exists")
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A sign-up mail wasn't sent (%s).", type(error).__name__)
 
@@ -273,11 +264,9 @@ def _already_verified() -> Problem:
     return Problem("auth.already_verified", 409, "This address is verified already.")
 
 
-def _resend_mail(config: KernelConfig, token: str) -> tuple[str, str]:
-    return (
-        f"Confirm your email for {config.site_name}",
-        f"Here is a new link to confirm this is your {config.site_name} address. "
-        f"Open it within {VERIFY_LIFETIME_HOURS} hours:\n\n"
-        f"{_site(config)}/auth/verify?token={token}\n\n"
-        "Any earlier link no longer works.\n",
+def _resend_mail(config: KernelConfig, token: str) -> mails.Mail:
+    return mails.rendered(
+        "kernel.verify_email_again",
+        link=f"{_site(config)}/auth/verify?token={token}",
+        hours=VERIFY_LIFETIME_HOURS,
     )

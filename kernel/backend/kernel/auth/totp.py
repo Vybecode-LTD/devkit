@@ -60,7 +60,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
 from kernel import clock, crypto
-from kernel.auth import accounts, audit, factor_undo, second_factor, sessions, tokens
+from kernel.auth import accounts, audit, factor_undo, mails, second_factor, sessions, tokens
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
 from kernel.auth.models import RecoveryCode, Totp, User
 from kernel.auth.routes import failed_step_up
@@ -228,47 +228,25 @@ async def replace_recovery_codes(
 # --- security mail ------------------------------------------------------------------
 
 
-def _when(at: datetime) -> str:
-    return f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
-
-
-def _added(config: KernelConfig, at: datetime, undo: str) -> tuple[str, str]:
-    return (
-        f"Two-step sign-in is on for your {config.site_name} account",
-        f"An authenticator app was added to your {config.site_name} account on {_when(at)}, "
-        "so signing in now asks for one of its codes too.\n\n"
-        "If that was you, there's nothing to do. Keep your recovery codes somewhere safe.\n\n"
-        + factor_undo.undo_lines(config, undo, "authenticator app"),
+def _added(config: KernelConfig, at: datetime, undo: str) -> mails.Mail:
+    return mails.rendered(
+        "kernel.totp_added",
+        when=mails.when(at),
+        undo_link=factor_undo.link(config, undo),
+        days=factor_undo.UNDO_LIFETIME.days,
     )
 
 
-def _removed(config: KernelConfig, at: datetime) -> tuple[str, str]:
-    site = config.site_url.rstrip("/")
-    return (
-        f"Two-step sign-in is off for your {config.site_name} account",
-        f"The authenticator app was removed from your {config.site_name} account on "
-        f"{_when(at)}, and every other device was signed out. Signing in now needs only "
-        "your password.\n\n"
-        "If that was you, there's nothing to do.\n\n"
-        f"If it wasn't, reset your password now at {site}/sign-in: that signs every "
-        "device out, this one too. Then turn two-step sign-in on again.\n",
-    )
+def _removed(config: KernelConfig, at: datetime) -> mails.Mail:
+    return mails.rendered("kernel.totp_removed", when=mails.when(at))
 
 
-def _replaced(config: KernelConfig, at: datetime) -> tuple[str, str]:
-    site = config.site_url.rstrip("/")
-    return (
-        f"New recovery codes for your {config.site_name} account",
-        f"New recovery codes were made for your {config.site_name} account on {_when(at)}, "
-        "and the old ones no longer work.\n\n"
-        "If that was you, keep the new ones somewhere safe.\n\n"
-        "If it wasn't, someone is signed in to your account: reset your password now at "
-        f"{site}/sign-in, which signs every device out, then make new codes.\n",
-    )
+def _replaced(config: KernelConfig, at: datetime) -> mails.Mail:
+    return mails.rendered("kernel.recovery_codes_replaced", when=mails.when(at))
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A two-step sign-in mail wasn't sent (%s).", type(error).__name__)

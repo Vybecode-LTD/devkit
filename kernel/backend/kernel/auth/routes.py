@@ -51,7 +51,7 @@ from starlette.responses import JSONResponse, Response
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, ceremonies, second_factor, sessions
+from kernel.auth import accounts, audit, ceremonies, mails, second_factor, sessions
 from kernel.auth.ceremonies import AssertionCredential
 from kernel.auth.dependencies import current_user, lifetimes_of, signed_in, supersede
 from kernel.auth.models import Passkey, Session, User
@@ -306,16 +306,11 @@ async def finish_sign_in(
 async def _mail_new_device(
     mailer: Mailer, config: KernelConfig, to: str, device: str, at: datetime
 ) -> None:
-    when = f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
-    text = (
-        f"Someone signed in to your {config.site_name} account from a new device "
-        f"({device or 'a browser we could not name'}) on {when}.\n\n"
-        "If that was you, there's nothing to do.\n\n"
-        "If it wasn't, reset your password from the sign-in page, "
-        f"{config.site_url.rstrip('/')}/sign-in: that signs every device out.\n"
+    subject, text, html = mails.rendered(
+        "kernel.new_sign_in", device=device or "a browser we could not name", when=mails.when(at)
     )
     try:
-        await mailer.send(to, f"New sign-in to {config.site_name}", text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("The new-device mail wasn't sent (%s).", type(error).__name__)
 

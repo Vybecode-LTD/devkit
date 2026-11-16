@@ -35,7 +35,7 @@ from sqlalchemy import CursorResult, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.access import public
-from kernel.auth import accounts, audit, sessions, tokens
+from kernel.auth import accounts, audit, mails, sessions, tokens
 from kernel.auth.models import Passkey, RecoveryCode, Totp, User
 from kernel.config import KernelConfig
 from kernel.db import get_db
@@ -142,31 +142,12 @@ async def _remove(db: AsyncSession, user_id: uuid.UUID, data: dict[str, Any]) ->
 # --- mail ---------------------------------------------------------------------------
 
 
-def undo_lines(config: KernelConfig, token: str, what: str) -> str:
-    """The lines an "added" mail ends with: the undo link, and the reset."""
-    site = config.site_url.rstrip("/")
-    return (
-        f"If it wasn't, someone else has your password. Open this link within "
-        f"{UNDO_LIFETIME.days} days to remove the {what} and sign every device out:\n\n"
-        f"{link(config, token)}\n\n"
-        f"Then reset your password at {site}/sign-in.\n"
-    )
+def _undone(config: KernelConfig, method: str) -> mails.Mail:
+    return mails.rendered("kernel.passkey_undone" if method == "passkey" else "kernel.totp_undone")
 
 
-def _undone(config: KernelConfig, method: str) -> tuple[str, str]:
-    site = config.site_url.rstrip("/")
-    what = "passkey" if method == "passkey" else "authenticator app"
-    return (
-        f"A {what} was removed from your {config.site_name} account",
-        f"The link in our email was used: the {what} it was sent for is no longer on your "
-        f"{config.site_name} account, and every device was signed out.\n\n"
-        "Whoever added it knows your password. If you haven't yet, reset your password now "
-        f"at {site}/sign-in.\n",
-    )
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A second-factor undo mail wasn't sent (%s).", type(error).__name__)

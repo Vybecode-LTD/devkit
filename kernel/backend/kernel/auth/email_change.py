@@ -51,7 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, floor, sessions, tokens
+from kernel.auth import accounts, audit, floor, mails, sessions, tokens
 from kernel.auth.dependencies import require_recent_auth
 from kernel.auth.models import Token, User
 from kernel.config import KernelConfig
@@ -186,7 +186,7 @@ async def change_email(
     await accounts.lock(db, user.id)  # before its token rows, as every route does
     config = cast(KernelConfig, request.app.state.config)
     action = "auth.email_change_requested"
-    mail: tuple[str, str, str] | None = None
+    mail: tuple[str, str, str, str | None] | None = None  # to, subject, text, html
     if await _waiting(db, user.id):
         audit.record(db, request, action, "waiting", actor=user.id, subject=user.id)
     elif (existing := await accounts.by_email(db, normal)) is not None:
@@ -334,50 +334,30 @@ async def undo_email_change(
 # --- mail ---------------------------------------------------------------------------
 
 
-def _confirm_mail(config: KernelConfig, token: str) -> tuple[str, str]:
-    return (
-        f"Confirm your new email for {config.site_name}",
-        f"Someone asked to move a {config.site_name} account to this address. "
-        "To confirm it's yours, open this link within 24 hours:\n\n"
-        f"{_site(config)}/auth/email?token={token}\n\n"
-        "Until then the account keeps its old address. "
-        "If you didn't ask, ignore this message: nothing changes.\n",
+def _confirm_mail(config: KernelConfig, token: str) -> mails.Mail:
+    return mails.rendered(
+        "kernel.email_change_confirm", link=f"{_site(config)}/auth/email?token={token}"
     )
 
 
-def _taken_notice(config: KernelConfig) -> tuple[str, str]:
-    return (
-        f"Email change attempt on {config.site_name}",
-        f"Someone asked to move another {config.site_name} account to this address, "
-        "which already has an account, so nothing was changed.\n\n"
-        "If it wasn't you, there's nothing to do.\n",
+def _taken_notice(config: KernelConfig) -> mails.Mail:
+    return mails.rendered("kernel.email_change_taken")
+
+
+def _undo_mail(config: KernelConfig, token: str) -> mails.Mail:
+    return mails.rendered(
+        "kernel.email_change_undo",
+        link=f"{_site(config)}/auth/email/undo?token={token}",
+        days=UNDO_LIFETIME.days,
     )
 
 
-def _undo_mail(config: KernelConfig, token: str) -> tuple[str, str]:
-    days = UNDO_LIFETIME.days
-    return (
-        f"Your {config.site_name} email was changed",
-        f"The email address of your {config.site_name} account was changed to another "
-        "one. If that was you, there's nothing to do.\n\n"
-        f"If it wasn't, open this link within {days} days to put this address back "
-        "and sign every device out:\n\n"
-        f"{_site(config)}/auth/email/undo?token={token}\n\n"
-        f"Then reset your password at {_site(config)}/sign-in.\n",
-    )
+def _restored_notice(config: KernelConfig) -> mails.Mail:
+    return mails.rendered("kernel.email_restored")
 
 
-def _restored_notice(config: KernelConfig) -> tuple[str, str]:
-    return (
-        f"Your {config.site_name} email was restored",
-        f"The email of your {config.site_name} account is this address again, and "
-        "every device was signed out.\n\n"
-        f"If someone else had changed it, reset your password now at {_site(config)}/sign-in.\n",
-    )
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("An email-change mail wasn't sent (%s).", type(error).__name__)

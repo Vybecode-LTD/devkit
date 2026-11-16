@@ -24,7 +24,7 @@ The order is decision 0029's; the site's own sessions wait on it.
 
 1. **K3, the kernel services**, in the order the site's modules use them (`KICKOFF.md`, K3; SPEC 6, 9, 11 and 15). One PR per service, tests first.
    - **Storage is done** (#58). Uploads straight from the browser (a signed PUT: R2 has no POST policy), type detection and Pillow re-encoding come with discography and the first module that takes images (the contract's non-goals).
-   - **Email is done** (#59). Next, in its own PR: K2's nine auth mails move onto `kernel.*` templates, so a site can reword them.
+   - **Email is done** (#59), and K2's auth mails are `kernel.*` templates a site can reword (#60; `kernel/auth/mails.py`, 19 templates, held word for word by `test_mail_wording.py`'s snapshot).
    - Then **jobs** (the Postgres queue; mail moves onto it and gains retries; unverified accounts are removed after 7 days; ffmpeg in the worker image, item 4), **events** (the outbox, dispatcher and dead letters, SPEC 11), **audit** (widened from `kernel/auth/audit.py`), **notifications**, **moderation** (the permission exists), **public rendering** (SPEC 9; the CSP additions, item 6). The outbound guard for oEmbed (item 5) comes with the first service that fetches a URL. Retention and the AI client later.
    - Gate: tests for each service, an event delivered once to a handler that's safe to run twice, and a job that survives a worker restart.
 2. **K4**, the web kernel, with the site's theme; then **K5**, the CLI and the site template.
