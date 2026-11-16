@@ -1,0 +1,352 @@
+<meta name="dash-one-writer">
+<style>
+  .pl { display: grid; gap: var(--cds-gap-xl); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+  .pl-head { display: grid; gap: var(--cds-gap-sm); }
+  .pl-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .pl-lede { margin: 0; max-width: 65ch; font-size: var(--cds-font-size-body); line-height: 1.5; }
+  .pl-lede b { font-weight: var(--cds-font-weight-medium); font-variant-numeric: tabular-nums; }
+  .pl-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--cds-gap-md); }
+  .pl-tile { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-xs); align-content: start; min-width: 0; }
+  .pl-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .pl-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 2.4rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .pl-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+  .pl-meter { height: 6px; border-radius: 3px; background: var(--cds-chart-grid); overflow: hidden; margin-top: var(--cds-gap-xs); }
+  .pl-meter-fill { display: block; height: 100%; width: 0; background: var(--color-ok); }
+  .pl-section { display: grid; gap: var(--cds-gap-md); min-width: 0; }
+  .pl-h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .pl-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-md); list-style: none; padding: 0; margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .pl-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .pl-phases { position: relative; display: grid; gap: var(--cds-gap-sm); min-width: 0; }
+  .pl-group { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: var(--cds-gap-md); }
+  .pl-row { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) 4.5rem; gap: var(--cds-gap-sm); align-items: center; }
+  .pl-name { display: grid; min-width: 0; }
+  .pl-name-text { overflow-wrap: anywhere; }
+  .pl-gate { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .pl-bar { display: flex; height: 14px; border-radius: 3px; overflow: hidden; background: var(--cds-chart-grid); }
+  .pl-seg { height: 100%; cursor: default; }
+  .pl-count { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .pl-tip { position: absolute; z-index: 2; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; }
+  .pl-now { display: grid; gap: var(--cds-gap-sm); list-style: none; padding: 0; margin: 0; }
+  .pl-now li { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs) var(--cds-gap-sm); align-items: baseline; }
+  .pl-where { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .pl-pill { font-size: var(--cds-font-size-caption); border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; white-space: nowrap; }
+  .pl-controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; }
+  .pl-controls label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .pl-tablewrap { overflow-x: auto; }
+  .pl-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-body); }
+  .pl-table th { text-align: left; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+  .pl-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+  .pl-table td.pl-nums { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pl-foot summary { cursor: pointer; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .pl-foot p { max-width: 65ch; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  @media (max-width: 560px) {
+    .pl-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .pl-row .pl-bar { grid-column: 1 / -1; }
+  }
+</style>
+
+<div class="pl">
+  <header class="pl-head" id="summary">
+    <h1 class="pl-title">DevKit progress</h1>
+    <p class="pl-lede">DevKit v1.0 is <b data-draw="figure" data-source="milestones" data-field="percent" data-where="milestone=DevKit v1.0">—</b>% done: <b data-draw="figure" data-source="milestones" data-field="done" data-where="milestone=DevKit v1.0">—</b> of its <b data-draw="figure" data-source="milestones" data-field="total" data-where="milestone=DevKit v1.0">—</b> steps. Next up: <b data-draw="figure" data-source="steps" data-field="step" data-where="status=next">—</b>.</p>
+  </header>
+
+  <section class="pl-tiles" id="headline" aria-label="Headline figures">
+    <div class="pl-tile" id="tile-v1">
+      <span class="pl-label">DevKit v1.0</span>
+      <span class="pl-big"><span data-draw="figure" data-source="milestones" data-field="percent" data-where="milestone=DevKit v1.0">—</span>%</span>
+      <span class="pl-sub"><span data-draw="figure" data-source="milestones" data-field="done" data-where="milestone=DevKit v1.0">—</span> of <span data-draw="figure" data-source="milestones" data-field="total" data-where="milestone=DevKit v1.0">—</span> steps done</span>
+      <div class="pl-meter" aria-hidden="true"><span class="pl-meter-fill" data-draw="meter" data-source="milestones" data-where="milestone=DevKit v1.0"></span></div>
+    </div>
+    <div class="pl-tile" id="tile-all">
+      <span class="pl-label">Whole roadmap</span>
+      <span class="pl-big"><span data-draw="figure" data-source="milestones" data-field="percent" data-where="milestone=Everything">—</span>%</span>
+      <span class="pl-sub"><span data-draw="figure" data-source="milestones" data-field="done" data-where="milestone=Everything">—</span> of <span data-draw="figure" data-source="milestones" data-field="total" data-where="milestone=Everything">—</span> steps done, module waves included</span>
+      <div class="pl-meter" aria-hidden="true"><span class="pl-meter-fill" data-draw="meter" data-source="milestones" data-where="milestone=Everything"></span></div>
+    </div>
+    <div class="pl-tile" id="tile-review">
+      <span class="pl-label">In review</span>
+      <span class="pl-big" data-draw="figure" data-source="milestones" data-field="review" data-where="milestone=Everything">—</span>
+      <span class="pl-sub">Pull requests open, waiting to land</span>
+    </div>
+    <div class="pl-tile" id="tile-waiting">
+      <span class="pl-label">Waiting</span>
+      <span class="pl-big" data-draw="figure" data-source="milestones" data-field="waiting" data-where="milestone=Everything">—</span>
+      <span class="pl-sub">Steps held until the site needs them</span>
+    </div>
+  </section>
+
+  <section class="pl-section" id="now">
+    <h2 class="pl-h2">In review, next and waiting</h2>
+    <ul class="pl-now" data-draw="now" data-source="steps"></ul>
+  </section>
+
+  <section class="pl-section" id="phases">
+    <h2 class="pl-h2">Every phase, step by step</h2>
+    <ul class="pl-legend" aria-label="What each color means">
+      <li><span class="pl-key" data-status="done"></span>Done</li>
+      <li><span class="pl-key" data-status="review"></span>In review</li>
+      <li><span class="pl-key" data-status="next"></span>Next</li>
+      <li><span class="pl-key" data-status="todo"></span>To do</li>
+      <li><span class="pl-key" data-status="waiting"></span>Waiting</li>
+      <li><span class="pl-key" data-status="later"></span>Later</li>
+    </ul>
+    <div class="pl-phases" data-draw="phase-chart" data-source="phases"></div>
+  </section>
+
+  <section class="pl-section" id="steps">
+    <h2 class="pl-h2">All steps</h2>
+    <div class="pl-controls">
+      <label for="pl-status">Show</label>
+      <select class="dash-select" id="pl-status">
+        <option value="">All steps</option>
+        <option value="open">Not done yet</option>
+        <option value="done">Done</option>
+        <option value="review">In review</option>
+        <option value="next">Next</option>
+        <option value="todo">To do</option>
+        <option value="waiting">Waiting</option>
+        <option value="later">Later</option>
+      </select>
+      <select class="dash-select" id="pl-milestone" aria-label="Milestone" data-draw="milestone-choice" data-source="steps"></select>
+    </div>
+    <div class="pl-tablewrap">
+      <table class="pl-table" data-source="steps" data-row-key="phase_id,step_order">
+        <thead>
+          <tr>
+            <th data-field="phase">Phase</th>
+            <th data-field="step">Step</th>
+            <th data-field="status_label">Status</th>
+            <th data-field="prs">PRs</th>
+            <th data-field="note">Note</th>
+          </tr>
+        </thead>
+        <tbody data-draw="step-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="pl-foot" id="about">
+    <summary>Where these numbers come from</summary>
+    <p>Every step is a row of docs/progress.json in the devkit repo. tools/progress.py turns that one file into docs/PROGRESS.md and into the rows this page reads, so the two always agree, and the repo's tests fail if the document falls behind the file. Progress counts steps, not effort: a module and a kernel phase each count as one step. After v1.0 come the rest of the Vibrant Mindz site, the module waves, the framework tools and the TypeScript port study.</p>
+  </details>
+</div>
+
+<script>
+  window.plOrder = ['done', 'review', 'next', 'todo', 'waiting', 'later'];
+  window.plLabels = { done: 'Done', review: 'In review', next: 'Next', todo: 'To do', waiting: 'Waiting', later: 'Later' };
+  window.plColor = (status) => ({
+    done: 'var(--color-ok)',
+    review: dash.colors[0],
+    next: dash.colors[1] || dash.colors[0],
+    todo: 'var(--cds-chart-muted)',
+    waiting: 'var(--color-warn)',
+    later: 'var(--color-border-line)',
+  })[status];
+  window.plFilter = { status: '', milestone: '' };
+
+  dash.calc('milestones', {
+    inputs: ['steps'],
+    title: 'Steps by milestone',
+    description: 'Each milestone\'s steps counted by status, with the share done (rounded down); Everything counts every step.',
+    fn: (steps) => {
+      const order = ['done', 'review', 'next', 'todo', 'waiting', 'later'];
+      const count = (milestone, rows) => {
+        const out = { milestone, total: rows.length };
+        for (const status of order) out[status] = rows.filter((row) => row.status === status).length;
+        out.percent = rows.length ? Math.floor((out.done * 100) / rows.length) : 0;
+        return out;
+      };
+      return [...d3.groups(steps, (row) => row.milestone).map(([milestone, rows]) => count(milestone, rows)), count('Everything', steps)];
+    },
+  });
+
+  dash.calc('phases', {
+    inputs: ['steps'],
+    title: 'Steps by phase',
+    description: 'Each phase\'s steps counted by status, in the order of the plan, with its milestone and gate.',
+    fn: (steps) => {
+      const order = ['done', 'review', 'next', 'todo', 'waiting', 'later'];
+      return d3.groups(steps, (row) => row.phase_id).map(([phaseId, rows]) => {
+        const out = { phase_id: phaseId, phase: rows[0].phase, milestone: rows[0].milestone, gate: rows[0].gate, total: rows.length };
+        for (const status of order) out[status] = rows.filter((row) => row.status === status).length;
+        return out;
+      });
+    },
+  });
+
+  document.querySelectorAll('.pl-key[data-status]').forEach((key) => {
+    key.style.background = window.plColor(key.dataset.status);
+  });
+  document.querySelectorAll('#pl-status').forEach((select) => {
+    select.addEventListener('change', () => {
+      window.plFilter.status = select.value;
+      dash.draw('step-rows');
+    });
+  });
+</script>
+
+<script>
+  const plRow = (got, where) => {
+    if (!where) return got.data[0];
+    const [key, value] = where.split('=').map(decodeURIComponent);
+    return got.data.find((row) => String(row[key]) === value);
+  };
+
+  dash.draw('figure', (el) => {
+    const got = dash.data(el.dataset.source);
+    const row = got.status === 'ok' && Array.isArray(got.data) ? plRow(got, el.dataset.where) : undefined;
+    const value = row ? row[el.dataset.field] : undefined;
+    el.textContent = value === undefined || value === null || value === '' ? '—' : String(value);
+  });
+
+  dash.draw('meter', (el) => {
+    const got = dash.data(el.dataset.source);
+    const row = got.status === 'ok' && Array.isArray(got.data) ? plRow(got, el.dataset.where) : undefined;
+    el.style.width = row ? `${row.percent}%` : '0';
+  });
+
+  dash.draw('now', (el) => {
+    const got = dash.data('steps');
+    if (got.status !== 'ok') { el.replaceChildren(); return; }
+    const items = [];
+    got.data.forEach((row, index) => {
+      if (!['review', 'next', 'waiting'].includes(row.status)) return;
+      const li = document.createElement('li');
+      const pill = document.createElement('span');
+      pill.className = 'pl-pill';
+      pill.style.color = window.plColor(row.status);
+      pill.textContent = row.status_label;
+      pill.dataset.source = 'steps'; pill.dataset.field = 'status_label'; pill.dataset.row = String(index);
+      const step = document.createElement('span');
+      step.textContent = row.step;
+      step.dataset.source = 'steps'; step.dataset.field = 'step'; step.dataset.row = String(index);
+      const where = document.createElement('span');
+      where.className = 'pl-where';
+      where.textContent = [row.phase, row.prs, row.note].filter(Boolean).join(' · ');
+      li.append(pill, step, where);
+      items.push([window.plOrder.indexOf(row.status), li]);
+    });
+    items.sort((a, b) => a[0] - b[0]);
+    el.replaceChildren(...items.map(([, li]) => li));
+  });
+
+  dash.draw('phase-chart', {
+    mount(el) {
+      const rows = document.createElement('div');
+      rows.style.display = 'contents';
+      const tip = document.createElement('div');
+      tip.className = 'pl-tip';
+      tip.hidden = true;
+      el.append(rows, tip);
+      const show = (event) => {
+        const seg = event.target.closest('.pl-seg');
+        if (!seg) { tip.hidden = true; return; }
+        tip.textContent = seg.dataset.tip;
+        tip.hidden = false;
+        const box = el.getBoundingClientRect();
+        const left = Math.min(event.clientX - box.left + 12, box.width - tip.offsetWidth - 4);
+        tip.style.left = `${Math.max(0, left)}px`;
+        tip.style.top = `${event.clientY - box.top + 14}px`;
+      };
+      el.addEventListener('pointermove', show);
+      el.addEventListener('pointerdown', show);
+      el.addEventListener('pointerleave', () => { tip.hidden = true; });
+      return { rows, tip };
+    },
+    update(el, made) {
+      const got = dash.data('phases');
+      if (got.status !== 'ok' || !Array.isArray(got.data)) {
+        made.rows.replaceChildren(document.createTextNode(got.status === 'error' ? 'Failed to load' : '—'));
+        return;
+      }
+      const out = [];
+      let milestone = null;
+      for (const phase of got.data) {
+        if (phase.milestone !== milestone) {
+          milestone = phase.milestone;
+          const group = document.createElement('div');
+          group.className = 'pl-group';
+          group.textContent = milestone;
+          out.push(group);
+        }
+        const row = document.createElement('div');
+        row.className = 'pl-row';
+        const name = document.createElement('div');
+        name.className = 'pl-name';
+        const text = document.createElement('span');
+        text.className = 'pl-name-text';
+        text.textContent = phase.phase;
+        name.append(text);
+        if (phase.gate) {
+          const gate = document.createElement('span');
+          gate.className = 'pl-gate';
+          gate.textContent = phase.gate === 'passed' ? 'Gate passed' : 'Gate not passed yet';
+          name.append(gate);
+        }
+        const bar = document.createElement('div');
+        bar.className = 'pl-bar';
+        bar.setAttribute('role', 'img');
+        bar.setAttribute('aria-label', `${phase.phase}: ${phase.done} of ${phase.total} steps done`);
+        for (const status of window.plOrder) {
+          if (!phase[status]) continue;
+          const seg = document.createElement('span');
+          seg.className = 'pl-seg';
+          seg.style.width = `${(phase[status] * 100) / phase.total}%`;
+          seg.style.background = window.plColor(status);
+          seg.dataset.tip = `${phase.phase} · ${window.plLabels[status]}: ${phase[status]} of ${phase.total}`;
+          bar.append(seg);
+        }
+        const count = document.createElement('span');
+        count.className = 'pl-count';
+        const done = document.createElement('span');
+        done.textContent = String(phase.done);
+        done.dataset.source = 'phases'; done.dataset.field = 'done'; done.dataset.where = `phase_id=${encodeURIComponent(phase.phase_id)}`;
+        const total = document.createElement('span');
+        total.textContent = String(phase.total);
+        total.dataset.source = 'phases'; total.dataset.field = 'total'; total.dataset.where = `phase_id=${encodeURIComponent(phase.phase_id)}`;
+        count.append(done, document.createTextNode(' of '), total);
+        row.append(name, bar, count);
+        out.push(row);
+      }
+      made.rows.replaceChildren(...out);
+    },
+  });
+
+  dash.draw('milestone-choice', (select) => {
+    const got = dash.data('steps');
+    const names = got.status === 'ok' ? [...new Set(got.data.map((row) => row.milestone))] : [];
+    select.replaceChildren(new Option('All milestones', ''), ...names.map((name) => new Option(name, name)));
+    select.value = names.includes(window.plFilter.milestone) ? window.plFilter.milestone : '';
+    select.onchange = () => { window.plFilter.milestone = select.value; dash.draw('step-rows'); };
+  });
+
+  dash.draw('step-rows', (tbody) => {
+    const got = dash.data('steps');
+    if (got.status !== 'ok') { tbody.replaceChildren(); return; }
+    const { status, milestone } = window.plFilter;
+    const shown = got.data.filter((row) =>
+      (!milestone || row.milestone === milestone) &&
+      (!status || (status === 'open' ? row.status !== 'done' : row.status === status)));
+    tbody.replaceChildren(...shown.map((row) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = `${encodeURIComponent(row.phase_id)},${encodeURIComponent(String(row.step_order))}`;
+      const cells = [row.phase, row.step, row.status_label, row.prs, row.note].map((value, index) => {
+        const td = document.createElement('td');
+        if (index === 2) {
+          const pill = document.createElement('span');
+          pill.className = 'pl-pill';
+          pill.style.color = window.plColor(row.status);
+          pill.textContent = value;
+          td.append(pill);
+        } else {
+          td.textContent = value;
+        }
+        if (index === 3) td.className = 'pl-nums';
+        return td;
+      });
+      tr.append(...cells);
+      return tr;
+    }));
+  });
+</script>

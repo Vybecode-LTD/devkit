@@ -1,0 +1,335 @@
+{
+  "updated": "2026-11-16",
+  "main": "850f394",
+  "ledger_url": "https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm",
+  "milestones": [
+    {
+      "id": "v1",
+      "name": "DevKit v1.0",
+      "goal": "The kernel, the CLI and the first validation modules, frozen once blog, chat and payments pass the quality gate on the Vibrant Mindz build (SPEC 19)."
+    },
+    {
+      "id": "after",
+      "name": "After v1.0",
+      "goal": "The rest of the Vibrant Mindz site, the module waves, the framework tools and the TypeScript port study (decision 0018, SPEC 19)."
+    }
+  ],
+  "phases": [
+    {
+      "id": "spec",
+      "milestone": "v1",
+      "name": "Spec v0.1",
+      "goal": "The contract every module, the kernel and the CLI follow.",
+      "items": [
+        {"name": "Spec v0.1 written, the owner's answers applied", "status": "done", "decisions": ["0001", "0002", "0003"]}
+      ]
+    },
+    {
+      "id": "k0",
+      "milestone": "v1",
+      "name": "K0: repo foundation",
+      "goal": "Python, the harness, Alembic, the web workspace and CI.",
+      "gate": "pytest, npm test and the schema checks pass; CI green.",
+      "gate_passed": true,
+      "items": [
+        {"name": "Python environment, harness, Alembic, web workspace, CI", "status": "done"},
+        {"name": "The audit's fixes and the review bots' follow-ups", "status": "done", "note": "PRs #1 to #24"},
+        {"name": "The owner's follow-ups: history rewrite, ruleset on main, pinned actions", "status": "done", "note": "PRs #25 to #31"}
+      ]
+    },
+    {
+      "id": "k1",
+      "milestone": "v1",
+      "name": "K1: kernel core",
+      "goal": "The database, settings, module switches, crypto, errors, rate limits, access marks and the app factory.",
+      "gate": "Tests for each piece, secret refusal, CSP headers, a switched-off module answering 404, the migration round trip.",
+      "gate_passed": true,
+      "items": [
+        {"name": "Database, settings and module switches", "status": "done"},
+        {"name": "Crypto, errors, rate limits and access marks", "status": "done"},
+        {"name": "The app factory, security headers and CSP", "status": "done"}
+      ]
+    },
+    {
+      "id": "k2",
+      "milestone": "v1",
+      "name": "K2: auth",
+      "goal": "The complete auth system of SPEC 14, test-first.",
+      "gate": "Every 14.13 contract test passes; each sign-in method works by hand; brand check, gitleaks and pip-audit clean.",
+      "gate_passed": false,
+      "items": [
+        {"name": "1. The contract suite, written first", "status": "done", "note": "128 pass; 27 wait on steps 9 to 11"},
+        {"name": "2. Accounts, roles and per-resource overrides", "status": "done", "prs": [36, 56], "decisions": ["0031"]},
+        {"name": "3. Passwords", "status": "done", "prs": [7, 10]},
+        {"name": "4. Sessions and the device list", "status": "done", "prs": [32, 33]},
+        {"name": "5. Sign-in codes and magic links", "status": "done", "prs": [42], "decisions": ["0021"]},
+        {"name": "6. Reset, verification and email change", "status": "done", "prs": [39, 43, 44, 45, 46], "decisions": ["0020", "0022", "0023", "0024", "0025"]},
+        {"name": "7. Second factors and step-up", "status": "done", "prs": [38, 47, 48, 52], "decisions": ["0019", "0026", "0027"]},
+        {"name": "8. Passkeys, and the undo link for an added factor", "status": "done", "prs": [50, 54], "decisions": ["0028", "0030"]},
+        {"name": "9. OAuth and OpenID Connect", "status": "waiting", "note": "Before the site's launch at step 5"},
+        {"name": "10. Invites and API keys", "status": "waiting", "note": "Invites before the site's step 4; API keys after"},
+        {"name": "11. Abuse protection, deletion and data export", "status": "waiting", "note": "Before the site's launch at step 5"}
+      ]
+    },
+    {
+      "id": "k3",
+      "milestone": "v1",
+      "name": "K3: kernel services",
+      "goal": "Everything else modules rely on, in the order the site's modules use it.",
+      "gate": "Tests for each service; an event delivered once to a handler safe to run twice; a job surviving a worker restart.",
+      "gate_passed": false,
+      "items": [
+        {"name": "Storage", "status": "done", "prs": [58], "decisions": ["0032"]},
+        {"name": "Email: templates, SMTP first, Resend where SMTP is blocked", "status": "done", "prs": [59], "decisions": ["0033"]},
+        {"name": "The kernel's own mails as templates a site can reword", "status": "review", "prs": [60], "decisions": ["0033"]},
+        {"name": "Jobs: the Postgres queue, the scheduler, mail retries", "status": "next"},
+        {"name": "Events: the outbox, dispatcher and dead letters", "status": "todo"},
+        {"name": "Audit, widened from auth's", "status": "todo"},
+        {"name": "Notifications, with per-person preferences and one-click unsubscribe", "status": "todo"},
+        {"name": "Moderation: reports, the staff queue, filters and actions", "status": "todo", "prs": [56], "note": "The permission is declared"},
+        {"name": "Public rendering: head tags, server copy, sitemap, robots, llms.txt", "status": "todo"},
+        {"name": "Retention", "status": "later"},
+        {"name": "The AI client", "status": "later"}
+      ]
+    },
+    {
+      "id": "k4",
+      "milestone": "v1",
+      "name": "K4: web kernel",
+      "goal": "The front-end half of the kernel.",
+      "gate": "Component tests, axe with no serious violations, Playwright runs of every sign-in method.",
+      "gate_passed": false,
+      "items": [
+        {"name": "App shell, useSession, the typed client, defineModule and slots", "status": "todo"},
+        {"name": "UI kit, moved to React 19 and tokens", "status": "todo"},
+        {"name": "Auth screens", "status": "todo"},
+        {"name": "Admin shell", "status": "todo"},
+        {"name": "Themes: Machined Light, then Depth", "status": "todo"}
+      ]
+    },
+    {
+      "id": "k5",
+      "milestone": "v1",
+      "name": "K5: CLI and site template",
+      "goal": "devkit works end to end.",
+      "gate": "devkit new test-site builds, migrates and passes its tests; devkit check passes on it.",
+      "gate_passed": false,
+      "items": [
+        {"name": "The devkit commands and lock files", "status": "todo"},
+        {"name": "templates/site, made from the harness", "status": "todo"},
+        {"name": "The start command and .env.example for a host's edge", "status": "todo"},
+        {"name": "devkit catalog", "status": "todo"}
+      ]
+    },
+    {
+      "id": "hooks",
+      "milestone": "v1",
+      "name": "Contract hooks",
+      "goal": "The ten hooks the Must modules need, before blog, chat and payments are extracted (decision 0018).",
+      "items": [
+        {"name": "Search index", "status": "todo"},
+        {"name": "Consent categories", "status": "todo"},
+        {"name": "Entitlements", "status": "todo"},
+        {"name": "Bot check", "status": "todo"},
+        {"name": "Export and erase", "status": "todo"},
+        {"name": "Content lifecycle", "status": "todo"},
+        {"name": "Taxonomy", "status": "todo"},
+        {"name": "Profile tabs", "status": "todo"},
+        {"name": "Dashboard cards", "status": "todo"},
+        {"name": "Seed data", "status": "todo"}
+      ]
+    },
+    {
+      "id": "site",
+      "milestone": "v1",
+      "name": "Vibrant Mindz site, to launch",
+      "goal": "The first real site, built from the modules; it doubles as the spec's validation (docs/plans/vibrant-mindz-backend/KICKOFF.md).",
+      "gate": "v1.0 is frozen when blog, chat (community) and payments pass the quality gate.",
+      "gate_passed": false,
+      "items": [
+        {"name": "Step 0: scaffold, moderation permission, custom roles", "status": "done", "prs": [55, 56], "decisions": ["0029", "0031"]},
+        {"name": "Step 1: media, pages, blog, embeds, contact, campaigns", "status": "todo"},
+        {"name": "Step 2: discography, audio player, featured", "status": "todo"},
+        {"name": "Step 3: roster, portfolio, reactions, comments", "status": "todo"},
+        {"name": "Step 4: community", "status": "todo"},
+        {"name": "Step 5: payments, shop, downloads; the v1.0 gate and the site's launch", "status": "todo"}
+      ]
+    },
+    {
+      "id": "site-more",
+      "milestone": "after",
+      "name": "Vibrant Mindz site, after launch",
+      "goal": "The beat store and the apparel designer.",
+      "items": [
+        {"name": "Step 6: licensing, the beat store", "status": "todo"},
+        {"name": "Step 7: print on demand, the apparel designer", "status": "todo"}
+      ]
+    },
+    {
+      "id": "wave-1",
+      "milestone": "after",
+      "name": "Wave 1: foundations every site uses",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "forms", "status": "todo"},
+        {"name": "bot-shield", "status": "todo"},
+        {"name": "consent", "status": "todo"},
+        {"name": "analytics-adapters", "status": "todo"},
+        {"name": "privacy-center", "status": "todo"},
+        {"name": "legal", "status": "todo"},
+        {"name": "security-center", "status": "todo"},
+        {"name": "account-center", "status": "todo"},
+        {"name": "site-search", "status": "todo"},
+        {"name": "redirects", "status": "todo"},
+        {"name": "data-grid", "status": "todo"},
+        {"name": "import-export", "status": "todo"},
+        {"name": "command-palette", "status": "todo"},
+        {"name": "setup-wizard", "status": "todo"},
+        {"name": "image-pipeline", "status": "todo"},
+        {"name": "ai-gateway", "status": "todo"}
+      ]
+    },
+    {
+      "id": "wave-2a",
+      "milestone": "after",
+      "name": "Wave 2a: sell more",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "memberships", "status": "todo"},
+        {"name": "credits", "status": "todo"},
+        {"name": "discounts", "status": "todo"},
+        {"name": "drops", "status": "todo"},
+        {"name": "tips", "status": "todo"},
+        {"name": "shipping", "status": "todo"},
+        {"name": "pricing-table", "status": "todo"},
+        {"name": "waitlist", "status": "todo"}
+      ]
+    },
+    {
+      "id": "wave-2b",
+      "milestone": "after",
+      "name": "Wave 2b: fans and community",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "profiles", "status": "todo"},
+        {"name": "follows", "status": "todo"},
+        {"name": "feed", "status": "todo"},
+        {"name": "groups", "status": "todo"},
+        {"name": "polls", "status": "todo"},
+        {"name": "bookmarks", "status": "todo"},
+        {"name": "reviews", "status": "todo"},
+        {"name": "submissions", "status": "todo"},
+        {"name": "contests", "status": "todo"},
+        {"name": "live", "status": "todo"},
+        {"name": "rooms", "status": "todo"}
+      ]
+    },
+    {
+      "id": "wave-2c",
+      "milestone": "after",
+      "name": "Wave 2c: music and media",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "video", "status": "todo"},
+        {"name": "radio", "status": "todo"},
+        {"name": "podcast", "status": "todo"},
+        {"name": "music-import", "status": "todo"},
+        {"name": "press-kit", "status": "todo"},
+        {"name": "short-links", "status": "todo"},
+        {"name": "social-feeds", "status": "todo"},
+        {"name": "transfer", "status": "todo"}
+      ]
+    },
+    {
+      "id": "wave-3a",
+      "milestone": "after",
+      "name": "Wave 3a: agency handoff",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "migrate", "status": "todo"},
+        {"name": "invoices", "status": "todo"},
+        {"name": "client-portal", "status": "todo"},
+        {"name": "white-label", "status": "todo"},
+        {"name": "onboarding-tours", "status": "todo"},
+        {"name": "crm", "status": "todo"},
+        {"name": "reports", "status": "todo"},
+        {"name": "email-builder", "status": "todo"},
+        {"name": "announcements", "status": "todo"},
+        {"name": "editorial-calendar", "status": "todo"},
+        {"name": "zapier", "status": "todo"}
+      ]
+    },
+    {
+      "id": "wave-3b",
+      "milestone": "after",
+      "name": "Wave 3b: service businesses",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "maps", "status": "todo"},
+        {"name": "booking", "status": "todo"},
+        {"name": "events", "status": "todo"},
+        {"name": "directory", "status": "todo"},
+        {"name": "recipes", "status": "todo"},
+        {"name": "google-business", "status": "todo"},
+        {"name": "sms", "status": "todo", "note": "Provider chosen at this wave"}
+      ]
+    },
+    {
+      "id": "wave-4",
+      "milestone": "after",
+      "name": "Wave 4: software products",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "license-keys", "status": "todo"},
+        {"name": "release-channels", "status": "todo"},
+        {"name": "beta-program", "status": "todo"},
+        {"name": "crash-reports", "status": "todo"},
+        {"name": "preset-exchange", "status": "todo"},
+        {"name": "docs", "status": "todo"},
+        {"name": "faq", "status": "todo"},
+        {"name": "changelog", "status": "todo"},
+        {"name": "wiki", "status": "todo"},
+        {"name": "helpdesk", "status": "todo"},
+        {"name": "public-api", "status": "todo"},
+        {"name": "orgs", "status": "todo"},
+        {"name": "enterprise-sso", "status": "todo"}
+      ]
+    },
+    {
+      "id": "wave-5",
+      "milestone": "after",
+      "name": "Wave 5: AI layer",
+      "goal": "docs/plans/module-roadmap.md",
+      "items": [
+        {"name": "semantic-search", "status": "todo"},
+        {"name": "concierge", "status": "todo"},
+        {"name": "agent-ready", "status": "todo"},
+        {"name": "prompts", "status": "todo"},
+        {"name": "ai-studio", "status": "todo"}
+      ]
+    },
+    {
+      "id": "tools",
+      "milestone": "after",
+      "name": "Framework tools",
+      "goal": "When each lands is in docs/plans/module-roadmap.md.",
+      "items": [
+        {"name": "provenance-scan and quality-gate", "status": "todo", "note": "During v1 extraction"},
+        {"name": "visual-regression and catalog-site", "status": "todo", "note": "After wave 1"},
+        {"name": "theme-generator and fleet", "status": "todo", "note": "Wave 3a"},
+        {"name": "platform-bridge", "status": "todo", "note": "After wave 5"}
+      ]
+    },
+    {
+      "id": "ts-port",
+      "milestone": "after",
+      "name": "TypeScript port study",
+      "goal": "After the first real site ships (SPEC 19).",
+      "items": [
+        {"name": "Port one small module to a TypeScript backend, judged by the same contract tests", "status": "later"},
+        {"name": "Measure the effort and what the contract tests caught", "status": "later"},
+        {"name": "Record the call in a decision", "status": "later"}
+      ]
+    }
+  ]
+}

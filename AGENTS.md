@@ -64,6 +64,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | Web install | `npm ci` |
 | Web tests, lint, types, build | `npm test`, `npm run lint`, `npm run typecheck`, `npm run build` |
 | Link the project skills for Claude Code | `python -m tools.link_skills` |
+| Progress document and ledger rows, after editing `docs/progress.json` | `python -m tools.progress` (`--check` only reports) |
 | Brand check, before any PR that lifts code | `python -I "C:\DEV\VybeSite\vybesite\scripts\brand_check.py" "C:\DEV\AI-DevKit"` |
 
 ## Rules
@@ -75,6 +76,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 - **Tests first.** A bug fix has a test seen failing before the fix. Auth work starts from the contract tests in spec 14.13.
 - **One logical change per PR,** on its own branch, with conventional commits. Read the staged diff for secrets before every commit.
 - **Modules never import each other** except through `public.py` / `web/public.ts` when listed in `requires.modules` (spec section 7).
+- **Progress is kept in one file,** `docs/progress.json`: every phase and step to v1.0 and after, with its status and PRs. A PR that starts, finishes or adds a step updates it and runs `python -m tools.progress`, which rewrites `docs/PROGRESS.md` and the ledger's rows; `tests/test_progress.py` fails when they're stale. The owner follows the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm), made from the same rows.
 - **Skills:** don't build new skills as you go. Add every idea to `docs/SKILL-BACKLOG.md`; the owner builds them all in one batch later. Build one early only if the work can't continue without it, and say so.
 
 ## Project skills (`skills/`, linked into `.claude/skills/` by `python -m tools.link_skills`)
@@ -110,6 +112,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `catalog.json` | Generated index of every module (empty until the first module) |
 | `docs/decisions/` | Decision records |
 | `docs/HANDOFF.md` | One page, overwritten each session |
+| `docs/progress.json`, `docs/PROGRESS.md` | Progress to v1.0 and after: the data, and the document `tools/progress.py` makes from it |
 | `docs/private/` | Not in git (the repo is public): the inventory of `C:\DEV` and the name of the client folder |
 | `docs/plans/` | Plans, such as the Vibrant Mindz module plan |
 | `docs/plans/module-roadmap.md` | The module roadmap after v1.0: five waves of Musts, after ten contract hooks (decision 0018) |
@@ -130,4 +133,4 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 
 ## Session end
 
-Every session ends with `docs/HANDOFF.md` overwritten, this file's "Last Completed Task" and "Current state" updated, and a starting prompt for the next session (about 4 KB) saved as `dev plans\<date>-next-session-<topic>.md` and offered to the owner.
+Every session ends with `docs/HANDOFF.md` overwritten, this file's "Last Completed Task" and "Current state" updated, a starting prompt for the next session (about 4 KB) saved as `dev plans\<date>-next-session-<topic>.md` and offered to the owner, and the progress ledger republished: once `docs/progress.json` is current on `main`, upload `dev plans/progress-ledger/rows.json` to the ledger as an asset and point its `steps` dataset at the new file (`dev plans/progress-ledger/README.md`).
