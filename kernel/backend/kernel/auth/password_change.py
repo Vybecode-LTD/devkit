@@ -142,12 +142,12 @@ async def _change(
     return response
 
 
-def _notice(config: KernelConfig, at: datetime) -> tuple[str, str]:
+def _notice(config: KernelConfig, at: datetime) -> mails.Mail:
     return mails.rendered("kernel.password_changed", when=mails.when(at))
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A password-change mail wasn't sent (%s).", type(error).__name__)

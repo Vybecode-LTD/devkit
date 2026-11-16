@@ -186,7 +186,7 @@ async def change_email(
     await accounts.lock(db, user.id)  # before its token rows, as every route does
     config = cast(KernelConfig, request.app.state.config)
     action = "auth.email_change_requested"
-    mail: tuple[str, str, str] | None = None
+    mail: tuple[str, str, str, str | None] | None = None  # to, subject, text, html
     if await _waiting(db, user.id):
         audit.record(db, request, action, "waiting", actor=user.id, subject=user.id)
     elif (existing := await accounts.by_email(db, normal)) is not None:
@@ -334,17 +334,17 @@ async def undo_email_change(
 # --- mail ---------------------------------------------------------------------------
 
 
-def _confirm_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+def _confirm_mail(config: KernelConfig, token: str) -> mails.Mail:
     return mails.rendered(
         "kernel.email_change_confirm", link=f"{_site(config)}/auth/email?token={token}"
     )
 
 
-def _taken_notice(config: KernelConfig) -> tuple[str, str]:
+def _taken_notice(config: KernelConfig) -> mails.Mail:
     return mails.rendered("kernel.email_change_taken")
 
 
-def _undo_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+def _undo_mail(config: KernelConfig, token: str) -> mails.Mail:
     return mails.rendered(
         "kernel.email_change_undo",
         link=f"{_site(config)}/auth/email/undo?token={token}",
@@ -352,12 +352,12 @@ def _undo_mail(config: KernelConfig, token: str) -> tuple[str, str]:
     )
 
 
-def _restored_notice(config: KernelConfig) -> tuple[str, str]:
+def _restored_notice(config: KernelConfig) -> mails.Mail:
     return mails.rendered("kernel.email_restored")
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("An email-change mail wasn't sent (%s).", type(error).__name__)

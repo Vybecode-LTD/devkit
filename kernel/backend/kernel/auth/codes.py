@@ -146,7 +146,7 @@ async def ask_for_code(
     user: User | None = await db.scalar(
         select(User).where(User.email_normal == normal).with_for_update()
     )
-    mail: tuple[str, str, str] | None = None
+    mail: tuple[str, str, str, str | None] | None = None  # to, subject, text, html
     if user is None or user.status not in accounts.SIGNS_IN or await sessions.is_staff(db, user.id):
         audit.record(db, request, "auth.code_sent", "refused", subject=user.id if user else None)
     elif await _waiting(db, normal):
@@ -191,7 +191,7 @@ async def _issue(db: AsyncSession, user: User, normal: str) -> tuple[str, str]:
     return code, link
 
 
-def _message(config: KernelConfig, code: str, link: str) -> tuple[str, str]:
+def _message(config: KernelConfig, code: str, link: str) -> mails.Mail:
     return mails.rendered(
         "kernel.sign_in_code",
         code=code,
@@ -200,9 +200,9 @@ def _message(config: KernelConfig, code: str, link: str) -> tuple[str, str]:
     )
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A sign-in code wasn't sent (%s).", type(error).__name__)
 

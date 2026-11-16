@@ -519,7 +519,7 @@ async def passkey_for_step_up(
 # --- security mail --------------------------------------------------------------------
 
 
-def _added(config: KernelConfig, at: datetime, undo: str) -> tuple[str, str]:
+def _added(config: KernelConfig, at: datetime, undo: str) -> mails.Mail:
     return mails.rendered(
         "kernel.passkey_added",
         when=mails.when(at),
@@ -528,13 +528,13 @@ def _added(config: KernelConfig, at: datetime, undo: str) -> tuple[str, str]:
     )
 
 
-def _removed(config: KernelConfig, at: datetime) -> tuple[str, str]:
+def _removed(config: KernelConfig, at: datetime) -> mails.Mail:
     """No name in it: whoever names a passkey chooses its words."""
     return mails.rendered("kernel.passkey_removed", when=mails.when(at))
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A passkey mail wasn't sent (%s).", type(error).__name__)

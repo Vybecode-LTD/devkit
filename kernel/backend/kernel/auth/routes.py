@@ -306,11 +306,11 @@ async def finish_sign_in(
 async def _mail_new_device(
     mailer: Mailer, config: KernelConfig, to: str, device: str, at: datetime
 ) -> None:
-    subject, text = mails.rendered(
+    subject, text, html = mails.rendered(
         "kernel.new_sign_in", device=device or "a browser we could not name", when=mails.when(at)
     )
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("The new-device mail wasn't sent (%s).", type(error).__name__)
 

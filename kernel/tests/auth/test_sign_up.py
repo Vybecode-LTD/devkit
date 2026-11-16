@@ -31,7 +31,7 @@ from kernel.auth.accounts import normal_email
 from kernel.auth.hashing import keyed_hash
 from kernel.auth.models import AuditEvent, Token, User, UserRole
 from kernel.config import KernelConfig
-from kernel.email import CapturingMailer, Mailer
+from kernel.email import CapturingMailer, Mailer, Template
 
 from ..conftest import SITE, Client, make_config
 
@@ -104,13 +104,20 @@ def _fake_lookup(site_holder: list[Site]) -> passwords.RangeLookup:
 
 
 @asynccontextmanager
-async def _site(url: str, *, mailer: Mailer | None = None, **config: Any) -> AsyncIterator[Site]:
+async def _site(
+    url: str,
+    *,
+    mailer: Mailer | None = None,
+    emails: dict[str, Template] | None = None,
+    **config: Any,
+) -> AsyncIterator[Site]:
     mail = CapturingMailer()
     holder: list[Site] = []
     app = create_app(
         config=make_config(database_url=url, **({"sign_up_mode": "open"} | config)),
         mailer=mailer or mail,
         breach_lookup=_fake_lookup(holder),
+        emails=emails,
     )
     async with Client(app) as http:
         http.headers.update(_SAME_ORIGIN)
@@ -717,3 +724,26 @@ async def test_a_token_never_issued_is_refused_before_any_lookup(site: Site) -> 
         for bad in ("not a token", "x" * 44, ""):
             assert await tokens.owner_of(db, "verify_email", bad) is None
             assert await tokens.redeem(db, "verify_email", bad) is None
+
+
+async def test_a_site_s_html_wording_reaches_both_sign_up_mails(migrated_url: str) -> None:
+    # A site's HTML for a kernel mail is sent, not dropped (Codex on #60).
+    emails = {
+        "kernel.verify_email": Template(
+            "Confirm for $site_name",
+            "Open $link within $hours hours.\n",
+            '<p><a href="$link">Confirm</a></p>',
+        ),
+        "kernel.sign_up_exists": Template(
+            "Sign-up attempt", "You have an account.\n", "<p>You have an account.</p>"
+        ),
+    }
+    async with _site(migrated_url, emails=emails) as site:
+        email = _address()
+        assert (await site.sign_up(email)).status_code == 202
+        assert (await site.sign_up(email)).status_code == 202
+        verify, notice = site.mail.to(email)
+    assert verify.html is not None
+    assert verify.html.startswith('<p><a href="')
+    assert "/auth/verify?token=" in verify.html
+    assert notice.html == "<p>You have an account.</p>"

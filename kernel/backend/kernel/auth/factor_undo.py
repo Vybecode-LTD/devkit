@@ -142,12 +142,12 @@ async def _remove(db: AsyncSession, user_id: uuid.UUID, data: dict[str, Any]) ->
 # --- mail ---------------------------------------------------------------------------
 
 
-def _undone(config: KernelConfig, method: str) -> tuple[str, str]:
+def _undone(config: KernelConfig, method: str) -> mails.Mail:
     return mails.rendered("kernel.passkey_undone" if method == "passkey" else "kernel.totp_undone")
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A second-factor undo mail wasn't sent (%s).", type(error).__name__)

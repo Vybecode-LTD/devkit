@@ -12,6 +12,7 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -74,7 +75,9 @@ def test_the_snapshot_covers_every_builder() -> None:
 @pytest.mark.parametrize("name", sorted(BUILDERS))
 def test_each_mail_says_what_it_said(name: str) -> None:
     config = _site()
-    assert list(BUILDERS[name](config)) == SNAPSHOT[name]
+    subject, text, html = BUILDERS[name](config)
+    assert [subject, text] == SNAPSHOT[name]
+    assert html is None
 
 
 @pytest.mark.parametrize("name", sorted(DEVICES))
@@ -84,6 +87,7 @@ async def test_the_new_device_mail_says_what_it_said(name: str) -> None:
     await routes._mail_new_device(mailer, config, "reader@vibe.test", DEVICES[name], AT)
     [sent] = mailer.to("reader@vibe.test")
     assert [sent.subject, sent.text] == SNAPSHOT[name]
+    assert sent.html is None
 
 
 def test_a_site_rewords_a_kernel_mail() -> None:
@@ -97,9 +101,45 @@ def test_a_site_rewords_a_kernel_mail() -> None:
     assert codes._message(config, "123456", "LINKTOKEN") == (
         "Your code for Vibe Site",
         "Code: 123456\nLink: https://vibe.test/auth/link?token=LINKTOKEN\n(10 min)\n",
+        None,
     )
 
 
 def test_a_kernel_mail_rewording_gets_only_its_own_values() -> None:
     with pytest.raises(RuntimeError, match=r"kernel\.password_changed uses \$link"):
         _site(**{"kernel.password_changed": Template("Changed", "See $link")})
+
+
+# --- a site's HTML wording is sent (Codex on #60) ------------------------------------------
+
+
+def test_a_site_s_html_for_a_kernel_mail_comes_out_of_its_builder() -> None:
+    config = _site(
+        **{"kernel.sign_in_code": Template("Code", "Code: $code", "<p>Code: <b>$code</b></p>")}
+    )
+    assert codes._message(config, "123456", "LINKTOKEN") == (
+        "Code",
+        "Code: 123456",
+        "<p>Code: <b>123456</b></p>",
+    )
+
+
+async def test_the_new_device_mail_carries_a_site_s_html() -> None:
+    config = _site(
+        **{"kernel.new_sign_in": Template("New sign-in", "From $device", "<p>From $device</p>")}
+    )
+    mailer = CapturingMailer()
+    await routes._mail_new_device(mailer, config, "reader@vibe.test", "Firefox", AT)
+    [sent] = mailer.to("reader@vibe.test")
+    assert sent.html == "<p>From Firefox</p>"
+
+
+SENDERS = [codes, email_change, factor_undo, passkeys, password_change, resets, sign_up, totp]
+
+
+@pytest.mark.parametrize("route", SENDERS, ids=lambda module: module.__name__.rsplit(".", 1)[-1])
+async def test_each_route_s_send_passes_the_html_on(route: Any) -> None:
+    mailer = CapturingMailer()
+    await route._send(mailer, "reader@vibe.test", "Subject", "Text", "<p>Html</p>")
+    [sent] = mailer.to("reader@vibe.test")
+    assert (sent.subject, sent.text, sent.html) == ("Subject", "Text", "<p>Html</p>")

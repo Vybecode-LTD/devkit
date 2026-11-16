@@ -145,7 +145,7 @@ async def sign_up(
             "existing",
             subject=existing.id if existing is not None else None,
         )
-        subject, text = _notice(config)
+        subject, text, html = _notice(config)
         if existing is not None:
             to = existing.email  # the owner's own form of it
     else:
@@ -154,16 +154,16 @@ async def sign_up(
             db, _VERIFY, made, normal, lifetime=timedelta(hours=VERIFY_LIFETIME_HOURS)
         )
         audit.record(db, request, "auth.sign_up", "success", actor=made, subject=made)
-        subject, text = _verify_mail(config, token)
+        subject, text, html = _verify_mail(config, token)
     await db.commit()
     limiter = cast(RateLimiter, request.app.state.limiter)
     allowed = await limiter.hit(SIGN_UP_MAILS, _MAIL_SCOPE, normal)
     if allowed or made is not None:
-        background.add_task(_send, request.app.state.mailer, to, subject, text)
+        background.add_task(_send, request.app.state.mailer, to, subject, text, html)
     return {"status": "check_email"}
 
 
-def _verify_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+def _verify_mail(config: KernelConfig, token: str) -> mails.Mail:
     return mails.rendered(
         "kernel.verify_email",
         link=f"{_site(config)}/auth/verify?token={token}",
@@ -171,13 +171,13 @@ def _verify_mail(config: KernelConfig, token: str) -> tuple[str, str]:
     )
 
 
-def _notice(config: KernelConfig) -> tuple[str, str]:
+def _notice(config: KernelConfig) -> mails.Mail:
     return mails.rendered("kernel.sign_up_exists")
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A sign-up mail wasn't sent (%s).", type(error).__name__)
 
@@ -264,7 +264,7 @@ def _already_verified() -> Problem:
     return Problem("auth.already_verified", 409, "This address is verified already.")
 
 
-def _resend_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+def _resend_mail(config: KernelConfig, token: str) -> mails.Mail:
     return mails.rendered(
         "kernel.verify_email_again",
         link=f"{_site(config)}/auth/verify?token={token}",

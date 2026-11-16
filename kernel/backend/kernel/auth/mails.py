@@ -10,8 +10,8 @@ sign-in page. Dates stay English (`when`), as does the name a new device
 gets when its browser can't be named.
 
 Each route keeps its own builder (`codes._message` and the rest), which
-calls `rendered` with its values and hands the subject and text to the mailer
-as before.
+calls `rendered` with its values and hands the subject, text and any HTML to
+the mailer.
 """
 
 from __future__ import annotations
@@ -26,10 +26,16 @@ def when(at: datetime) -> str:
     return f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
 
 
-def rendered(name: str, **context: str | int) -> tuple[str, str]:
-    """The subject and text of the kernel's template `name` with `context`."""
+#: A mail as a route's builder hands it to its send: subject, text, and the
+#: HTML a site's rewording may add (the kernel's own wording has none).
+Mail = tuple[str, str, str | None]
+
+
+def rendered(name: str, **context: str | int) -> Mail:
+    """The subject, text and HTML of the kernel's template `name` with
+    `context`. The HTML is None unless a site's rewording gives one."""
     message = render(name, context)
-    return message.subject, message.text
+    return message.subject, message.text, message.html
 
 
 def _undo(what: str) -> str:

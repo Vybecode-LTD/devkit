@@ -105,7 +105,7 @@ async def ask_for_reset(
     user: User | None = await db.scalar(
         select(User).where(User.email_normal == normal).with_for_update()
     )
-    mail: tuple[str, str, str] | None = None
+    mail: tuple[str, str, str, str | None] | None = None  # to, subject, text, html
     action = "auth.password_reset_requested"
     if user is None or user.status not in accounts.SIGNS_IN:
         audit.record(db, request, action, "refused", subject=user.id if user else None)
@@ -133,7 +133,7 @@ async def _waiting(db: AsyncSession, normal: str) -> bool:
     return bool(await db.scalar(select(recent)))
 
 
-def _reset_mail(config: KernelConfig, token: str) -> tuple[str, str]:
+def _reset_mail(config: KernelConfig, token: str) -> mails.Mail:
     return mails.rendered(
         "kernel.password_reset",
         link=f"{config.site_url.rstrip('/')}/auth/reset?token={token}",
@@ -141,9 +141,9 @@ def _reset_mail(config: KernelConfig, token: str) -> tuple[str, str]:
     )
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
+async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
     try:
-        await mailer.send(to, subject, text)
+        await mailer.send(to, subject, text, html)
     except Exception as error:
         log.warning("A password reset mail wasn't sent (%s).", type(error).__name__)
 
@@ -200,5 +200,5 @@ async def reset_password(
     return {"status": "password_reset"}
 
 
-def _notice(config: KernelConfig, at: datetime) -> tuple[str, str]:
+def _notice(config: KernelConfig, at: datetime) -> mails.Mail:
     return mails.rendered("kernel.password_was_reset", when=mails.when(at))
