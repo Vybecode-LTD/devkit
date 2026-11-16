@@ -93,6 +93,16 @@
       ]
     },
     {
+      "id": "rename",
+      "milestone": "v1",
+      "name": "Rename to MechFrame",
+      "goal": "AI DevKit becomes MechFrame once K3 is done (decision 0034).",
+      "items": [
+        {"name": "One PR: prose, packages, cookies, variables, skills and links say MechFrame", "status": "waiting", "decisions": ["0034"], "note": "After K3"},
+        {"name": "The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there", "status": "waiting", "decisions": ["0034"], "note": "With the rename PR"}
+      ]
+    },
+    {
       "id": "k4",
       "milestone": "v1",
       "name": "K4: web kernel",

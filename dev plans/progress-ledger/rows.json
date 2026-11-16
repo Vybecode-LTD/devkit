@@ -409,6 +409,34 @@
   {
    "milestone": "DevKit v1.0",
    "phase_order": 6,
+   "phase_id": "rename",
+   "phase": "Rename to MechFrame",
+   "gate": "",
+   "step_order": 1,
+   "step": "One PR: prose, packages, cookies, variables, skills and links say MechFrame",
+   "status": "waiting",
+   "status_label": "Waiting",
+   "prs": "",
+   "decisions": "0034",
+   "note": "After K3"
+  },
+  {
+   "milestone": "DevKit v1.0",
+   "phase_order": 6,
+   "phase_id": "rename",
+   "phase": "Rename to MechFrame",
+   "gate": "",
+   "step_order": 2,
+   "step": "The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there",
+   "status": "waiting",
+   "status_label": "Waiting",
+   "prs": "",
+   "decisions": "0034",
+   "note": "With the rename PR"
+  },
+  {
+   "milestone": "DevKit v1.0",
+   "phase_order": 7,
    "phase_id": "k4",
    "phase": "K4: web kernel",
    "gate": "not passed",
@@ -422,7 +450,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 6,
+   "phase_order": 7,
    "phase_id": "k4",
    "phase": "K4: web kernel",
    "gate": "not passed",
@@ -436,7 +464,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 6,
+   "phase_order": 7,
    "phase_id": "k4",
    "phase": "K4: web kernel",
    "gate": "not passed",
@@ -450,7 +478,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 6,
+   "phase_order": 7,
    "phase_id": "k4",
    "phase": "K4: web kernel",
    "gate": "not passed",
@@ -464,7 +492,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 6,
+   "phase_order": 7,
    "phase_id": "k4",
    "phase": "K4: web kernel",
    "gate": "not passed",
@@ -478,7 +506,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 7,
+   "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
    "gate": "not passed",
@@ -492,7 +520,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 7,
+   "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
    "gate": "not passed",
@@ -506,7 +534,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 7,
+   "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
    "gate": "not passed",
@@ -520,7 +548,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 7,
+   "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
    "gate": "not passed",
@@ -534,7 +562,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -548,7 +576,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -562,7 +590,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -576,7 +604,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -590,7 +618,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -604,7 +632,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -618,7 +646,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -632,7 +660,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -646,7 +674,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -660,7 +688,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 8,
+   "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",
    "gate": "",
@@ -674,7 +702,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 9,
+   "phase_order": 10,
    "phase_id": "site",
    "phase": "Vibrant Mindz site, to launch",
    "gate": "not passed",
@@ -688,7 +716,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 9,
+   "phase_order": 10,
    "phase_id": "site",
    "phase": "Vibrant Mindz site, to launch",
    "gate": "not passed",
@@ -702,7 +730,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 9,
+   "phase_order": 10,
    "phase_id": "site",
    "phase": "Vibrant Mindz site, to launch",
    "gate": "not passed",
@@ -716,7 +744,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 9,
+   "phase_order": 10,
    "phase_id": "site",
    "phase": "Vibrant Mindz site, to launch",
    "gate": "not passed",
@@ -730,7 +758,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 9,
+   "phase_order": 10,
    "phase_id": "site",
    "phase": "Vibrant Mindz site, to launch",
    "gate": "not passed",
@@ -744,7 +772,7 @@
   },
   {
    "milestone": "DevKit v1.0",
-   "phase_order": 9,
+   "phase_order": 10,
    "phase_id": "site",
    "phase": "Vibrant Mindz site, to launch",
    "gate": "not passed",
@@ -758,7 +786,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 10,
+   "phase_order": 11,
    "phase_id": "site-more",
    "phase": "Vibrant Mindz site, after launch",
    "gate": "",
@@ -772,7 +800,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 10,
+   "phase_order": 11,
    "phase_id": "site-more",
    "phase": "Vibrant Mindz site, after launch",
    "gate": "",
@@ -786,7 +814,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -800,7 +828,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -814,7 +842,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -828,7 +856,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -842,7 +870,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -856,7 +884,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -870,7 +898,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -884,7 +912,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -898,7 +926,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -912,7 +940,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -926,7 +954,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -940,7 +968,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -954,7 +982,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -968,7 +996,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -982,7 +1010,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -996,7 +1024,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 11,
+   "phase_order": 12,
    "phase_id": "wave-1",
    "phase": "Wave 1: foundations every site uses",
    "gate": "",
@@ -1010,7 +1038,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1024,7 +1052,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1038,7 +1066,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1052,7 +1080,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1066,7 +1094,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1080,7 +1108,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1094,7 +1122,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1108,7 +1136,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 12,
+   "phase_order": 13,
    "phase_id": "wave-2a",
    "phase": "Wave 2a: sell more",
    "gate": "",
@@ -1122,7 +1150,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1136,7 +1164,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1150,7 +1178,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1164,7 +1192,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1178,7 +1206,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1192,7 +1220,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1206,7 +1234,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1220,7 +1248,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1234,7 +1262,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1248,7 +1276,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1262,7 +1290,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 13,
+   "phase_order": 14,
    "phase_id": "wave-2b",
    "phase": "Wave 2b: fans and community",
    "gate": "",
@@ -1276,7 +1304,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1290,7 +1318,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1304,7 +1332,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1318,7 +1346,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1332,7 +1360,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1346,7 +1374,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1360,7 +1388,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1374,7 +1402,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 14,
+   "phase_order": 15,
    "phase_id": "wave-2c",
    "phase": "Wave 2c: music and media",
    "gate": "",
@@ -1388,7 +1416,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1402,7 +1430,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1416,7 +1444,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1430,7 +1458,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1444,7 +1472,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1458,7 +1486,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1472,7 +1500,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1486,7 +1514,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1500,7 +1528,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1514,7 +1542,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1528,7 +1556,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 15,
+   "phase_order": 16,
    "phase_id": "wave-3a",
    "phase": "Wave 3a: agency handoff",
    "gate": "",
@@ -1542,7 +1570,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 16,
+   "phase_order": 17,
    "phase_id": "wave-3b",
    "phase": "Wave 3b: service businesses",
    "gate": "",
@@ -1556,7 +1584,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 16,
+   "phase_order": 17,
    "phase_id": "wave-3b",
    "phase": "Wave 3b: service businesses",
    "gate": "",
@@ -1570,7 +1598,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 16,
+   "phase_order": 17,
    "phase_id": "wave-3b",
    "phase": "Wave 3b: service businesses",
    "gate": "",
@@ -1584,7 +1612,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 16,
+   "phase_order": 17,
    "phase_id": "wave-3b",
    "phase": "Wave 3b: service businesses",
    "gate": "",
@@ -1598,7 +1626,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 16,
+   "phase_order": 17,
    "phase_id": "wave-3b",
    "phase": "Wave 3b: service businesses",
    "gate": "",
@@ -1612,7 +1640,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 16,
+   "phase_order": 17,
    "phase_id": "wave-3b",
    "phase": "Wave 3b: service businesses",
    "gate": "",
@@ -1626,7 +1654,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 16,
+   "phase_order": 17,
    "phase_id": "wave-3b",
    "phase": "Wave 3b: service businesses",
    "gate": "",
@@ -1640,7 +1668,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1654,7 +1682,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1668,7 +1696,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1682,7 +1710,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1696,7 +1724,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1710,7 +1738,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1724,7 +1752,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1738,7 +1766,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1752,7 +1780,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1766,7 +1794,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1780,7 +1808,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1794,7 +1822,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1808,7 +1836,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 17,
+   "phase_order": 18,
    "phase_id": "wave-4",
    "phase": "Wave 4: software products",
    "gate": "",
@@ -1822,7 +1850,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 18,
+   "phase_order": 19,
    "phase_id": "wave-5",
    "phase": "Wave 5: AI layer",
    "gate": "",
@@ -1836,7 +1864,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 18,
+   "phase_order": 19,
    "phase_id": "wave-5",
    "phase": "Wave 5: AI layer",
    "gate": "",
@@ -1850,7 +1878,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 18,
+   "phase_order": 19,
    "phase_id": "wave-5",
    "phase": "Wave 5: AI layer",
    "gate": "",
@@ -1864,7 +1892,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 18,
+   "phase_order": 19,
    "phase_id": "wave-5",
    "phase": "Wave 5: AI layer",
    "gate": "",
@@ -1878,7 +1906,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 18,
+   "phase_order": 19,
    "phase_id": "wave-5",
    "phase": "Wave 5: AI layer",
    "gate": "",
@@ -1892,7 +1920,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 19,
+   "phase_order": 20,
    "phase_id": "tools",
    "phase": "Framework tools",
    "gate": "",
@@ -1906,7 +1934,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 19,
+   "phase_order": 20,
    "phase_id": "tools",
    "phase": "Framework tools",
    "gate": "",
@@ -1920,7 +1948,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 19,
+   "phase_order": 20,
    "phase_id": "tools",
    "phase": "Framework tools",
    "gate": "",
@@ -1934,7 +1962,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 19,
+   "phase_order": 20,
    "phase_id": "tools",
    "phase": "Framework tools",
    "gate": "",
@@ -1948,7 +1976,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 20,
+   "phase_order": 21,
    "phase_id": "ts-port",
    "phase": "TypeScript port study",
    "gate": "",
@@ -1962,7 +1990,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 20,
+   "phase_order": 21,
    "phase_id": "ts-port",
    "phase": "TypeScript port study",
    "gate": "",
@@ -1976,7 +2004,7 @@
   },
   {
    "milestone": "After v1.0",
-   "phase_order": 20,
+   "phase_order": 21,
    "phase_id": "ts-port",
    "phase": "TypeScript port study",
    "gate": "",

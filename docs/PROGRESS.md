@@ -8,9 +8,9 @@ Updated 2026-11-16, `main` at `850f394`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| DevKit v1.0 | 18 | 1 | 1 | 29 | 3 | 2 | ███░░░░░░░ 33% (18 of 54) |
+| DevKit v1.0 | 18 | 1 | 1 | 29 | 5 | 2 | ███░░░░░░░ 32% (18 of 56) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 18 | 1 | 1 | 114 | 3 | 5 | █░░░░░░░░░ 12% (18 of 142) |
+| Everything | 18 | 1 | 1 | 114 | 5 | 5 | █░░░░░░░░░ 12% (18 of 144) |
 
 ## DevKit v1.0
 
@@ -83,6 +83,15 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 | Public rendering: head tags, server copy, sitemap, robots, llms.txt | To do |  |  |  |
 | Retention | Later |  |  |  |
 | The AI client | Later |  |  |  |
+
+### Rename to MechFrame · 0 of 2 done
+
+AI DevKit becomes MechFrame once K3 is done (decision 0034).
+
+| Step | Status | PRs | Decisions | Note |
+| --- | --- | --- | --- | --- |
+| One PR: prose, packages, cookies, variables, skills and links say MechFrame | Waiting |  | [0034](decisions/0034-rename-to-mechframe.md) | After K3 |
+| The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there | Waiting |  | [0034](decisions/0034-rename-to-mechframe.md) | With the rename PR |
 
 ### K4: web kernel · 0 of 5 done · gate not passed yet
 
