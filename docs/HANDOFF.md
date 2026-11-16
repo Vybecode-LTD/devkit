@@ -1,6 +1,6 @@
 # Handoff
 
-Overwritten every session. 2026-11-16 (Claude Code, the owner's machine): K2 step 8, passkeys, in #50, landed. `main` is at 3933d67 (#50). **#51 holds this page and the next starting prompt.**
+Overwritten every session. 2026-11-16 (Claude Code, the owner's machine): K2 step 8, passkeys, in #50, landed, then this page in #51. Later that day: the step-up fix (#52), and the Vibrant Mindz modules moved to the front (decision 0029, #53).
 
 ## State
 
@@ -16,14 +16,17 @@ Overwritten every session. 2026-11-16 (Claude Code, the owner's machine): K2 ste
 
 ## Next
 
-1. If #51 is still open, ask the owner to land it once "CI result" is green.
-2. **Ask the owner about the reset gap below** (Open questions, first item). If they choose a fix, it's its own PR, tests first, with a decision record and a change-log line.
-3. **A small PR: step-up by TOTP and by password don't re-check the session after waiting.** CodeRabbit found this for passkeys on #50: a reset that ends the session while step-up waits still gets 200 (the new token is dead, since the epoch moved, but a TOTP step is used up). Passkey step-up now uses `accounts.held`; do the same in `routes.py:step_up` for TOTP (it uses `accounts.lock`) and password (no lock), with a failing-first test like `test_passkeys.py::test_a_step_up_by_passkey_gives_way_to_a_reset_that_lands_first`.
-4. **KICKOFF K2 step 9, OAuth and OpenID Connect** (Authlib; providers from Basefra.me; PKCE, state, nonce; the linking rules in SPEC 14.3). The contract already has `/oauth/{provider}/start` and `/callback` and the `_test/oauth/grant` fake provider; its contract tests (sections 8 and 9 of `test_auth_contract.py`: the three linking rules and a bad `state`) are written as expected failures. Ask the owner before any route with no contract row (unlinking, a list of linked identities).
-5. Then step 10 (API keys and invites), 11 (lifecycle: deletion, export). `test_an_unconfirmed_totp_is_no_second_factor` waits for the admin routes.
-6. A PR of its own: the race tests in `test_sessions.py`, `test_sign_in.py`, `test_sign_up.py`, `test_db.py` and `test_settings.py` may never overlap (a cold pool, one browser). Apply the memory note `race-tests-that-really-race` and rerun their mutants.
+**The order changed on 2026-11-16: the Vibrant Mindz site's modules come first (decision 0029).** The site's own sessions are waiting on them.
 
-After K2 and the kernel phases: the ten contract hooks of decision 0018 (`skills/devkit-hook-designer`), before blog, chat and payments are extracted.
+1. Land **#52** (step-up by TOTP and by password re-check the session after the lock) and this order's PR once "CI result" is green, with the owner's OK for each.
+2. **The passkey reset gap** (Open questions, first item): if the owner chooses a fix, it's its own PR, tests first, with a decision record and a change-log line.
+3. **The site's step 0:** copy `C:\DEV\VM Website\backend-handoff\devkit\` into this repo on its own branch (7 module scaffolds, `recipes/collective-with-store.json`, `docs/plans/vibrant-mindz-backend/`; every path is new here), then apply items 1 and 2 of its `kernel-additions.md` (`kernel.moderation.act`; custom roles count as staff for the second-factor rule), each with its decision record. The site's sessions must stay out of this checkout meanwhile. The empty local branch `vm-backend-scaffold` is left over from their first try.
+4. **K3**, the kernel services, in the order the site's modules use them: storage, email, jobs, events, audit, notifications, moderation, public rendering (`KICKOFF.md`, K3). Retention and the AI client later.
+5. **K4**, the web kernel, with the site's theme; then **K5**, the CLI and the site template (`devkit new`, `devkit check`).
+6. **The ten hooks of decision 0018** (`skills/devkit-hook-designer`), before blog is extracted.
+7. **The site's steps 1 to 7** (`docs/plans/vibrant-mindz-backend/KICKOFF.md` once step 0 lands): content modules, players, comments and roster, community, then payments, shop and downloads (the launch), licensing, print on demand.
+8. **K2's last steps, where the site needs them:** step 10's invites before the site's step 4; steps 9 (OAuth: Authlib, PKCE, state, nonce, SPEC 14.3; its contract tests are written as expected failures) and 11 (deletion, export, abuse protection) before the launch at the site's step 5. API keys after. `test_an_unconfirmed_totp_is_no_second_factor` waits for the admin routes.
+9. Any time, a PR of its own: the race tests in `test_sessions.py`, `test_sign_in.py`, `test_sign_up.py`, `test_db.py` and `test_settings.py` may never overlap (a cold pool, one browser). Apply the memory note `race-tests-that-really-race` and rerun their mutants.
 
 ## Open questions for the owner
 

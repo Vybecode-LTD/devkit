@@ -222,6 +222,8 @@ Blog, chat and payments, the three modules the spec uses to validate v0.1, are a
 
 ## 11. Build order for the Vibrant Mindz site
 
+Since 2026-11-16 the kernel's remaining work runs in the order this site needs it (decision 0029): K3, K4 and K5 before step 1, and K2's last steps where the site needs them.
+
 The site launches once the shop works, as decided for VybeSite on 11 October. Each step is also a DevKit milestone, so the site and the framework grow together.
 
 1. **Kernel**, plus `pages`, `blog`, `embeds`, `contact` and `campaigns`, lifted from VybeSite.

@@ -2,6 +2,8 @@
 
 **For Claude Code, run from `C:\DEV\AI-DevKit`.** To start: "Read KICKOFF.md and begin phase K0." Each phase is one or more pull requests, and each ends at its gate. Work the phases in order, one session at a time, and stop at each gate to report.
 
+**The order changed on 2026-11-16 (decision 0029):** after K2 step 8, the Vibrant Mindz site's step 0, then K3, K4 and K5, then decision 0018's hooks and the site's modules. K2's steps 9 to 11 wait: step 10's invites come before the site's step 4, and steps 9 and 11 before the site launches. K2's gate is checked then.
+
 ## What this is
 
 AI DevKit is a library of reusable website modules that any AI agent copies into a site's repo and wires together from a short brief. `SPEC.md` is the contract. This kickoff builds the **kernel**: the core every module depends on. Most of it is lifted from VybeSite (`C:\DEV\VybeSite\vybesite\`), with OAuth from Basefra.me and a few patterns from VybeMindz. The first real site built on DevKit is the new Vibrant Mindz site; its plan is `docs/plans/vibrant-mindz-module-plan.md`.
