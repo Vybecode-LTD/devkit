@@ -1,7 +1,8 @@
 """TOTP setup, confirm and removal, and new recovery codes (SPEC.md 14.3 to
 14.6; docs/contracts/auth-api.md; decisions 0026 and 0027): what the contract
 suite can't see from outside, such as the sealed secret, the keyed hashes,
-the audit, the mail, races and lock order, sign-in's and step-up's included."""
+the audit, the mail, races and lock order, sign-in's and step-up's included
+(step-up by password too, which shares the route)."""
 
 from __future__ import annotations
 
@@ -644,3 +645,43 @@ async def test_stepping_up_with_a_totp_locks_the_account_before_the_totp_row(
         _TOTP_ROW_FREE,
     )
     assert stepped.status_code == 200, stepped.text
+
+
+async def _step_up_successes(site: Site) -> list[AuditEvent]:
+    return [row for row in await _audit(site, "auth.step_up") if row.result == "success"]
+
+
+async def test_a_step_up_by_totp_gives_way_to_a_reset_that_lands_first(site: Site) -> None:
+    """A reset that ends the session while a step-up waits on the account wins:
+    the step-up answers 401 and its code's step isn't used up (CodeRabbit on
+    #50, found for passkeys)."""
+    person = await _person(site)
+    secret, _ = await _with_totp(site, person)
+    before = await _totp(site, person)
+    assert before is not None
+    code = _next_step(secret)
+    [late] = await _with_the_account_held(
+        site,
+        person,
+        [lambda: person.browser.post("/api/auth/step-up", json={"totp": code})],
+        meanwhile=lambda db: _new_epoch(db, person),
+    )
+    assert (late.status_code, late.json()["code"]) == (401, "kernel.not_signed_in")
+    assert await _step_up_successes(site) == []
+    after = await _totp(site, person)
+    assert after is not None
+    assert after.last_step == before.last_step  # the code can still be given
+
+
+async def test_a_step_up_by_password_gives_way_to_a_reset_that_lands_first(site: Site) -> None:
+    """The same for a password: it's checked before the lock, so a slow hash
+    holds no row, and the session is looked at again once the lock is taken."""
+    person = await _person(site)
+    [late] = await _with_the_account_held(
+        site,
+        person,
+        [lambda: person.browser.post("/api/auth/step-up", json={"password": PASSWORD})],
+        meanwhile=lambda db: _new_epoch(db, person),
+    )
+    assert (late.status_code, late.json()["code"]) == (401, "kernel.not_signed_in")
+    assert await _step_up_successes(site) == []

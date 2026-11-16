@@ -354,6 +354,9 @@ async def step_up(
     if body.password is not None:
         method = "password"
         ok = await _passwords(request).check(body.password, user.password_hash)
+        # Hashed before the lock, so a slow hash holds no row; then the account
+        # and the session again: a reset that ended it meanwhile wins.
+        user = await accounts.held(db, user.id, row.id)
     elif body.passkey is not None:
         method = "passkey"
         # The account before its token and passkey rows, then the session
@@ -370,7 +373,9 @@ async def step_up(
         ok = kept and await _passkey_answers(request, db, user.id, challenge, body.passkey, uv=True)
     else:
         method = "totp"
-        await accounts.lock(db, user.id)  # before its TOTP row (decision 0027)
+        # The account before its TOTP row (decision 0027), then the session
+        # again, so a reset that lands first leaves the code's step unused.
+        user = await accounts.held(db, user.id, row.id)
         ok = await second_factor.check_totp(db, user.id, body.totp or "")
     if not ok:
         await failed_step_up(request, db, user, row)
