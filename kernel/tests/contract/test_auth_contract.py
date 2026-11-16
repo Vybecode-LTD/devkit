@@ -11,6 +11,7 @@ control, so a server that refuses everything doesn't pass.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import statistics
 import time
@@ -1575,6 +1576,18 @@ async def test_a_passkey_sign_in_challenge_works_once_and_for_5_minutes(api: Api
     assert _code(expired) == (401, "auth.invalid_passkey")
 
 
+async def test_one_passkey_answer_sent_twice_at_once_signs_in_once(api: Api) -> None:
+    _, key, _ = await _with_a_passkey(api)
+    answer = key.get(await _passkey_options(api.another_browser()))
+    browsers = [api.another_browser(), api.another_browser()]
+    answers = await asyncio.gather(
+        *(browser.http.post(PASSKEY_FINISH, json=answer) for browser in browsers)
+    )
+    assert sorted(response.status_code for response in answers) == [200, 401]
+    [winner] = [b for b, response in zip(browsers, answers, strict=True) if response.is_success]
+    assert (await winner.session()).status_code == 200
+
+
 async def test_a_passkey_whose_sign_count_goes_back_is_refused(api: Api) -> None:
     """A hardware key counts its uses; a count that doesn't rise is a clone."""
     await api.signed_in_as(await api.make_user())
@@ -1614,6 +1627,21 @@ async def test_a_passkey_is_a_second_factor_after_a_password(api: Api) -> None:
     passkey = key.get(options.json(), uv=False)
     signed = await _finish_by_passkey(browser, str(first["challenge"]), passkey)
     assert (signed.status_code, signed.json()["status"]) == (200, "signed_in")
+    assert signed.json()["user"]["id"] == user.id
+    assert (await browser.session()).json()["user"]["id"] == user.id
+
+
+async def test_second_factor_passkey_options_last_5_minutes(api: Api) -> None:
+    """The sign-in waits 10 minutes; the options it gave a passkey, only 5."""
+    user, key, _ = await _with_a_passkey(api)
+    browser, challenge, late = await _passkey_challenge(api, user)
+    await api.advance(5 * MINUTE + 1)
+    expired = await _finish_by_passkey(browser, challenge, key.get(late))
+    assert _code(expired) == (401, "auth.invalid_second_factor")
+    fresh = await browser.http.post(SECOND_FACTOR_PASSKEY, json={"challenge": challenge})
+    assert fresh.status_code == 200, fresh.text  # the control: the sign-in still waits
+    signed = await _finish_by_passkey(browser, challenge, key.get(fresh.json()))
+    assert signed.status_code == 200, signed.text
 
 
 async def test_a_wrong_passkey_is_a_failed_second_factor(api: Api) -> None:

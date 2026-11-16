@@ -20,9 +20,10 @@ checked, by an update that refuses a sixth, so racing requests get 5 tries
 between them, never more.
 
 **A passkey** as the second factor answers the WebAuthn challenge kept
-beside the sign-in's (`expect_passkey`), which each call to
-`/sign-in/second-factor/passkey` replaces and which costs no try; the
-check itself is `ceremonies.used` (decision 0028).
+beside the sign-in's (`expect_passkey`): as a keyed hash, like every
+ceremony's, valid 5 minutes within the sign-in's 10, replaced by each call
+to `/sign-in/second-factor/passkey` and costing no try. The check itself is
+`ceremonies.used` (decision 0028).
 """
 
 from __future__ import annotations
@@ -33,7 +34,7 @@ import secrets
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, cast
 
 import pyotp
@@ -41,7 +42,7 @@ from sqlalchemy import CursorResult, delete, exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock, crypto
-from kernel.auth.hashing import keyed_hash
+from kernel.auth.hashing import keyed_hash, same
 from kernel.auth.models import Passkey, RecoveryCode, Token, Totp, User
 
 STEP = 30
@@ -55,6 +56,8 @@ _CODE = re.compile(r"[0-9]{6}")
 #: `secrets.token_urlsafe(32)` is 43 characters.
 _CHALLENGE = re.compile(r"[A-Za-z0-9_-]{43}")
 _PURPOSE = "second_factor"
+#: The keyed hash's purpose for a passkey's challenge kept on a sign-in's.
+PASSKEY_PURPOSE = "second_factor_passkey"
 
 
 def _rows(result: Any) -> int:
@@ -200,9 +203,20 @@ class Challenge:
     user_id: uuid.UUID
     #: The first factor the sign-in passed: "password", "code" or "link".
     method: str = "password"
-    #: The WebAuthn challenge (base64url) a passkey must answer: the one the
-    #: last `/sign-in/second-factor/passkey` gave, or None (decision 0028).
+    #: The keyed hash of the WebAuthn challenge a passkey must answer, the
+    #: one the last `/sign-in/second-factor/passkey` gave, and until when; or
+    #: None (decision 0028).
     passkey: str | None = None
+    passkey_until: datetime | None = None
+
+    def expects(self, answered: str | None) -> bool:
+        """Whether `answered` (base64url, from the credential's client data)
+        is the passkey challenge this sign-in is waiting on, still live."""
+        if answered is None or self.passkey is None or self.passkey_until is None:
+            return False
+        if self.passkey_until <= clock.now():
+            return False
+        return same(self.passkey, keyed_hash(PASSKEY_PURPOSE, answered))
 
 
 def _live(token: str) -> list[Any]:
@@ -224,10 +238,13 @@ async def owner_of_challenge(db: AsyncSession, token: str) -> uuid.UUID | None:
     return owner
 
 
-async def expect_passkey(db: AsyncSession, token: str, challenge: str) -> bool:
+async def expect_passkey(
+    db: AsyncSession, token: str, challenge: str, *, lifetime: timedelta
+) -> bool:
     """Keep the WebAuthn challenge a passkey must answer on the live sign-in
-    challenge, in place of any earlier one; it costs no try. False when the
-    challenge has ended. The caller holds the account's lock and commits."""
+    challenge, as a keyed hash valid `lifetime`, in place of any earlier one;
+    it costs no try. False when the challenge has ended. The caller holds the
+    account's lock and commits."""
     if not _CHALLENGE.fullmatch(token):
         return False
     row = (await db.execute(select(Token.id, Token.data).where(*_live(token)))).first()
@@ -236,7 +253,13 @@ async def expect_passkey(db: AsyncSession, token: str, challenge: str) -> bool:
     result = await db.execute(
         update(Token)
         .where(Token.id == row.id, *_live(token))
-        .values(data={**(row.data or {}), "passkey": challenge})
+        .values(
+            data={
+                **(row.data or {}),
+                "passkey": keyed_hash(PASSKEY_PURPOSE, challenge),
+                "passkey_until": (clock.now() + lifetime).isoformat(),
+            }
+        )
         .execution_options(synchronize_session=False)
     )
     return _rows(result) == 1
@@ -260,12 +283,13 @@ async def take_try(db: AsyncSession, token: str) -> Challenge | None:
     if row is None or row.user_id is None:
         return None
     data = row.data or {}
-    passkey = data.get("passkey")
+    passkey, until = data.get("passkey"), data.get("passkey_until")
     return Challenge(
         row.id,
         row.user_id,
         str(data.get("method", "password")),
         passkey if isinstance(passkey, str) else None,
+        datetime.fromisoformat(until) if isinstance(until, str) else None,
     )
 
 

@@ -455,7 +455,10 @@ async def passkey_for_second_factor(
         await db.rollback()
         raise _no_passkey()
     challenge = ceremonies.new_challenge()
-    if not await second_factor.expect_passkey(db, body.challenge, ceremonies.encoded(challenge)):
+    expected = ceremonies.encoded(challenge)
+    if not await second_factor.expect_passkey(
+        db, body.challenge, expected, lifetime=ceremonies.LIFETIME
+    ):
         await db.rollback()
         raise Problem("auth.challenge_ended", 401, "This sign-in has ended. Start again.")
     await db.commit()

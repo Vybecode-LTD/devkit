@@ -216,8 +216,10 @@ async def finish_with_second_factor(
         method, ok = "totp", await second_factor.check_totp(db, challenge.user_id, body.totp)
     elif body.passkey is not None:
         method = "passkey"
-        ok = await _passkey_answers(
-            request, db, challenge.user_id, challenge.passkey, body.passkey, uv=False
+        # The options the last start route gave, as a keyed hash, for 5 minutes.
+        answered = ceremonies.answered(body.passkey.response.client_data_json)
+        ok = challenge.expects(answered) and await _passkey_answers(
+            request, db, challenge.user_id, answered, body.passkey, uv=False
         )
     else:
         method = "recovery_code"
@@ -354,7 +356,9 @@ async def step_up(
         ok = await _passwords(request).check(body.password, user.password_hash)
     elif body.passkey is not None:
         method = "passkey"
-        await accounts.lock(db, user.id)  # before its token and passkey rows
+        # The account before its token and passkey rows, then the session
+        # again: a reset that ended it meanwhile wins (CodeRabbit on #50).
+        user = await accounts.held(db, user.id, row.id)
         # The options `step-up/passkey` gave this session, used up either way.
         challenge = ceremonies.answered(body.passkey.response.client_data_json)
         kept = challenge is not None and (

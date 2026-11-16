@@ -9,6 +9,7 @@ import asyncio
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -345,8 +346,37 @@ async def test_passkey_options_keep_the_sign_ins_first_factor(site: Site) -> Non
         "/api/auth/sign-in/second-factor/passkey", json={"challenge": challenge}
     )
     [row] = await _tokens(site, "second_factor", person)
-    assert row.data == {"method": "password", "passkey": options.json()["challenge"]}
+    webauthn_challenge = options.json()["challenge"]
+    assert set(row.data) == {"method", "passkey", "passkey_until"}
+    assert row.data["method"] == "password"
+    # Kept as a keyed hash, as every ceremony's challenge is, for 5 minutes.
+    assert row.data["passkey"] == keyed_hash(second_factor.PASSKEY_PURPOSE, webauthn_challenge)
+    assert webauthn_challenge not in str(row.data)
+    until = datetime.fromisoformat(row.data["passkey_until"])
+    assert until - clock.now() <= ceremonies.LIFETIME
     assert row.attempts == 0  # options cost no try
+
+
+async def test_a_step_up_by_passkey_gives_way_to_a_reset_that_lands_first(site: Site) -> None:
+    person = await _person(site)
+    await _register(person)
+    options = (await person.browser.post("/api/auth/step-up/passkey")).json()
+    answer = person.key.get(options)
+    [late] = await _with_the_account_held(
+        site,
+        person,
+        [lambda: person.browser.post("/api/auth/step-up", json={"passkey": answer})],
+        meanwhile=lambda db: _new_epoch(db, person),
+    )
+    assert (late.status_code, late.json()["code"]) == (401, "kernel.not_signed_in")
+    successes = [
+        row
+        for row in await _audit(site, "auth.step_up")
+        if row.details.get("method") == "passkey" and row.result == "success"
+    ]
+    assert successes == []
+    [row] = await _passkeys(site, person)
+    assert row.last_used_at is None  # nothing of the step-up was written
 
 
 async def test_another_accounts_passkey_is_no_second_factor(site: Site) -> None:
@@ -564,9 +594,10 @@ async def test_a_malformed_sign_in_challenge_gets_no_passkey_options(site: Site)
 
 
 async def test_expecting_a_passkey_on_an_ended_challenge_keeps_nothing(site: Site) -> None:
+    life = ceremonies.LIFETIME
     async with site.db() as db:
-        assert await second_factor.expect_passkey(db, "short", "x" * 43) is False
-        assert await second_factor.expect_passkey(db, "y" * 43, "x" * 43) is False
+        assert await second_factor.expect_passkey(db, "short", "x" * 43, lifetime=life) is False
+        assert await second_factor.expect_passkey(db, "y" * 43, "x" * 43, lifetime=life) is False
 
 
 async def test_a_credential_id_that_isnt_base64url_signs_nobody_in(site: Site) -> None:
