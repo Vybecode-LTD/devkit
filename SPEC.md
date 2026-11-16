@@ -205,7 +205,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `require_permission(key)` | 403 unless the user holds the permission | `Depends(require_permission("blog.post.publish"))` | K2 |
 | `require_owner_or(permission)` | The resource's owner, or staff holding the permission (14.8) | Editing your own comment | K2 |
 | `require_recent_auth(minutes=10)` | Forces a fresh sign-in for sensitive actions | Changing a payout account | K2 |
-| `email.send(template, to, context)`, `email.Template` | Renders a template the module declares (in `emails.py`, named `<id>.<name>`; a site may reword it) and sends it through the site's adapter: SMTP, or Resend only where the host blocks SMTP (decision 0033) | Welcome email | K3 |
+| `email.send(template, to, context)`, `email.Template` | Renders a template the module declares (in `emails.py`, named `<id>.<name>`; a site may reword it, and the kernel's own `kernel.*` mails too) and sends it through the site's adapter: SMTP, or Resend only where the host blocks SMTP (decision 0033) | Welcome email | K3 |
 | `storage.put / get / download / delete / signed_url / public_url` | S3-compatible file storage: a private bucket reached only through signed links, and a public one at its own address (15, decision 0032) | Uploads | K3 |
 | `events.emit(name, payload)`, `@events.on(name)` | Durable events between modules (section 11) | `blog.post.published` | K3 |
 | `jobs.enqueue(name, payload, run_at)`, `@jobs.scheduled(cron)` | Background and scheduled work | Scheduled publishing | K3 |
@@ -808,6 +808,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-16 | The kernel's own mails (sign-in codes, verification, resets, security notices) are `kernel.*` email templates a site may reword, word for word what they said before (6, decision 0033) |
 | 2026-11-16 | Kernel email: `email.send` renders a template a module declares in `emails.py` (`EMAILS`, named `<id>.<name>`), which a site may reword with the same placeholders; the adapter is SMTP whenever `SMTP_HOST` is set, and Resend's HTTPS API only where the host blocks SMTP (`RESEND_API_KEY` alone) (2, 4, 6, 7, decision 0033) |
 | 2026-11-16 | Kernel storage: a private bucket reached only through signed links (5 minutes unless asked, 6 hours at most, always a download) and an optional public bucket at its own address; a provider's file under an unguessable key in the public bucket, deleted with its job; inline only for five raster image types whose bytes match; the API adds `download`, `delete` and `public_url` (6, 15, decision 0032) |
 | 2026-11-16 | The kernel declares `kernel.moderation.act`, granted to admin and editor, for acting on moderation reports; 14.1 says outright that a custom role is staff (6, 14.1, decision 0031) |

@@ -24,7 +24,8 @@ What it does, in order:
    `app.state.mailer`, and the breach lookup new passwords are checked against
    (`breach_lookup=`, else Have I Been Pwned's range API), as
    `app.state.breach_lookup`.
-8. Checks every module's email templates and the site's rewording of them
+8. Checks the kernel's own email templates (`kernel.auth.mails`), every
+   module's, and the site's rewording of them
    (`emails=`), refusing to start on a bad one, and installs them with the
    mailer for `kernel.email.send`.
 
@@ -47,6 +48,7 @@ from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
 from kernel.auth.factor_undo import router as factor_undo_router
+from kernel.auth.mails import TEMPLATES as KERNEL_MAILS
 from kernel.auth.passkeys import router as passkeys_router
 from kernel.auth.password_change import router as password_change_router
 from kernel.auth.passwords import Passwords, RangeLookup, ask_range
@@ -93,7 +95,8 @@ def create_app(
         raise RuntimeError(f"Refusing to start: {error}") from error
     try:
         templates = build_templates(
-            ((module.id, module.emails) for module in installed), emails or {}
+            [("kernel", KERNEL_MAILS), *((module.id, module.emails) for module in installed)],
+            emails or {},
         )
     except ValueError as error:
         raise RuntimeError(f"Refusing to start: {error}") from error

@@ -8,3 +8,4 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 | --- | --- |
 | `contracts/k3-storage.md` | K3's storage service, `kernel.storage` (PR #58) |
 | `contracts/k3-email.md` | K3's email service: `email.send`, templates, SMTP and Resend (PR #59) |
+| `contracts/kernel-auth-templates.md` | K2's auth mails on `kernel.*` templates (PR #60) |

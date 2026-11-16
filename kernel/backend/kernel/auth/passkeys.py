@@ -64,7 +64,16 @@ from webauthn.helpers.structs import (
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, ceremonies, factor_undo, second_factor, sessions, tokens
+from kernel.auth import (
+    accounts,
+    audit,
+    ceremonies,
+    factor_undo,
+    mails,
+    second_factor,
+    sessions,
+    tokens,
+)
 from kernel.auth.ceremonies import AssertionCredential, RegistrationCredential
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
 from kernel.auth.models import Passkey, User
@@ -510,31 +519,18 @@ async def passkey_for_step_up(
 # --- security mail --------------------------------------------------------------------
 
 
-def _when(at: datetime) -> str:
-    return f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
-
-
 def _added(config: KernelConfig, at: datetime, undo: str) -> tuple[str, str]:
-    return (
-        f"A passkey was added to your {config.site_name} account",
-        f"A passkey was added to your {config.site_name} account on {_when(at)}. It can sign "
-        "in on its own.\n\n"
-        "If that was you, there's nothing to do.\n\n"
-        + factor_undo.undo_lines(config, undo, "passkey"),
+    return mails.rendered(
+        "kernel.passkey_added",
+        when=mails.when(at),
+        undo_link=factor_undo.link(config, undo),
+        days=factor_undo.UNDO_LIFETIME.days,
     )
 
 
 def _removed(config: KernelConfig, at: datetime) -> tuple[str, str]:
     """No name in it: whoever names a passkey chooses its words."""
-    site = config.site_url.rstrip("/")
-    return (
-        f"A passkey was removed from your {config.site_name} account",
-        f"A passkey was removed from your {config.site_name} account on {_when(at)}, and "
-        "every other device was signed out.\n\n"
-        "If that was you, there's nothing to do.\n\n"
-        f"If it wasn't, reset your password now at {site}/sign-in: that signs every device "
-        "out, this one too.\n",
-    )
+    return mails.rendered("kernel.passkey_removed", when=mails.when(at))
 
 
 async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:

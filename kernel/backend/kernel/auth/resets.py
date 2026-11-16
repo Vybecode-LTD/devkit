@@ -41,7 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, floor, sessions, tokens
+from kernel.auth import accounts, audit, floor, mails, sessions, tokens
 from kernel.auth.models import Token, User
 from kernel.auth.passwords import Passwords, refusal, site_context
 from kernel.auth.routes import forget_sign_in_failures
@@ -134,14 +134,10 @@ async def _waiting(db: AsyncSession, normal: str) -> bool:
 
 
 def _reset_mail(config: KernelConfig, token: str) -> tuple[str, str]:
-    minutes = int(LIFETIME.total_seconds() // 60)
-    return (
-        f"Reset your {config.site_name} password",
-        f"Someone asked to reset the password of your {config.site_name} account. "
-        f"To choose a new one, open this link within {minutes} minutes:\n\n"
-        f"{config.site_url.rstrip('/')}/auth/reset?token={token}\n\n"
-        "The link works once. Resetting signs out every device.\n\n"
-        "If you didn't ask, ignore this message: your password stays as it is.\n",
+    return mails.rendered(
+        "kernel.password_reset",
+        link=f"{config.site_url.rstrip('/')}/auth/reset?token={token}",
+        minutes=int(LIFETIME.total_seconds() // 60),
     )
 
 
@@ -205,12 +201,4 @@ async def reset_password(
 
 
 def _notice(config: KernelConfig, at: datetime) -> tuple[str, str]:
-    when = f"{at.day} {at:%B %Y} at {at:%H:%M} UTC"
-    return (
-        f"Your {config.site_name} password was reset",
-        f"The password of your {config.site_name} account was reset on {when}, "
-        "and every device was signed out.\n\n"
-        "If that was you, there's nothing to do.\n\n"
-        "If it wasn't, someone can read your email: secure your mailbox first, "
-        f"then reset your password again at {config.site_url.rstrip('/')}/sign-in.\n",
-    )
+    return mails.rendered("kernel.password_was_reset", when=mails.when(at))

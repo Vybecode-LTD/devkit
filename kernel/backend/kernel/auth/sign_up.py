@@ -51,7 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, tokens
+from kernel.auth import accounts, audit, mails, tokens
 from kernel.auth.dependencies import current_user
 from kernel.auth.models import Token, User, UserRole
 from kernel.auth.passwords import Passwords, refusal, site_context
@@ -164,24 +164,15 @@ async def sign_up(
 
 
 def _verify_mail(config: KernelConfig, token: str) -> tuple[str, str]:
-    return (
-        f"Confirm your email for {config.site_name}",
-        f"Welcome to {config.site_name}. Confirm this is your address by opening this link "
-        f"within {VERIFY_LIFETIME_HOURS} hours:\n\n"
-        f"{_site(config)}/auth/verify?token={token}\n\n"
-        "If you didn't make an account, ignore this message: nothing more will be sent.\n",
+    return mails.rendered(
+        "kernel.verify_email",
+        link=f"{_site(config)}/auth/verify?token={token}",
+        hours=VERIFY_LIFETIME_HOURS,
     )
 
 
 def _notice(config: KernelConfig) -> tuple[str, str]:
-    return (
-        f"Sign-up attempt on {config.site_name}",
-        f"Someone tried to make a {config.site_name} account with this address, which "
-        "already has one, so no new account was made.\n\n"
-        f"If it was you, sign in at {_site(config)}/sign-in instead, where you can also "
-        "reset your password if you've forgotten it.\n\n"
-        "If it wasn't you, there's nothing to do.\n",
-    )
+    return mails.rendered("kernel.sign_up_exists")
 
 
 async def _send(mailer: Mailer, to: str, subject: str, text: str) -> None:
@@ -274,10 +265,8 @@ def _already_verified() -> Problem:
 
 
 def _resend_mail(config: KernelConfig, token: str) -> tuple[str, str]:
-    return (
-        f"Confirm your email for {config.site_name}",
-        f"Here is a new link to confirm this is your {config.site_name} address. "
-        f"Open it within {VERIFY_LIFETIME_HOURS} hours:\n\n"
-        f"{_site(config)}/auth/verify?token={token}\n\n"
-        "Any earlier link no longer works.\n",
+    return mails.rendered(
+        "kernel.verify_email_again",
+        link=f"{_site(config)}/auth/verify?token={token}",
+        hours=VERIFY_LIFETIME_HOURS,
     )

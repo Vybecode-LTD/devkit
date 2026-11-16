@@ -61,7 +61,7 @@ from starlette.responses import JSONResponse, Response
 
 from kernel import clock
 from kernel.access import public
-from kernel.auth import accounts, audit, floor, second_factor, sessions, tokens
+from kernel.auth import accounts, audit, floor, mails, second_factor, sessions, tokens
 from kernel.auth.hashing import keyed_hash, same
 from kernel.auth.models import Token, User
 from kernel.auth.routes import finish_sign_in
@@ -192,15 +192,11 @@ async def _issue(db: AsyncSession, user: User, normal: str) -> tuple[str, str]:
 
 
 def _message(config: KernelConfig, code: str, link: str) -> tuple[str, str]:
-    minutes = int(LIFETIME.total_seconds() // 60)
-    return (
-        f"Your {config.site_name} sign-in code",
-        f"Your code to sign in to {config.site_name} is {code}\n\n"
-        f"Or open this link to sign in on this device:\n\n"
-        f"{config.site_url.rstrip('/')}/auth/link?token={link}\n\n"
-        f"The code and the link work once, within {minutes} minutes.\n\n"
-        "If you didn't ask to sign in, ignore this message: nobody can use it "
-        "without reading your email.\n",
+    return mails.rendered(
+        "kernel.sign_in_code",
+        code=code,
+        link=f"{config.site_url.rstrip('/')}/auth/link?token={link}",
+        minutes=int(LIFETIME.total_seconds() // 60),
     )
 
 
