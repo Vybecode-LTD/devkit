@@ -51,16 +51,16 @@ async def held(db: AsyncSession, user_id: uuid.UUID, session_id: uuid.UUID) -> U
     """Lock the account, before its factor, session and token rows, and look
     at it again: if this session ended meanwhile (a reset, a password change,
     a suspension), the other request stands and this one answers 401
-    (decisions 0026 and 0027)."""
+    (decisions 0026 and 0027).
+
+    The session's epoch is read on its own, and the loaded session row is left
+    as it was: refreshing it would swap in the token hash another step-up just
+    wrote, and a step-up replaces the token only while the hash this request
+    came with is still current (Codex on #52)."""
     await lock(db, user_id)
     user = await db.get(User, user_id, populate_existing=True)
-    session = await db.get(Session, session_id, populate_existing=True)
-    if (
-        user is None
-        or user.status not in SIGNS_IN
-        or session is None
-        or session.epoch != user.session_epoch
-    ):
+    epoch = await db.scalar(select(Session.epoch).where(Session.id == session_id))
+    if user is None or user.status not in SIGNS_IN or epoch is None or epoch != user.session_epoch:
         await db.rollback()
         raise Problem("kernel.not_signed_in", 401, "Sign in to continue.")
     return user

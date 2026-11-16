@@ -685,3 +685,22 @@ async def test_a_step_up_by_password_gives_way_to_a_reset_that_lands_first(site:
     )
     assert (late.status_code, late.json()["code"]) == (401, "kernel.not_signed_in")
     assert await _step_up_successes(site) == []
+
+
+async def test_two_step_ups_on_one_cookie_that_meet_at_the_account_issue_one_token(
+    site: Site,
+) -> None:
+    """Looking at the session again under the lock mustn't take the winner's
+    new token hash for the one this request came with: only the first
+    replaces the token, the second answers 200 with no cookie, so the browser
+    keeps the winner's whatever order the answers arrive in (Codex on #52)."""
+    person = await _person(site)
+
+    def step_up() -> Awaitable[httpx.Response]:
+        return person.browser.post("/api/auth/step-up", json={"password": PASSWORD})
+
+    answers = await _with_the_account_held(site, person, [step_up, step_up])
+    assert [answer.status_code for answer in answers] == [200, 200]
+    issued = [a for a in answers if "__Host-dk_session" in a.headers.get("set-cookie", "")]
+    assert len(issued) == 1
+    assert (await person.browser.get("/api/auth/session")).status_code == 200
