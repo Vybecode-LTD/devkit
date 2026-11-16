@@ -110,6 +110,10 @@ def _broken(change: Any) -> list[str]:
         (lambda d: d["phases"][1].update(items=[]), "has no steps"),
         (lambda d: d["phases"][1].update(colour="red"), "unknown key 'colour'"),
         (lambda d: d.update(milestones=[]), "No milestones"),
+        (
+            lambda d: d["milestones"].append({"id": "v1", "name": "Again", "goal": "Same id."}),
+            "Milestone 'v1' appears twice",
+        ),
     ],
 )
 def test_bad_data_is_named(change: Any, problem: str) -> None:

@@ -4,16 +4,18 @@
     python -m tools.progress --check   # exit 1 if either is stale or the data is wrong
 
 `docs/progress.json` lists every phase to DevKit v1.0 and after it, each with
-its steps and their status. Edit only that file. This tool makes the two views
-of it, so they can't disagree:
+its steps and their status. Edit only that file. This tool makes both views of
+it from the same data:
 
 - `docs/PROGRESS.md`, the document in the repo;
 - `dev plans/progress-ledger/rows.json`, the same steps as flat rows, which the
   visual ledger (`ledger_url` in the JSON) is published from.
 
-`tests/test_progress.py` fails when either is stale, or when the data names a
-status, a phase or a decision record that doesn't exist. Progress counts steps,
-not effort: each step is one row, whatever its size.
+`tests/test_progress.py` fails when either file is stale, or when the data
+names a status, a milestone or a decision record that doesn't exist. It checks
+the files in the repo, not the published ledger: that matches only once the new
+rows are uploaded to it (`dev plans/progress-ledger/README.md`). Progress counts
+steps, not effort: each step is one row, whatever its size.
 """
 
 from __future__ import annotations
@@ -60,6 +62,10 @@ def problems(data: dict[str, Any], decisions: dict[str, str] | None = None) -> l
     milestones = [milestone.get("id") for milestone in data.get("milestones", [])]
     if not milestones:
         found.append("No milestones.")
+    found += [
+        f"Milestone {milestone!r} appears twice."
+        for milestone in sorted({m for m in milestones if milestones.count(m) > 1}, key=str)
+    ]
     seen: set[str] = set()
     for phase in data.get("phases", []):
         where = f"Phase {phase.get('id')!r}"

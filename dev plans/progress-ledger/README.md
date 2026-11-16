@@ -7,7 +7,7 @@ The visual progress ledger: https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm (a
 | `index.html` | The ledger's page, stored in the artifact as `files/index.html` |
 | `rows.json` | Every step as one row, made by `python -m tools.progress` from `docs/progress.json`; never edit it by hand |
 
-The repo's `docs/PROGRESS.md` and this ledger are made from the same `docs/progress.json`, so they can't disagree. `tests/test_progress.py` fails when either view is stale.
+The repo's `docs/PROGRESS.md` and this ledger's rows are made from the same `docs/progress.json`. `tests/test_progress.py` fails when either generated file in the repo is stale, but it can't see the published ledger: that shows the new rows only once they're uploaded and its `steps` dataset points at them (below). Until then it shows the last rows published.
 
 ## Republishing (every session end, and after a status changes)
 

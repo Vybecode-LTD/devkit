@@ -317,7 +317,12 @@
     const got = dash.data('steps');
     const names = got.status === 'ok' ? [...new Set(got.data.map((row) => row.milestone))] : [];
     select.replaceChildren(new Option('All milestones', ''), ...names.map((name) => new Option(name, name)));
-    select.value = names.includes(window.plFilter.milestone) ? window.plFilter.milestone : '';
+    if (got.status === 'ok' && window.plFilter.milestone && !names.includes(window.plFilter.milestone)) {
+      // The chosen milestone is gone from the data (renamed): show every row again.
+      window.plFilter.milestone = '';
+      dash.draw('step-rows');
+    }
+    select.value = window.plFilter.milestone;
     select.onchange = () => { window.plFilter.milestone = select.value; dash.draw('step-rows'); };
   });
 
