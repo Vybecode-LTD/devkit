@@ -200,3 +200,11 @@ None. On 2026-11-17 the owner approved the goal and non-goals as written, with t
 - **The templates live in `moderation.TEMPLATES`,** declared under the owner `kernel` as notifications' footer is, not in `auth/mails.py`. **The kernel's notice key lives in code** (`moderation.NOTIFICATIONS`): `kernel.json`'s schema has no `notifications`. `notifications.preferences` and `choose` always take the kernel's keys.
 - **No contact address setting exists,** so the mails ask the person to reply to the email, which comes from `MAIL_FROM`.
 - **The `member` role counts for nothing in decision 0013's comparison,** so a module's permission granted to members never stops an admin suspending one.
+
+2026-11-17, from #71's review (Codex and CodeRabbit):
+
+- **Dismissing tells the module.** `Kind` gains `dismissed(db, id)`, run in the same transaction as the case closing (nothing by default), so a module shows again text the filters held. Without it, a false positive had no way back into view.
+- **Suspension locks the actor's row too,** with the person's, in id order, and refuses an actor no longer active (409 `auth.account_not_active`): two owners suspending each other at once can't both commit.
+- **A ban from the queue needs a recent sign-in,** as suspending does (14.7).
+- **The harness finds a module's kinds** in its `moderation.py`, by type, as it finds jobs and listeners.
+- **A NUL character in a report's id or note is a 422,** refused by the body model.

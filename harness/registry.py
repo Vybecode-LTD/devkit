@@ -13,7 +13,9 @@ fixed layout (SPEC.md section 4):
   `@jobs.handler` and `@jobs.scheduled` make (decision 0035);
 - `backend/<id_>/events.py`'s event payloads (the classes it declares with
   `@events.payload`) and its listeners (every `kernel.events.Listener`,
-  which `@events.on` makes; decision 0036).
+  which `@events.on` makes; decision 0036);
+- `backend/<id_>/moderation.py`'s kinds: every class it declares with
+  `@moderation.kind` (decision 0039).
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ import harness  # noqa: F401  (puts the kernel and modules on sys.path)
 from harness.layout import module_dirs
 from kernel.events import Listener, Payload, declaration
 from kernel.jobs import Job
+from kernel.moderation import Kind
 from kernel.modules import InstalledModule, Manifest
 
 
@@ -62,6 +65,21 @@ def module_events(
     return payloads, listeners
 
 
+def module_kinds(module_name: str) -> tuple[type[Kind], ...]:
+    """The kinds `module_name` declares itself: not `Kind`, nor one it imports."""
+    if importlib.util.find_spec(module_name) is None:
+        return ()
+    module = importlib.import_module(module_name)
+    return tuple(
+        value
+        for value in vars(module).values()
+        if isinstance(value, type)
+        and issubclass(value, Kind)
+        and value.__module__ == module.__name__
+        and value.name
+    )
+
+
 def discover() -> list[InstalledModule]:
     found = []
     for folder in module_dirs():
@@ -81,6 +99,7 @@ def discover() -> list[InstalledModule]:
                 jobs=_jobs(f"{package}.jobs"),
                 payloads=payloads,
                 listeners=listeners,
+                reportable=module_kinds(f"{package}.moderation"),
             )
         )
     return found

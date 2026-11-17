@@ -7,19 +7,28 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, Field, RootModel, StrictBool, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    StrictBool,
+    field_validator,
+    model_validator,
+)
 from sqlalchemy import ColumnElement, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import audit, moderation, notifications
 from kernel.access import public
-from kernel.auth.dependencies import current_user, require_permission
+from kernel.auth import sessions
+from kernel.auth.dependencies import current_user, require_permission, signed_in
 from kernel.auth.models import User
 from kernel.db import get_db
 from kernel.errors import Problem
@@ -235,6 +244,16 @@ Reason = Literal[
     "spam", "harassment", "hate", "sexual", "violence", "self_harm", "illegal", "other"
 ]
 ACT = "kernel.moderation.act"
+#: How recent a sign-in a ban needs: suspending's step-up (14.4, 14.7).
+STEP_UP = timedelta(minutes=10)
+
+
+def _no_nul(value: str | None) -> str | None:
+    """Postgres can't hold a NUL; refused here, it's a 422 rather than the
+    service's ValueError as a 500 (Codex on #71)."""
+    if value is not None and chr(0) in value:
+        raise ValueError("Text can't hold a NUL character.")
+    return value
 
 
 class Target(BaseModel):
@@ -242,6 +261,8 @@ class Target(BaseModel):
 
     type: str = Field(min_length=1, max_length=moderation.MAX_ID)
     id: str = Field(min_length=1, max_length=moderation.MAX_ID)
+
+    _plain = field_validator("type", "id")(_no_nul)
 
 
 class Report(BaseModel):
@@ -252,6 +273,8 @@ class Report(BaseModel):
     target: Target
     reason: Reason
     note: str | None = Field(default=None, max_length=moderation.MAX_NOTE)
+
+    _plain = field_validator("note")(_no_nul)
 
 
 @router.post(
@@ -328,9 +351,14 @@ async def act(
     case_id: uuid.UUID,
     body: Action,
     user: User = Depends(require_permission(ACT)),
+    resumed: sessions.Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Acts on an open case and closes it; answers the case."""
+    """Acts on an open case and closes it; answers the case. A ban suspends
+    the account, so it needs a recent sign-in, as suspending does (14.7;
+    CodeRabbit on #71)."""
+    if body.action == "ban" and not sessions.recent(resumed.session, within=STEP_UP):
+        raise Problem("auth.step_up_required", 403, "Confirm it's you to continue.")
     await moderation.act(
         db,
         case_id,

@@ -4,14 +4,18 @@
 Each kind is a class of `moderation.Kind` declared with `@moderation.kind`,
 named `my-module.<entity>`, and listed on the module's
 `InstalledModule(reportable=...)`. `describe` says what the thing is now (None
-when there's no such thing); `apply` hides or deletes it, in the caller's
-transaction, for each action the kind lists. A kind may list neither: a
+when there's no such thing, an id that can't be one included); `apply` hides or
+deletes it, in the caller's transaction, for each action the kind lists; and
+`dismissed`, when staff find nothing wrong, shows again what the filters held
+(by default it does nothing). A kind may list neither: a
 profile is reported so staff can time out or ban the person, not to hide it.
 For example:
 
     @moderation.kind("my-module.comment", actions=("hide", "delete"))
     class Comment(moderation.Kind):
         async def describe(self, db, id):
+            if not id.isdigit():  # a report can name any id
+                return None
             found = await db.get(models.Comment, int(id))
             if found is None:
                 return None
@@ -19,6 +23,9 @@ For example:
 
         async def apply(self, db, id, action):
             ...  # hide: mark it hidden; delete: remove it
+
+        async def dismissed(self, db, id):
+            ...  # show it again if the filters held it
 
 Before showing new text to others, screen it, and hold what the filters hold:
 

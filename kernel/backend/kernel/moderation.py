@@ -178,6 +178,11 @@ class Kind(abc.ABC):
         """Hides or deletes the thing (`action`, one the kind lists), in the
         caller's transaction."""
 
+    async def dismissed(self, db: AsyncSession, id: str) -> None:
+        """Staff found nothing wrong, in the caller's transaction: show the
+        thing again if the module held it (`hold`). Nothing by default."""
+        return None
+
 
 K = TypeVar("K", bound=type[Kind])
 
@@ -612,17 +617,37 @@ async def can_post(user: User = Depends(current_user)) -> User:
 # --- suspension -----------------------------------------------------------------------
 
 
-async def _may_change(db: AsyncSession, actor: User, person: User) -> None:
-    """The codes are auth's, as docs/contracts/auth-api.md has them."""
-    if person.id == actor.id:
+async def _may_change(db: AsyncSession, actor: User, user_id: uuid.UUID) -> User:
+    """The person's row, once the actor may change it. The codes are auth's,
+    as docs/contracts/auth-api.md has them.
+
+    Both rows are locked, in id order, and the actor must still be active:
+    two owners suspending each other at once can't both commit and leave no
+    active owner (CodeRabbit on #71). The second waits, then finds its actor
+    suspended."""
+    if user_id == actor.id:
         raise Problem("auth.not_yourself", 403, "You can't suspend or restore yourself.")
-    if not await _outranked(db, actor.id, person.id):
+    rows = await db.scalars(
+        select(User)
+        .where(User.id.in_([actor.id, user_id]))
+        .order_by(User.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    found = {row.id: row for row in rows}
+    if user_id not in found:
+        raise Problem("kernel.not_found", 404, "There's no such person.")
+    acting = found.get(actor.id)
+    if acting is None or acting.status != "active":
+        raise Problem("auth.account_not_active", 409, "Your account is no longer active.")
+    if not await _outranked(db, actor.id, user_id):
         raise Problem(
             "auth.role_not_yours",
             403,
             "Only an owner suspends or restores an owner, and anyone else only by "
             "someone holding every permission they hold.",
         )
+    return found[user_id]
 
 
 def _not_active() -> Problem:
@@ -642,8 +667,7 @@ async def suspend(
     the person is mailed why, and `auth.user.suspended` is emitted. One
     already suspended changes nothing."""
     _check_reason(reason)
-    person = await _person(db, user_id)
-    await _may_change(db, actor, person)
+    person = await _may_change(db, actor, user_id)
     if person.status == "suspended":
         return
     if person.status != "active":
@@ -671,8 +695,7 @@ async def restore(
 ) -> None:
     """Restores a suspended account in the caller's transaction and emits
     `auth.user.restored`; its sessions stay ended. One already active changes nothing."""
-    person = await _person(db, user_id)
-    await _may_change(db, actor, person)
+    person = await _may_change(db, actor, user_id)
     if person.status == "active":
         return
     if person.status != "suspended":
@@ -756,6 +779,7 @@ async def act(
     target = (case.target_type, case.target_id)
     details = {"case": str(case.id), "reason": reason}
     if action == "dismiss":
+        await found.dismissed(db, case.target_id)
         audit.record(
             db,
             "kernel.moderation.dismissed",

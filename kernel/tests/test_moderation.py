@@ -20,7 +20,7 @@ import pytest
 import pytest_asyncio
 from fastapi import APIRouter, Depends, FastAPI
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import audit, clock, jobs, moderation, notifications
@@ -66,6 +66,13 @@ def _kinds(module_id: str, store: Store) -> tuple[type[moderation.Kind], ...]:
                 raise RuntimeError("the module's apply failed")
             done = "post_hidden" if action == "hide" else "post_deleted"
             audit.record(db, f"{module_id}.{done}", actor=None, target=(f"{module_id}.post", id))
+
+        async def dismissed(self, db: AsyncSession, id: str) -> None:
+            if store.fail:
+                raise RuntimeError("the module's release failed")
+            audit.record(
+                db, f"{module_id}.post_released", actor=None, target=(f"{module_id}.post", id)
+            )
 
     @moderation.kind(f"{module_id}.profile")
     class Profile(moderation.Kind):
@@ -543,7 +550,16 @@ async def test_a_hold_needs_the_filters_reasons(
 # --- acting on a case ----------------------------------------------------------------
 
 
-async def test_dismissing_closes_the_case_and_does_nothing_else(
+async def _released(db: AsyncSession, site: Site, ident: str) -> bool:
+    found = await db.scalar(
+        select(AuditEvent.id).where(
+            AuditEvent.action == f"{site.module}.post_released", AuditEvent.target_id == ident
+        )
+    )
+    return found is not None
+
+
+async def test_dismissing_closes_the_case_and_tells_the_module(
     site: Site, db: AsyncSession
 ) -> None:
     moderator, author = await _user(db, "editor"), await _user(db)
@@ -555,10 +571,47 @@ async def test_dismissing_closes_the_case_and_does_nothing_else(
     assert (case.status, case.outcome, case.closed_by) == ("dismissed", "dismiss", moderator.id)
     assert case.closed_at is not None
     assert before <= case.closed_at <= clock.now()
+    assert await _released(db, site, case.target_id)
     assert await _entries(db, author.id) == [
         ("kernel.moderation.dismissed", {"case": str(case_id), "reason": None})
     ]
     assert await site.mail(author.email) == []
+
+
+async def test_dismissing_a_hold_releases_the_text(site: Site, db: AsyncSession) -> None:
+    """CodeRabbit on #71: a held post dismissed as a false positive had no way
+    back into view. The kind's `dismissed` runs with the case closing."""
+    moderator = await _user(db, "editor")
+    ident = site.thing(await _user(db), "a cheap deal")
+    case_id = await moderation.hold(db, (site.post, ident), reasons=("term",))
+    await db.commit()
+    moderator_id = moderator.id
+    site.store.fail = True
+    try:
+        with pytest.raises(RuntimeError, match="release failed"):
+            await moderation.act(db, case_id, "dismiss", actor=moderator)
+        await db.rollback()
+    finally:
+        site.store.fail = False
+    assert (await _case(db, case_id)).status == "open"
+    assert not await _released(db, site, ident)
+    moderator = await _fresh(db, moderator_id)
+    await moderation.act(db, case_id, "dismiss", actor=moderator)
+    await db.commit()
+    assert (await _case(db, case_id)).status == "dismissed"
+    assert await _released(db, site, ident)
+
+
+async def test_a_kind_need_not_release_anything(site: Site, db: AsyncSession) -> None:
+    moderator, reporter = await _user(db, "editor"), await _user(db)
+    ident = site.thing(await _user(db))
+    case_id = await moderation.report(
+        db, (site.profile, ident), reporter=reporter.id, reason="spam"
+    )
+    await db.commit()
+    await moderation.act(db, case_id, "dismiss", actor=moderator)
+    await db.commit()
+    assert (await _case(db, case_id)).status == "dismissed"
 
 
 @pytest.mark.parametrize(("action", "done"), [("hide", "post_hidden"), ("delete", "post_deleted")])
@@ -894,6 +947,65 @@ async def test_a_members_permission_doesn_t_stop_an_admin(site: Site, db: AsyncS
         await db.commit()
 
 
+async def _until_blocked(database: Database, task: asyncio.Task[Any]) -> None:
+    """Waits until `task` waits on a row lock (or ends): the race is real."""
+    for _ in range(200):
+        if task.done():
+            return
+        async with database.sessions() as probe:
+            waiting = await probe.scalar(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity "
+                    "WHERE wait_event_type = 'Lock' AND datname = current_database()"
+                )
+            )
+        if waiting:
+            return
+        await asyncio.sleep(0.025)
+
+
+async def test_two_owners_can_t_suspend_each_other_at_once(
+    site: Site, db: AsyncSession, database: Database
+) -> None:
+    """CodeRabbit on #71: each locked only its target, so both could commit and
+    leave no active owner. The actor's row is locked too, and must be active."""
+    ana_id, ben_id = (await _user(db, "owner")).id, (await _user(db, "owner")).id
+    async with database.sessions() as first, database.sessions() as second:
+        ana = await first.get(User, ana_id)
+        ben = await second.get(User, ben_id)
+        assert ana is not None
+        assert ben is not None
+        await second.commit()  # its next statement waits on the lock, not on this read
+        await moderation.suspend(first, ben_id, actor=ana, reason="other")
+        second_try = asyncio.create_task(
+            moderation.suspend(second, ana_id, actor=ben, reason="other")
+        )
+        await _until_blocked(database, second_try)
+        await first.commit()
+        with pytest.raises(Problem) as refused:
+            await second_try
+        assert (refused.value.status, refused.value.code) == (409, "auth.account_not_active")
+        await second.rollback()
+    statuses = ((await _fresh(db, ana_id)).status, (await _fresh(db, ben_id)).status)
+    assert statuses == ("active", "suspended")
+
+
+async def test_a_suspended_actor_can_t_suspend_or_restore(site: Site, db: AsyncSession) -> None:
+    owner, admin, member = await _user(db, "owner"), await _user(db, "admin"), await _user(db)
+    admin_id, member_id = admin.id, member.id
+    await moderation.suspend(db, admin_id, actor=owner, reason="other")
+    await db.commit()
+    with pytest.raises(Problem) as refused:
+        await moderation.suspend(db, member_id, actor=admin, reason="spam")
+    assert (refused.value.status, refused.value.code) == (409, "auth.account_not_active")
+    await db.rollback()
+    admin = await _fresh(db, admin_id)
+    with pytest.raises(Problem) as refused:
+        await moderation.restore(db, member_id, actor=admin)
+    assert (refused.value.status, refused.value.code) == (409, "auth.account_not_active")
+    await db.rollback()
+
+
 async def test_suspending_someone_leaving_or_gone_is_409(site: Site, db: AsyncSession) -> None:
     admin = await _user(db, "admin")
     leaving = await _user(db)
@@ -980,6 +1092,22 @@ async def test_a_report_on_nothing_or_a_module_off_is_404(site: Site, db: AsyncS
 )
 async def test_a_bad_report_is_422(site: Site, db: AsyncSession, body: dict[str, Any]) -> None:
     member = await _user(db)
+    async with Client(site.app) as client:
+        response = await client.post(REPORTS, json=body, headers=await _as(db, member))
+        assert (response.status_code, _code(response)) == (422, "kernel.invalid_request")
+
+
+@pytest.mark.parametrize("part", ["id", "note"])
+async def test_a_nul_character_in_a_report_is_422_not_500(
+    site: Site, db: AsyncSession, part: str
+) -> None:
+    """Codex on #71: the models took it and the service's ValueError became a 500."""
+    member = await _user(db)
+    body: dict[str, Any] = {"target": {"type": site.post, "id": site.thing(None)}, "reason": "spam"}
+    if part == "id":
+        body["target"]["id"] += chr(0)
+    else:
+        body["note"] = "Ads" + chr(0)
     async with Client(site.app) as client:
         response = await client.post(REPORTS, json=body, headers=await _as(db, member))
         assert (response.status_code, _code(response)) == (422, "kernel.invalid_request")
@@ -1123,6 +1251,30 @@ async def test_acting_on_a_case_whose_module_is_off_is_404(site: Site, db: Async
     finally:
         await db.delete(await db.get(ModuleState, site.module))
         await db.commit()
+
+
+async def test_a_ban_from_the_queue_needs_a_recent_sign_in(site: Site, db: AsyncSession) -> None:
+    """CodeRabbit on #71: a ban suspends, and suspending needs step-up (14.7)."""
+    admin = await _user(db, "admin", second_factor=True)
+    banned = await _reported(site, db, await _user(db))
+    kept = await _reported(site, db, await _user(db))
+    async with Client(site.app) as client:
+        headers = await _as(db, admin)
+        clock.advance(11 * 60)
+        response = await client.post(
+            f"{CASES}/{banned}/actions", json={"action": "ban", "reason": "spam"}, headers=headers
+        )
+        assert (response.status_code, _code(response)) == (403, "auth.step_up_required")
+        response = await client.post(
+            f"{CASES}/{kept}/actions", json={"action": "dismiss"}, headers=headers
+        )
+        assert response.status_code == 200, response.text
+        response = await client.post(
+            f"{CASES}/{banned}/actions",
+            json={"action": "ban", "reason": "spam"},
+            headers=await _as(db, admin),
+        )
+        assert (response.status_code, response.json()["outcome"]) == (200, "ban")
 
 
 async def test_time_out_routes(site: Site, db: AsyncSession) -> None:

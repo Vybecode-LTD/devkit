@@ -39,6 +39,17 @@ def test_discover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
                 "from kernel import email\n"
                 'EMAILS = {"test-gallery.new_photo": email.Template("New photo on $site_name", "See it.")}\n'
             ),
+            # Its kinds are found by type; the base class it imports isn't one (Codex on #71).
+            "moderation.py": (
+                "from kernel import moderation\n"
+                "from kernel.moderation import Kind\n"
+                '@moderation.kind("test-gallery.photo", actions=("hide",))\n'
+                "class Photo(moderation.Kind):\n"
+                "    async def describe(self, db, id):\n"
+                "        return None\n"
+                "    async def apply(self, db, id, action):\n"
+                "        return None\n"
+            ),
         },
     )
     bare = tmp_path / "modules" / "test-bare"
@@ -55,6 +66,8 @@ def test_discover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
             del sys.modules[name]
     assert found["test-bare"].router is None
     assert found["test-bare"].emails == {}
+    assert found["test-bare"].reportable == ()
+    assert [kind.name for kind in found["test-gallery"].reportable] == ["test-gallery.photo"]
     gallery = found["test-gallery"]
     assert gallery.router is not None
     assert gallery.settings is not None
