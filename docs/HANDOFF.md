@@ -22,7 +22,7 @@ Overwritten every session. 2026-11-17, Eastern (Claude Code, the owner's machine
 
 ## Open questions for the owner
 
-- Still open from earlier sessions: decisions 0036's, 0035's, 0032's and 0033's own calls (listed in each record); when to make the R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
+- Still open from earlier sessions: decision 0036's own calls (a listener's 300-second default timeout; `auth.user.verified` on an email change's confirmation as well as sign-up's link and a reset; no deliveries at all for a module `MODULES` leaves out); decisions 0035's, 0032's and 0033's own calls (listed in each record); when to make the R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
 - `C:\DEV\knowledge` has `owner.md` uncommitted (the push-and-merge rule and an older Boston-time line): the owner commits it.
 
 ## Notes
