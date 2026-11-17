@@ -679,6 +679,9 @@ async def test_the_staff_s_log_filters_by_person_action_target_and_time(
         {"target_id": "7"},
         {"before": "not-a-cursor"},
         {"before": "123"},
+        {"before": "9999999999999999999.1"},  # past the last datetime (Codex on #67)
+        {"before": "1.9223372036854775808"},  # past Postgres's bigint
+        {"before": "1." + "9" * 20},
         {"since": "yesterday"},
     ],
 )
@@ -739,6 +742,9 @@ async def test_one_s_own_activity_comes_in_pages(db: AsyncSession, app_factory: 
             OWN_LOG, params={"limit": 2, "before": first["next"]}, headers=headers
         )
         bad = await client.get(OWN_LOG, params={"before": "x"}, headers=headers)
+        late = await client.get(
+            OWN_LOG, params={"before": "9999999999999999999.1"}, headers=headers
+        )
         whole = (await client.get(OWN_LOG, params={"limit": 3}, headers=headers)).json()
     assert len(first["items"]) == 2
     assert len(second.json()["items"]) == 1
@@ -746,6 +752,7 @@ async def test_one_s_own_activity_comes_in_pages(db: AsyncSession, app_factory: 
     assert (len(whole["items"]), whole["next"]) == (3, None)  # a full last page ends it
     assert {i["id"] for i in first["items"]}.isdisjoint(i["id"] for i in second.json()["items"])
     assert (bad.status_code, _code(bad)) == (422, "kernel.invalid_request")
+    assert (late.status_code, _code(late)) == (422, "kernel.invalid_request")
 
 
 # --- the first use: settings ---------------------------------------------------------

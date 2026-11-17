@@ -260,6 +260,8 @@ def record(
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 _DIGITS = re.compile(r"[0-9]{1,19}")
+#: Postgres's bigint, the entry id's column.
+_MAX_ID = 2**63 - 1
 
 
 def cursor(entry: AuditEvent) -> str:
@@ -268,15 +270,23 @@ def cursor(entry: AuditEvent) -> str:
 
 
 def _after(value: str) -> tuple[datetime, int]:
+    """The `(at, id)` a cursor names. Problem 422 for one `cursor` couldn't
+    have made: not digits, a time past the last a datetime holds, or an id
+    past the column's (Codex on #67)."""
     micros, dot, ident = value.partition(".")
-    if not (dot and _DIGITS.fullmatch(micros) and _DIGITS.fullmatch(ident)):
+    try:
+        if not (dot and _DIGITS.fullmatch(micros) and _DIGITS.fullmatch(ident)):
+            raise ValueError(value)
+        if int(ident) > _MAX_ID:
+            raise ValueError(value)
+        return _EPOCH + timedelta(microseconds=int(micros)), int(ident)
+    except (ValueError, OverflowError):
         raise Problem(
             "kernel.invalid_request",
             422,
             "Some of what was sent isn't valid.",
             errors={"before": ["Not a page of the audit log."]},
-        )
-    return _EPOCH + timedelta(microseconds=int(micros)), int(ident)
+        ) from None
 
 
 @dataclass(frozen=True)
