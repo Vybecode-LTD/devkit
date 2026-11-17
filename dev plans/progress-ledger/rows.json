@@ -358,11 +358,11 @@
    "gate": "not passed",
    "step_order": 8,
    "step": "Moderation: reports, the staff queue, filters and actions",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "#56",
-   "decisions": "",
-   "note": "The permission is declared"
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#56 #71",
+   "decisions": "0031 0039",
+   "note": ""
   },
   {
    "milestone": "DevKit v1.0",
@@ -372,8 +372,8 @@
    "gate": "not passed",
    "step_order": 9,
    "step": "Public rendering: head tags, server copy, sitemap, robots, llms.txt",
-   "status": "todo",
-   "status_label": "To do",
+   "status": "next",
+   "status_label": "Next",
    "prs": "",
    "decisions": "",
    "note": ""
@@ -2030,7 +2030,7 @@
   },
   {
    "label": "Updated",
-   "value": "2026-11-16"
+   "value": "2026-11-17"
   },
   {
    "label": "main",

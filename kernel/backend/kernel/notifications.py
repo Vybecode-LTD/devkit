@@ -55,6 +55,9 @@ MAX_LINK = 500
 #: slash first (`//host` leaves the site), no backslash, no space.
 _LINK = re.compile(r"/(?![/\\])[!-\[\]-~]*")
 CHANNELS = {"in_site": (True, False), "email": (False, True), "both": (True, True)}
+#: The kernel's own keys (`kernel.content_removed`, kernel.moderation) are
+#: always there to choose: the kernel is never switched off.
+KERNEL = "kernel"
 
 FOOTER = "kernel.notification_footer"
 UNSUBSCRIBE_API = "/api/kernel/notifications/unsubscribe"
@@ -344,8 +347,8 @@ async def mark_read(db: AsyncSession, user_id: uuid.UUID, ids: Sequence[uuid.UUI
 async def preferences(
     db: AsyncSession, user_id: uuid.UUID, on: Iterable[str]
 ) -> list[dict[str, Any]]:
-    """Every key of the modules on, with the person's choice for it."""
-    allowed = set(on)
+    """Every key of the kernel and the modules on, with the person's choice for it."""
+    allowed = {*on, KERNEL}
     shown = [kind for kind in _kinds.values() if kind.module in allowed]
     rows = await db.execute(
         select(
@@ -389,8 +392,8 @@ async def choose(
     on: Iterable[str],
 ) -> None:
     """Saves the person's choices. Problem 422, saving nothing, for a key
-    that isn't one of a module on."""
-    allowed = set(on)
+    that isn't the kernel's or one of a module on."""
+    allowed = {*on, KERNEL}
     unknown = sorted(
         key for key in changes if key not in _kinds or _kinds[key].module not in allowed
     )

@@ -93,6 +93,9 @@ class User(Base):
     #: Up on any role change: each session gets a new token on its next request.
     role_version: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     deletion_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: Until then the person can't post (kernel.moderation's time-out); they
+    #: still sign in and read.
+    timed_out_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sign_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _created()
     updated_at: Mapped[datetime] = mapped_column(

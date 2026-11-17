@@ -1,27 +1,30 @@
 """The kernel's own routes, at /api/kernel: the health check, the modules on,
-the staff's audit log (decision 0037), and each person's notices (decision 0038)."""
+the staff's audit log (decision 0037), each person's notices (decision 0038),
+and moderation: reports, the queue, actions, time-outs and the moderators'
+log (decision 0039)."""
 
 from __future__ import annotations
 
 import logging
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, RootModel, StrictBool, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, StrictBool, model_validator
 from sqlalchemy import ColumnElement, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import audit, notifications
+from kernel import audit, moderation, notifications
 from kernel.access import public
 from kernel.auth.dependencies import current_user, require_permission
 from kernel.auth.models import User
 from kernel.db import get_db
 from kernel.errors import Problem
 from kernel.models import AuditEvent
+from kernel.ratelimit import rate_limit
 from kernel.version import __version__
 
 log = logging.getLogger(__name__)
@@ -224,3 +227,175 @@ async def unsubscribe(token: str = "", db: AsyncSession = Depends(get_db)) -> di
     Origin needed (security.SameOriginWrites lets it through): the token is the proof."""
     await notifications.unsubscribe(db, token)
     return {"email": False}
+
+
+# --- moderation (kernel.moderation, decision 0039) ----------------------------------------
+
+Reason = Literal[
+    "spam", "harassment", "hate", "sexual", "violence", "self_harm", "illegal", "other"
+]
+ACT = "kernel.moderation.act"
+
+
+class Target(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    type: str = Field(min_length=1, max_length=moderation.MAX_ID)
+    id: str = Field(min_length=1, max_length=moderation.MAX_ID)
+
+
+class Report(BaseModel):
+    """`{target: {type, id}, reason, note?}`."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    target: Target
+    reason: Reason
+    note: str | None = Field(default=None, max_length=moderation.MAX_NOTE)
+
+
+@router.post(
+    "/moderation/reports",
+    status_code=202,
+    dependencies=[
+        Depends(current_user),
+        Depends(rate_limit(moderation.REPORTS_PER_HOUR, key="account")),
+    ],
+)
+async def report(
+    request: Request,
+    body: Report,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Reports a thing a module lets people report; the same answer for a
+    first report and a repeat. 404 for no such thing, or one of a module off."""
+    if user.email_verified_at is None:
+        raise Problem("auth.email_unverified", 403, "Verify your email address first.")
+    found = moderation.named(body.target.type)
+    if found is None or found.owner not in await _modules_on(request):
+        raise moderation.no_target()
+    await moderation.report(
+        db, (body.target.type, body.target.id), reporter=user.id, reason=body.reason, note=body.note
+    )
+    await db.commit()
+    return {}
+
+
+@router.get("/admin/moderation/cases", dependencies=[Depends(require_permission(ACT))])
+async def cases(
+    db: AsyncSession = Depends(get_db),
+    status: str = "open",
+    kind: str | None = None,
+    source: str | None = None,
+    cursor: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> dict[str, Any]:
+    """The queue, the latest report first, in pages: by status (`open` by
+    default, `actioned`, `dismissed`), kind and source."""
+    if status not in moderation.STATUSES:
+        raise _invalid("status", f"One of {', '.join(moderation.STATUSES)}.")
+    if source is not None and source not in moderation.SOURCES:
+        raise _invalid("source", f"One of {', '.join(moderation.SOURCES)}.")
+    if kind is not None and not moderation.KIND.fullmatch(kind):
+        raise _invalid("kind", "A kind: <module id>.<entity>, lowercase.")
+    return await moderation.listed(
+        db, status=status, kind=kind, source=source, cursor=cursor, limit=limit
+    )
+
+
+@router.get("/admin/moderation/cases/{case_id}", dependencies=[Depends(require_permission(ACT))])
+async def one_case(case_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """A case with every report on it."""
+    return await moderation.case(db, case_id)
+
+
+class Action(BaseModel):
+    """`{action, reason?, note?, minutes?}`: a reason for all but dismiss,
+    minutes for a time-out."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    action: str
+    reason: str | None = None
+    note: str | None = None
+    minutes: int | None = None
+
+
+@router.post("/admin/moderation/cases/{case_id}/actions")
+async def act(
+    request: Request,
+    case_id: uuid.UUID,
+    body: Action,
+    user: User = Depends(require_permission(ACT)),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Acts on an open case and closes it; answers the case."""
+    await moderation.act(
+        db,
+        case_id,
+        body.action,
+        actor=user,
+        reason=body.reason,
+        note=body.note,
+        minutes=body.minutes,
+        on=await _modules_on(request),
+    )
+    await db.commit()
+    return await moderation.case(db, case_id)
+
+
+class TimeOut(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    minutes: int
+    reason: str
+
+
+TIME_OUT = "/admin/moderation/people/{user_id}/time-out"
+
+
+@router.put(TIME_OUT)
+async def time_out(
+    user_id: uuid.UUID,
+    body: TimeOut,
+    user: User = Depends(require_permission(ACT)),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Stops a member posting without a case (live chat); answers when it ends."""
+    until = await moderation.time_out(
+        db, user_id, actor=user, minutes=body.minutes, reason=body.reason
+    )
+    await db.commit()
+    return {"until": until.isoformat()}
+
+
+@router.delete(TIME_OUT, status_code=204)
+async def lift_time_out(
+    user_id: uuid.UUID,
+    user: User = Depends(require_permission(ACT)),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Lets the person post again."""
+    await moderation.lift_time_out(db, user_id, actor=user)
+    await db.commit()
+    return Response(status_code=204)
+
+
+@router.get("/admin/moderation/log", dependencies=[Depends(require_permission(ACT))])
+async def moderation_log(
+    db: AsyncSession = Depends(get_db),
+    subject: uuid.UUID | None = None,
+    cursor: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> dict[str, Any]:
+    """The moderators' slice of the audit log: moderation and suspensions,
+    newest first, with no address or browser (decision 0037's narrower view)."""
+    where: list[ColumnElement[bool]] = [moderation.LOGGED]
+    if subject is not None:
+        where.append(AuditEvent.subject_id == subject)
+    page = await audit.read(db, where=where, cursor=cursor, limit=limit)
+    return {
+        "items": [moderation.log_item(entry) for entry in page.entries],
+        "next_cursor": page.next,
+    }

@@ -102,6 +102,14 @@ KERNEL_ACTIONS = frozenset(
         # What the kernel does on its own (K3).
         "auth.user.removed_unverified",
         "kernel.settings_saved",
+        # Moderation and suspension (K3, decision 0039).
+        "kernel.moderation.dismissed",
+        "kernel.moderation.hidden",
+        "kernel.moderation.deleted",
+        "kernel.moderation.timed_out",
+        "kernel.moderation.time_out_lifted",
+        "auth.user.suspended",
+        "auth.user.restored",
     }
 )
 

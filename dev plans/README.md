@@ -15,3 +15,4 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 | `contracts/k3-events.md` | K3's events: `events.emit`, listeners delivered as jobs, dead letters, `kernel.events` (PR #65) |
 | `contracts/k3-audit.md` | K3's audit log: `audit.record` for every module, the staff and own-activity reads, pruning, `kernel.audit` (PR #67) |
 | `contracts/k3-notifications.md` | K3's notifications: `notifications.notify`, per-person preferences per key, one-click unsubscribe, `kernel.notifications` (PR #69 predicted) |
+| `contracts/k3-moderation.md` | K3's moderation: reports, the staff queue, word and link filters, actions and suspension, `kernel.moderation` (PR #71 predicted) |

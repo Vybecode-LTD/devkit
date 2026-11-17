@@ -42,3 +42,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0036](0036-kernel-events.md) | Kernel events: deliveries are jobs written at emit, so the jobs table is the outbox | Applied |
 | [0037](0037-kernel-audit.md) | Kernel audit: one append-only log for every module, auth's widened | Applied |
 | [0038](0038-kernel-notifications.md) | Kernel notifications: one template per key, each person's choice per key, and one-click unsubscribe | Applied |
+| [0039](0039-kernel-moderation.md) | Kernel moderation: reports on declared kinds, one case per thing, filters that hold, bans as suspensions | Applied |

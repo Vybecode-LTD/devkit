@@ -223,6 +223,81 @@ class NotificationPreference(Base):
     )
 
 
+class ModerationCase(Base):
+    """One reported thing (kernel.moderation, decision 0039): open until staff
+    act on it, with the excerpt as it was when first reported. At most one
+    case per thing is open. People's ids stay plain, as in the audit log.
+    Closed cases go after AUDIT_KEEP_DAYS (`kernel.prune_moderation`)."""
+
+    __tablename__ = "kernel_moderation_case"
+    __table_args__ = (
+        Index(
+            "ux_kernel_moderation_case_open",
+            "target_type",
+            "target_id",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+        Index("ix_kernel_moderation_case_queue", "status", "last_report_at"),
+        Index("ix_kernel_moderation_case_author", "author_id"),
+        Index("ix_kernel_moderation_case_closed", "closed_at"),
+        CheckConstraint("source IN ('report', 'filter')", name="source_known"),
+        CheckConstraint("status IN ('open', 'actioned', 'dismissed')", name="status_known"),
+        CheckConstraint(
+            "outcome IN ('dismiss', 'hide', 'delete', 'time_out', 'ban')", name="outcome_known"
+        ),
+        CheckConstraint(
+            "(status = 'open') = (closed_at IS NULL AND outcome IS NULL)",
+            name="closed_when_decided",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    #: `<owner>.<entity>` and the thing's id as text: a kind a module declares.
+    target_type: Mapped[str] = mapped_column(String(64))
+    target_id: Mapped[str] = mapped_column(String(64))
+    #: `report` (a person reported it) or `filter` (the filters held it).
+    source: Mapped[str] = mapped_column(String(8))
+    status: Mapped[str] = mapped_column(String(16), server_default=text("'open'"))
+    author_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    excerpt: Mapped[str] = mapped_column(String(1000))
+    link: Mapped[str | None] = mapped_column(String(500))
+    report_count: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_report_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    #: The action taken: dismiss, hide, delete, time_out or ban.
+    outcome: Mapped[str | None] = mapped_column(String(16))
+
+
+class ModerationReport(Base):
+    """One person's report on a case, or the filters' (no reporter). A person
+    reports a case once."""
+
+    __tablename__ = "kernel_moderation_report"
+    __table_args__ = (
+        UniqueConstraint("case_id", "reporter_id"),
+        CheckConstraint(
+            "reason IN ('spam', 'harassment', 'hate', 'sexual', 'violence', 'self_harm', "
+            "'illegal', 'other', 'filter')",
+            name="reason_known",
+        ),
+        CheckConstraint(
+            "(reason = 'filter') = (reporter_id IS NULL)", name="filter_has_no_reporter"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    case_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("kernel_moderation_case.id", ondelete="CASCADE")
+    )
+    reporter_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    reason: Mapped[str] = mapped_column(String(16))
+    note: Mapped[str | None] = mapped_column(String(1000))
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 # Auth's tables live in kernel.auth.models; importing them here puts every
 # kernel table in Base.metadata for Alembic and the model checks. Last, since
 # auth's models import the audit log's from here.

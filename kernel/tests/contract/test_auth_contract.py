@@ -748,7 +748,9 @@ async def test_an_admin_cant_grant_owner_or_suspend_one(api: Api) -> None:
     await api.signed_in_as(admin)
     grant = await api.http.put(f"/api/auth/admin/users/{admin.id}/roles", json={"roles": ["owner"]})
     assert (grant.status_code, grant.json()["code"]) == (403, "auth.role_not_yours")
-    suspend = await api.http.post(f"/api/auth/admin/users/{owner.id}/suspend")
+    suspend = await api.http.post(
+        f"/api/auth/admin/users/{owner.id}/suspend", json={"reason": "other"}
+    )
     assert (suspend.status_code, suspend.json()["code"]) == (403, "auth.role_not_yours")
 
 

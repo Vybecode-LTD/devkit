@@ -2,15 +2,15 @@
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
-Updated 2026-11-16, `main` at `44d57bf`. Progress counts steps, not effort: each row below is one step, whatever its size.
+Updated 2026-11-17, `main` at `44d57bf`. Progress counts steps, not effort: each row below is one step, whatever its size.
 
 ## Overall
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| DevKit v1.0 | 23 | 0 | 1 | 25 | 5 | 2 | ████░░░░░░ 41% (23 of 56) |
+| DevKit v1.0 | 24 | 0 | 1 | 24 | 5 | 2 | ████░░░░░░ 42% (24 of 56) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 23 | 0 | 1 | 110 | 5 | 5 | █░░░░░░░░░ 15% (23 of 144) |
+| Everything | 24 | 0 | 1 | 109 | 5 | 5 | █░░░░░░░░░ 16% (24 of 144) |
 
 ## DevKit v1.0
 
@@ -64,7 +64,7 @@ Gate: Every 14.13 contract test passes; each sign-in method works by hand; brand
 | 10. Invites and API keys | Waiting |  |  | Invites before the site's step 4; API keys after |
 | 11. Abuse protection, deletion and data export | Waiting |  |  | Before the site's launch at step 5 |
 
-### K3: kernel services · 7 of 11 done · gate not passed yet
+### K3: kernel services · 8 of 11 done · gate not passed yet
 
 Everything else modules rely on, in the order the site's modules use it.
 
@@ -79,8 +79,8 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 | Events: emitted in the caller's transaction, delivered as jobs, dead letters | Done | [#65](https://github.com/Vybecode-LTD/devkit/pull/65) | [0036](decisions/0036-kernel-events.md) |  |
 | Audit: one append-only log for every module, auth's widened | Done | [#67](https://github.com/Vybecode-LTD/devkit/pull/67) | [0037](decisions/0037-kernel-audit.md) |  |
 | Notifications, with per-person preferences and one-click unsubscribe | Done | [#69](https://github.com/Vybecode-LTD/devkit/pull/69) | [0038](decisions/0038-kernel-notifications.md) |  |
-| Moderation: reports, the staff queue, filters and actions | Next | [#56](https://github.com/Vybecode-LTD/devkit/pull/56) |  | The permission is declared |
-| Public rendering: head tags, server copy, sitemap, robots, llms.txt | To do |  |  |  |
+| Moderation: reports, the staff queue, filters and actions | Done | [#56](https://github.com/Vybecode-LTD/devkit/pull/56), [#71](https://github.com/Vybecode-LTD/devkit/pull/71) | [0031](decisions/0031-moderation-permission.md), [0039](decisions/0039-kernel-moderation.md) |  |
+| Public rendering: head tags, server copy, sitemap, robots, llms.txt | Next |  |  |  |
 | Retention | Later |  |  |  |
 | The AI client | Later |  |  |  |
 

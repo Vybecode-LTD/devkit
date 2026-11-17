@@ -447,7 +447,10 @@ async def test_preferences_list_the_keys_of_modules_on_and_change(
     async with Client(site.app) as client:
         headers = await _as(db, ana)
         listed = (await client.get("/api/kernel/notifications/preferences", headers=headers)).json()
-        assert listed["items"] == [
+        # The kernel's own keys come first, whatever modules are on (decision 0039).
+        kernel_keys = [item["key"] for item in listed["items"] if item["key"].startswith("kernel.")]
+        assert kernel_keys == ["kernel.content_removed"]
+        assert listed["items"][len(kernel_keys) :] == [
             {
                 "key": site.key("reply"),
                 "description": "Someone replied to you",
@@ -476,7 +479,7 @@ async def test_preferences_list_the_keys_of_modules_on_and_change(
             headers=headers,
         )
         assert changed.status_code == 200
-        assert changed.json()["items"][0] == {
+        assert changed.json()["items"][len(kernel_keys)] == {
             "key": site.key("reply"),
             "description": "Someone replied to you",
             "default": "both",
@@ -506,7 +509,7 @@ async def test_preferences_list_the_keys_of_modules_on_and_change(
         finally:
             await db.delete(await db.get(ModuleState, site.module))
             await db.commit()
-    assert listed["items"] == []
+    assert [item["key"] for item in listed["items"]] == kernel_keys
     assert (off.status_code, _code(off)) == (422, "kernel.invalid_request")
     assert notifications.Sent(False, True) == await notifications.notify(
         db, ana.id, site.key("reply"), _reply(), link="/x"

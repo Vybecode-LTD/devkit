@@ -104,6 +104,22 @@ Lists take `?cursor=&limit=` (1 to 100, 50) and answer `{items, next_cursor}` (S
 | `GET /api/kernel/notifications/unsubscribe?token=` | | Public. 200 `{key, description, email}`, changing nothing; 404 `kernel.not_found` for a token the kernel didn't sign |
 | `POST /api/kernel/notifications/unsubscribe?token=` | (RFC 8058's `List-Unsubscribe=One-Click`, ignored) | Public, and the one write another site may send: 200 `{"email": false}`, email off for that key alone; 404 as above |
 
+## Moderation (kernel.moderation, decision 0039)
+
+`reason` is one of `spam`, `harassment`, `hate`, `sexual`, `violence`, `self_harm`, `illegal`, `other`. Lists take `?cursor=&limit=` (1 to 100, 50) and answer `{items, next_cursor}`.
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `POST /api/kernel/moderation/reports` | `{target: {type, id}, reason, note?}` (note up to 1,000) | Signed in with a verified address (else 403 `auth.email_unverified`); 20 an hour per account. 202 `{}`, the same for a first report and a repeat; 404 `kernel.report_target_unknown` for a kind no module on declares, or no such thing |
+| `GET /api/kernel/admin/moderation/cases?status=&kind=&source=` | | `kernel.moderation.act`. 200, the latest report first; each `{id, target, source, status, author_id, excerpt, link, report_count, reasons, opened_at, last_report_at, closed_at, closed_by, outcome}`; `status` is `open` (default), `actioned` or `dismissed`; `source` is `report` or `filter` |
+| `GET /api/kernel/admin/moderation/cases/{id}` | | `kernel.moderation.act`. 200, the case with `reports: [{reporter_id, reason, note, at}]`; 404 `kernel.not_found` |
+| `POST /api/kernel/admin/moderation/cases/{id}/actions` | `{action, reason?, note?, minutes?}` | `kernel.moderation.act`; `ban` also `auth.user.suspend` (else 403 `kernel.forbidden`). 200, the case, closed. `action` is `dismiss`, `hide` or `delete` (if the kind lists it), `time_out` (`minutes` 60 to 43,200) or `ban`; a reason for all but `dismiss`. 403 `kernel.moderation_refused` for your own thing, staff timed out or banned, or staff's content without their permissions; 404 `kernel.module_off`; 409 `kernel.case_closed`; 422 `kernel.invalid_request` |
+| `PUT /api/kernel/admin/moderation/people/{id}/time-out` | `{minutes, reason}` | `kernel.moderation.act`. 200 `{"until"}`. 403 `kernel.moderation_refused` for yourself or staff; 404 `kernel.not_found` |
+| `DELETE /api/kernel/admin/moderation/people/{id}/time-out` | | `kernel.moderation.act`. 204 |
+| `GET /api/kernel/admin/moderation/log?subject=` | | `kernel.moderation.act`. 200, the audit entries for moderation and suspensions, newest first, without `ip` or `user_agent` |
+
+A module route that posts answers 403 `kernel.timed_out` with `until` while the person is timed out (`moderation.can_post`).
+
 ## Staff
 
 Every route under `/api/<anything>/admin`, whatever its method, needs a session (else 401 `kernel.not_signed_in`), a staff role (else 403 `kernel.forbidden`) **and a confirmed second factor on the account** (else 403 `auth.second_factor_required`). Then it needs its own permission, else 403 `kernel.forbidden`. Owners hold every permission.
@@ -112,7 +128,8 @@ Every route under `/api/<anything>/admin`, whatever its method, needs a session 
 | --- | --- | --- |
 | `GET /api/auth/admin/users` | | `auth.user.manage`. 200 `{"items": [...], "next_cursor"}` |
 | `PUT /api/auth/admin/users/{id}/roles` | `{roles}` | `auth.role.assign`, **step-up.** 200. The person's next request gets a new session token. 403 `auth.role_not_yours` for a role whose permissions the caller doesn't all hold, or `owner` from a non-owner; 409 `auth.last_owner` for removing the last owner |
-| `POST /api/auth/admin/users/{id}/suspend` | | `auth.user.suspend`. 200; every session of theirs ends. 403 `auth.role_not_yours` for an owner suspended by a non-owner; 409 `auth.last_owner` for the last owner |
+| `POST /api/auth/admin/users/{id}/suspend` | `{reason}`, one of moderation's reasons | `auth.user.suspend`, **step-up.** 200 `{"status": "suspended"}`; every session of theirs ends, they're mailed the reason, and `auth.user.suspended` is emitted; one already suspended changes nothing. 403 `auth.not_yourself`; 403 `auth.role_not_yours` for an owner suspended by a non-owner, or anyone holding a permission the caller doesn't (so the last owner is never suspended); 404 `kernel.not_found`; 409 `auth.account_not_active` for one being deleted (decision 0039) |
+| `POST /api/auth/admin/users/{id}/restore` | | `auth.user.suspend`, **step-up.** 200 `{"status": "active"}`, emitting `auth.user.restored`; old sessions stay ended. The same refusals as suspending |
 | `GET /api/kernel/admin/audit?actor=&subject=&action=&target_type=&target_id=&since=&until=&cursor=&limit=` | | `auth.audit.read`. 200 `{"items": [{id, at, action, result, actor_id, subject_id, target, ip, user_agent, details}], "next_cursor"}`, newest first. `action` is a name or a prefix ending in a dot (`blog.`); `target_id` only with `target_type`; `since` is inclusive, `until` not; `limit` 1 to 100 (50). 422 `kernel.invalid_request` for a bad filter or cursor |
 
 ## The harness's test support (never in a site)

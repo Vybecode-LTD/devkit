@@ -160,6 +160,11 @@ _SEED = [
     "VALUES (gen_random_uuid(), :user, 'blog.reply', 'Ben replied', '/blog/1')",
     "INSERT INTO kernel_notification_preference (user_id, key, in_site, email) "
     "VALUES (:user, 'blog.reply', true, false)",
+    "INSERT INTO kernel_moderation_case (id, target_type, target_id, source, author_id, excerpt, "
+    "opened_at, last_report_at) VALUES ('00000000-0000-0000-0000-000000000002', "
+    "'comments.comment', '9', 'report', :user, 'Buy now', now(), now())",
+    "INSERT INTO kernel_moderation_report (case_id, reporter_id, reason, at) "
+    "VALUES ('00000000-0000-0000-0000-000000000002', :user, 'spam', now())",
 ]
 
 

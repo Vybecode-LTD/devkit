@@ -203,6 +203,21 @@ class UserDeleted(Payload):
     user_id: uuid.UUID
 
 
+@payload("auth.user.suspended", v=1)
+class UserSuspended(Payload):
+    """Staff suspended an account (kernel.moderation): it's signed out
+    everywhere and can't sign in. Close what you hold open for that person."""
+
+    user_id: uuid.UUID
+
+
+@payload("auth.user.restored", v=1)
+class UserRestored(Payload):
+    """A suspended account is active again."""
+
+    user_id: uuid.UUID
+
+
 @payload("kernel.settings.changed", v=1)
 class SettingsChanged(Payload):
     """A module's settings were saved with a change, as their `version`."""
@@ -214,6 +229,8 @@ class SettingsChanged(Payload):
 KERNEL_PAYLOADS: tuple[type[Payload], ...] = (
     UserCreated,
     UserVerified,
+    UserSuspended,
+    UserRestored,
     UserDeleted,
     SettingsChanged,
 )

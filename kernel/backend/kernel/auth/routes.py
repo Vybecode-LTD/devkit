@@ -50,11 +50,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
 from kernel import audit as audit_log
-from kernel import clock
+from kernel import clock, moderation
 from kernel.access import public
 from kernel.auth import accounts, audit, ceremonies, mails, second_factor, sessions
 from kernel.auth.ceremonies import AssertionCredential
-from kernel.auth.dependencies import current_user, lifetimes_of, signed_in, supersede
+from kernel.auth.dependencies import (
+    current_user,
+    lifetimes_of,
+    require_permission,
+    require_recent_auth,
+    signed_in,
+    supersede,
+)
 from kernel.auth.models import Passkey, Session, User
 from kernel.auth.passwords import Passwords
 from kernel.auth.sessions import Resumed
@@ -452,3 +459,44 @@ async def failed_step_up(request: Request, db: AsyncSession, user: User, row: Se
         "Too many tries: you've been signed out. Sign in again.",
         headers={"set-cookie": carrier.headers["set-cookie"]},
     )
+
+
+# --- suspension (14.7; kernel.moderation, decision 0039) ----------------------------------
+
+#: First, so a member is refused before being asked to confirm it's them.
+_SUSPENDER = [Depends(require_permission("auth.user.suspend")), Depends(require_recent_auth())]
+
+
+class Suspend(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    reason: str
+
+
+@router.post("/admin/users/{user_id}/suspend", dependencies=_SUSPENDER)
+async def suspend(
+    request: Request,
+    user_id: uuid.UUID,
+    body: Suspend,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Suspends an account: every session ends, and the person is told why.
+    One already suspended changes nothing. 403 `auth.role_not_yours` for an
+    owner by a non-owner, or anyone holding a permission the caller doesn't."""
+    await moderation.suspend(db, user_id, actor=user, reason=body.reason, request=request)
+    await db.commit()
+    return {"status": "suspended"}
+
+
+@router.post("/admin/users/{user_id}/restore", dependencies=_SUSPENDER)
+async def restore(
+    request: Request,
+    user_id: uuid.UUID,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Restores a suspended account; its old sessions stay ended."""
+    await moderation.restore(db, user_id, actor=user, request=request)
+    await db.commit()
+    return {"status": "active"}

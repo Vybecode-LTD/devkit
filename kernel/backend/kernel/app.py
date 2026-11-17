@@ -32,8 +32,10 @@ What it does, in order:
    and installs them for `kernel.events.emit` (decision 0036); installs the
    modules that may write to the audit log, and how long it's kept
    (`kernel.audit.install`, decision 0037); checks each module's notification
-   keys against its templates and installs them (`kernel.notifications`,
-   decision 0038); checks the
+   keys against its templates and installs them, the kernel's own first
+   (`kernel.notifications`, decision 0038); checks what each module lets
+   people report and installs it, with the filters' settings section
+   (`kernel.moderation`, decision 0039); checks the
    kernel's jobs and every module's, their listeners' deliveries among them
    (`kernel.jobs.build`), and builds the site's worker as `app.state.worker`.
    With JOBS_IN_WEB on (the default) the lifespan runs it in this process; a
@@ -62,7 +64,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from kernel import audit, email, error_tracking, events, jobs, logs, notifications
+from kernel import audit, email, error_tracking, events, jobs, logs, moderation, notifications
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
@@ -95,13 +97,15 @@ log = logging.getLogger(__name__)
 
 #: The kernel's own jobs: queued mail, pruning the queue, removing accounts
 #: whose address isn't verified (decision 0035), and pruning the audit log
-#: (decision 0037) and the notices (decision 0038).
+#: (decision 0037), the notices (decision 0038) and closed moderation cases
+#: (decision 0039).
 KERNEL_JOBS: tuple[jobs.Job, ...] = (
     email.SEND_MAIL,
     jobs.PRUNE,
     REMOVE_UNVERIFIED,
     audit.PRUNE,
     notifications.PRUNE,
+    moderation.PRUNE,
 )
 
 
@@ -149,15 +153,22 @@ def assemble(
     try:
         templates = build_templates(
             [
-                ("kernel", {**KERNEL_MAILS, **notifications.TEMPLATES}),
+                ("kernel", {**KERNEL_MAILS, **notifications.TEMPLATES, **moderation.TEMPLATES}),
                 *((module.id, module.emails) for module in installed),
             ],
             emails or {},
         )
         kinds = notifications.build(
-            ((module.id, module.manifest.raw.get("notifications") or []) for module in installed),
+            [
+                ("kernel", moderation.NOTIFICATIONS),
+                *(
+                    (module.id, module.manifest.raw.get("notifications") or [])
+                    for module in installed
+                ),
+            ],
             templates,
         )
+        reportable = moderation.build((module.id, module.reportable) for module in installed)
         catalog = events.build(
             [
                 ("kernel", events.KERNEL_PAYLOADS, (), None),
@@ -193,8 +204,10 @@ def assemble(
     events.install(catalog)
     audit.install((module.id for module in installed), keep_days=config.audit_keep_days)
     notifications.install(kinds)
+    moderation.install(reportable)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).
+    settings.register(moderation.SECTION, moderation.Filters)
     for module in installed:
         if module.settings is not None:
             settings.register(module.id, module.settings)

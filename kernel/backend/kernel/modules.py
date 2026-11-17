@@ -34,7 +34,7 @@ from collections.abc import Awaitable, Callable, Iterable, Mapping
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -49,6 +49,9 @@ from kernel.errors import Problem
 from kernel.events import Listener, Payload
 from kernel.jobs import Job
 from kernel.models import ModuleState
+
+if TYPE_CHECKING:  # kernel.moderation reads OFF from here
+    from kernel.moderation import Kind
 
 
 @dataclass(frozen=True)
@@ -102,6 +105,9 @@ class InstalledModule:
     #: `@events.payload` and `@events.on`.
     payloads: tuple[type[Payload], ...] = ()
     listeners: tuple[Listener, ...] = ()
+    #: What the module lets people report, each `<id>.<entity>`
+    #: (kernel.moderation): what its `moderation.py` declares with `@moderation.kind`.
+    reportable: tuple[type[Kind], ...] = ()
 
     @property
     def id(self) -> str:

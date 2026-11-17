@@ -91,7 +91,7 @@ devkit/
     MODULE.md
     CHANGELOG.md
     backend/<id_>/        __init__.py models.py schemas.py service.py router.py   (<id_> = id with _ for -)
-                          events.py jobs.py server_copy.py public.py emails.py
+                          events.py jobs.py server_copy.py public.py emails.py moderation.py
     migrations/           Alembic branch "<id>"
     openapi.json          generated and committed
     web/                  module.web.ts api.ts public.ts pages/ components/   (routes are defined in module.web.ts)
@@ -188,7 +188,7 @@ Every module MUST ship a `module.json` that validates against `devkit/schema/mod
 
 Modules MUST import only from the kernel's public surface: `kernel/__init__.py` on the backend and `kernel/web/index.ts` on the front end. Anything else in the kernel is private and may change in any release. The public surface follows semver.
 
-**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: a name is in `kernel/__init__.py` once it's built: of K3, storage, email, jobs, events and audit are so far.
+**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: a name is in `kernel/__init__.py` once it's built: of K3, storage, email, jobs, events, audit, notifications and moderation are so far.
 
 | Name | Gives | Example | Since |
 | --- | --- | --- | --- |
@@ -211,7 +211,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `jobs.enqueue(db, name, payload, run_at=, key=, sealed=)`, `@jobs.handler(name)`, `@jobs.scheduled(cron, name)` | Background and scheduled work, declared in the module's `jobs.py` and queued in the caller's transaction, run at least once with retries; `email.queue` puts mail on it (decision 0035) | Scheduled publishing | K3 |
 | `audit.record(db, action, actor=, target=, subject=, result=, details=, request=)` | An append-only audit entry, added to the caller's transaction: `<owner>.<name>` actions, a `(kind, id)` target, details of ids and counts, never a secret or an address (14.10, decision 0037) | Role changed | K3 |
 | `notifications.notify(db, user_id, key, context, link=)` | A notice in the site and by email, each by the person's choice for that key (module.json's `notifications` gives the default), written in the caller's transaction; each key has an email template of its name, whose subject is the notice's title; every notice email has one-click unsubscribe (RFC 8058) for that key (decision 0038) | Someone replied to your comment | K3 |
-| `moderation.report / queue / act` | Reports, the staff queue, word and link filters, and actions (hide, delete, time out, ban), all audited. Acting needs the kernel's `kernel.moderation.act` (admin and editor by default; decision 0031) | A reported comment | K3 |
+| `moderation.report(db, target, reporter=, reason=)`, `@moderation.kind(name, actions=)`, `moderation.screen / hold / act`, `Depends(moderation.can_post)` | Reports on what a module declares reportable (in `moderation.py`, each kind describing its thing and hiding or deleting it), one case per thing in the staff queue, word and link filters that hold text and never drop it, and actions (dismiss, hide, delete, time out, ban), all audited and told to the author. Acting needs `kernel.moderation.act` (admin and editor by default; decision 0031); a ban, which suspends the account, also needs `auth.user.suspend` (decision 0039) | A reported comment | K3 |
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
@@ -272,7 +272,7 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `devkit check` and code review enforce.
 
-**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call) and `emails.py` (its email templates). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009) and `emails.py`'s `EMAILS` (decision 0033).
+**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates) and `moderation.py` (what people may report, decision 0039). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009) and `emails.py`'s `EMAILS` (decision 0033).
 
 **Routes**
 
@@ -414,12 +414,13 @@ Modules talk to each other through durable events written in the same database t
 | `auth.user.created` | An account is created by any method |
 | `auth.user.verified` | An email address is confirmed: sign-up's link, a reset that confirms it, or an email change's confirmation |
 | `auth.user.role_changed` | Roles are granted or removed |
-| `auth.user.suspended` | Staff suspend an account |
+| `auth.user.suspended` | Staff suspend an account: it's signed out everywhere |
+| `auth.user.restored` | A suspended account is active again |
 | `auth.user.deleted` | Deletion completes; modules erase or anonymize that user's data |
 | `kernel.module.enabled` / `kernel.module.disabled` | A module is switched on or off |
 | `kernel.settings.changed` | A settings section is saved with a change |
 
-The kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.deleted` (so far for the accounts `kernel.remove_unverified` removes) and `kernel.settings.changed` now; the rest arrive with the code that makes their change (moderation for suspensions, K4's admin for roles and module switches).
+The kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.suspended` and `auth.user.restored` (moderation, decision 0039), `auth.user.deleted` (so far for the accounts `kernel.remove_unverified` removes) and `kernel.settings.changed` now; the rest arrive with the code that makes their change (K4's admin for roles and module switches).
 
 An outgoing-webhooks module MAY forward any event to outside URLs, signed with HMAC.
 
@@ -600,7 +601,8 @@ Both limits are site settings (Q6).
 - **Email change:** step-up, then the new address confirms the change within 24 hours; the old one stays active until then and gets the undo link, valid 7 days. Confirming marks the new address verified. A change link dies if the session epoch changes first (a reset, a password change, a suspension). An undo restores the old address, ends every session and voids every way in sent since, but never an earlier undo link. An address that has an account is sent a notice, not a link, and the answer is the same (decision 0024).
 - **Password reset:** a 32-byte token, valid 30 minutes, single use, stored hashed. Success raises the session epoch and sends a security email. Staff get resets too: a reset signs nobody in and leaves the second factor in place. One link is live per account, and asking again within 60 seconds sends nothing. A refused new password leaves the link working. Success also voids the account's live sign-in codes, links and second-factor challenges, clears the address's failed sign-ins, and marks the address verified, which gives a pre-claimed address back to its real owner (decision 0022).
 - **A second factor someone else added:** a reset leaves it in place, so the mail sent when a passkey or TOTP is added carries an undo link, valid 7 days. It removes that factor (a TOTP with its recovery codes) if it is still there, ends every session and voids every live way in, and signs nobody in. Undo links outlive resets, every other change and each other, so the owner can undo each factor after resetting (decision 0030).
-- **Suspension:** staff only, audited, and it ends every session.
+- **Suspension:** by staff holding `auth.user.suspend` (admins by default), with step-up, at `POST /api/auth/admin/users/{id}/suspend`, or as a moderation ban; `POST .../restore` restores. It raises the session epoch, so every session ends and stays ended after a restore; it's audited, emitted as `auth.user.suspended` (`auth.user.restored` on restore) and mailed to the person with the reason. Nobody suspends themselves, only an owner suspends an owner (so never the last one), and anyone else only by someone holding every permission they hold (decision 0039).
+- **Time-out:** staff holding `kernel.moderation.act` can stop a member posting for an hour to 30 days (`auth_user.timed_out_until`); they still sign in and read. Every module route that posts uses `moderation.can_post`, which answers 403 `kernel.timed_out` until it ends (decision 0039).
 - **Deletion:** the person asks, with step-up. A 14-day grace period follows, and signing in cancels it. Then every module's `delete_user_data` runs and `auth.user.deleted` is emitted. The audit log keeps only a pseudonymous id.
 - **Export:** a ZIP of JSON from every module's `export_user_data`, built as a job and sent as an expiring download link.
 
@@ -622,13 +624,13 @@ Both limits are site settings (Q6).
 
 - `kernel_audit_event` is the one audit log, auth's and every module's, written through `audit.record` (section 6, decision 0037). It is append-only: Postgres refuses to change an entry, to empty the table, and to delete an entry but in the nightly pruning. Auth records sign-ins and failures, second-factor and passkey changes, password and email changes, provider links, role changes, ended sessions, API keys, suspensions and deletions; modules record what they act on.
 - Each row holds the time, actor, subject, action, result, target, IP, user agent and details. Rows are kept 1 year by default (`AUDIT_KEEP_DAYS`, at least 30), then `kernel.prune_audit` removes them.
-- Staff holding `auth.audit.read` see all of it (`GET /api/kernel/admin/audit`, behind the admin gate), filtered by person, action, target and time. Each person sees their own security activity on the account page (`GET /api/auth/activity`), told whether they did it but never which staff member did.
+- Staff holding `auth.audit.read` see all of it (`GET /api/kernel/admin/audit`, behind the admin gate), filtered by person, action, target and time. Each person sees their own security activity on the account page (`GET /api/auth/activity`), told whether they did it but never which staff member did. Moderators holding `kernel.moderation.act` see a narrower slice, moderation and suspensions only, with no IP or browser (`GET /api/kernel/admin/moderation/log`, decision 0039).
 
 ### 14.11 Tables
 
 | Table | Holds |
 | --- | --- |
-| `auth_user` | Email, verified time, when the address was set, password hash, status, session epoch, timestamps |
+| `auth_user` | Email, verified time, when the address was set, password hash, status, session epoch, the end of a time-out, timestamps |
 | `auth_role`, `auth_user_role`, `auth_role_permission` | Roles and their grants |
 | `auth_permission_override` | Per-resource grants and denials |
 | `auth_identity` | Linked providers: provider, subject, email, verified flag |
@@ -639,6 +641,7 @@ Both limits are site settings (Q6).
 | `auth_token` | One-time tokens as keyed hashes: verification, reset, sign-in code, magic link, email change, invite, second-factor undo. A 32-byte token is unique by its hash; a 6-digit code is found by its purpose and address |
 | `auth_api_key` | Id, secret hash, scopes, expiry, last use |
 | `kernel_audit_event` | The audit log, every module's: auth's table renamed when it became the kernel's (decision 0037) |
+| `kernel_moderation_case`, `kernel_moderation_report` | One case per reported thing, at most one open, with the excerpt as first reported, and the reports on it; closed cases go after `AUDIT_KEEP_DAYS` (decision 0039) |
 
 ### 14.12 Crypto and secrets
 
@@ -811,6 +814,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | Kernel moderation: modules declare what can be reported in `moderation.py` (`@moderation.kind`, which describes the thing and hides or deletes it); `moderation.report` keeps one open case per thing with the excerpt as first reported, at `POST /api/kernel/moderation/reports` for verified accounts, 20 an hour; word and link filters (`screen`, `hold`) hold text and never drop it; staff with `kernel.moderation.act` dismiss, hide, delete or time out (an hour to 30 days, `auth_user.timed_out_until`, `moderation.can_post`), and a ban suspends the account, which also needs `auth.user.suspend`; suspension and restore at `POST /api/auth/admin/users/{id}/suspend` and `/restore`, emitting `auth.user.suspended` and the new `auth.user.restored`; the author is told why, never by whom; moderators read their slice of the audit log (6, 7, 11, 14.7, 14.10, 14.11, decision 0039) |
 | 2026-11-17 | Kernel notifications: `notifications.notify(db, user_id, key, context, link=)` writes a notice and queues its email in the caller's transaction, each by the person's choice for that key, else module.json's default; each key needs an email template of its name; email only to an active account with a verified address; every notice email has a footer and one-click unsubscribe (RFC 8058) for that key alone; notices are kept 90 days after they're read and a year at most; security emails are never notices (6, 14.6, decision 0038) |
 | 2026-11-17 | Kernel audit: one append-only log, auth's `auth_audit_event` renamed `kernel_audit_event` with a target; `audit.record(db, action, actor=, ...)` adds an entry to the caller's transaction, refusing a kernel action it doesn't know, an owner that isn't installed, a secret or an address in its details; staff read it at `GET /api/kernel/admin/audit` (`auth.audit.read`), each person their own at `GET /api/auth/activity`; entries go after `AUDIT_KEEP_DAYS` (365); a trigger refuses changes and deletes but the pruning's (6, 14.10, 14.11, decision 0037) |
 | 2026-11-17 | Kernel events: `events.emit(db, name, payload)` takes the caller's session first and a payload declared with `@events.payload(name, v=)`; `@events.on(event, name)` names its listener's job; deliveries are jobs written at emit, so there is no `kernel_event_outbox` and no dispatcher of its own; 8 tries, then the delivery is the dead-letter entry; the kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.deleted` and `kernel.settings.changed` (6, 11, decision 0036) |
