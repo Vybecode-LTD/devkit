@@ -33,7 +33,7 @@ from kernel.auth.hashing import keyed_hash
 from kernel.auth.models import AuditEvent, Session, Token, Totp, User, UserRole
 from kernel.email import CapturingMailer
 
-from ..conftest import SITE, Client, Draining, make_config
+from ..conftest import SITE, Client, Draining, Heard, make_config
 
 PASSWORD = "quiet orbit lantern 4471 marsh"
 NEW = "amber walrus cello 5528 dune"
@@ -663,3 +663,11 @@ async def test_resets_are_audited_without_secrets(site: Site) -> None:
     assert (event.result, event.actor_id, event.subject_id) == ("success", person.id, person.id)
     assert token not in repr(event.details)
     assert NEW not in repr(event.details)
+
+
+async def test_only_a_reset_that_verifies_the_address_is_heard(site: Site, heard: Heard) -> None:
+    unverified, verified = await _person(site, verified=False), await _person(site)
+    for person in (unverified, verified):
+        await _ask(site.http, person.email)
+        assert (await _reset(site.http, _mailed(site, person))).status_code == 200
+    assert await heard.drain() == [("auth.user.verified", {"user_id": str(unverified.id)})]

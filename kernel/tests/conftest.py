@@ -1,10 +1,12 @@
 """Fixtures for the kernel's tests: configs, apps built on the test database,
-an HTTP client that runs the app's lifespan, and a session."""
+an HTTP client that runs the app's lifespan, a session, and a listener that
+hears the kernel's events."""
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -13,9 +15,12 @@ import pytest_asyncio
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kernel import events, jobs
 from kernel.config import KernelConfig
 from kernel.db import Database
-from kernel.modules import InstalledModule, Manifest
+from kernel.email import LogMailer
+from kernel.modules import InstalledModule, Manifest, ModuleRegistry
+from kernel.worker import Worker
 
 SITE = "https://devkit.test"
 
@@ -106,3 +111,62 @@ class Client:
     async def __aexit__(self, *exc: object) -> None:
         await self._client.aclose()
         await self._lifespan.__aexit__(None, None, None)
+
+
+@dataclass
+class Heard:
+    """A module listening to every kernel event, and a worker delivering to it."""
+
+    worker: Worker
+    seen: list[events.Event]
+
+    async def drain(self) -> list[tuple[str, dict[str, Any]]]:
+        """Delivers what's due, then every event heard so far, by name and payload."""
+        await self.worker.run_due(wait=0)
+        return [(event.name, event.payload) for event in self.seen]
+
+
+def kernel_events_only() -> None:
+    """Installs the kernel's events, heard by no one, as before any app."""
+    events.install(events.build([("kernel", events.KERNEL_PAYLOADS, (), None)], allowed=()))
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def heard(migrated_url: str) -> AsyncIterator[Heard]:
+    """Hears the kernel's events emitted during the test. List it after the
+    fixture that builds the test's app: building an app installs that app's
+    events in its place."""
+    ear = unique_id("ear")
+    names = sorted(
+        found[0] for found in map(events.declaration, events.KERNEL_PAYLOADS) if found is not None
+    )
+    seen: list[events.Event] = []
+
+    async def record(ctx: jobs.Context, event: events.Event) -> None:
+        seen.append(event)
+
+    listeners = tuple(
+        events.on(name, f"{ear}.heard_{number}")(record) for number, name in enumerate(names)
+    )
+    listed = {"emits": [], "listens": names}
+    module = InstalledModule(
+        Manifest.from_dict({**manifest(ear).raw, "events": listed}), listeners=listeners
+    )
+    events.install(
+        events.build(
+            [("kernel", events.KERNEL_PAYLOADS, (), None), (ear, (), listeners, listed)],
+            allowed=[ear],
+        )
+    )
+    database = Database(migrated_url, pool_size=2, max_overflow=2)
+    worker = Worker(
+        [listener.job for listener in listeners],
+        registry=ModuleRegistry([module], [ear], ttl=0),
+        database=database,
+        mailer=LogMailer(),
+    )
+    try:
+        yield Heard(worker, seen)
+    finally:
+        kernel_events_only()
+        await database.dispose()

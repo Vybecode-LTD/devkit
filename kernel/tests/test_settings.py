@@ -19,7 +19,7 @@ from kernel.errors import Problem
 from kernel.models import Setting
 from kernel.settings import LOCK_CLASS, SettingsRegistry, secret_fields
 
-from .conftest import unique_id
+from .conftest import Heard, unique_id
 
 
 class Blog(BaseModel):
@@ -386,3 +386,14 @@ async def test_a_value_settings_cant_hold_is_a_422(
         await found.save(db, module_id, {"title": object()}, version=0)
     await db.rollback()
     assert (refused.value.status, list(refused.value.errors)) == (422, ["title"])
+
+
+async def test_a_save_that_changes_something_is_heard_with_its_version(
+    db: AsyncSession, registry: tuple[SettingsRegistry, str], heard: Heard
+) -> None:
+    found, module_id = registry
+    await found.save(db, module_id, {"title": "News"}, version=0)
+    await found.save(db, module_id, {"title": "News"}, version=1)  # nothing changes
+    with pytest.raises(Problem):
+        await found.save(db, module_id, {"posts_per_page": 0}, version=1)
+    assert await heard.drain() == [("kernel.settings.changed", {"module": module_id, "version": 1})]

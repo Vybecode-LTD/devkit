@@ -28,13 +28,16 @@ What it does, in order:
    module's, and the site's rewording of them
    (`emails=`), refusing to start on a bad one, and installs them with the
    mailer for `kernel.email.send`.
-9. Checks the kernel's jobs and every module's (`kernel.jobs.build`), and
-   builds the site's worker as `app.state.worker`. With JOBS_IN_WEB on (the
-   default) the lifespan runs it in this process; a site that runs
-   `kernel.worker.serve` as a service of its own turns it off (decision 0035).
+9. Checks the kernel's events and every module's (`kernel.events.build`)
+   and installs them for `kernel.events.emit` (decision 0036); checks the
+   kernel's jobs and every module's, their listeners' deliveries among them
+   (`kernel.jobs.build`), and builds the site's worker as `app.state.worker`.
+   With JOBS_IN_WEB on (the default) the lifespan runs it in this process; a
+   site that runs `kernel.worker.serve` as a service of its own turns it off
+   (decision 0035).
 
-Steps 1 to 3, 7 and 8, the jobs' checks and registering each module's
-settings model are `assemble`, which
+Steps 1 to 3, 7 and 8, the events' and jobs' checks and registering each
+module's settings model are `assemble`, which
 `kernel.worker.create_worker` shares, so a worker process starts on exactly
 what the web app would.
 
@@ -55,7 +58,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from kernel import email, error_tracking, jobs, logs
+from kernel import email, error_tracking, events, jobs, logs
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
@@ -117,8 +120,9 @@ def assemble(
     emails: Mapping[str, Template] | None = None,
     role: Literal["web", "worker"] = "web",
 ) -> Assembled:
-    """Reads and checks the config, the modules, their mail templates and
-    their jobs, and installs the mailer and templates for `kernel.email`.
+    """Reads and checks the config, the modules, their mail templates, events
+    and jobs, and installs the mailer and templates for `kernel.email` and the
+    events for `kernel.events`.
     Raises RuntimeError("Refusing to start: ...") on anything it can't take."""
     config = config or get_config()
     refuse_unsafe(config)
@@ -136,11 +140,30 @@ def assemble(
             [("kernel", KERNEL_MAILS), *((module.id, module.emails) for module in installed)],
             emails or {},
         )
+        catalog = events.build(
+            [
+                ("kernel", events.KERNEL_PAYLOADS, (), None),
+                *(
+                    (
+                        module.id,
+                        module.payloads,
+                        module.listeners,
+                        module.manifest.raw.get("events") or {},
+                    )
+                    for module in installed
+                ),
+            ],
+            allowed=registry.allowed,
+        )
         declared = jobs.build(
             [
                 ("kernel", KERNEL_JOBS, None),
                 *(
-                    (module.id, module.jobs, module.manifest.raw.get("jobs") or [])
+                    (
+                        module.id,
+                        (*module.jobs, *(listener.job for listener in module.listeners)),
+                        module.manifest.raw.get("jobs") or [],
+                    )
                     for module in installed
                 ),
             ]
@@ -149,6 +172,7 @@ def assemble(
         raise RuntimeError(f"Refusing to start: {error}") from error
     checked = Checked(mailer if mailer is not None else mailer_from_config(config))
     email.install(checked, templates, site_name=config.site_name, site_url=config.site_url)
+    events.install(catalog)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).
     for module in installed:

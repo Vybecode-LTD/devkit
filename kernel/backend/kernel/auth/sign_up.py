@@ -49,7 +49,7 @@ from sqlalchemy import exists, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import clock
+from kernel import clock, events
 from kernel.access import public
 from kernel.auth import accounts, audit, mails, tokens
 from kernel.auth.dependencies import current_user
@@ -149,6 +149,7 @@ async def sign_up(
             to = existing.email  # the owner's own form of it
     else:
         db.add(UserRole(user_id=made, role_id=_MEMBER))
+        await events.emit(db, "auth.user.created", events.UserCreated(user_id=made))
         token = await tokens.issue(
             db, _VERIFY, made, normal, lifetime=timedelta(hours=VERIFY_LIFETIME_HOURS)
         )
@@ -202,6 +203,7 @@ async def verify_email(
         )
     if user.email_verified_at is None:
         user.email_verified_at = clock.now()
+        await events.emit(db, "auth.user.verified", events.UserVerified(user_id=user.id))
     audit.record(db, request, "auth.email_verified", "success", actor=user.id, subject=user.id)
     await db.commit()
     return {"status": "verified"}

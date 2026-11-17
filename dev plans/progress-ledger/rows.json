@@ -315,11 +315,11 @@
    "phase": "K3: kernel services",
    "gate": "not passed",
    "step_order": 5,
-   "step": "Events: the outbox, dispatcher and dead letters",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "",
-   "decisions": "",
+   "step": "Events: emitted in the caller's transaction, delivered as jobs, dead letters",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#65",
+   "decisions": "0036",
    "note": ""
   },
   {

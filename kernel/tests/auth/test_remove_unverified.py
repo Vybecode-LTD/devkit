@@ -7,11 +7,11 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 
 from kernel import clock, jobs
 from kernel.auth import unverified
@@ -19,6 +19,7 @@ from kernel.auth.accounts import normal_email
 from kernel.auth.models import AuditEvent, User, UserRole
 from kernel.db import Database
 from kernel.email import LogMailer
+from kernel.tests.conftest import Heard
 
 
 @pytest.fixture(autouse=True)
@@ -152,3 +153,36 @@ async def test_the_7_days_count_from_when_the_address_was_set(database: Database
     clock.advance(6 * 86400 + 60)  # the address now 7 days and a minute old
     await _sweep(database)
     assert not await _exists(database, restored)
+
+
+async def test_each_removed_account_and_only_those_are_heard_as_deleted(
+    database: Database, heard: Heard
+) -> None:
+    removed = await _account(database, days_old=8)
+    verified = await _account(database, days_old=8, verified=True)
+    editor = await _account(database, days_old=8, roles=("member", "editor"))
+    await _sweep(database)
+    gone = {
+        payload["user_id"] for name, payload in await heard.drain() if name == "auth.user.deleted"
+    }
+    assert str(removed) in gone  # the sweep may remove accounts other tests left too
+    assert not {str(verified), str(editor)} & gone
+    assert {name for name, _ in await heard.drain()} == {"auth.user.deleted"}
+
+
+async def test_an_account_the_delete_s_re_check_keeps_isn_t_heard(
+    database: Database, heard: Heard, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    kept = await _account(database, days_old=8)
+    real = unverified._removable
+    calls: list[object] = []
+
+    def changed_since_the_select(cutoff: datetime) -> list[ColumnElement[bool]]:
+        calls.append(cutoff)
+        found = real(cutoff)
+        return found if len(calls) == 1 else [*found, User.id != kept]
+
+    monkeypatch.setattr(unverified, "_removable", changed_since_the_select)
+    await _sweep(database)
+    assert await _exists(database, kept)
+    assert str(kept) not in {payload["user_id"] for _, payload in await heard.drain()}

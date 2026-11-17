@@ -207,7 +207,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `require_recent_auth(minutes=10)` | Forces a fresh sign-in for sensitive actions | Changing a payout account | K2 |
 | `email.send(template, to, context)`, `email.Template` | Renders a template the module declares (in `emails.py`, named `<id>.<name>`; a site may reword it, and the kernel's own `kernel.*` mails too) and sends it through the site's adapter: SMTP, or Resend only where the host blocks SMTP (decision 0033) | Welcome email | K3 |
 | `storage.put / get / download / delete / signed_url / public_url` | S3-compatible file storage: a private bucket reached only through signed links, and a public one at its own address (15, decision 0032) | Uploads | K3 |
-| `events.emit(name, payload)`, `@events.on(name)` | Durable events between modules (section 11) | `blog.post.published` | K3 |
+| `events.emit(db, name, payload)`, `@events.payload(name, v=)`, `@events.on(event, name)` | Durable events between modules, declared in the module's `events.py`, emitted in the caller's transaction and delivered as jobs, at least once (section 11, decision 0036) | `blog.post.published` | K3 |
 | `jobs.enqueue(db, name, payload, run_at=, key=, sealed=)`, `@jobs.handler(name)`, `@jobs.scheduled(cron, name)` | Background and scheduled work, declared in the module's `jobs.py` and queued in the caller's transaction, run at least once with retries; `email.queue` puts mail on it (decision 0035) | Scheduled publishing | K3 |
 | `audit.record(actor, action, target, meta)` | An append-only audit entry | Role changed | K3 |
 | `notify(user, key, context)` | An in-site and email notice, sent by the person's preferences for that key, with one-click unsubscribe | Someone replied to your comment | K3 |
@@ -397,26 +397,29 @@ Modules talk to each other through durable events written in the same database t
 
 **Names** are `<module>.<entity>.<past-tense verb>`, such as `auth.user.created`, `blog.post.published` or `payments.subscription.canceled`.
 
-**Payloads** are Pydantic models declared in the emitting module's `events.py`. Each carries a version (`v`), holds ids rather than whole objects, and is exported as JSON Schema into `devkit/schema/events/`.
+**Payloads** are `events.Payload` models (Pydantic, frozen and strict) declared once, by the module that owns the event, in its `events.py` with `@events.payload(name, v=1)`. Each has a version (`v`, carried beside the payload), holds ids rather than whole objects, and is exported as JSON Schema into `schema/events/` by `python -m tools.event_schemas`. module.json's `events.emits` and `events.listens` list exactly what `events.py` declares and hears, or the start stops.
 
-**Delivery**
+**Delivery** (decision 0036)
 
-1. `events.emit()` writes a row to `kernel_event_outbox` inside the caller's transaction.
-2. After commit, the worker delivers it to every handler registered with `@events.on(name)`.
-3. A failed handler retries with backoff. After 8 failures the event moves to a dead-letter list on the admin System page.
-4. A handler is skipped while its module is switched off, and the event waits until the module is back on.
+1. `events.emit(db, name, payload)` adds one job per listener inside the caller's transaction: the jobs table (decision 0035) is the outbox, so a delivery exists exactly when the change committed.
+2. After commit, the worker runs each delivery: the listener declared with `@events.on(event, "<id>.<name>")`, a job of its own module, which gets the event's id, name, version, time and payload. Every listener and every try sees the same id: a listener MUST be safe to run twice.
+3. A failed delivery retries alone, with the jobs' backoff. After 8 failures it is dead: the dead-letter list on the admin System page.
+4. A delivery waits while its listener's module is switched off, and runs once the module is back on. A module `MODULES` leaves out gets none.
+5. A listener reads the payload into a model of its own or the kernel's (`event.parse`), since modules don't import each other.
 
 **Kernel events every module can listen to**
 
 | Event | When |
 | --- | --- |
 | `auth.user.created` | An account is created by any method |
-| `auth.user.verified` | The email address is confirmed |
+| `auth.user.verified` | An email address is confirmed: sign-up's link, a reset that confirms it, or an email change's confirmation |
 | `auth.user.role_changed` | Roles are granted or removed |
 | `auth.user.suspended` | Staff suspend an account |
 | `auth.user.deleted` | Deletion completes; modules erase or anonymize that user's data |
 | `kernel.module.enabled` / `kernel.module.disabled` | A module is switched on or off |
-| `kernel.settings.changed` | A settings section is saved |
+| `kernel.settings.changed` | A settings section is saved with a change |
+
+The kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.deleted` (so far for the accounts `kernel.remove_unverified` removes) and `kernel.settings.changed` now; the rest arrive with the code that makes their change (moderation for suspensions, K4's admin for roles and module switches).
 
 An outgoing-webhooks module MAY forward any event to outside URLs, signed with HMAC.
 
@@ -808,6 +811,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | Kernel events: `events.emit(db, name, payload)` takes the caller's session first and a payload declared with `@events.payload(name, v=)`; `@events.on(event, name)` names its listener's job; deliveries are jobs written at emit, so there is no `kernel_event_outbox` and no dispatcher of its own; 8 tries, then the delivery is the dead-letter entry; the kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.deleted` and `kernel.settings.changed` (6, 11, decision 0036) |
 | 2026-11-16 | Kernel jobs: `jobs.enqueue` takes the caller's session first and adds `key` and `sealed`; handlers are declared with `@jobs.handler` and `@jobs.scheduled(cron, name)` in a module's `jobs.py`; jobs run at least once with backoff and leases; the worker runs in the web process unless a site runs its own; the kernel's mails go through the queue; unverified accounts are removed hourly 7 days after their address was set (`auth_user.email_set_at`, so an email change's undo restarts the clock), staff never (2, 6, 14.7, 14.11, decision 0035) |
 | 2026-11-16 | The kernel's own mails (sign-in codes, verification, resets, security notices) are `kernel.*` email templates a site may reword, word for word what they said before (6, decision 0033) |
 | 2026-11-16 | Kernel email: `email.send` renders a template a module declares in `emails.py` (`EMAILS`, named `<id>.<name>`), which a site may reword with the same placeholders; the adapter is SMTP whenever `SMTP_HOST` is set, and Resend's HTTPS API only where the host blocks SMTP (`RESEND_API_KEY` alone) (2, 4, 6, 7, decision 0033) |

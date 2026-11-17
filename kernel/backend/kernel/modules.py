@@ -46,6 +46,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kernel.db import get_db
 from kernel.email import Template
 from kernel.errors import Problem
+from kernel.events import Listener, Payload
 from kernel.jobs import Job
 from kernel.models import ModuleState
 
@@ -96,6 +97,11 @@ class InstalledModule:
     #: The module's jobs, each named `<id>.<name>` (kernel.jobs): what its
     #: `jobs.py` declares with `@jobs.handler` and `@jobs.scheduled`.
     jobs: tuple[Job, ...] = ()
+    #: The event payloads the module owns, each `<id>.<entity>.<verb>`, and its
+    #: listeners (kernel.events): what its `events.py` declares with
+    #: `@events.payload` and `@events.on`.
+    payloads: tuple[type[Payload], ...] = ()
+    listeners: tuple[Listener, ...] = ()
 
     @property
     def id(self) -> str:

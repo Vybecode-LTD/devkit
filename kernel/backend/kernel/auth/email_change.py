@@ -49,7 +49,7 @@ from sqlalchemy import exists, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import clock
+from kernel import clock, events
 from kernel.access import public
 from kernel.auth import accounts, audit, floor, mails, sessions, tokens
 from kernel.auth.dependencies import require_recent_auth
@@ -267,6 +267,7 @@ async def confirm_email_change(
     user.email_verified_at = now
     user.email_set_at = now
     await _write_address(db)
+    await events.emit(db, "auth.user.verified", events.UserVerified(user_id=user.id))
     await _void_confirms(db, user.id)
     undo = await tokens.issue(
         db,

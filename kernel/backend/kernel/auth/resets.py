@@ -39,7 +39,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import clock
+from kernel import clock, events
 from kernel.access import public
 from kernel.auth import accounts, audit, floor, mails, sessions, tokens
 from kernel.auth.models import Token, User
@@ -182,6 +182,7 @@ async def reset_password(
     user.password_hash = hashed
     if user.email_verified_at is None:
         user.email_verified_at = now
+        await events.emit(db, "auth.user.verified", events.UserVerified(user_id=user.id))
     await sessions.end_all(db, user)
     await tokens.void(db, user.id, _ENDED)
     audit.record(db, request, "auth.password_reset", "success", actor=user.id, subject=user.id)

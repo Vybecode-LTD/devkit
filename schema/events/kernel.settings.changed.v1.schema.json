@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devkit.local/schema/events/kernel.settings.changed.v1.schema.json",
+  "additionalProperties": false,
+  "description": "A module's settings were saved with a change, as their `version`.",
+  "properties": {
+    "module": {
+      "title": "Module",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "module",
+    "version"
+  ],
+  "title": "kernel.settings.changed (v1)",
+  "type": "object"
+}

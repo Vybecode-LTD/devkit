@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devkit.local/schema/events/auth.user.deleted.v1.schema.json",
+  "additionalProperties": false,
+  "description": "An account is gone: erase or anonymize what you hold on that person.",
+  "properties": {
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "user_id"
+  ],
+  "title": "auth.user.deleted (v1)",
+  "type": "object"
+}

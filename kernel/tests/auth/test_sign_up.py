@@ -33,7 +33,7 @@ from kernel.auth.models import AuditEvent, Token, User, UserRole
 from kernel.config import KernelConfig
 from kernel.email import CapturingMailer, Mailer, Template
 
-from ..conftest import SITE, Client, Draining, make_config
+from ..conftest import SITE, Client, Draining, Heard, make_config
 
 PASSWORD = "quiet orbit lantern 4471 marsh"
 OTHER = "amber walrus cello 5528 dune"
@@ -748,3 +748,37 @@ async def test_a_site_s_html_wording_reaches_both_sign_up_mails(migrated_url: st
     assert verify.html.startswith('<p><a href="')
     assert "/auth/verify?token=" in verify.html
     assert notice.html == "<p>You have an account.</p>"
+
+
+# --- events ------------------------------------------------------------------------
+
+
+async def test_a_new_account_and_its_verification_are_each_heard_once(
+    site: Site, heard: Heard
+) -> None:
+    email = _address()
+    await site.sign_up(email)
+    await site.sign_up(email)  # the address has an account now: a notice, nothing new
+    user = await site.user(email)
+    assert user is not None
+    made = ("auth.user.created", {"user_id": str(user.id)})
+    assert await heard.drain() == [made]
+
+    token = _token(site.mail.to(email)[0].text)
+    assert (await site.verify(token)).status_code == 200
+    assert (await site.verify(token)).status_code == 400
+    assert await heard.drain() == [made, ("auth.user.verified", {"user_id": str(user.id)})]
+
+
+async def test_a_link_for_an_address_already_verified_isn_t_heard(site: Site, heard: Heard) -> None:
+    email = _address()
+    await site.sign_up(email)
+    user = await site.user(email)
+    assert user is not None
+    async with site.db() as db:  # as a reset would have verified it first
+        account = await db.get(User, user.id)
+        assert account is not None
+        account.email_verified_at = clock.now()
+        await db.commit()
+    assert (await site.verify(_token(site.mail.to(email)[0].text))).status_code == 200
+    assert [name for name, _ in await heard.drain()] == ["auth.user.created"]

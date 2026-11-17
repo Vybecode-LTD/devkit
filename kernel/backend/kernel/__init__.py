@@ -8,10 +8,10 @@ Built so far (K1): the database, settings, module switches, crypto, errors,
 rate limits, access marks and the app factory. From K2: the access
 dependencies (`current_user`, `optional_user`, `require_permission`,
 `require_owner_or`, `require_recent_auth`). From K3: `storage`, `email` and
-`jobs`. Events, notifications, moderation and audit arrive with the rest of K3.
+`jobs` and `events`. Notifications, moderation and audit arrive with the rest of K3.
 """
 
-from kernel import crypto, email, jobs, storage
+from kernel import crypto, email, events, jobs, storage
 from kernel.access import public
 from kernel.app import create_app
 from kernel.auth.dependencies import (
@@ -41,6 +41,7 @@ __all__ = [
     "crypto",
     "current_user",
     "email",
+    "events",
     "for_saving",
     "get_db",
     "jobs",

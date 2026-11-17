@@ -12,3 +12,4 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 | `contracts/k3-email.md` | K3's email service: `email.send`, templates, SMTP and Resend (PR #59) |
 | `contracts/kernel-auth-templates.md` | K2's auth mails on `kernel.*` templates (PR #60) |
 | `contracts/k3-jobs.md` | K3's jobs: the queue, the worker and the scheduler, `kernel.jobs` (PR #63) |
+| `contracts/k3-events.md` | K3's events: `events.emit`, listeners delivered as jobs, dead letters, `kernel.events` (PR #65) |

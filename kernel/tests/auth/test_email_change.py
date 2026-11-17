@@ -30,7 +30,7 @@ from kernel.auth.hashing import keyed_hash
 from kernel.auth.models import AuditEvent, Token, Totp, User, UserRole
 from kernel.email import CapturingMailer
 
-from ..conftest import SITE, Client, Draining, make_config
+from ..conftest import SITE, Client, Draining, Heard, make_config
 
 PASSWORD = "quiet orbit lantern 4471 marsh"
 _SAME_ORIGIN = {"Origin": SITE, "Sec-Fetch-Site": "same-origin"}
@@ -678,3 +678,14 @@ async def test_confirming_and_undoing_each_set_when_the_address_was_set(site: Si
     restored = await _account(site, person)
     assert restored.email_verified_at is None
     assert abs((restored.email_set_at - clock.now()).total_seconds()) < 5
+
+
+async def test_a_confirmed_change_is_heard_as_a_verification_and_its_undo_isn_t(
+    site: Site, heard: Heard
+) -> None:
+    person = await _person(site)
+    _, undo = await _changed(site, person)
+    verified = ("auth.user.verified", {"user_id": str(person.id)})
+    assert await heard.drain() == [verified]
+    assert (await _undo(site.browser(), undo)).status_code == 200
+    assert await heard.drain() == [verified]

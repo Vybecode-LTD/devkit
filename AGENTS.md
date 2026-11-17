@@ -62,6 +62,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | Web tests, lint, types, build | `npm test`, `npm run lint`, `npm run typecheck`, `npm run build` |
 | Link the project skills for Claude Code | `python -m tools.link_skills` |
 | Progress document and ledger rows, after editing `docs/progress.json` | `python -m tools.progress` (`--check` only reports) |
+| Event payloads as JSON Schema, after declaring or changing one | `python -m tools.event_schemas` (`--check` only reports) |
 | Brand check, before any PR that lifts code | `python -I "C:\DEV\VybeSite\vybesite\scripts\brand_check.py" "C:\DEV\AI-DevKit"` |
 
 ## Rules
@@ -72,6 +73,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 - **No secrets, ever.** Not in the repo, not in logs, not in chat. Keys go in a host's variables, typed by the owner.
 - **Tests first.** A bug fix has a test seen failing before the fix. Auth work starts from the contract tests in spec 14.13.
 - **One logical change per PR,** on its own branch, with conventional commits. Read the staged diff for secrets before every commit.
+- **Pushing and merging are the agent's call in this project:** the owner stated it explicitly on 2026-11-17 ("use your best judgement on pushing and merging"), under the rule in `C:\DEV\knowledge\owner.md` (Git, PRs and CI). Push a PR branch once its local suites are green; land the PR once "CI result" is green on its head and the review bots have no open findings. Land by fast-forward (`git merge-base --is-ancestor origin/main <sha>`, then `git push origin <sha>:refs/heads/main`), never `gh pr merge`, then delete the branch here and on GitHub. Everything else outward-facing still asks first.
 - **Modules never import each other** except through `public.py` / `web/public.ts` when listed in `requires.modules` (spec section 7).
 - **Progress is kept in one file,** `docs/progress.json`: every phase and step to v1.0 and after, with its status and PRs. A PR that starts, finishes or adds a step updates it and runs `python -m tools.progress`, which rewrites `docs/PROGRESS.md` and the ledger's rows; `tests/test_progress.py` fails when they're stale. The owner follows the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm), made from the same rows.
 - **Skills:** don't build new skills as you go. Add every idea to `docs/SKILL-BACKLOG.md`; the owner builds them all in one batch later. Build one early only if the work can't continue without it, and say so.

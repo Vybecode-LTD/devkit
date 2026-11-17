@@ -13,7 +13,9 @@ holds its account while the sweep runs wins, and the sweep takes the
 account next hour if it's still unverified. The delete checks the same
 conditions again, so nothing that changed since the select is removed. The
 account's sessions, tokens, factors and roles go with it by cascade; the
-audit log keeps one row each, under the account's id alone.
+audit log keeps one row each, under the account's id alone, and every module
+listening hears `auth.user.deleted` for it (kernel.events), emitted in the
+same transaction as the delete.
 
 **The clock restarts with the address** (the owner's choice): an email
 change's undo puts back the address the account had, unverified if it was
@@ -21,9 +23,6 @@ change's undo puts back the address the account had, unverified if it was
 7 days to be verified however old the account is. An account someone made
 with another person's address is still removed a week after the undo that
 gave the address back.
-
-Until K3's events land, a removed account emits no `auth.user.deleted`: no
-module holds an unverified account's data yet.
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import ColumnElement, delete, select
 
-from kernel import clock, jobs
+from kernel import clock, events, jobs
 from kernel.auth import audit
 from kernel.auth.models import User, UserRole
 
@@ -77,6 +76,7 @@ async def _remove(ctx: jobs.Context) -> None:
             ).all()
             for user_id in removed:
                 audit.record_by_kernel(db, ACTION, "success", subject=user_id)
+                await events.emit(db, "auth.user.deleted", events.UserDeleted(user_id=user_id))
             await db.commit()
         if len(ids) < BATCH:
             return
