@@ -15,7 +15,9 @@ fixed layout (SPEC.md section 4):
   `@events.payload`) and its listeners (every `kernel.events.Listener`,
   which `@events.on` makes; decision 0036);
 - `backend/<id_>/moderation.py`'s kinds: every class it declares with
-  `@moderation.kind` (decision 0039).
+  `@moderation.kind` (decision 0039);
+- `backend/<id_>/server_copy.py`'s `PAGES`, its public pages
+  (kernel.server_copy, decision 0041).
 """
 
 from __future__ import annotations
@@ -100,6 +102,7 @@ def discover() -> list[InstalledModule]:
                 payloads=payloads,
                 listeners=listeners,
                 reportable=module_kinds(f"{package}.moderation"),
+                pages=_attribute(f"{package}.server_copy", "PAGES"),
             )
         )
     return found

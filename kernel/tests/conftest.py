@@ -5,7 +5,7 @@ hears the kernel's events."""
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,7 +15,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import events, jobs
+from kernel import events, jobs, server_copy
 from kernel.config import KernelConfig
 from kernel.db import Database
 from kernel.email import LogMailer
@@ -170,3 +170,58 @@ async def heard(migrated_url: str) -> AsyncIterator[Heard]:
     finally:
         kernel_events_only()
         await database.dispose()
+
+
+# --- public pages (kernel.server_copy) ------------------------------------------------
+
+
+class FakePages(server_copy.Pages):
+    """A module's pages for the tests: `answers` by path, `entries` for its
+    sitemap, and `error`, raised by every read when set. It records what it
+    was asked."""
+
+    def __init__(
+        self,
+        answers: dict[str, server_copy.Page | server_copy.Moved | None] | None = None,
+        entries: list[server_copy.Entry] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self.answers = answers or {}
+        self.entries = entries or []
+        self.error = error
+        self.asked: list[tuple[str, dict[str, str]]] = []
+
+    async def page(
+        self, db: AsyncSession, path: str, params: Mapping[str, str]
+    ) -> server_copy.Page | server_copy.Moved | None:
+        self.asked.append((path, dict(params)))
+        if self.error is not None:
+            raise self.error
+        return self.answers.get(path)
+
+    async def sitemap(self, db: AsyncSession) -> list[server_copy.Entry]:
+        if self.error is not None:
+            raise self.error
+        return self.entries
+
+
+def public_module(
+    module_id: str,
+    *,
+    public: list[str] | None = None,
+    member: list[str] | None = None,
+    pages: server_copy.Pages | None = None,
+    name: str | None = None,
+) -> InstalledModule:
+    """A module with public and member pages in its manifest's routes."""
+    raw = {
+        **manifest(module_id).raw,
+        "name": name or manifest(module_id).name,
+        "routes": {
+            "api": f"/api/{module_id}",
+            "public": public or [],
+            "member": member or [],
+            "admin": [],
+        },
+    }
+    return InstalledModule(Manifest.from_dict(raw), pages=pages)

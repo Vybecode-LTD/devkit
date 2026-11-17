@@ -90,6 +90,10 @@ class KernelConfig(BaseSettings):
     hsts_max_age: int = Field(default=0, ge=0)
     #: Ask search engines to leave this copy out (staging). Never on production.
     robots_noindex: bool = False
+    #: The built web app's folder, whose index.html is the shell every public
+    #: address answers with (kernel.shell, decision 0041). Unset: the kernel's
+    #: minimal shell, with no scripts.
+    web_dist: str = ""
 
     #: The largest request body accepted, in bytes; larger is refused with 413.
     #: A module that takes bigger uploads sends them to storage, not here.

@@ -41,9 +41,16 @@ What it does, in order:
    With JOBS_IN_WEB on (the default) the lifespan runs it in this process; a
    site that runs `kernel.worker.serve` as a service of its own turns it off
    (decision 0035).
+10. Checks every module's public and member pages (`kernel.server_copy`:
+    `routes.public` and `pages` together, no two patterns answering one
+    address at one rank) and the shell (`WEB_DIST`, refused without its
+    markers), registers the settings section `kernel.site`, and registers,
+    after every other route, the kernel's files (`/sitemap.xml`,
+    `/robots.txt`, `/llms.txt`) and the catch-all that answers every address
+    outside the API (`kernel.shell`, decision 0041); HEAD is answered as GET.
 
 Steps 1 to 3, 7 and 8, the events' and jobs' checks and registering each
-module's settings model are `assemble`, which
+module's settings model, and checking the pages, are `assemble`, which
 `kernel.worker.create_worker` shares, so a worker process starts on exactly
 what the web app would.
 
@@ -64,7 +71,18 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from kernel import audit, email, error_tracking, events, jobs, logs, moderation, notifications
+from kernel import (
+    audit,
+    email,
+    error_tracking,
+    events,
+    jobs,
+    logs,
+    moderation,
+    notifications,
+    server_copy,
+    shell,
+)
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
@@ -118,6 +136,8 @@ class Assembled:
     registry: ModuleRegistry
     mailer: Checked
     jobs: tuple[jobs.Job, ...]
+    #: The modules' public and member pages (kernel.server_copy).
+    public: server_copy.Routes
 
     def database(self) -> Database:
         return Database(
@@ -169,6 +189,7 @@ def assemble(
             templates,
         )
         reportable = moderation.build((module.id, module.reportable) for module in installed)
+        public = server_copy.build(installed)
         catalog = events.build(
             [
                 ("kernel", events.KERNEL_PAYLOADS, (), None),
@@ -205,13 +226,15 @@ def assemble(
     audit.install((module.id for module in installed), keep_days=config.audit_keep_days)
     notifications.install(kinds)
     moderation.install(reportable)
+    server_copy.install(site_name=config.site_name, site_url=config.site_url)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).
     settings.register(moderation.SECTION, moderation.Filters)
+    settings.register(server_copy.SECTION, server_copy.SiteSettings)
     for module in installed:
         if module.settings is not None:
             settings.register(module.id, module.settings)
-    return Assembled(config, installed, registry, checked, declared)
+    return Assembled(config, installed, registry, checked, declared, public)
 
 
 def create_app(
@@ -225,6 +248,10 @@ def create_app(
 ) -> FastAPI:
     built = assemble(modules=modules, config=config, mailer=mailer, emails=emails, role="web")
     config, installed, registry = built.config, built.installed, built.registry
+    try:
+        app_shell = shell.Shell.load(config.web_dist)
+    except ValueError as error:
+        raise RuntimeError(f"Refusing to start: {error}") from error
 
     policy = ContentSecurityPolicy()
     for module in installed:
@@ -307,6 +334,8 @@ def create_app(
                 prefix=f"/api/{module.id}",
                 dependencies=[Depends(require_module(module.id))],
             )
+    # Last: the kernel's files, then every other address (kernel.shell).
+    shell.install(app, built.public, app_shell)
 
     # Starlette runs the last added outermost.
     app.add_middleware(UnexpectedErrors)
@@ -332,5 +361,6 @@ def create_app(
         noindex=config.robots_noindex,
         https_site=config.site_url.strip().lower().startswith("https://"),
     )
+    app.add_middleware(shell.HeadAsGet)  # every answer within, errors too, loses its body
     app.add_middleware(AccessLog)  # outermost: the whole request, the final status
     return app

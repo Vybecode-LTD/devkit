@@ -21,6 +21,7 @@ argon2-cffi>=25.1.0  # passwords: Argon2id, which reads the whole password (bcry
 pyotp>=2.9.0  # TOTP second factors (SPEC.md 14.4); the contract suite computes codes with it too
 webauthn>=3.0.1  # passkeys (SPEC.md 14.2 and 14.4); its cbor2 and cryptography also drive the tests' authenticator
 boto3>=1.40.0  # kernel.storage: S3-compatible object storage, Cloudflare R2 (SPEC.md section 2); 1.36 added the checksum settings R2 needs
+nh3>=0.3.0  # server copy and user HTML cleaned against an allowlist (SPEC.md 9 and 15, decision 0041)
 
 # Installed through the packages above. Listed to hold their floors past known
 # vulnerabilities; the kernel also imports Starlette directly.

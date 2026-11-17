@@ -50,8 +50,9 @@ from kernel.events import Listener, Payload
 from kernel.jobs import Job
 from kernel.models import ModuleState
 
-if TYPE_CHECKING:  # kernel.moderation reads OFF from here
+if TYPE_CHECKING:  # kernel.moderation reads OFF from here; server_copy builds from these
     from kernel.moderation import Kind
+    from kernel.server_copy import Pages
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,9 @@ class InstalledModule:
     #: What the module lets people report, each `<id>.<entity>`
     #: (kernel.moderation): what its `moderation.py` declares with `@moderation.kind`.
     reportable: tuple[type[Kind], ...] = ()
+    #: The module's public pages (kernel.server_copy): its `server_copy.py`'s
+    #: `PAGES`. A module with `routes.public` must have them, and only then.
+    pages: Pages | None = None
 
     @property
     def id(self) -> str:

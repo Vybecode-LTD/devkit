@@ -238,16 +238,20 @@ async def test_each_request_gets_one_redacted_access_line(
     app = app_factory([InstalledModule(manifest(module_id), router=router)])
     async with Client(app) as client:
         with caplog.at_level(logging.INFO, logger="kernel.access"):
-            await client.get(f"/api/{module_id}/items/42?token=abc")
+            # No "z" in a hex id: the token can't turn up inside the module's
+            # id, as "abc" once did (main's run at 17:13 UTC on 2026-11-17).
+            await client.get(f"/api/{module_id}/items/42?token=zzsecretzz")
+            await client.get("/api/nowhere/ana@site.test")
             await client.get("/nowhere/ana@site.test")
     lines = [r for r in caplog.records if r.name == "kernel.access"]
     assert [line.getMessage().rsplit(" ", 1)[0] for line in lines] == [
         f"GET /api/{module_id}/items/{{item_id}} 200",
         "GET (no route) 404",
+        "GET /{full_path:devkit_page} 404",  # every other address is the shell's (decision 0041)
     ]
     assert lines[0].route == f"/api/{module_id}/items/{{item_id}}"  # type: ignore[attr-defined]
     assert lines[0].status == 200  # type: ignore[attr-defined]
-    assert "abc" not in caplog.text
+    assert "zzsecretzz" not in caplog.text
     assert "ana@site.test" not in caplog.text
 
 
