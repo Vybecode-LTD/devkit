@@ -302,10 +302,10 @@
    "gate": "not passed",
    "step_order": 4,
    "step": "Jobs: the Postgres queue, the scheduler, mail retries",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#63",
+   "decisions": "0035",
    "note": ""
   },
   {
@@ -316,8 +316,8 @@
    "gate": "not passed",
    "step_order": 5,
    "step": "Events: the outbox, dispatcher and dead letters",
-   "status": "todo",
-   "status_label": "To do",
+   "status": "next",
+   "status_label": "Next",
    "prs": "",
    "decisions": "",
    "note": ""

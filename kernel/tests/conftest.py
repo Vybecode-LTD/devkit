@@ -72,16 +72,34 @@ def app_factory(migrated_url: str) -> AppFactory:
     return build
 
 
-class Client:
-    """An HTTP client on an app, with its lifespan run."""
+class Draining(httpx.ASGITransport):
+    """An app's transport that runs the app's due jobs after each answer, as
+    a site's worker would a moment later (kernel.jobs): what a request queued,
+    such as its mail, is there for the test to check, and a check that
+    nothing was sent proves something."""
 
-    def __init__(self, app: FastAPI) -> None:
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        response = await super().handle_async_request(request)
+        worker = getattr(getattr(self.app, "state", None), "worker", None)
+        if worker is not None:
+            await worker.run_due(wait=0)
+        return response
+
+
+class Client:
+    """An HTTP client on an app, with its lifespan run. It runs the app's due
+    jobs after each answer (`Draining`) unless `drain` is False: for a test
+    that counts the app's queries, or whose app has no database."""
+
+    def __init__(self, app: FastAPI, *, drain: bool = True) -> None:
         self.app = app
+        self.drain = drain
 
     async def __aenter__(self) -> httpx.AsyncClient:
         self._lifespan = self.app.router.lifespan_context(self.app)
         await self._lifespan.__aenter__()
-        transport = httpx.ASGITransport(app=self.app, raise_app_exceptions=False)
+        kind = Draining if self.drain else httpx.ASGITransport
+        transport = kind(app=self.app, raise_app_exceptions=False)
         self._client = httpx.AsyncClient(transport=transport, base_url=SITE)
         return self._client
 

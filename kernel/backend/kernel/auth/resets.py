@@ -34,7 +34,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,7 +47,7 @@ from kernel.auth.passwords import Passwords, refusal, site_context
 from kernel.auth.routes import forget_sign_in_failures
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import Mailer
+from kernel.email import queue_message
 from kernel.errors import Problem
 from kernel.ratelimit import RateLimiter, rate_limit, too_many
 
@@ -93,7 +93,6 @@ def _token_invalid() -> Problem:
 async def ask_for_reset(
     body: AskForReset,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     started = floor.start()
@@ -116,9 +115,9 @@ async def ask_for_reset(
         token = await tokens.issue(db, _RESET, user.id, normal, lifetime=LIFETIME)
         audit.record(db, request, action, "success", subject=user.id)
         mail = (user.email, *_reset_mail(request.app.state.config, token))
-    await db.commit()
     if mail is not None:
-        background.add_task(_send, request.app.state.mailer, *mail)
+        await queue_message(db, *mail)
+    await db.commit()
     await floor.wait_out(started)
     return {"status": "check_email"}
 
@@ -141,13 +140,6 @@ def _reset_mail(config: KernelConfig, token: str) -> mails.Mail:
     )
 
 
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("A password reset mail wasn't sent (%s).", type(error).__name__)
-
-
 # --- resetting ----------------------------------------------------------------------
 
 
@@ -155,7 +147,6 @@ async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | No
 async def reset_password(
     body: Reset,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     owner = await tokens.owner_of(db, _RESET, body.token)
@@ -194,9 +185,9 @@ async def reset_password(
     await sessions.end_all(db, user)
     await tokens.void(db, user.id, _ENDED)
     audit.record(db, request, "auth.password_reset", "success", actor=user.id, subject=user.id)
+    await queue_message(db, user.email, *_notice(config, now))
     await db.commit()
     await forget_sign_in_failures(cast(RateLimiter, request.app.state.limiter), user.email_normal)
-    background.add_task(_send, request.app.state.mailer, user.email, *_notice(config, now))
     return {"status": "password_reset"}
 
 

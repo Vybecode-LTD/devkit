@@ -55,3 +55,27 @@ def record(
             details=details or {},
         )
     )
+
+
+def record_by_kernel(
+    db: AsyncSession,
+    action: str,
+    result: str,
+    *,
+    subject: uuid.UUID | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    """A row for what the kernel did on its own, in a job: no actor, address
+    or browser. Added to the caller's transaction, which the caller commits."""
+    db.add(
+        AuditEvent(
+            at=clock.now(),
+            actor_id=None,
+            subject_id=subject,
+            action=action,
+            result=result,
+            ip=None,
+            user_agent="",
+            details=details or {},
+        )
+    )

@@ -12,9 +12,10 @@ never goes online and the real lookup's parsing still runs.
 
 Built: reset, clock, routes, breached (the fake breach lookup's list), mail (what
 the app's mailer was handed, kept by a `CapturingMailer` behind the same
-checks a site's adapter gets) and users (accounts made without judging
-their passwords). Still to come with K2 and K3: oauth/grant, jobs/run,
-delete-hooks.
+checks a site's adapter gets, read after the due jobs have run, since mail
+goes out through the jobs queue), jobs/run (every due job, now) and users
+(accounts made without judging their passwords). Still to come with K2 and
+K3: oauth/grant, delete-hooks.
 """
 
 from __future__ import annotations
@@ -85,9 +86,20 @@ def _captured(request: Request) -> CapturingMailer:
     return captured
 
 
+@router.post("/jobs/run", status_code=204)
+async def run_jobs(request: Request) -> Response:
+    """Runs every job that is due, and waits for any another worker holds,
+    so the suite reads a settled queue (kernel.worker.Worker.run_due)."""
+    await request.app.state.worker.run_due()
+    return Response(status_code=204)
+
+
 @router.get("/mail")
 async def mail(to: str, request: Request) -> dict[str, list[dict[str, str]]]:
-    """What the app's mailer was handed for `to`, oldest first."""
+    """What the app's mailer was handed for `to`, oldest first, once every
+    due job has run: a mail is a `kernel.send_mail` job, so "nothing more
+    was sent" means nothing more is waiting to be sent either."""
+    await request.app.state.worker.run_due()
     return {
         "messages": [
             {"to": message.to, "subject": message.subject, "text": message.text}

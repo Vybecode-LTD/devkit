@@ -48,7 +48,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, NoReturn, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Path, Request
+from fastapi import APIRouter, Depends, Path, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -81,7 +81,7 @@ from kernel.auth.routes import finish_sign_in
 from kernel.auth.sessions import Resumed
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import Mailer
+from kernel.email import queue_message
 from kernel.errors import Problem
 from kernel.ratelimit import rate_limit
 
@@ -248,7 +248,6 @@ async def start_registration(
 async def finish_registration(
     body: RegistrationCredential,
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(current_user),
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
@@ -300,9 +299,8 @@ async def finish_registration(
         details={"passkey": str(passkey.id)},
     )
     shown, to = view(passkey), user.email
+    await queue_message(db, to, *_added(_config(request), now, undo))
     await db.commit()
-    added = _added(_config(request), now, undo)
-    background.add_task(_send, request.app.state.mailer, to, *added)
     return JSONResponse(shown, status_code=201)
 
 
@@ -346,7 +344,6 @@ async def rename_passkey(
 async def remove_passkey(
     passkey_id: Annotated[uuid.UUID, Path(alias="id")],
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(require_recent_auth()),
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
@@ -366,10 +363,10 @@ async def remove_passkey(
     await sessions.end_all_but(db, user, resumed.session)  # the second-factor reset
     await tokens.void(db, user.id, _ENDED)
     to, now = user.email, clock.now()
+    await queue_message(db, to, *_removed(_config(request), now))
     await db.commit()
     response = Response(status_code=204)
     sessions.set_device_cookie(response, user)  # signed over the new epoch
-    background.add_task(_send, request.app.state.mailer, to, *_removed(_config(request), now))
     return response
 
 
@@ -399,7 +396,6 @@ async def start_passkey_sign_in(request: Request, db: AsyncSession = Depends(get
 async def finish_passkey_sign_in(
     body: AssertionCredential,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     challenge = ceremonies.answered(body.response.client_data_json)
@@ -437,7 +433,7 @@ async def finish_passkey_sign_in(
     ):
         await db.rollback()
         await _failed_sign_in(request, db, owner)
-    return await finish_sign_in(request, db, background, user, second_factor=True, method="passkey")
+    return await finish_sign_in(request, db, user, second_factor=True, method="passkey")
 
 
 async def _failed_sign_in(
@@ -531,10 +527,3 @@ def _added(config: KernelConfig, at: datetime, undo: str) -> mails.Mail:
 def _removed(config: KernelConfig, at: datetime) -> mails.Mail:
     """No name in it: whoever names a passkey chooses its words."""
     return mails.rendered("kernel.passkey_removed", when=mails.when(at))
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("A passkey mail wasn't sent (%s).", type(error).__name__)

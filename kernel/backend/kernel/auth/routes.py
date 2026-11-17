@@ -43,7 +43,7 @@ import uuid
 from datetime import datetime
 from typing import Any, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,9 +57,8 @@ from kernel.auth.dependencies import current_user, lifetimes_of, signed_in, supe
 from kernel.auth.models import Passkey, Session, User
 from kernel.auth.passwords import Passwords
 from kernel.auth.sessions import Resumed
-from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import Mailer
+from kernel.email import queue_message
 from kernel.errors import Problem
 from kernel.ratelimit import RateLimiter, rate_limit, too_many
 
@@ -143,7 +142,6 @@ async def _wait(limiter: RateLimiter, rules: tuple[str, ...], scope: str, key: s
 async def sign_in(
     body: SignIn,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     limiter = _limiter(request)
@@ -187,14 +185,13 @@ async def sign_in(
         challenge = await second_factor.open_challenge(db, user)
         await db.commit()
         return JSONResponse({"status": "second_factor", "challenge": challenge, "methods": methods})
-    return await finish_sign_in(request, db, background, user, second_factor=False)
+    return await finish_sign_in(request, db, user, second_factor=False)
 
 
 @router.post("/sign-in/second-factor", dependencies=[Depends(public)])
 async def finish_with_second_factor(
     body: SecondFactor,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     challenge = await second_factor.take_try(db, body.challenge)
@@ -245,15 +242,12 @@ async def finish_with_second_factor(
         raise _challenge_ended()
     # A right code shows the owner is here: the account's count starts again.
     await limiter.forget(SECOND_FACTOR_FAILURES, _SECOND_FACTOR_SCOPE, key)
-    return await finish_sign_in(
-        request, db, background, user, second_factor=True, method=challenge.method
-    )
+    return await finish_sign_in(request, db, user, second_factor=True, method=challenge.method)
 
 
 async def finish_sign_in(
     request: Request,
     db: AsyncSession,
-    background: BackgroundTasks,
     user: User,
     *,
     second_factor: bool,
@@ -287,32 +281,20 @@ async def finish_sign_in(
         details={"method": method, "second_factor": second_factor, "new_device": not known},
     )
     shown = await accounts.view(db, user, declared=request.app.state.declared_permissions)
+    if not known:
+        await queue_message(db, user.email, *new_device_mail(session.device_label, now))
     await db.commit()
     response = JSONResponse({"status": "signed_in", "user": shown})
     sessions.set_session_cookie(response, token, session)
     sessions.set_device_cookie(response, user)
-    if not known:
-        background.add_task(
-            _mail_new_device,
-            request.app.state.mailer,
-            request.app.state.config,
-            user.email,
-            session.device_label,
-            now,
-        )
     return response
 
 
-async def _mail_new_device(
-    mailer: Mailer, config: KernelConfig, to: str, device: str, at: datetime
-) -> None:
-    subject, text, html = mails.rendered(
+def new_device_mail(device: str, at: datetime) -> mails.Mail:
+    """The mail a sign-in from a browser the account hasn't used sends."""
+    return mails.rendered(
         "kernel.new_sign_in", device=device or "a browser we could not name", when=mails.when(at)
     )
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("The new-device mail wasn't sent (%s).", type(error).__name__)
 
 
 # --- the session ---------------------------------------------------------------

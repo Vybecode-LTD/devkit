@@ -46,6 +46,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kernel.db import get_db
 from kernel.email import Template
 from kernel.errors import Problem
+from kernel.jobs import Job
 from kernel.models import ModuleState
 
 
@@ -92,6 +93,9 @@ class InstalledModule:
     #: The module's email templates, each named `<id>.<name>` (kernel.email).
     #: A site may reword them through create_app(emails=...).
     emails: Mapping[str, Template] = field(default_factory=dict)
+    #: The module's jobs, each named `<id>.<name>` (kernel.jobs): what its
+    #: `jobs.py` declares with `@jobs.handler` and `@jobs.scheduled`.
+    jobs: tuple[Job, ...] = ()
 
     @property
     def id(self) -> str:

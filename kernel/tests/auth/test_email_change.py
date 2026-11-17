@@ -30,7 +30,7 @@ from kernel.auth.hashing import keyed_hash
 from kernel.auth.models import AuditEvent, Token, Totp, User, UserRole
 from kernel.email import CapturingMailer
 
-from ..conftest import SITE, Client, make_config
+from ..conftest import SITE, Client, Draining, make_config
 
 PASSWORD = "quiet orbit lantern 4471 marsh"
 _SAME_ORIGIN = {"Origin": SITE, "Sec-Fetch-Site": "same-origin"}
@@ -56,7 +56,7 @@ class Site:
         return made
 
     def browser(self) -> httpx.AsyncClient:
-        transport = httpx.ASGITransport(app=self.app, raise_app_exceptions=False)
+        transport = Draining(app=self.app, raise_app_exceptions=False)
         return httpx.AsyncClient(transport=transport, base_url=SITE, headers=_SAME_ORIGIN)
 
 

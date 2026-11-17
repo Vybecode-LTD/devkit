@@ -53,7 +53,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,7 +67,7 @@ from kernel.auth.models import Token, User
 from kernel.auth.routes import finish_sign_in
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import Mailer
+from kernel.email import queue_message
 from kernel.errors import Problem
 from kernel.ratelimit import RateLimiter, rate_limit, too_many
 
@@ -134,7 +134,6 @@ async def _void(db: AsyncSession, user_id: uuid.UUID) -> None:
 async def ask_for_code(
     body: AskForCode,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     started = floor.start()
@@ -155,9 +154,9 @@ async def ask_for_code(
         code, link = await _issue(db, user, normal)
         audit.record(db, request, "auth.code_sent", "success", subject=user.id)
         mail = (user.email, *_message(request.app.state.config, code, link))
-    await db.commit()
     if mail is not None:
-        background.add_task(_send, request.app.state.mailer, *mail)
+        await queue_message(db, *mail)
+    await db.commit()
     await floor.wait_out(started)
     return {"status": "check_email"}
 
@@ -198,13 +197,6 @@ def _message(config: KernelConfig, code: str, link: str) -> mails.Mail:
         link=f"{config.site_url.rstrip('/')}/auth/link?token={link}",
         minutes=int(LIFETIME.total_seconds() // 60),
     )
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("A sign-in code wasn't sent (%s).", type(error).__name__)
 
 
 # --- signing in -------------------------------------------------------------------
@@ -263,19 +255,16 @@ async def _use(db: AsyncSession, token_id: uuid.UUID) -> bool:
 async def verify_code(
     body: VerifyCode,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     started = floor.start()
     try:
-        return await _verify_code(body, request, background, db)
+        return await _verify_code(body, request, db)
     finally:  # a right code too: only the answer may differ, never the time
         await floor.wait_out(started)
 
 
-async def _verify_code(
-    body: VerifyCode, request: Request, background: BackgroundTasks, db: AsyncSession
-) -> Response:
+async def _verify_code(body: VerifyCode, request: Request, db: AsyncSession) -> Response:
     normal = accounts.normal_email(body.email)
     taken = await _take_try(db, normal) if _SIX_DIGITS.fullmatch(body.code) else None
     await db.commit()  # the try counts, whatever happens next
@@ -296,16 +285,13 @@ async def _verify_code(
     if not await _use(db, taken.id):
         await db.rollback()
         raise _invalid_code()
-    return await _sign_in(
-        request, db, background, taken.user_id, taken.email_normal, "code", _invalid_code
-    )
+    return await _sign_in(request, db, taken.user_id, taken.email_normal, "code", _invalid_code)
 
 
 @router.post("/link/confirm", dependencies=[Depends(public)])
 async def confirm_link(
     body: ConfirmLink,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     owner = await tokens.owner_of(db, _LINK, body.token)
@@ -316,14 +302,13 @@ async def confirm_link(
         await db.rollback()
         raise _invalid_link()
     return await _sign_in(
-        request, db, background, redeemed.user_id, redeemed.email_normal, "link", _invalid_link
+        request, db, redeemed.user_id, redeemed.email_normal, "link", _invalid_link
     )
 
 
 async def _sign_in(
     request: Request,
     db: AsyncSession,
-    background: BackgroundTasks,
     user_id: uuid.UUID,
     sent_to: str,
     method: str,
@@ -348,4 +333,4 @@ async def _sign_in(
         challenge = await second_factor.open_challenge(db, user, method=method)
         await db.commit()
         return JSONResponse({"status": "second_factor", "challenge": challenge, "methods": methods})
-    return await finish_sign_in(request, db, background, user, second_factor=False, method=method)
+    return await finish_sign_in(request, db, user, second_factor=False, method=method)

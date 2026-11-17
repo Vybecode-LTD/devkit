@@ -29,7 +29,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import CursorResult, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +39,7 @@ from kernel.auth import accounts, audit, mails, sessions, tokens
 from kernel.auth.models import Passkey, RecoveryCode, Totp, User
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import Mailer
+from kernel.email import queue_message
 from kernel.errors import Problem
 
 log = logging.getLogger(__name__)
@@ -87,7 +87,6 @@ def _token_invalid() -> Problem:
 async def undo_second_factor(
     body: UndoLink,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     owner = await tokens.owner_of(db, _UNDO, body.token)
@@ -114,9 +113,9 @@ async def undo_second_factor(
         details={"method": method, "removed": removed},
     )
     to = user.email
-    await db.commit()
     config = cast(KernelConfig, request.app.state.config)
-    background.add_task(_send, request.app.state.mailer, to, *_undone(config, method))
+    await queue_message(db, to, *_undone(config, method))
+    await db.commit()
     return {"status": "second_factor_undone"}
 
 
@@ -144,10 +143,3 @@ async def _remove(db: AsyncSession, user_id: uuid.UUID, data: dict[str, Any]) ->
 
 def _undone(config: KernelConfig, method: str) -> mails.Mail:
     return mails.rendered("kernel.passkey_undone" if method == "passkey" else "kernel.totp_undone")
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("A second-factor undo mail wasn't sent (%s).", type(error).__name__)

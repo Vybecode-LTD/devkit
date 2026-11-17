@@ -12,7 +12,7 @@ row written. A new address gets an unverified account and a link to
 `/auth/verify?token=…`. An address that has an account gets a notice instead,
 at the address as the account keeps it, and its account is left exactly as
 it was. Both answer 202
-`{"status": "check_email"}`, and the mail goes out after the answer. Two
+`{"status": "check_email"}`, and the mail is queued with the change (`kernel.email.queue_message`), for the worker to send. Two
 sign-ups for one new address at once make one account: the insert skips a
 taken address, and the later one is sent the notice.
 
@@ -43,7 +43,7 @@ import uuid
 from datetime import timedelta
 from typing import cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import exists, select
 from sqlalchemy.dialects.postgresql import insert
@@ -57,7 +57,7 @@ from kernel.auth.models import Token, User, UserRole
 from kernel.auth.passwords import Passwords, refusal, site_context
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import MAX_ADDRESS, Mailer, is_address
+from kernel.email import MAX_ADDRESS, is_address, queue_message
 from kernel.errors import Problem
 from kernel.ratelimit import RateLimiter, rate_limit, too_many
 
@@ -110,7 +110,6 @@ def _site(config: KernelConfig) -> str:
 async def sign_up(
     body: SignUp,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     config: KernelConfig = request.app.state.config
@@ -155,11 +154,11 @@ async def sign_up(
         )
         audit.record(db, request, "auth.sign_up", "success", actor=made, subject=made)
         subject, text, html = _verify_mail(config, token)
-    await db.commit()
     limiter = cast(RateLimiter, request.app.state.limiter)
     allowed = await limiter.hit(SIGN_UP_MAILS, _MAIL_SCOPE, normal)
     if allowed or made is not None:
-        background.add_task(_send, request.app.state.mailer, to, subject, text, html)
+        await queue_message(db, to, subject, text, html)
+    await db.commit()
     return {"status": "check_email"}
 
 
@@ -173,13 +172,6 @@ def _verify_mail(config: KernelConfig, token: str) -> mails.Mail:
 
 def _notice(config: KernelConfig) -> mails.Mail:
     return mails.rendered("kernel.sign_up_exists")
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("A sign-up mail wasn't sent (%s).", type(error).__name__)
 
 
 @router.post("/verify-email", dependencies=[Depends(public)])
@@ -218,7 +210,6 @@ async def verify_email(
 @router.post("/verify-email/resend", status_code=202)
 async def resend_verification(
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
@@ -253,10 +244,8 @@ async def resend_verification(
         db, request, "auth.verification_resent", "success", actor=fresh.id, subject=fresh.id
     )
     to = fresh.email
+    await queue_message(db, to, *_resend_mail(request.app.state.config, token))
     await db.commit()
-    background.add_task(
-        _send, request.app.state.mailer, to, *_resend_mail(request.app.state.config, token)
-    )
     return {"status": "check_email"}
 
 

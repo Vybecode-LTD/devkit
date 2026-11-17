@@ -8,7 +8,9 @@ fixed layout (SPEC.md section 4):
 - `backend/<id_>/schemas.py`'s `Settings`, the module's settings model;
 - `backend/<id_>/__init__.py`'s `CSP`, the hosts it adds while it's on, as
   (directive, https origin) pairs;
-- `backend/<id_>/emails.py`'s `EMAILS`, its email templates (kernel.email).
+- `backend/<id_>/emails.py`'s `EMAILS`, its email templates (kernel.email);
+- `backend/<id_>/jobs.py`'s jobs: every `kernel.jobs.Job` in it, which
+  `@jobs.handler` and `@jobs.scheduled` make (decision 0035).
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ from typing import Any
 
 import harness  # noqa: F401  (puts the kernel and modules on sys.path)
 from harness.layout import module_dirs
+from kernel.jobs import Job
 from kernel.modules import InstalledModule, Manifest
 
 
@@ -26,6 +29,13 @@ def _attribute(module_name: str, attribute: str) -> Any:
     if importlib.util.find_spec(module_name) is None:
         return None
     return getattr(importlib.import_module(module_name), attribute, None)
+
+
+def _jobs(module_name: str) -> tuple[Job, ...]:
+    if importlib.util.find_spec(module_name) is None:
+        return ()
+    found = vars(importlib.import_module(module_name)).values()
+    return tuple(value for value in found if isinstance(value, Job))
 
 
 def discover() -> list[InstalledModule]:
@@ -43,6 +53,7 @@ def discover() -> list[InstalledModule]:
                 settings=_attribute(f"{package}.schemas", "Settings"),
                 csp=tuple(_attribute(package, "CSP") or ()),
                 emails=dict(_attribute(f"{package}.emails", "EMAILS") or {}),
+                jobs=_jobs(f"{package}.jobs"),
             )
         )
     return found

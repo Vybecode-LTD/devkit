@@ -43,7 +43,7 @@ from kernel.auth.second_factor import (
 )
 from kernel.email import CapturingMailer
 
-from ..conftest import SITE, Client, make_config
+from ..conftest import SITE, Client, Draining, make_config
 
 PASSWORD = "quiet orbit lantern 4471 marsh"
 WRONG = "a wrong password 1"
@@ -79,7 +79,7 @@ class Site:
 
     def browser(self) -> httpx.AsyncClient:
         """Another browser: no cookies of its own yet."""
-        transport = httpx.ASGITransport(app=self.app, raise_app_exceptions=False)
+        transport = Draining(app=self.app, raise_app_exceptions=False)
         return httpx.AsyncClient(transport=transport, base_url=SITE, headers=_SAME_ORIGIN)
 
 

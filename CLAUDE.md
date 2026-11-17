@@ -54,6 +54,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | Lint, format, types | `python -m ruff check .`, `python -m black .`, `python -m mypy` |
 | Manifests against the schemas | `python -m tools.validate_schemas` |
 | Migrations | `python -m harness.migrations upgrade` (also `downgrade`, `heads`, `history`, `current`), with `DATABASE_URL` set |
+| Jobs worker, a process of its own | `python -m harness.worker`, with `JOBS_IN_WEB=false` on the web app (by default the web app runs one; decision 0035) |
 | Audit Python dependencies | `python -m pip_audit --strict --require-hashes --disable-pip -r requirements.txt -r requirements-dev.txt` |
 | Web install | `npm ci` |
 | Web tests, lint, types, build | `npm test`, `npm run lint`, `npm run typecheck`, `npm run build` |

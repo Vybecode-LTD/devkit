@@ -28,6 +28,14 @@ What it does, in order:
    module's, and the site's rewording of them
    (`emails=`), refusing to start on a bad one, and installs them with the
    mailer for `kernel.email.send`.
+9. Checks the kernel's jobs and every module's (`kernel.jobs.build`), and
+   builds the site's worker as `app.state.worker`. With JOBS_IN_WEB on (the
+   default) the lifespan runs it in this process; a site that runs
+   `kernel.worker.serve` as a service of its own turns it off (decision 0035).
+
+Steps 1 to 3, 7 and 8, and the jobs' checks, are `assemble`, which
+`kernel.worker.create_worker` shares, so a worker process starts on exactly
+what the web app would.
 
 The API docs (/docs, /redoc, /openapi.json) are served only with DEBUG on: on
 a live site they would map every route for anyone.
@@ -35,15 +43,18 @@ a live site they would map every route for anyone.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterable, Mapping
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Literal
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from kernel import email, error_tracking, logs
+from kernel import email, error_tracking, jobs, logs
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
@@ -57,6 +68,7 @@ from kernel.auth.resets import router as resets_router
 from kernel.auth.routes import router as auth_router
 from kernel.auth.sign_up import router as sign_up_router
 from kernel.auth.totp import router as totp_router
+from kernel.auth.unverified import REMOVE as REMOVE_UNVERIFIED
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
 from kernel.db import Database
 from kernel.email import Checked, Mailer, Template, build_templates
@@ -69,8 +81,74 @@ from kernel.routes import router as kernel_router
 from kernel.security import ContentSecurityPolicy, SameOriginWrites, SecurityHeaders, WwwRedirect
 from kernel.settings import settings
 from kernel.version import __version__
+from kernel.worker import Worker
 
 log = logging.getLogger(__name__)
+
+#: The kernel's own jobs: queued mail, pruning the queue, and removing
+#: accounts never verified (decision 0035).
+KERNEL_JOBS: tuple[jobs.Job, ...] = (email.SEND_MAIL, jobs.PRUNE, REMOVE_UNVERIFIED)
+
+
+@dataclass(frozen=True)
+class Assembled:
+    """What the web app and a worker process are both built from."""
+
+    config: KernelConfig
+    installed: tuple[InstalledModule, ...]
+    registry: ModuleRegistry
+    mailer: Checked
+    jobs: tuple[jobs.Job, ...]
+
+    def database(self) -> Database:
+        return Database(
+            self.config.database_url,
+            pool_size=self.config.db_pool_size,
+            max_overflow=self.config.db_max_overflow,
+        )
+
+
+def assemble(
+    *,
+    modules: Iterable[InstalledModule] = (),
+    config: KernelConfig | None = None,
+    mailer: Mailer | None = None,
+    emails: Mapping[str, Template] | None = None,
+    role: Literal["web", "worker"] = "web",
+) -> Assembled:
+    """Reads and checks the config, the modules, their mail templates and
+    their jobs, and installs the mailer and templates for `kernel.email`.
+    Raises RuntimeError("Refusing to start: ...") on anything it can't take."""
+    config = config or get_config()
+    refuse_unsafe(config)
+    logs.configure(config.log_format, config.log_level)
+    error_tracking.init(config, role)
+
+    installed = tuple(modules)
+    try:
+        allowed = modules_allowed(config, {module.id for module in installed})
+        registry = ModuleRegistry(installed, allowed, ttl=config.modules_cache_seconds)
+    except ValueError as error:
+        raise RuntimeError(f"Refusing to start: {error}") from error
+    try:
+        templates = build_templates(
+            [("kernel", KERNEL_MAILS), *((module.id, module.emails) for module in installed)],
+            emails or {},
+        )
+        declared = jobs.build(
+            [
+                ("kernel", KERNEL_JOBS, None),
+                *(
+                    (module.id, module.jobs, module.manifest.raw.get("jobs") or [])
+                    for module in installed
+                ),
+            ]
+        )
+    except ValueError as error:
+        raise RuntimeError(f"Refusing to start: {error}") from error
+    checked = Checked(mailer if mailer is not None else mailer_from_config(config))
+    email.install(checked, templates, site_name=config.site_name, site_url=config.site_url)
+    return Assembled(config, installed, registry, checked, declared)
 
 
 def create_app(
@@ -82,24 +160,8 @@ def create_app(
     breach_lookup: RangeLookup | None = None,
     emails: Mapping[str, Template] | None = None,
 ) -> FastAPI:
-    config = config or get_config()
-    refuse_unsafe(config)
-    logs.configure(config.log_format, config.log_level)
-    error_tracking.init(config, "web")
-
-    installed = list(modules)
-    try:
-        allowed = modules_allowed(config, {module.id for module in installed})
-        registry = ModuleRegistry(installed, allowed, ttl=config.modules_cache_seconds)
-    except ValueError as error:
-        raise RuntimeError(f"Refusing to start: {error}") from error
-    try:
-        templates = build_templates(
-            [("kernel", KERNEL_MAILS), *((module.id, module.emails) for module in installed)],
-            emails or {},
-        )
-    except ValueError as error:
-        raise RuntimeError(f"Refusing to start: {error}") from error
+    built = assemble(modules=modules, config=config, mailer=mailer, emails=emails, role="web")
+    config, installed, registry = built.config, built.installed, built.registry
 
     policy = ContentSecurityPolicy()
     for module in installed:
@@ -109,10 +171,15 @@ def create_app(
             settings.register(module.id, module.settings)
 
     owns_database = database is None
-    db = database or Database(
-        config.database_url,
-        pool_size=config.db_pool_size,
-        max_overflow=config.db_max_overflow,
+    db = database or built.database()
+    worker = Worker(
+        built.jobs,
+        registry=registry,
+        database=db,
+        mailer=built.mailer,
+        concurrency=config.jobs_concurrency,
+        poll=config.jobs_poll_seconds,
+        drain=config.jobs_drain_seconds,
     )
 
     @asynccontextmanager
@@ -126,9 +193,19 @@ def create_app(
                 "MODULES allows as on until the database answers.",
                 type(error).__name__,
             )
-        yield
-        if owns_database:
-            await db.dispose()
+        stop = asyncio.Event()
+        running = asyncio.create_task(worker.run(stop)) if config.jobs_in_web else None
+        try:
+            yield
+        finally:
+            if running is not None:
+                stop.set()
+                try:
+                    await running
+                except Exception as error:
+                    log.warning("The web process's worker ended badly (%s).", type(error).__name__)
+            if owns_database:
+                await db.dispose()
 
     docs = {} if config.debug else {"docs_url": None, "redoc_url": None, "openapi_url": None}
     app = FastAPI(title=config.site_name, version=__version__, lifespan=lifespan, **docs)  # type: ignore[arg-type]
@@ -138,8 +215,8 @@ def create_app(
     app.state.csp = policy
     app.state.limiter = RateLimiter(config.rate_limit_storage, enabled=config.rate_limit_enabled)
     app.state.client_ip_header = config.client_ip_header
-    app.state.mailer = Checked(mailer if mailer is not None else mailer_from_config(config))
-    email.install(app.state.mailer, templates, site_name=config.site_name, site_url=config.site_url)
+    app.state.mailer = built.mailer
+    app.state.worker = worker
     app.state.passwords = Passwords.from_config(config)
     app.state.breach_lookup = breach_lookup if breach_lookup is not None else ask_range
     #: Every permission the kernel or an installed module declares: an owner

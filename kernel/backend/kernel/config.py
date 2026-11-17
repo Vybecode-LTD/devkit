@@ -126,6 +126,17 @@ class KernelConfig(BaseSettings):
     #: The largest file `storage.put` takes, in bytes.
     storage_max_bytes: int = Field(default=2 * 1024**3, ge=1)
 
+    #: Jobs (kernel.jobs, decision 0035). JOBS_IN_WEB runs the worker inside
+    #: the web process (one service); a site that runs `kernel.worker.serve`
+    #: as a service of its own, for heavy jobs such as ffmpeg, sets it false on
+    #: the web service. A worker runs up to JOBS_CONCURRENCY jobs at once, looks
+    #: for due ones every JOBS_POLL_SECONDS, and on SIGTERM gives the running
+    #: ones JOBS_DRAIN_SECONDS before leaving them to their leases.
+    jobs_in_web: bool = True
+    jobs_concurrency: int = Field(default=4, ge=1, le=32)
+    jobs_poll_seconds: float = Field(default=1.0, ge=0.1, le=60)
+    jobs_drain_seconds: float = Field(default=20.0, ge=0, le=600)
+
     rate_limit_enabled: bool = True
     #: Where counts live: memory:// for one process, redis://… once a site
     #: runs more than one.

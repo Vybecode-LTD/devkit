@@ -43,7 +43,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import exists, select, update
 from sqlalchemy.exc import IntegrityError
@@ -56,7 +56,7 @@ from kernel.auth.dependencies import require_recent_auth
 from kernel.auth.models import Token, User
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import MAX_ADDRESS, Mailer, is_address
+from kernel.email import MAX_ADDRESS, is_address, queue_message
 from kernel.errors import Problem
 from kernel.ratelimit import RateLimiter, too_many
 
@@ -171,7 +171,6 @@ async def _void_confirms(db: AsyncSession, user_id: uuid.UUID) -> None:
 async def change_email(
     body: EmailChange,
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(require_recent_auth()),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
@@ -212,11 +211,11 @@ async def change_email(
         )
         audit.record(db, request, action, "success", actor=user.id, subject=user.id)
         mail = (new, *_confirm_mail(config, token))
-    await db.commit()
     if mail is not None and await limiter.hit(
         MAILS_PER_ADDRESS, _MAIL_SCOPE, accounts.normal_email(mail[0])
     ):
-        background.add_task(_send, request.app.state.mailer, *mail)
+        await queue_message(db, *mail)
+    await db.commit()
     await floor.wait_out(started)
     return {"status": "check_email"}
 
@@ -239,7 +238,6 @@ async def _waiting(db: AsyncSession, user_id: uuid.UUID) -> bool:
 async def confirm_email_change(
     body: EmailLink,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     owner = await tokens.owner_of(db, _CHANGE, body.token)
@@ -282,9 +280,9 @@ async def confirm_email_change(
         },
     )
     audit.record(db, request, "auth.email_changed", "success", actor=user.id, subject=user.id)
-    await db.commit()
     config = cast(KernelConfig, request.app.state.config)
-    background.add_task(_send, request.app.state.mailer, old_email, *_undo_mail(config, undo))
+    await queue_message(db, old_email, *_undo_mail(config, undo))
+    await db.commit()
     return {"status": "email_changed"}
 
 
@@ -295,7 +293,6 @@ async def confirm_email_change(
 async def undo_email_change(
     body: EmailLink,
     request: Request,
-    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     owner = await tokens.owner_of(db, _CHANGE, body.token)
@@ -325,9 +322,9 @@ async def undo_email_change(
     await _void_after_undo(db, user.id, redeemed.created_at)
     audit.record(db, request, "auth.email_restored", "success", actor=user.id, subject=user.id)
     restored = user.email
-    await db.commit()
     config = cast(KernelConfig, request.app.state.config)
-    background.add_task(_send, request.app.state.mailer, restored, *_restored_notice(config))
+    await queue_message(db, restored, *_restored_notice(config))
+    await db.commit()
     return {"status": "email_restored"}
 
 
@@ -354,10 +351,3 @@ def _undo_mail(config: KernelConfig, token: str) -> mails.Mail:
 
 def _restored_notice(config: KernelConfig) -> mails.Mail:
     return mails.rendered("kernel.email_restored")
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("An email-change mail wasn't sent (%s).", type(error).__name__)

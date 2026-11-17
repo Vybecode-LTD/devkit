@@ -38,3 +38,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0032](0032-kernel-storage.md) | Kernel storage: two buckets, short signed links, downloads by default, and moto for the tests | Applied |
 | [0033](0033-kernel-email.md) | Kernel email: templates a site can reword, and SMTP first, Resend only where SMTP is blocked | Applied |
 | [0034](0034-rename-to-mechframe.md) | The project becomes MechFrame, after K3 | Accepted |
+| [0035](0035-kernel-jobs.md) | Kernel jobs: a Postgres queue enqueued in the caller's transaction, at least once, with the worker in the web process by default | Applied |

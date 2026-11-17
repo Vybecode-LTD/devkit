@@ -53,7 +53,7 @@ from datetime import datetime
 from typing import cast
 
 import pyotp
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,7 +67,7 @@ from kernel.auth.routes import failed_step_up
 from kernel.auth.sessions import Resumed
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import Mailer
+from kernel.email import queue_message
 from kernel.errors import Problem
 
 log = logging.getLogger(__name__)
@@ -131,7 +131,6 @@ async def set_up_totp(
 async def confirm_totp(
     body: TotpCode,
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(current_user),
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
@@ -156,16 +155,14 @@ async def confirm_totp(
     undo = await factor_undo.for_totp(db, user, now)  # for whoever didn't add it (0030)
     audit.record(db, request, "auth.totp_confirmed", "success", actor=user.id, subject=user.id)
     to = user.email
+    await queue_message(db, to, *_added(_config(request), now, undo))
     await db.commit()
-    added = _added(_config(request), now, undo)
-    background.add_task(_send, request.app.state.mailer, to, *added)
     return JSONResponse({"recovery_codes": codes}, headers=_NO_STORE)
 
 
 @router.delete("/totp", status_code=204)
 async def remove_totp(
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(require_recent_auth()),
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
@@ -194,16 +191,15 @@ async def remove_totp(
     await sessions.end_all_but(db, user, resumed.session)  # the second-factor reset
     await tokens.void(db, user.id, _ENDED)
     to, now = user.email, clock.now()
+    await queue_message(db, to, *_removed(_config(request), now))
     await db.commit()
     sessions.set_device_cookie(response, user)  # signed over the new epoch
-    background.add_task(_send, request.app.state.mailer, to, *_removed(_config(request), now))
     return response
 
 
 @router.post("/recovery-codes")
 async def replace_recovery_codes(
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(require_recent_auth()),
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
@@ -220,8 +216,8 @@ async def replace_recovery_codes(
         db, request, "auth.recovery_codes_replaced", "success", actor=user.id, subject=user.id
     )
     to, now = user.email, clock.now()
+    await queue_message(db, to, *_replaced(_config(request), now))
     await db.commit()
-    background.add_task(_send, request.app.state.mailer, to, *_replaced(_config(request), now))
     return JSONResponse({"recovery_codes": codes}, headers=_NO_STORE)
 
 
@@ -243,10 +239,3 @@ def _removed(config: KernelConfig, at: datetime) -> mails.Mail:
 
 def _replaced(config: KernelConfig, at: datetime) -> mails.Mail:
     return mails.rendered("kernel.recovery_codes_replaced", when=mails.when(at))
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("A two-step sign-in mail wasn't sent (%s).", type(error).__name__)

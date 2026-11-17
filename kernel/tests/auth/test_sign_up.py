@@ -33,7 +33,7 @@ from kernel.auth.models import AuditEvent, Token, User, UserRole
 from kernel.config import KernelConfig
 from kernel.email import CapturingMailer, Mailer, Template
 
-from ..conftest import SITE, Client, make_config
+from ..conftest import SITE, Client, Draining, make_config
 
 PASSWORD = "quiet orbit lantern 4471 marsh"
 OTHER = "amber walrus cello 5528 dune"
@@ -454,11 +454,12 @@ async def test_a_failing_mailer_changes_nothing(
 ) -> None:
     async with _site(migrated_url, mailer=_Failing()) as site:
         email = _address()
-        with caplog.at_level(logging.WARNING, logger="kernel.auth.sign_up"):
+        # The mail is a job now: the worker that runs it logs the failure.
+        with caplog.at_level(logging.WARNING, logger="kernel.worker"):
             response = await site.sign_up(email)
         assert response.status_code == 202
         assert await site.user(email) is not None
-        assert "RuntimeError" in caplog.text
+        assert "kernel.send_mail failed on try 1 (RuntimeError)" in caplog.text
         assert email.lower() not in caplog.text.lower()
 
 
@@ -537,7 +538,7 @@ async def test_a_verified_account_is_told_so(site: Site) -> None:
 
 
 async def test_resending_needs_a_session(site: Site) -> None:
-    transport = httpx.ASGITransport(app=site.app, raise_app_exceptions=False)
+    transport = Draining(app=site.app, raise_app_exceptions=False)
     async with httpx.AsyncClient(transport=transport, base_url=SITE, headers=_SAME_ORIGIN) as new:
         refused = await _resend(new)
     assert (refused.status_code, refused.json()["code"]) == (401, "kernel.not_signed_in")
@@ -559,7 +560,7 @@ async def test_the_link_goes_to_the_address_the_account_has_now(site: Site) -> N
 
 
 def _browser(site: Site) -> httpx.AsyncClient:
-    transport = httpx.ASGITransport(app=site.app, raise_app_exceptions=False)
+    transport = Draining(app=site.app, raise_app_exceptions=False)
     return httpx.AsyncClient(transport=transport, base_url=SITE, headers=_SAME_ORIGIN)
 
 

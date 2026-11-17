@@ -144,7 +144,7 @@ async def test_module_requests_dont_read_the_database_while_its_fresh(
 ) -> None:
     module_id = unique_id("greet")
     app = app_factory([_module_with_route(module_id)])
-    async with Client(app) as client:
+    async with Client(app, drain=False) as client:  # the queue's own queries aside
         assert (await client.get(f"/api/{module_id}/hello")).status_code == 200
         seen = _counting_queries(app)
         assert (await client.get(f"/api/{module_id}/hello")).status_code == 200

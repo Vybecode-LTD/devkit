@@ -46,6 +46,10 @@ os.environ["STORAGE_BUCKET"] = ""
 os.environ["STORAGE_PUBLIC_BUCKET"] = ""
 os.environ["STORAGE_PUBLIC_URL"] = ""
 os.environ["MOTO_S3_CUSTOM_ENDPOINTS"] = "https://r2.devkit.test"
+# No app a test builds runs a worker of its own (JOBS_IN_WEB): the tests run
+# due jobs themselves (`Worker.run_due`, which kernel/tests/conftest.py's
+# client does after every request), so what a job did is there to check.
+os.environ["JOBS_IN_WEB"] = "false"
 
 import asyncpg  # after the environment, which the kernel reads
 import pytest

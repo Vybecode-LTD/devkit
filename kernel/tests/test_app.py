@@ -50,7 +50,7 @@ async def test_health(app_factory: AppFactory) -> None:
 
 async def test_health_without_a_database(app_factory: AppFactory) -> None:
     app = app_factory(database_url="postgresql://devkit:devkit@127.0.0.1:1/none")
-    async with Client(app) as client:
+    async with Client(app, drain=False) as client:  # no database: no queue to run
         response = await client.get("/api/kernel/health")
     assert (response.status_code, response.json()["database"]) == (503, "unreachable")
 

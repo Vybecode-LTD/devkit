@@ -15,8 +15,13 @@
 - **The adapter** is the site's `Mailer` (`kernel.mail_adapters`: SMTP
   first, Resend only on a host that blocks SMTP), behind `Checked`. `create_app` installs it and the
   templates for `send`; a worker calls `install` itself. A failed delivery is
-  `MailError`, which says whether trying again can help. K2's routes still
-  reach the mailer through `get_mailer` until their mails move onto templates.
+  `MailError`, which says whether trying again can help.
+- **Queueing** (decision 0035). `queue(db, template, to, context)` renders now
+  and adds a `kernel.send_mail` job to the caller's transaction, sealed
+  (`kernel.jobs`): the mail goes out only if the change commits, and a
+  provider's hiccup is retried (`MailError.retryable`, after `retry_after`),
+  while a refusal ends it. The kernel's own mails go this way; `send` stays
+  for a job or a script that sends now.
 
 - `Mailer`: `async send(to, subject, text, html=None)`. An adapter delivers or
   raises, and never logs the address, the subject or the body.
@@ -41,9 +46,12 @@ import unicodedata
 from collections import deque
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from kernel import jobs
 
 log = logging.getLogger(__name__)
 
@@ -301,3 +309,48 @@ async def send(template: str, to: str, context: Mapping[str, str | int]) -> None
     missing value, a bad address) and MailError when delivery fails."""
     rendered = render(template, context)
     await _current().mailer.send(to, rendered.subject, rendered.text, rendered.html)
+
+
+#: A queued mail's payload: a message within `check`'s bounds, as JSON.
+_QUEUED_MAIL_LIMIT = 2 * MAX_BODY + 8 * 1024
+
+
+async def queue(db: AsyncSession, template: str, to: str, context: Mapping[str, str | int]) -> None:
+    """Renders `template` now and queues it for `to` in the caller's
+    transaction, which the caller commits. Raises ValueError on the caller's
+    bug, as `send` does, before anything is queued."""
+    rendered = render(template, context)
+    await queue_message(db, to, rendered.subject, rendered.text, rendered.html)
+
+
+async def queue_message(
+    db: AsyncSession, to: str, subject: str, text: str, html: str | None = None
+) -> None:
+    """Queues a message already rendered (the kernel's auth mails render
+    theirs through `kernel.auth.mails`). Sealed: its links and codes are
+    never readable in the jobs table, and are wiped once it's sent."""
+    check(to, subject, text, html)
+    await jobs.enqueue_up_to(
+        db,
+        SEND_MAIL.name,
+        {"to": to, "subject": subject, "text": text, "html": html},
+        run_at=None,
+        key=None,
+        sealed=True,
+        limit=_QUEUED_MAIL_LIMIT,
+    )
+
+
+async def _send_queued(ctx: jobs.Context, payload: dict[str, Any]) -> None:
+    mailer: Mailer = ctx._mailer
+    try:
+        await mailer.send(payload["to"], payload["subject"], payload["text"], payload.get("html"))
+    except MailError as error:
+        if error.retryable:
+            after = None if error.retry_after is None else max(0.0, error.retry_after)
+            raise jobs.Retry(after) from None
+        raise jobs.Abandon("The mail provider refused the message.") from None
+
+
+#: Sends a queued mail through the worker's mailer.
+SEND_MAIL = jobs.handler("kernel.send_mail", tries=5, timeout=60)(_send_queued)

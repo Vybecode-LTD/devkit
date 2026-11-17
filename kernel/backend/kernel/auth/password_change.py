@@ -32,7 +32,7 @@ import uuid
 from datetime import datetime
 from typing import cast
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
@@ -46,7 +46,7 @@ from kernel.auth.routes import failed_step_up
 from kernel.auth.sessions import Resumed
 from kernel.config import KernelConfig
 from kernel.db import get_db
-from kernel.email import Mailer
+from kernel.email import queue_message
 from kernel.errors import Problem
 
 log = logging.getLogger(__name__)
@@ -72,7 +72,6 @@ def _wrong_password() -> Problem:
 async def change_password(
     body: PasswordChange,
     request: Request,
-    background: BackgroundTasks,
     user: User = Depends(require_recent_auth()),
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
@@ -93,13 +92,12 @@ async def change_password(
     if reason is not None:
         raise Problem("auth.password_rejected", 422, reason)
     hashed = await passwords.hash(body.new_password)
-    return await _change(request, db, background, user_id, session_id, epoch, hashed)
+    return await _change(request, db, user_id, session_id, epoch, hashed)
 
 
 async def _change(
     request: Request,
     db: AsyncSession,
-    background: BackgroundTasks,
     user_id: uuid.UUID,
     session_id: uuid.UUID,
     epoch: int,
@@ -134,20 +132,13 @@ async def _change(
     await tokens.void(db, user.id, _ENDED)
     audit.record(db, request, "auth.password_changed", "success", actor=user.id, subject=user.id)
     to = user.email
+    config = cast(KernelConfig, request.app.state.config)
+    await queue_message(db, to, *_notice(config, now))
     await db.commit()
     response = JSONResponse({"status": "password_changed"})
     sessions.set_device_cookie(response, user)  # signed over the new epoch
-    config = cast(KernelConfig, request.app.state.config)
-    background.add_task(_send, request.app.state.mailer, to, *_notice(config, now))
     return response
 
 
 def _notice(config: KernelConfig, at: datetime) -> mails.Mail:
     return mails.rendered("kernel.password_changed", when=mails.when(at))
-
-
-async def _send(mailer: Mailer, to: str, subject: str, text: str, html: str | None = None) -> None:
-    try:
-        await mailer.send(to, subject, text, html)
-    except Exception as error:
-        log.warning("A password-change mail wasn't sent (%s).", type(error).__name__)
