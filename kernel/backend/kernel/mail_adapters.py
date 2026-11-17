@@ -30,12 +30,36 @@ import ssl
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from email.message import EmailMessage
+from email.policy import EmailPolicy
 from email.utils import formataddr, formatdate, make_msgid, parseaddr
 
 import httpx
 
 from kernel.config import KernelConfig, mail_problems
 from kernel.email import LogMailer, Mailer, MailError
+
+_WHOLE = frozenset({"list-unsubscribe", "list-unsubscribe-post"})
+
+
+class _WholeListHeaders(EmailPolicy):
+    """email.policy.default, but the one-click unsubscribe headers are written
+    whole: folded, a long List-Unsubscribe became RFC 2047 encoded words,
+    which RFC 2369 lets a receiver ignore (CodeRabbit on #69). `email.check`
+    keeps each to one line short enough for the wire's 998."""
+
+    def fold(self, name: str, value: str) -> str:
+        if name.lower() in _WHOLE and str(value).isascii():
+            return f"{name}: {value}{self.linesep}"
+        folded: str = super().fold(name, value)
+        return folded
+
+    def fold_binary(self, name: str, value: str) -> bytes:
+        if name.lower() in _WHOLE and str(value).isascii():
+            return f"{name}: {value}{self.linesep}".encode("ascii")
+        return super().fold_binary(name, value)
+
+
+_POLICY = _WholeListHeaders()
 
 log = logging.getLogger(__name__)
 
@@ -91,7 +115,7 @@ class SmtpMailer:
         html: str | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> None:
-        message = EmailMessage()
+        message = EmailMessage(policy=_POLICY)
         message["From"] = self.from_header
         message["To"] = _recipient(to)
         message["Subject"] = subject

@@ -71,7 +71,9 @@ _BREAKS = {"Cc", "Zl", "Zp"}
 
 #: The only headers a message may add: one-click unsubscribe (RFC 8058).
 HEADERS = frozenset({"List-Unsubscribe", "List-Unsubscribe-Post"})
-MAX_HEADER = 1000
+#: Short enough that `List-Unsubscribe-Post: ` and the value fit the wire's
+#: 998 on one line, so an adapter needn't fold it (kernel.mail_adapters).
+MAX_HEADER = 900
 
 
 class Mailer(Protocol):

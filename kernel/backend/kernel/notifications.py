@@ -211,6 +211,10 @@ async def notify(
     """Adds the notice and queues its email in the caller's transaction, as
     the person chose for `key`. Returns where it went."""
     kind = _kind(key)
+    for name, value in context.items():
+        if isinstance(value, str) and chr(0) in value:
+            # Postgres and email.check refuse it later, after something was added.
+            raise ValueError(f"A notice's ${name} holds a NUL character.")
     values: dict[str, str | int] = dict(context)
     if link is not None:
         _check_link(link)
@@ -227,14 +231,14 @@ async def notify(
         return Sent(False, False)
     in_site, by_email = await _choice(db, user_id, kind)
     by_email = by_email and person.email_verified_at is not None
+    if by_email:  # first: its checks may refuse it, and then nothing is added
+        await _queue(db, user_id, key, person.email, rendered)
     if in_site:
         db.add(
             Notification(
                 user_id=user_id, key=key, title=rendered.subject, link=link, created_at=clock.now()
             )
         )
-    if by_email:
-        await _queue(db, user_id, key, person.email, rendered)
     return Sent(in_site, by_email)
 
 
@@ -424,10 +428,20 @@ async def looked_up(db: AsyncSession, token: str) -> dict[str, Any]:
 
 
 async def unsubscribe(db: AsyncSession, token: str) -> None:
-    """Turns email off for the token's key alone; the site's notices stay as chosen."""
+    """Turns email off for the token's key alone. The site's notices stay as
+    chosen: on a row already there it writes `email` only, so a change to
+    `in_site` committed meanwhile isn't undone (CodeRabbit on #69); a new row
+    takes the default, which is the choice while there's no row."""
     user_id, kind = await _from_token(db, token)
-    in_site, _ = await _choice(db, user_id, kind)
-    await _set(db, user_id, kind.key, in_site, False)
+    now = clock.now()
+    statement = insert(NotificationPreference).values(
+        user_id=user_id, key=kind.key, in_site=kind.in_site, email=False, updated_at=now
+    )
+    await db.execute(
+        statement.on_conflict_do_update(
+            index_elements=["user_id", "key"], set_={"email": False, "updated_at": now}
+        )
+    )
     await db.commit()
 
 

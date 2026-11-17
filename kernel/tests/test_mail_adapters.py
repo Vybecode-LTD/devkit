@@ -426,3 +426,24 @@ async def test_resend_passes_the_headers_it_is_given() -> None:
     first, second = (json.loads(request.content) for request in seen)
     assert first["headers"] == UNSUBSCRIBE
     assert "headers" not in second
+
+
+async def test_smtp_keeps_a_long_unsubscribe_url_whole_on_the_wire(
+    fake_smtp: type[FakeSMTP],
+) -> None:
+    """CodeRabbit on #69: folded by default, a long List-Unsubscribe became
+    RFC 2047 encoded words, which RFC 2369 lets a receiver ignore."""
+    token = f"{'a' * 32}.comments.reply.{'f' * 64}"
+    url = f"<https://vibrantmindz.example.com/api/kernel/notifications/unsubscribe?token={token}>"
+    headers = {"List-Unsubscribe": url, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+    await smtp().send("reader@vibe.test", "Hello", "the body " * 40, headers=headers)
+    [message] = [value for name, value in fake_smtp.calls if name == "send"]
+    wire = message.as_bytes()
+    assert f"List-Unsubscribe: {url}".encode() in wire
+    assert b"List-Unsubscribe-Post: List-Unsubscribe=One-Click" in wire
+    assert b"=?utf-8?" not in wire
+    assert f"List-Unsubscribe: {url}" in message.as_string()  # the text path too
+    # Everything else folds as before: a long subject still does.
+    await smtp().send("reader@vibe.test", "Hello " * 30, "the body text")
+    [_, second] = [value for name, value in fake_smtp.calls if name == "send"]
+    assert all(len(line) <= 78 for line in second.as_bytes().split(b"\n") if b"Subject" in line)

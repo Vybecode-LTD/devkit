@@ -9,6 +9,7 @@ mail to its own people's addresses.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import json
 import uuid
@@ -23,7 +24,7 @@ import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock, email, jobs, notifications
@@ -335,6 +336,12 @@ async def test_a_notice_email_has_the_footer_and_the_one_click_headers(
 def test_only_the_unsubscribe_headers_pass_the_checks() -> None:
     good = {"List-Unsubscribe": "<https://x.test/u>", "List-Unsubscribe-Post": "x"}
     email.check("a@site.test", "Hi", "Body", None, good)
+    # Short enough that each fits the wire's 998 on one line, unfolded.
+    assert len("List-Unsubscribe-Post: ") + email.MAX_HEADER <= 998
+    longest = "<" + "u" * (email.MAX_HEADER - 2) + ">"
+    email.check("a@site.test", "Hi", "Body", None, {"List-Unsubscribe": longest})
+    with pytest.raises(ValueError, match="header"):
+        email.check("a@site.test", "Hi", "Body", None, {"List-Unsubscribe": longest + "u"})
     for bad in (
         {"Bcc": "b@site.test"},
         {"List-Unsubscribe": "<https://x.test/u>\r\nBcc: b@site.test"},
@@ -671,3 +678,79 @@ async def test_an_unsubscribe_link_for_an_account_gone_is_a_404(
         for method in ("GET", "POST"):
             response = await client.request(method, UNSUBSCRIBE_API, params={"token": token})
             assert (response.status_code, _code(response)) == (404, "kernel.not_found")
+
+
+@pytest.mark.parametrize("name", ["reply", "ready"])
+async def test_a_nul_in_a_value_is_refused_before_anything_is_added(
+    site: Site, db: AsyncSession, name: str
+) -> None:
+    """CodeRabbit on #69: the notice was added before the email's checks
+    refused a NUL, so a caller that caught the error could still commit it."""
+    ana = await _person(db)
+    ana_id, address = ana.id, ana.email
+    context = {"who": f"B{chr(0)}", "post": "x", "thing": f"x{chr(0)}"}
+    with pytest.raises(ValueError, match="NUL"):
+        await notifications.notify(db, ana_id, site.key(name), context, link="/x")
+    assert list(db.new) == []
+    await db.commit()  # a caller that catches it and carries on writes nothing of it
+    assert await _notices(db, ana_id) == []
+    assert await site.mail(address) == []
+
+
+async def test_unsubscribing_never_undoes_a_choice_made_meanwhile(
+    site: Site, db: AsyncSession, database: Database
+) -> None:
+    """CodeRabbit on #69: unsubscribe read `in_site`, then wrote it back. Here
+    a change to `in_site` holds the row while the one-click runs; once it
+    commits, the one-click must leave it as the change made it."""
+    ana = await _person(db)
+    ana_id = ana.id
+    key = site.key("reply")
+    db.add(NotificationPreference(user_id=ana_id, key=key, in_site=True, email=True))
+    await db.commit()
+    token = notifications.unsubscribe_token(ana_id, key)
+    async with database.sessions() as holder:
+        await holder.execute(
+            update(NotificationPreference)
+            .where(NotificationPreference.user_id == ana_id, NotificationPreference.key == key)
+            .values(in_site=False)
+        )
+        async with Client(site.app) as client:
+            clicked = asyncio.create_task(client.post(UNSUBSCRIBE_API, params={"token": token}))
+            for _ in range(200):  # until the one-click waits on the held row
+                waiting = await db.scalar(
+                    text(
+                        "SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' "
+                        "AND query LIKE '%kernel_notification_preference%'"
+                    )
+                )
+                await db.rollback()
+                if waiting:
+                    break
+                await asyncio.sleep(0.025)
+            else:
+                pytest.fail("the one-click never waited on the held row")
+            await holder.commit()
+            response = await clicked
+    assert response.status_code == 200
+    row = await db.get(NotificationPreference, (ana_id, key), populate_existing=True)
+    assert row is not None
+    assert (row.in_site, row.email) == (False, False)
+
+
+async def test_an_email_the_checks_refuse_adds_no_notice_either(
+    site: Site, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CodeRabbit on #69: the email is queued first, so when its checks refuse
+    it, nothing of the notice is left in the caller's session."""
+    ana = await _person(db)
+    ana_id = ana.id
+
+    async def refused(*args: object, **kwargs: object) -> None:
+        raise ValueError("A message's text must hold 1 to 262144 characters and no NUL.")
+
+    monkeypatch.setattr(notifications.email, "queue_message", refused)
+    with pytest.raises(ValueError, match="text"):
+        await notifications.notify(db, ana_id, site.key("reply"), _reply(), link="/x")
+    assert list(db.new) == []
+    await db.rollback()
