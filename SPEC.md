@@ -368,7 +368,7 @@ The words come from the kernel's builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`, 
 
 **The site's identity** is the settings section `kernel.site`: its description, kind (`Organization`, `LocalBusiness`, `MusicGroup`, `Person`), logo, social card (every page's image unless it has its own), profiles, the summary for `llms.txt` and the AI crawlers' switch. The name stays `SITE_NAME`.
 
-**Kernel-owned files**, generated per request from the modules on: `sitemap.xml` (50,000 addresses at most), `robots.txt` (every crawler welcome but in `/admin`, `/api/` and the member pages; the AI crawlers named in a group of their own, allowed by default and turned away while the site refuses them) and `llms.txt` (llmstxt.org, 500 links at most).
+**Kernel-owned files**, generated per request from the modules on: `sitemap.xml` (50,000 addresses at most), `robots.txt` (every crawler welcome but in `/admin` and `/api/`; member pages are `noindex` in their shell instead; the AI crawlers named in a group of their own, allowed by default and turned away while the site refuses them) and `llms.txt` (llmstxt.org, 500 links at most).
 
 **The known cost: two renderers.** The server copy and the React page describe the same content, so they can drift apart. Both MUST read the same rows. From K4's first React page, a Playwright test checks that every visible heading and paragraph on the rendered page also appears in the server copy. A TypeScript port would remove this cost (section 19).
 

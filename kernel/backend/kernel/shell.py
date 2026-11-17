@@ -261,6 +261,13 @@ async def _on(request: Request, db: AsyncSession) -> frozenset[str]:
             "Couldn't read which modules are switched off (%s); answering with the last set read.",
             type(error).__name__,
         )
+        # A failed statement leaves PostgreSQL's transaction aborted, and the page's own
+        # read comes next on this session. Nothing else has been read on it yet, so
+        # rolling back loses nothing (CodeRabbit on #73).
+        try:
+            await db.rollback()
+        except (SQLAlchemyError, OSError):
+            log.warning("Couldn't roll back after the failed read; the page read may fail too.")
         return registry.on_cached()
 
 
@@ -290,9 +297,9 @@ async def answer(request: Request, full_path: str, db: AsyncSession = Depends(ge
         return RedirectResponse(f"{target}?{query}" if query else target, status_code=301)
     if path == "/admin" or path.startswith("/admin/"):
         return _plain(built, f"Admin · {name}", 200)
-    match = routes.resolve(path)
     on = await _on(request, db)
-    if match is None or match.module not in on:
+    match = routes.resolve(path, on)  # among the modules on: one that's off steps aside
+    if match is None:
         if path == "/":
             return await _home(built, db)
         return _plain(built, f"Page not found · {name}", 404)
@@ -342,9 +349,7 @@ async def sitemap(request: Request, db: AsyncSession = Depends(get_db)) -> Respo
     )
 
 
-async def robots(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
-    routes: server_copy.Routes = request.app.state.public_routes
-    on = await _on(request, db)
+async def robots(db: AsyncSession = Depends(get_db)) -> Response:
     try:
         site = await server_copy.identity(db)
     except (SQLAlchemyError, OSError):
@@ -352,7 +357,7 @@ async def robots(request: Request, db: AsyncSession = Depends(get_db)) -> Respon
         # keeps every crawler out until it reads again.
         log.exception("Couldn't read the site's identity for robots.txt.")
         return _busy()
-    return PlainTextResponse(server_copy.robots_txt(routes, on, site))
+    return PlainTextResponse(server_copy.robots_txt(site))
 
 
 async def llms(request: Request, db: AsyncSession = Depends(get_db)) -> Response:

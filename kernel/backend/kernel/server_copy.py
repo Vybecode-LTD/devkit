@@ -51,7 +51,7 @@ block never runs.
 
 **The kernel's files**, generated per request from the modules on:
 `sitemap.xml` (at most 50,000 addresses), `robots.txt` (every crawler
-welcome but in the admin, the API and the member pages; the AI crawlers in a
+welcome but in the admin and the API; the AI crawlers in a
 group of their own, turned away while the site refuses them) and `llms.txt`
 (llmstxt.org; at most 500 links).
 
@@ -421,24 +421,28 @@ class Routes:
     def __init__(
         self, patterns: list[_Pattern], pages: dict[str, Pages], names: dict[str, str]
     ) -> None:
-        self._declared = list(patterns)
         #: Most fixed segments first: the first match is the one that answers.
         self._patterns = sorted(patterns, key=lambda pattern: -pattern.rank)
         self._pages = pages
         self._names = names
 
-    def resolve(self, path: str) -> Match | None:
-        """The pattern that answers `path`, a path with no trailing slash."""
+    def resolve(self, path: str, on: frozenset[str] | None = None) -> Match | None:
+        """The pattern that answers `path`, a path with no trailing slash,
+        among the modules `on` (every module installed when None): a module
+        that's off steps aside, so its pattern never keeps an address from a
+        module on whose pattern also takes it."""
         segments = () if path == "/" else tuple(path[1:].split("/"))
         for pattern in self._patterns:
+            if on is not None and pattern.module not in on:
+                continue
             params = pattern.match(segments)
             if params is not None:
                 return Match(pattern.module, pattern.text, params, pattern.member)
         return None
 
-    def home_owner(self) -> str | None:
-        """The module whose public page `/` is, if any."""
-        found = self.resolve("/")
+    def home_owner(self, on: frozenset[str] | None = None) -> str | None:
+        """The module on whose public page `/` is, if any."""
+        found = self.resolve("/", on)
         return found.module if found is not None and not found.member else None
 
     @property
@@ -453,15 +457,6 @@ class Routes:
 
     def with_pages(self) -> list[str]:
         return sorted(self._pages)
-
-    def member_rules(self, on: frozenset[str]) -> list[str]:
-        """robots.txt's rule for each member page of the modules on: its
-        `:names` as `*`, anchored with `$`."""
-        return [
-            "/" + "/".join("*" if part.startswith(":") else part for part in pattern.parts) + "$"
-            for pattern in self._declared
-            if pattern.member and pattern.module in on
-        ]
 
 
 def build(installed: Iterable[InstalledModule]) -> Routes:
@@ -717,15 +712,16 @@ def home(site: Identity) -> Page:
 async def entries(db: AsyncSession, routes: Routes, on: frozenset[str]) -> list[tuple[str, Entry]]:
     """Every page the sitemap and llms.txt list, by module: the kernel's home
     page while no module on owns `/`, then each module on's entries that
-    aren't `noindex` and that its own public pattern answers."""
+    aren't `noindex` and that its own public pattern answers among the
+    modules on."""
     found: list[tuple[str, Entry]] = []
-    if routes.home_owner() not in on:
+    if routes.home_owner(on) is None:
         found.append((KERNEL, Entry("/")))
     for module_id in routes.with_pages():
         if module_id not in on:
             continue
         for entry in await routes.pages_of(module_id).sitemap(db):
-            answers = routes.resolve(entry.path)
+            answers = routes.resolve(entry.path, on)
             if entry.noindex or answers is None or answers.module != module_id or answers.member:
                 continue
             found.append((module_id, entry))
@@ -755,13 +751,20 @@ def sitemap_xml(found: Sequence[tuple[str, Entry]], site_url: str) -> str:
     )
 
 
-def robots_txt(routes: Routes, on: frozenset[str], site: Identity) -> str:
-    """robots.txt: the site open to every crawler but the admin, the API and
-    the member pages of the modules on. The AI crawlers get a group of their
-    own (a crawler obeys only the group that names it), with the same rules,
-    or `Disallow: /` while the site refuses them."""
-    closed = ["Disallow: /admin", "Disallow: /api/"]
-    closed += [f"Disallow: {rule}" for rule in routes.member_rules(on)]
+#: What robots.txt closes: the admin, anchored so a public `/administration`
+#: stays open, and the API. Member pages stay open: their shell says noindex,
+#: which a crawler can only read if it may fetch the page, and a wildcard rule
+#: for them would also close any public page sharing their prefix
+#: (CodeRabbit on #73).
+_CLOSED = ("Disallow: /admin$", "Disallow: /admin/", "Disallow: /admin?", "Disallow: /api/")
+
+
+def robots_txt(site: Identity) -> str:
+    """robots.txt: the site open to every crawler but the admin and the API.
+    The AI crawlers get a group of their own (a crawler obeys only the group
+    that names it), with the same rules, or `Disallow: /` while the site
+    refuses them."""
+    closed = list(_CLOSED)
     lines = ["User-agent: *", "Allow: /", *closed, ""]
     lines.append("# The AI crawlers, by name: the site's own choice (kernel.site, ai_crawlers).")
     lines += [f"User-agent: {agent}" for agent in AI_CRAWLERS]

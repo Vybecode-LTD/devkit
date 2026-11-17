@@ -6,6 +6,7 @@ can't be read (decision 0041)."""
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from datetime import UTC, datetime
@@ -15,7 +16,9 @@ from typing import Any
 import httpx
 import pytest
 from fastapi import FastAPI
+from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import server_copy, shell
 from kernel.modules import ModuleRegistry
@@ -275,6 +278,66 @@ async def test_an_api_miss_is_a_problem_never_the_shell(
     assert wrong_method.status_code == 405
 
 
+async def test_a_module_off_leaves_its_address_to_one_on(
+    app_factory: AppFactory, dist: Path
+) -> None:
+    latest = Page("Latest", "", server_copy.h1("Latest news"))
+    modules = [
+        public_module("news", public=["/news/:slug"], pages=FakePages({"/news/latest": latest})),
+        public_module("latest", public=["/news/latest"], pages=FakePages({"/news/latest": HELLO})),
+    ]
+    app = app_factory(modules, site_name="Test Site", modules="news", web_dist=str(dist))
+    async with Client(app) as client:
+        response = await client.get("/news/latest")
+    assert (response.status_code, _title(response.text)) == (200, "Latest")
+
+
+async def test_a_failed_module_read_leaves_the_page_read_working(
+    app_factory: AppFactory, dist: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A database error reading the switches aborts the request's transaction;
+    the page's own read must still work (CodeRabbit on #73)."""
+
+    class Reading(FakePages):
+        async def page(self, db: Any, path: str, params: Any) -> Any:
+            await db.execute(text("SELECT 1"))
+            return await super().page(db, path, params)
+
+    async def broken(self: ModuleRegistry, db: Any) -> frozenset[str]:
+        await db.execute(text("SELECT * FROM no_such_table_here"))
+        return frozenset()
+
+    monkeypatch.setattr(ModuleRegistry, "switched_off", broken)
+    app = _app(app_factory, dist, Reading({"/blog/hello": HELLO}), modules_cache_seconds=0)
+    async with Client(app, drain=False) as client:
+        response = await client.get("/blog/hello")
+        robots = await client.get("/robots.txt")
+    assert response.status_code == 200
+    assert robots.status_code == 200
+
+
+async def test_a_rollback_that_fails_after_a_failed_module_read_is_only_logged(
+    app_factory: AppFactory,
+    dist: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def down(self: ModuleRegistry, db: Any) -> frozenset[str]:
+        raise OSError("down")
+
+    async def refuses(self: AsyncSession) -> None:
+        raise OSError("also down")
+
+    monkeypatch.setattr(ModuleRegistry, "switched_off", down)
+    monkeypatch.setattr(AsyncSession, "rollback", refuses)
+    app = _app(app_factory, dist, modules_cache_seconds=0)
+    async with Client(app, drain=False) as client:
+        with caplog.at_level(logging.WARNING, logger="kernel.shell"):
+            response = await client.get("/blog/hello")
+    assert response.status_code == 200  # the last set read still answers
+    assert "Couldn't roll back" in caplog.text
+
+
 async def test_an_address_the_site_doesnt_have_is_a_404_shell(
     app_factory: AppFactory, dist: Path
 ) -> None:
@@ -460,7 +523,8 @@ async def test_the_kernel_files_are_served(app_factory: AppFactory, dist: Path) 
     assert "<loc>https://devkit.test/blog/hello</loc>" in sitemap.text
     assert "<loc>https://devkit.test/</loc>" in sitemap.text
     assert robots.headers["content-type"] == "text/plain; charset=utf-8"
-    assert "Disallow: /account/*$" in robots.text
+    assert "Disallow: /admin/" in robots.text
+    assert "/account" not in robots.text  # member pages say noindex in their shell
     assert "Sitemap: https://devkit.test/sitemap.xml" in robots.text
     assert llms.headers["content-type"] == "text/plain; charset=utf-8"
     assert "## Blog\n\n- [Hello](https://devkit.test/blog/hello): The first post.\n" in llms.text

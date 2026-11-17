@@ -79,6 +79,44 @@ def test_a_fixed_page_wins_over_a_catch_all_of_one_segment() -> None:
     assert (found.module, found.params) == ("pages", {"page": "about"})
 
 
+def test_only_the_modules_on_are_matched() -> None:
+    """A module that's off steps aside: its fixed pattern doesn't keep an
+    address from the module on whose pattern also takes it (CodeRabbit on #73)."""
+    routes = server_copy.build(
+        [
+            public_module("news", public=["/news/:slug"], pages=FakePages()),
+            public_module("latest", public=["/news/latest"], pages=FakePages()),
+            public_module("site", public=["/"], pages=FakePages()),
+        ]
+    )
+    found = routes.resolve("/news/latest", frozenset({"news"}))
+    assert found is not None
+    assert (found.module, found.params) == ("news", {"slug": "latest"})
+    both = routes.resolve("/news/latest", frozenset({"news", "latest"}))
+    assert getattr(both, "module", None) == "latest"
+    assert getattr(routes.resolve("/news/latest"), "module", None) == "latest"  # every module
+    assert routes.resolve("/news/latest", frozenset()) is None
+    assert routes.home_owner(frozenset({"site"})) == "site"
+    assert routes.home_owner(frozenset({"news"})) is None
+
+
+async def test_the_sitemap_follows_the_modules_on() -> None:
+    news = FakePages(entries=[Entry("/news/latest"), Entry("/news/old")])
+    routes = server_copy.build(
+        [
+            public_module("news", public=["/news/:slug"], pages=news),
+            public_module("latest", public=["/news/latest"], pages=FakePages()),
+            public_module("site", public=["/"], pages=FakePages(entries=[Entry("/")])),
+        ]
+    )
+    found = await server_copy.entries(None, routes, frozenset({"news"}))  # type: ignore[arg-type]
+    assert [(module, entry.path) for module, entry in found] == [
+        ("kernel", "/"),  # site, which owns /, is off: the kernel's home page answers there
+        ("news", "/news/latest"),
+        ("news", "/news/old"),
+    ]
+
+
 def test_an_address_no_pattern_takes_is_no_ones() -> None:
     routes = server_copy.build([public_module("blog", public=["/blog/:slug"], pages=FakePages())])
     assert routes.resolve("/blog") is None
@@ -593,19 +631,7 @@ def test_the_sitemap_stops_at_fifty_thousand(caplog: pytest.LogCaptureFixture) -
 
 
 def _robots(ai: str = "allow") -> str:
-    routes = server_copy.build(
-        [
-            public_module(
-                "account",
-                public=["/people/:name"],
-                member=["/account", "/account/:tab/edit"],
-                pages=FakePages(),
-            ),
-            public_module("shop", public=["/shop"], member=["/orders"], pages=FakePages()),
-        ]
-    )
-    ident = Identity(name="Test Site", url=SITE, ai_crawlers=ai)  # type: ignore[arg-type]
-    return server_copy.robots_txt(routes, frozenset({"account"}), ident)
+    return server_copy.robots_txt(Identity(name="Test Site", url=SITE, ai_crawlers=ai))  # type: ignore[arg-type]
 
 
 def _groups(text: str) -> list[tuple[list[str], list[str]]]:
@@ -620,20 +646,42 @@ def _groups(text: str) -> list[tuple[list[str], list[str]]]:
     return groups
 
 
-def test_robots_lets_every_crawler_read_the_site_but_not_admin_api_or_members() -> None:
+def _may_fetch(text: str, agent: str, address: str) -> bool:
+    """Whether robots.txt lets `agent` fetch `address` (a path and query), as
+    Google and RFC 9309 read it: the group naming the agent, else `*`; of its
+    rules that match, the longest wins, Allow on a tie; `*` is any run of
+    characters, `$` the end."""
+    groups = _groups(text)
+    rules = next((found for agents, found in groups if agent in agents), None)
+    if rules is None:
+        rules = next(found for agents, found in groups if "*" in agents)
+    best: tuple[int, bool] | None = None
+    for rule in rules:
+        kind, _, pattern = rule.partition(": ")
+        anchored = pattern.endswith("$")
+        body = pattern[:-1] if anchored else pattern
+        regex = ".*".join(re.escape(piece) for piece in body.split("*")) + ("$" if anchored else "")
+        if re.match(regex, address):
+            found = (len(pattern), kind == "Allow")
+            best = found if best is None or found > best else best
+    return best is None or best[1]
+
+
+def test_robots_keeps_crawlers_out_of_the_admin_and_the_api_only() -> None:
     text = _robots()
     everyone, ai = _groups(text)
-    disallowed = [
-        "Disallow: /admin",
-        "Disallow: /api/",
-        "Disallow: /account$",
-        "Disallow: /account/*/edit$",
-    ]
-    assert everyone == (["*"], ["Allow: /", *disallowed])
-    assert ai[0] == list(server_copy.AI_CRAWLERS)
-    assert ai[1] == ["Allow: /", *disallowed]
-    assert "/orders" not in text  # shop is off
+    closed = ["Disallow: /admin$", "Disallow: /admin/", "Disallow: /admin?", "Disallow: /api/"]
+    assert everyone == (["*"], ["Allow: /", *closed])
+    assert ai == (list(server_copy.AI_CRAWLERS), ["Allow: /", *closed])
     assert text.rstrip().endswith(f"Sitemap: {SITE}/sitemap.xml")
+    for agent in ("Googlebot", "GPTBot"):
+        for address in ("/admin", "/admin/users/1", "/admin?tab=x", "/api/kernel/health"):
+            assert not _may_fetch(text, agent, address), (agent, address)
+        # A public page that only starts like the admin stays open (CodeRabbit on #73), and
+        # so do member pages, whose shell says noindex: a crawler must fetch it to read it.
+        open_ = ("/administration", "/account/help", "/account/settings", "/account?tab=x", "/")
+        for address in (*open_, "/people/ada"):
+            assert _may_fetch(text, agent, address), (agent, address)
 
 
 def test_the_ai_crawlers_are_each_named() -> None:
@@ -652,9 +700,12 @@ def test_the_ai_crawlers_are_each_named() -> None:
 
 
 def test_a_site_refusing_the_ai_crawlers_turns_them_all_away() -> None:
-    everyone, ai = _groups(_robots("refuse"))
+    text = _robots("refuse")
+    everyone, ai = _groups(text)
     assert everyone[1][0] == "Allow: /"
     assert ai == (list(server_copy.AI_CRAWLERS), ["Disallow: /"])
+    assert _may_fetch(text, "Googlebot", "/people/ada")
+    assert not _may_fetch(text, "ClaudeBot", "/people/ada")
 
 
 # --- llms.txt ------------------------------------------------------------------------------
