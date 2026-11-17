@@ -1,37 +1,36 @@
 # Handoff
 
-Overwritten every session. 2026-11-17, morning Eastern (Claude Code, the owner's machine): K3 audit (#67, decision 0037), contract first, approved by the owner with the four answers recommended; landed by this session. Then this page (#68).
+Overwritten every session. 2026-11-17, Eastern (Claude Code, the owner's machine, part over Remote Control): K3 audit (#67, decision 0037) and K3 notifications (#69, decision 0038), each contract first and approved by the owner with the answers recommended, each landed by this session; the audit handoff (#68) in between. Then this page (#70).
 
 ## State
 
 - **K0, K1 done and audited; K2 steps 1 to 8 done** (#1 to #54). Steps 9 to 11 wait until the site needs them (decision 0029).
-- **K3, in decision 0029's order:** storage (#58, 0032), email (#59, 0033), the kernel's mails as templates (#60), jobs (#63, 0035), events (#65, 0036), and now **audit** (#67, 0037; contract `dev plans/contracts/k3-audit.md`):
-  - **One table, `kernel_audit_event`:** auth's `auth_audit_event` renamed by `kernel_0008`, rows kept, plus `target_type`/`target_id` and indexes by actor and target. The model is in `kernel/models.py`; `kernel.auth.models` re-exports it (and `kernel.models` imports auth's models last, for that).
-  - **`audit.record(db, action, *, actor, target=, subject=, result=, details=, request=)`** adds a row to the caller's session, synchronous. Actions `<owner>.<name>`; the kernel's are `audit.KERNEL_ACTIONS`, which `test_every_kernel_audit_call_names_a_kernel_action_and_each_is_used` holds equal to the code's calls: **a new kernel audit action goes in that set in the same PR**. A module's owner must be installed (`assemble` calls `audit.install`). Details refuse `@`, a key with a `password`/`secret`/`token`/`code` part, non-JSON and over 4 KiB. Auth's `record`/`record_by_kernel` wrap it.
-  - **Readers:** `GET /api/kernel/admin/audit` (`auth.audit.read`, behind the admin gate, so the staff path is under `/admin`: a contract change after approval) and `GET /api/auth/activity` (own `auth.*` entries, `by_you`). SPEC 7's list shape, `?cursor=&limit=` and `{items, next_cursor}`, keyset on `(at, id)`.
-  - **Pruning:** `kernel.prune_audit` nightly, `AUDIT_KEEP_DAYS` (365, at least 30). **Triggers** refuse UPDATE and TRUNCATE, and DELETE unless the transaction set `kernel.audit_prune`. Details and target ids refuse a NUL (Postgres would at the flush) and `@` in keys too.
-  - `settings.save` records `kernel.settings_saved` (`{version, changed, via}`, names only).
-- **Review of #67:** Codex found an overflowing cursor (61d187c); CodeRabbit found the list names, NUL, an address key and TRUNCATE (0005271), then was rate-limited on the last commit. All threads resolved.
-- **Tests:** last local run 1382 passed, 7 skipped (5 live storage, 1 symlink, 1 SIGTERM on Linux only), 27 strict expected failures; coverage 98.20 %, `audit.py` 100 %; 39 of 39 mutants killed. CI passed on `main` at 0005271.
+- **K3, in decision 0029's order:** storage (#58), email (#59), the kernel's mails as templates (#60), jobs (#63), events (#65), audit (#67), and now **notifications** (#69; contract `dev plans/contracts/k3-notifications.md`):
+  - `notifications.notify(db, user_id, key, context, *, link=None) -> Sent`: renders the key's email template (same name; its subject is the in-site title) and, in the caller's transaction, queues the email first, then adds the `kernel_notification` row, each by the person's choice for that key, else module.json's default. Email only to an active, verified account. A NUL, an undeclared key, a link off the site or a missing value is refused before anything is added.
+  - `assemble` checks every module's keys (its own, once, with a template). Every notice email gets the `kernel.notification_footer` template and RFC 8058's two headers; `Mailer.send` and `email.queue_message` take `headers` (only those two, at most 900 characters); the SMTP adapter writes them unfolded.
+  - Routes at `/api/kernel/notifications`: the list (`unread`), read marks, preferences (strict `RootModel` body), and the unsubscribe GET (changes nothing) and POST (public; the one write `SameOriginWrites` lets another site send; writes only `email`).
+  - `kernel_0009`: `kernel_notification`, `kernel_notification_preference`. `kernel.prune_notifications` nightly: 90 days after read, a year at most.
+- **Audit (#67):** one append-only `kernel_audit_event`; `audit.record`; `GET /api/kernel/admin/audit` and `GET /api/auth/activity`; triggers refuse UPDATE and TRUNCATE, and DELETE but the nightly pruning's.
+- **Tests:** last local run 1422 passed, 7 skipped (5 live storage, 1 symlink, 1 SIGTERM on Linux only), 27 strict expected failures; coverage 98.23 %, `audit.py`, `notifications.py` and `mail_adapters.py` 100 %; every mutant killed (39 for audit, 40 for notifications). CI passed on `main` at f3cd4db.
+- **Progress:** v1.0 at 41 % (23 of 56); the ledger shows it.
 
 ## Next
 
-1. **K3 notifications, contract first** (`C:\DEV\_templates\feature-CONTRACT.md`): `notify(user, key, context)` (SPEC 6), in-site and email by each person's preferences per key, built from module.json's `notifications` (SPEC 5; `schema/module.schema.json`), with one-click unsubscribe. KICKOFF K3 says new, with Basefra.me's notification center for ideas. Mail goes through `email.queue`; the scaffolds in `modules/_*` declare keys.
-2. Then moderation (it emits `auth.user.suspended` and records its actions, with a narrower audit view for moderators: the owner's answer on #67), public rendering, K3's gate; then **the rename PR** (decision 0034).
-3. Then K4 (the Audit log page and the account page's activity list read #67's routes; the System page reads dead jobs), K5, the ten hooks, and the site's steps 1 to 7.
+1. **K3 moderation, contract first** (`C:\DEV\_templates\feature-CONTRACT.md`): `moderation.report / queue / act` (SPEC 6): reports, the staff queue, word and link filters, actions (hide, delete, time out, ban), all audited; acting needs `kernel.moderation.act` (decision 0031). It emits `auth.user.suspended` (SPEC 11), records its actions (new `KERNEL_ACTIONS`), and gives moderators a narrower audit view (the owner's answer on #67). Lift from `C:\DEV\VybeMindz\moderation-audit-log.zip` and VybeSite `services/blocklist_service.py`, `contact_filter.py` (KICKOFF K3).
+2. Then public rendering and K3's gate; then **the rename PR** (decision 0034).
+3. Then K4 (the pages these routes wait for: the audit log, the account's activity, the notice bell and settings, the unsubscribe page; the System page), K5, the ten hooks, and the site's steps 1 to 7.
 
 ## Open questions for the owner
 
-- Still open from earlier sessions: decision 0036's own calls (a listener's 300-second timeout; `auth.user.verified` on an email change's confirmation too; no deliveries for a module `MODULES` leaves out), 0035's, 0032's and 0033's; when to make the R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
+- Still open from earlier sessions: decisions 0036's, 0035's, 0032's and 0033's own calls (listed in each record); when to make the R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
 - `C:\DEV\knowledge` has `owner.md` uncommitted (the push-and-merge rule and an older Boston-time line): the owner commits it.
 
 ## Notes
 
-- **Audit in tests:** entries share the run's database; give each test a target kind, actor or subject of its own and filter on it. A test that needs old entries inserts them with an explicit `at` (the clock only moves forward). Staff routes need a confirmed second factor on the staff account (a `Totp` row). A new kernel audit action joins `audit.KERNEL_ACTIONS` in the same PR.
-- **Lists** follow SPEC 7: `?cursor=&limit=` in, `{items, next_cursor}` out (CodeRabbit caught #67 using other names).
-- **Coverage on one module:** `--cov=kernel.audit` breaks the run (it loads the kernel before the root conftest); use `--cov=kernel`.
-- Kernel events in tests: the `heard` fixture. Due jobs: `Draining`. A test that moves the clock runs only its own jobs.
-- Git Bash: `cat > file` with nothing piped in waits for ever; a heredoc holding `'''` can break `bash -c`: write scripts with the Write tool. Git Bash's `sed -i` drops CRs. A subprocess on Windows needs `sys.executable`.
+- **A new kernel audit action** joins `audit.KERNEL_ACTIONS` in the same PR. **A new notification key** needs an email template of the same name. **A list route** takes `?cursor=&limit=` and answers `{items, next_cursor}` (SPEC 7). **A request body** is a strict Pydantic model, a `RootModel` for a map (`test_every_request_body_is_strict`).
+- **Shared test database:** filter on a target, actor, subject or person of the test's own. Old rows: insert them with explicit times (the clock only moves forward). Staff routes need a confirmed second factor (a `Totp` row). After `db.rollback()`, read no ORM row's attributes: keep plain ids.
+- **Coverage on one module:** `--cov=kernel.<module>` breaks the run; use `--cov=kernel`.
+- Git Bash: write scripts with the Write tool (`'''` heredocs can break `bash -c`, `cat > f` waits on stdin, `sed -i` drops CRs). Subprocesses: `sys.executable`.
 
 ## Warnings
 
