@@ -1,36 +1,38 @@
 # Handoff
 
-Overwritten every session. 2026-11-17, Eastern (Claude Code, the owner's machine, part over Remote Control): K3 audit (#67, decision 0037) and K3 notifications (#69, decision 0038), each contract first and approved by the owner with the answers recommended, each landed by this session; the audit handoff (#68) in between. Then this page (#70).
+Overwritten every session. 2026-11-17, evening Eastern (Claude Code, the owner's machine, mostly over Remote Control): K3 moderation (#71, decision 0039), contract first, five review findings fixed in the PR, landed by this session. The owner's admin-shell decision recorded (0040), the public rendering contract written and approved. Then this page (#72).
 
 ## State
 
 - **K0, K1 done and audited; K2 steps 1 to 8 done** (#1 to #54). Steps 9 to 11 wait until the site needs them (decision 0029).
-- **K3, in decision 0029's order:** storage (#58), email (#59), the kernel's mails as templates (#60), jobs (#63), events (#65), audit (#67), and now **notifications** (#69; contract `dev plans/contracts/k3-notifications.md`):
-  - `notifications.notify(db, user_id, key, context, *, link=None) -> Sent`: renders the key's email template (same name; its subject is the in-site title) and, in the caller's transaction, queues the email first, then adds the `kernel_notification` row, each by the person's choice for that key, else module.json's default. Email only to an active, verified account. A NUL, an undeclared key, a link off the site or a missing value is refused before anything is added.
-  - `assemble` checks every module's keys (its own, once, with a template). Every notice email gets the `kernel.notification_footer` template and RFC 8058's two headers; `Mailer.send` and `email.queue_message` take `headers` (only those two, at most 900 characters); the SMTP adapter writes them unfolded.
-  - Routes at `/api/kernel/notifications`: the list (`unread`), read marks, preferences (strict `RootModel` body), and the unsubscribe GET (changes nothing) and POST (public; the one write `SameOriginWrites` lets another site send; writes only `email`).
-  - `kernel_0009`: `kernel_notification`, `kernel_notification_preference`. `kernel.prune_notifications` nightly: 90 days after read, a year at most.
-- **Audit (#67):** one append-only `kernel_audit_event`; `audit.record`; `GET /api/kernel/admin/audit` and `GET /api/auth/activity`; triggers refuse UPDATE and TRUNCATE, and DELETE but the nightly pruning's.
-- **Tests:** last local run 1422 passed, 7 skipped (5 live storage, 1 symlink, 1 SIGTERM on Linux only), 27 strict expected failures; coverage 98.23 %, `audit.py`, `notifications.py` and `mail_adapters.py` 100 %; every mutant killed (39 for audit, 40 for notifications). CI passed on `main` at f3cd4db.
-- **Progress:** v1.0 at 41 % (23 of 56); the ledger shows it.
+- **K3, in decision 0029's order:** storage (#58, 0032), email (#59, 0033), the kernel's mails (#60), jobs (#63, 0035), events (#65, 0036), audit (#67, 0037), notifications (#69, 0038), and now **moderation** (#71, 0039; contract `dev plans/contracts/k3-moderation.md`, with its changes after approval):
+  - A module declares what can be reported in `moderation.py`: `@moderation.kind("<id>.<entity>", actions=(...))` on a `moderation.Kind` with `describe`, `apply` and `dismissed` (default nothing), listed on `InstalledModule(reportable=...)`; the harness finds them by type.
+  - One open case per thing (a partial unique index and an upsert, its predicate literal), the excerpt kept as first reported. `POST /api/kernel/moderation/reports` for verified accounts, 20 an hour.
+  - Filters (settings section `kernel.moderation`: held terms, blocked domains, a link cap) hold text and never drop it: `screen`, then `hold`.
+  - Actions under `kernel.moderation.act`: dismiss, hide, delete, a time-out (`auth_user.timed_out_until`, `Depends(moderation.can_post)`), and a ban, which suspends and also needs `auth.user.suspend` and a recent sign-in.
+  - Suspension at `POST /api/auth/admin/users/{id}/suspend` and `/restore`: the actor's row and the person's locked in id order, a new session epoch, audited, mailed, emitted as `auth.user.suspended` and the new `auth.user.restored`.
+  - The moderators' log (`GET /api/kernel/admin/moderation/log`) is decision 0037's narrower view. `kernel.prune_moderation` removes cases closed past `AUDIT_KEEP_DAYS`.
+- **Decision 0040 (the owner):** K4's admin shell is built to the Vibrant Mindz canvas Admin design, styled by tokens, for every site; only its generic parts in the kernel; checked in the site's dark theme and Machined Light. It amends 0008 (SPEC Q11). The brief is `VM Website/design/specs/admin-look.md`.
+- **Tests:** last local run 1523 passed, 7 skipped, 27 strict expected failures; coverage 98.38 %, `moderation.py` at 100 %; 21 of 21 mutants killed.
 
 ## Next
 
-1. **K3 moderation, contract first** (`C:\DEV\_templates\feature-CONTRACT.md`): `moderation.report / queue / act` (SPEC 6): reports, the staff queue, word and link filters, actions (hide, delete, time out, ban), all audited; acting needs `kernel.moderation.act` (decision 0031). It emits `auth.user.suspended` (SPEC 11), records its actions (new `KERNEL_ACTIONS`), and gives moderators a narrower audit view (the owner's answer on #67). Lift from `C:\DEV\VybeMindz\moderation-audit-log.zip` and VybeSite `services/blocklist_service.py`, `contact_filter.py` (KICKOFF K3).
-2. Then public rendering and K3's gate; then **the rename PR** (decision 0034).
-3. Then K4 (the pages these routes wait for: the audit log, the account's activity, the notice bell and settings, the unsubscribe page; the System page), K5, the ten hooks, and the site's steps 1 to 7.
+1. **K3 public rendering**, its contract approved with the five answers recommended (`dev plans/contracts/k3-public-rendering.md`): `kernel.server_copy`, one `page(db, path, params)` per page matched by `routes.public`, the shell and `WEB_DIST` with VybeSite `spa.py`'s rules, `sitemap.xml`, `robots.txt`, `llms.txt`, the `kernel.site` settings section, nh3 as the safety net. Predicted PR #73.
+2. Then K3's gate (KICKOFF), then **the rename PR** (decision 0034).
+3. Then K4 (the admin shell to decision 0040, the System page reading dead jobs and deliveries), K5, the ten hooks, and the site's steps 1 to 7.
 
 ## Open questions for the owner
 
-- Still open from earlier sessions: decision 0036's own calls (a listener's 300-second default timeout; `auth.user.verified` on an email change's confirmation as well as sign-up's link and a reset; no deliveries at all for a module `MODULES` leaves out); decisions 0035's, 0032's and 0033's own calls (listed in each record); when to make the R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
-- `C:\DEV\knowledge` has `owner.md` uncommitted (the push-and-merge rule and an older Boston-time line): the owner commits it.
+- Decisions 0039's, 0038's, 0037's, 0036's, 0035's, 0032's and 0033's own calls, each listed in its record: keep them?
+- When to make the R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
+- `C:\DEV\knowledge\owner.md` is uncommitted: the owner commits it.
 
 ## Notes
 
-- **A new kernel audit action** joins `audit.KERNEL_ACTIONS` in the same PR. **A new notification key** needs an email template of the same name. **A list route** takes `?cursor=&limit=` and answers `{items, next_cursor}` (SPEC 7). **A request body** is a strict Pydantic model, a `RootModel` for a map (`test_every_request_body_is_strict`).
-- **Shared test database:** filter on a target, actor, subject or person of the test's own. Old rows: insert them with explicit times (the clock only moves forward). Staff routes need a confirmed second factor (a `Totp` row). After `db.rollback()`, read no ORM row's attributes: keep plain ids.
-- **Coverage on one module:** `--cov=kernel.<module>` breaks the run; use `--cov=kernel`.
-- Git Bash: write scripts with the Write tool (`'''` heredocs can break `bash -c`, `cat > f` waits on stdin, `sed -i` drops CRs). Subprocesses: `sys.executable`.
+- **An `ON CONFLICT` on a partial unique index** names its predicate as literal SQL (`text("status = 'open'")`): bound as a value, Postgres stops matching it once a prepared statement turns generic, from the sixth run.
+- **Tests that roll back** keep plain ids and reload rows (`rollback-expires-orm-rows`); a race test holds the first lock and waits on `pg_stat_activity` until the second blocks.
+- **Never `--cov=kernel.<module>`**: it breaks the fixtures. Use `--cov=kernel`.
+- Long heredocs with quotes break the Bash tool: write the script with the Write tool and run it. Working-tree files are CRLF; scripts that edit them keep the file's line ending.
 
 ## Warnings
 
