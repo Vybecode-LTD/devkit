@@ -61,7 +61,7 @@ from pydantic_core import PydanticSerializationError, to_jsonable_python
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import crypto, events
+from kernel import audit, crypto, events
 from kernel.errors import Problem
 from kernel.models import Setting, SettingVersion
 
@@ -368,11 +368,18 @@ class SettingsRegistry:
             "kernel.settings.changed",
             events.SettingsChanged(module=module_id, version=current + 1),
         )
+        # The fields' names, never their values: a secret's is one.
+        audit.record(
+            db,
+            "kernel.settings_saved",
+            actor=by,
+            target=("kernel.settings", module_id),
+            details={"version": current + 1, "changed": changed, "via": via},
+        )
         if commit:
             await db.commit()
         else:
             await db.flush()
-        # K3: audit it, once audit.record lands.
         return Saved(version=current + 1, changed=changed, merged=merged)
 
     @staticmethod

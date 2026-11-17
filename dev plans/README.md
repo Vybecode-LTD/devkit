@@ -13,3 +13,4 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 | `contracts/kernel-auth-templates.md` | K2's auth mails on `kernel.*` templates (PR #60) |
 | `contracts/k3-jobs.md` | K3's jobs: the queue, the worker and the scheduler, `kernel.jobs` (PR #63) |
 | `contracts/k3-events.md` | K3's events: `events.emit`, listeners delivered as jobs, dead letters, `kernel.events` (PR #65) |
+| `contracts/k3-audit.md` | K3's audit log: `audit.record` for every module, the staff and own-activity reads, pruning, `kernel.audit` (draft; PR #67 predicted) |

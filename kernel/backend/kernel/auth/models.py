@@ -31,10 +31,11 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kernel.db import Base
+from kernel.models import AuditEvent as AuditEvent  # the kernel's audit log (decision 0037)
 
 USER_STATUSES = ("active", "suspended", "deleting", "deleted")
 TOKEN_PURPOSES = (
@@ -301,24 +302,3 @@ class ApiKey(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-
-class AuditEvent(Base):
-    """The append-only audit log (14.10). The actor and subject are kept as
-    plain ids, so a deleted account's history stays, pseudonymous."""
-
-    __tablename__ = "auth_audit_event"
-    __table_args__ = (
-        Index("ix_auth_audit_event_subject", "subject_id", "at"),
-        Index("ix_auth_audit_event_at", "at"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    subject_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    action: Mapped[str] = mapped_column(String(64))
-    result: Mapped[str] = mapped_column(String(16))
-    ip: Mapped[str | None] = mapped_column(INET)
-    user_agent: Mapped[str] = mapped_column(String(300), server_default=text("''"))
-    details: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))

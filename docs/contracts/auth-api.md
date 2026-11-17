@@ -89,6 +89,7 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | `GET /api/auth/api-keys` / `DELETE /api/auth/api-keys/{id}` | | 200 / 204 |
 | `POST /api/auth/account/delete` | | **step-up.** 202 `{"status": "deletion_scheduled", "at": "..."}`; signing in cancels it |
 | `POST /api/auth/account/export` | | 202; the download link is emailed |
+| `GET /api/auth/activity?before=&limit=` | | 200 `{"items": [{id, at, action, result, by_you, target, ip, user_agent, details}], "next"}`: the person's own `auth.*` entries, newest first; `limit` 1 to 100 (50); 422 `kernel.invalid_request` for a `before` the answer didn't give |
 
 ## Staff
 
@@ -99,6 +100,7 @@ Every route under `/api/<anything>/admin`, whatever its method, needs a session 
 | `GET /api/auth/admin/users` | | `auth.user.manage`. 200 `{"items": [...], "next_cursor"}` |
 | `PUT /api/auth/admin/users/{id}/roles` | `{roles}` | `auth.role.assign`, **step-up.** 200. The person's next request gets a new session token. 403 `auth.role_not_yours` for a role whose permissions the caller doesn't all hold, or `owner` from a non-owner; 409 `auth.last_owner` for removing the last owner |
 | `POST /api/auth/admin/users/{id}/suspend` | | `auth.user.suspend`. 200; every session of theirs ends. 403 `auth.role_not_yours` for an owner suspended by a non-owner; 409 `auth.last_owner` for the last owner |
+| `GET /api/kernel/admin/audit?actor=&subject=&action=&target_type=&target_id=&since=&until=&before=&limit=` | | `auth.audit.read`. 200 `{"items": [{id, at, action, result, actor_id, subject_id, target, ip, user_agent, details}], "next"}`, newest first. `action` is a name or a prefix ending in a dot (`blog.`); `target_id` only with `target_type`; `since` is inclusive, `until` not; `limit` 1 to 100 (50). 422 `kernel.invalid_request` for a bad filter or cursor |
 
 ## The harness's test support (never in a site)
 

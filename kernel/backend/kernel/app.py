@@ -29,7 +29,9 @@ What it does, in order:
    (`emails=`), refusing to start on a bad one, and installs them with the
    mailer for `kernel.email.send`.
 9. Checks the kernel's events and every module's (`kernel.events.build`)
-   and installs them for `kernel.events.emit` (decision 0036); checks the
+   and installs them for `kernel.events.emit` (decision 0036); installs the
+   modules that may write to the audit log, and how long it's kept
+   (`kernel.audit.install`, decision 0037); checks the
    kernel's jobs and every module's, their listeners' deliveries among them
    (`kernel.jobs.build`), and builds the site's worker as `app.state.worker`.
    With JOBS_IN_WEB on (the default) the lifespan runs it in this process; a
@@ -58,7 +60,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from kernel import email, error_tracking, events, jobs, logs
+from kernel import audit, email, error_tracking, events, jobs, logs
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
@@ -89,9 +91,10 @@ from kernel.worker import Worker
 
 log = logging.getLogger(__name__)
 
-#: The kernel's own jobs: queued mail, pruning the queue, and removing
-#: accounts whose address isn't verified (decision 0035).
-KERNEL_JOBS: tuple[jobs.Job, ...] = (email.SEND_MAIL, jobs.PRUNE, REMOVE_UNVERIFIED)
+#: The kernel's own jobs: queued mail, pruning the queue, removing accounts
+#: whose address isn't verified (decision 0035), and pruning the audit log
+#: (decision 0037).
+KERNEL_JOBS: tuple[jobs.Job, ...] = (email.SEND_MAIL, jobs.PRUNE, REMOVE_UNVERIFIED, audit.PRUNE)
 
 
 @dataclass(frozen=True)
@@ -173,6 +176,7 @@ def assemble(
     checked = Checked(mailer if mailer is not None else mailer_from_config(config))
     email.install(checked, templates, site_name=config.site_name, site_url=config.site_url)
     events.install(catalog)
+    audit.install((module.id for module in installed), keep_days=config.audit_keep_days)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).
     for module in installed:

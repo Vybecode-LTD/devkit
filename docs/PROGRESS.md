@@ -8,9 +8,9 @@ Updated 2026-11-16, `main` at `44d57bf`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| DevKit v1.0 | 21 | 0 | 1 | 27 | 5 | 2 | ███░░░░░░░ 37% (21 of 56) |
+| DevKit v1.0 | 22 | 0 | 1 | 26 | 5 | 2 | ███░░░░░░░ 39% (22 of 56) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 21 | 0 | 1 | 112 | 5 | 5 | █░░░░░░░░░ 14% (21 of 144) |
+| Everything | 22 | 0 | 1 | 111 | 5 | 5 | █░░░░░░░░░ 15% (22 of 144) |
 
 ## DevKit v1.0
 
@@ -64,7 +64,7 @@ Gate: Every 14.13 contract test passes; each sign-in method works by hand; brand
 | 10. Invites and API keys | Waiting |  |  | Invites before the site's step 4; API keys after |
 | 11. Abuse protection, deletion and data export | Waiting |  |  | Before the site's launch at step 5 |
 
-### K3: kernel services · 5 of 11 done · gate not passed yet
+### K3: kernel services · 6 of 11 done · gate not passed yet
 
 Everything else modules rely on, in the order the site's modules use it.
 
@@ -77,8 +77,8 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 | The kernel's own mails as templates a site can reword | Done | [#60](https://github.com/Vybecode-LTD/devkit/pull/60) | [0033](decisions/0033-kernel-email.md) |  |
 | Jobs: the Postgres queue, the scheduler, mail retries | Done | [#63](https://github.com/Vybecode-LTD/devkit/pull/63) | [0035](decisions/0035-kernel-jobs.md) |  |
 | Events: emitted in the caller's transaction, delivered as jobs, dead letters | Done | [#65](https://github.com/Vybecode-LTD/devkit/pull/65) | [0036](decisions/0036-kernel-events.md) |  |
-| Audit, widened from auth's | Next |  |  |  |
-| Notifications, with per-person preferences and one-click unsubscribe | To do |  |  |  |
+| Audit: one append-only log for every module, auth's widened | Done | [#67](https://github.com/Vybecode-LTD/devkit/pull/67) | [0037](decisions/0037-kernel-audit.md) |  |
+| Notifications, with per-person preferences and one-click unsubscribe | Next |  |  |  |
 | Moderation: reports, the staff queue, filters and actions | To do | [#56](https://github.com/Vybecode-LTD/devkit/pull/56) |  | The permission is declared |
 | Public rendering: head tags, server copy, sitemap, robots, llms.txt | To do |  |  |  |
 | Retention | Later |  |  |  |

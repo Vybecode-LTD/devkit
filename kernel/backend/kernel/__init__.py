@@ -7,11 +7,12 @@ and may change in any release. The surface follows semver with `__version__`.
 Built so far (K1): the database, settings, module switches, crypto, errors,
 rate limits, access marks and the app factory. From K2: the access
 dependencies (`current_user`, `optional_user`, `require_permission`,
-`require_owner_or`, `require_recent_auth`). From K3: `storage`, `email` and
-`jobs` and `events`. Notifications, moderation and audit arrive with the rest of K3.
+`require_owner_or`, `require_recent_auth`). From K3: `storage`, `email`,
+`jobs`, `events` and `audit`. Notifications and moderation arrive with the
+rest of K3.
 """
 
-from kernel import crypto, email, events, jobs, storage
+from kernel import audit, crypto, email, events, jobs, storage
 from kernel.access import public
 from kernel.app import create_app
 from kernel.auth.dependencies import (
@@ -37,6 +38,7 @@ __all__ = [
     "OwnerOr",
     "Problem",
     "__version__",
+    "audit",
     "create_app",
     "crypto",
     "current_user",

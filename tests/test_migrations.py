@@ -147,7 +147,8 @@ _SEED = [
     "VALUES (gen_random_uuid(), 'sign_in_code', 't1', 'ana@site.test', now(), now())",
     "INSERT INTO auth_api_key (id, key_id, mode, user_id, name, secret_hash) "
     "VALUES (gen_random_uuid(), 'k1', 'live', :user, 'CI', 'h')",
-    "INSERT INTO auth_audit_event (actor_id, action, result, ip) VALUES (:user, 'x', 'ok', '203.0.113.9')",
+    "INSERT INTO kernel_audit_event (actor_id, action, result, ip, target_type, target_id) "
+    "VALUES (:user, 'x', 'ok', '203.0.113.9', 'blog.post', '7')",
     "INSERT INTO kernel_module_state (module_id, enabled, updated_by_id) VALUES ('blog', false, :user)",
     "INSERT INTO kernel_setting (module_id, version, updated_by_id) VALUES ('blog', 1, :user)",
     "INSERT INTO kernel_setting_version (id, module_id, number, values, changed, via, saved_by_id) "
@@ -235,6 +236,52 @@ def test_branches_are_labelled() -> None:
             module_id = module_by_dir[folder]
             assert revision.branch_labels == {module_id}, revision.path
             assert revision.dependencies, f"{revision.path} must depend on the kernel"
+
+
+async def test_0008_keeps_auth_s_audit_rows_both_ways(empty_database_url: str) -> None:
+    """kernel_0008 renames auth's audit table to the kernel's: the rows written
+    before it stay, and a downgrade puts them back, losing only the targets."""
+    await asyncio.to_thread(upgrade, empty_database_url, "kernel_0007")
+
+    def write(statement: str) -> Any:
+        def work(connection: Connection) -> None:
+            connection.execute(text(statement), {"user": USER})
+            connection.commit()
+
+        return work
+
+    def read(table: str) -> Any:
+        def work(connection: Connection) -> list[tuple[str, ...]]:
+            query = (
+                f"SELECT actor_id, action, result, host(ip) FROM {table} ORDER BY id"  # noqa: S608
+            )
+            return [tuple(map(str, row)) for row in connection.execute(text(query))]
+
+        return work
+
+    await _sync(
+        empty_database_url,
+        write(
+            "INSERT INTO auth_audit_event (actor_id, action, result, ip) "
+            "VALUES (:user, 'auth.sign_in', 'success', '203.0.113.9')"
+        ),
+    )
+    await asyncio.to_thread(upgrade, empty_database_url, "kernel_0008")
+    assert await _sync(empty_database_url, read("kernel_audit_event")) == [
+        (str(USER), "auth.sign_in", "success", "203.0.113.9")
+    ]
+    await _sync(
+        empty_database_url,
+        write(
+            "INSERT INTO kernel_audit_event (actor_id, action, result, target_type, target_id) "
+            "VALUES (:user, 'kernel.settings_saved', 'success', 'kernel.settings', 'blog')"
+        ),
+    )
+    await asyncio.to_thread(downgrade, empty_database_url, "kernel_0007")
+    assert await _sync(empty_database_url, read("auth_audit_event")) == [
+        (str(USER), "auth.sign_in", "success", "203.0.113.9"),
+        (str(USER), "kernel.settings_saved", "success", "None"),
+    ]
 
 
 # --- the snapshot sees what a bad downgrade or seed would change (audit F18) ---

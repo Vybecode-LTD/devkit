@@ -137,6 +137,11 @@ class KernelConfig(BaseSettings):
     jobs_poll_seconds: float = Field(default=1.0, ge=0.1, le=60)
     jobs_drain_seconds: float = Field(default=20.0, ge=0, le=600)
 
+    #: The audit log (kernel.audit, decision 0037): `kernel.prune_audit`
+    #: removes entries older than this every night. A year by default; at
+    #: least 30 days.
+    audit_keep_days: int = Field(default=365, ge=30)
+
     rate_limit_enabled: bool = True
     #: Where counts live: memory:// for one process, redis://… once a site
     #: runs more than one.

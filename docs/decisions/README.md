@@ -39,3 +39,5 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0033](0033-kernel-email.md) | Kernel email: templates a site can reword, and SMTP first, Resend only where SMTP is blocked | Applied |
 | [0034](0034-rename-to-mechframe.md) | The project becomes MechFrame, after K3 | Accepted |
 | [0035](0035-kernel-jobs.md) | Kernel jobs: a Postgres queue enqueued in the caller's transaction, at least once, with the worker in the web process by default | Applied |
+| [0036](0036-kernel-events.md) | Kernel events: deliveries are jobs written at emit, so the jobs table is the outbox | Applied |
+| [0037](0037-kernel-audit.md) | Kernel audit: one append-only log for every module, auth's widened | Applied |

@@ -1,6 +1,7 @@
-"""The kernel's own tables: module switches and settings (K1), and the jobs
-queue and its schedule (K3, decision 0035). Auth's are in `kernel.auth.models`;
-the event outbox comes with K3's events.
+"""The kernel's own tables: module switches and settings (K1), the jobs
+queue and its schedule (K3, decision 0035), and the audit log every module
+writes to (K3, decision 0037). Auth's are in `kernel.auth.models`. Events have
+no table: their deliveries are jobs (decision 0036).
 
 `updated_by_id` and `saved_by_id` hold an `auth_user` id, set to NULL when
 that account is deleted (migration kernel_0002 adds the foreign keys).
@@ -13,6 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -25,7 +27,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kernel.db import Base
@@ -94,10 +96,6 @@ class SettingVersion(Base):
     )
 
 
-# Auth's tables live in kernel.auth.models; importing them here puts every
-# kernel table in Base.metadata for Alembic and the model checks.
-from kernel.auth import models as _auth_models  # noqa: E402, F401
-
 #: A job is queued until a worker claims it, running while that worker's lease
 #: lasts, then done or dead (kernel.jobs).
 JOB_STATES = ("queued", "running", "done", "dead")
@@ -152,3 +150,37 @@ class JobSchedule(Base):
 
     name: Mapped[str] = mapped_column(String(130), primary_key=True)
     last_slot: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AuditEvent(Base):
+    """The append-only audit log (14.10; `kernel.audit`): auth's rows and
+    every module's. The actor and subject are kept as plain ids, so a deleted
+    account's history stays, pseudonymous. Postgres refuses an UPDATE, and a
+    DELETE but the pruning's (migration kernel_0008)."""
+
+    __tablename__ = "kernel_audit_event"
+    __table_args__ = (
+        Index("ix_kernel_audit_event_subject", "subject_id", "at"),
+        Index("ix_kernel_audit_event_at", "at"),
+        Index("ix_kernel_audit_event_actor", "actor_id", "at"),
+        Index("ix_kernel_audit_event_target", "target_type", "target_id", "at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    subject_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    action: Mapped[str] = mapped_column(String(64))
+    result: Mapped[str] = mapped_column(String(16))
+    #: `<owner>.<entity>` and the thing's id as text, such as `blog.post`, `42`.
+    target_type: Mapped[str | None] = mapped_column(String(64))
+    target_id: Mapped[str | None] = mapped_column(String(64))
+    ip: Mapped[str | None] = mapped_column(INET)
+    user_agent: Mapped[str] = mapped_column(String(300), server_default=text("''"))
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+
+
+# Auth's tables live in kernel.auth.models; importing them here puts every
+# kernel table in Base.metadata for Alembic and the model checks. Last, since
+# auth's models import the audit log's from here.
+from kernel.auth import models as _auth_models  # noqa: E402, F401

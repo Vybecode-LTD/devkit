@@ -188,7 +188,7 @@ Every module MUST ship a `module.json` that validates against `devkit/schema/mod
 
 Modules MUST import only from the kernel's public surface: `kernel/__init__.py` on the backend and `kernel/web/index.ts` on the front end. Anything else in the kernel is private and may change in any release. The public surface follows semver.
 
-**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: a name is in `kernel/__init__.py` once it's built, and most of K3 isn't yet (storage is).
+**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: a name is in `kernel/__init__.py` once it's built: of K3, storage, email, jobs, events and audit are so far.
 
 | Name | Gives | Example | Since |
 | --- | --- | --- | --- |
@@ -209,7 +209,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `storage.put / get / download / delete / signed_url / public_url` | S3-compatible file storage: a private bucket reached only through signed links, and a public one at its own address (15, decision 0032) | Uploads | K3 |
 | `events.emit(db, name, payload)`, `@events.payload(name, v=)`, `@events.on(event, name)` | Durable events between modules, declared in the module's `events.py`, emitted in the caller's transaction and delivered as jobs, at least once (section 11, decision 0036) | `blog.post.published` | K3 |
 | `jobs.enqueue(db, name, payload, run_at=, key=, sealed=)`, `@jobs.handler(name)`, `@jobs.scheduled(cron, name)` | Background and scheduled work, declared in the module's `jobs.py` and queued in the caller's transaction, run at least once with retries; `email.queue` puts mail on it (decision 0035) | Scheduled publishing | K3 |
-| `audit.record(actor, action, target, meta)` | An append-only audit entry | Role changed | K3 |
+| `audit.record(db, action, actor=, target=, subject=, result=, details=, request=)` | An append-only audit entry, added to the caller's transaction: `<owner>.<name>` actions, a `(kind, id)` target, details of ids and counts, never a secret or an address (14.10, decision 0037) | Role changed | K3 |
 | `notify(user, key, context)` | An in-site and email notice, sent by the person's preferences for that key, with one-click unsubscribe | Someone replied to your comment | K3 |
 | `moderation.report / queue / act` | Reports, the staff queue, word and link filters, and actions (hide, delete, time out, ban), all audited. Acting needs the kernel's `kernel.moderation.act` (admin and editor by default; decision 0031) | A reported comment | K3 |
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
@@ -620,9 +620,9 @@ Both limits are site settings (Q6).
 
 ### 14.10 Audit log
 
-- `auth_audit_event` is append-only. It records sign-ins and failures, second-factor and passkey changes, password and email changes, provider links, role changes, ended sessions, API keys, suspensions and deletions.
-- Each row holds the time, actor, subject, action, result, IP, user agent and details. Rows are kept 1 year by default.
-- Staff see all of it. Each person sees their own security activity on the account page.
+- `kernel_audit_event` is the one audit log, auth's and every module's, written through `audit.record` (section 6, decision 0037). It is append-only: Postgres refuses to change an entry, and to delete one but in the nightly pruning. Auth records sign-ins and failures, second-factor and passkey changes, password and email changes, provider links, role changes, ended sessions, API keys, suspensions and deletions; modules record what they act on.
+- Each row holds the time, actor, subject, action, result, target, IP, user agent and details. Rows are kept 1 year by default (`AUDIT_KEEP_DAYS`, at least 30), then `kernel.prune_audit` removes them.
+- Staff holding `auth.audit.read` see all of it (`GET /api/kernel/admin/audit`, behind the admin gate), filtered by person, action, target and time. Each person sees their own security activity on the account page (`GET /api/auth/activity`), told whether they did it but never which staff member did.
 
 ### 14.11 Tables
 
@@ -638,7 +638,7 @@ Both limits are site settings (Q6).
 | `auth_session` | Token hash, user, start, last seen, expiry, user agent and device details |
 | `auth_token` | One-time tokens as keyed hashes: verification, reset, sign-in code, magic link, email change, invite, second-factor undo. A 32-byte token is unique by its hash; a 6-digit code is found by its purpose and address |
 | `auth_api_key` | Id, secret hash, scopes, expiry, last use |
-| `auth_audit_event` | The audit log |
+| `kernel_audit_event` | The audit log, every module's: auth's table renamed when it became the kernel's (decision 0037) |
 
 ### 14.12 Crypto and secrets
 
@@ -811,6 +811,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | Kernel audit: one append-only log, auth's `auth_audit_event` renamed `kernel_audit_event` with a target; `audit.record(db, action, actor=, ...)` adds an entry to the caller's transaction, refusing a kernel action it doesn't know, an owner that isn't installed, a secret or an address in its details; staff read it at `GET /api/kernel/admin/audit` (`auth.audit.read`), each person their own at `GET /api/auth/activity`; entries go after `AUDIT_KEEP_DAYS` (365); a trigger refuses changes and deletes but the pruning's (6, 14.10, 14.11, decision 0037) |
 | 2026-11-17 | Kernel events: `events.emit(db, name, payload)` takes the caller's session first and a payload declared with `@events.payload(name, v=)`; `@events.on(event, name)` names its listener's job; deliveries are jobs written at emit, so there is no `kernel_event_outbox` and no dispatcher of its own; 8 tries, then the delivery is the dead-letter entry; the kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.deleted` and `kernel.settings.changed` (6, 11, decision 0036) |
 | 2026-11-16 | Kernel jobs: `jobs.enqueue` takes the caller's session first and adds `key` and `sealed`; handlers are declared with `@jobs.handler` and `@jobs.scheduled(cron, name)` in a module's `jobs.py`; jobs run at least once with backoff and leases; the worker runs in the web process unless a site runs its own; the kernel's mails go through the queue; unverified accounts are removed hourly 7 days after their address was set (`auth_user.email_set_at`, so an email change's undo restarts the clock), staff never (2, 6, 14.7, 14.11, decision 0035) |
 | 2026-11-16 | The kernel's own mails (sign-in codes, verification, resets, security notices) are `kernel.*` email templates a site may reword, word for word what they said before (6, decision 0033) |

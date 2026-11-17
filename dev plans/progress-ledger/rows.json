@@ -329,11 +329,11 @@
    "phase": "K3: kernel services",
    "gate": "not passed",
    "step_order": 6,
-   "step": "Audit, widened from auth's",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "",
-   "decisions": "",
+   "step": "Audit: one append-only log for every module, auth's widened",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#67",
+   "decisions": "0037",
    "note": ""
   },
   {
@@ -344,8 +344,8 @@
    "gate": "not passed",
    "step_order": 7,
    "step": "Notifications, with per-person preferences and one-click unsubscribe",
-   "status": "todo",
-   "status_label": "To do",
+   "status": "next",
+   "status_label": "Next",
    "prs": "",
    "decisions": "",
    "note": ""

@@ -1,35 +1,25 @@
-"""Auth's rows in the append-only audit log (SPEC.md 14.10): sign-ins and
-their failures, second-factor failures, step-ups, sign-outs and ended
-sessions, each with its actor, subject, address and browser.
+"""Auth's entries in the kernel's audit log (SPEC.md 14.10; `kernel.audit`,
+decision 0037): sign-ins and their failures, second-factor failures,
+step-ups, sign-outs and ended sessions, each with its actor, subject, address
+and browser.
 
-`details` holds only what the action needs explained, never a secret, a code
-or an address someone typed: a failed sign-in for an address with no account
-keeps no trace of the address. K3's `audit.record` takes over the writing for
-every module; until then auth writes its own rows here.
+These are auth's shorthand for `kernel.audit.record`, which writes every
+module's entries: `record` for what a request did, `record_by_kernel` for
+what the kernel did on its own, in a job. `details` holds only what the
+action needs explained, never a secret, a code or an address someone typed:
+a failed sign-in for an address with no account keeps no trace of the
+address.
 """
 
 from __future__ import annotations
 
-import ipaddress
 import uuid
 from typing import Any
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import clock
-from kernel.auth.models import AuditEvent
-from kernel.ratelimit import client_address
-
-_USER_AGENT_CHARS = 300
-
-
-def _network(request: Request) -> str | None:
-    """The client's address as Postgres's INET takes it, or None."""
-    try:
-        return str(ipaddress.ip_network(client_address(request), strict=False))
-    except ValueError:
-        return None
+from kernel import audit as log
 
 
 def record(
@@ -42,18 +32,9 @@ def record(
     subject: uuid.UUID | None = None,
     details: dict[str, Any] | None = None,
 ) -> None:
-    """Add a row to the caller's transaction, which the caller commits."""
-    db.add(
-        AuditEvent(
-            at=clock.now(),
-            actor_id=actor,
-            subject_id=subject,
-            action=action,
-            result=result,
-            ip=_network(request),
-            user_agent=request.headers.get("user-agent", "")[:_USER_AGENT_CHARS],
-            details=details or {},
-        )
+    """Add an entry to the caller's transaction, which the caller commits."""
+    log.record(
+        db, action, actor=actor, subject=subject, result=result, details=details, request=request
     )
 
 
@@ -65,17 +46,7 @@ def record_by_kernel(
     subject: uuid.UUID | None = None,
     details: dict[str, Any] | None = None,
 ) -> None:
-    """A row for what the kernel did on its own, in a job: no actor, address
-    or browser. Added to the caller's transaction, which the caller commits."""
-    db.add(
-        AuditEvent(
-            at=clock.now(),
-            actor_id=None,
-            subject_id=subject,
-            action=action,
-            result=result,
-            ip=None,
-            user_agent="",
-            details=details or {},
-        )
-    )
+    """An entry for what the kernel did on its own, in a job: no actor,
+    address or browser. Added to the caller's transaction, which the caller
+    commits."""
+    log.record(db, action, actor=None, subject=subject, result=result, details=details)

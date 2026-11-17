@@ -43,12 +43,13 @@ import uuid
 from datetime import datetime
 from typing import Any, cast
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import JSONResponse, Response
 
+from kernel import audit as audit_log
 from kernel import clock
 from kernel.access import public
 from kernel.auth import accounts, audit, ceremonies, mails, second_factor, sessions
@@ -60,6 +61,7 @@ from kernel.auth.sessions import Resumed
 from kernel.db import get_db
 from kernel.email import queue_message
 from kernel.errors import Problem
+from kernel.models import AuditEvent
 from kernel.ratelimit import RateLimiter, rate_limit, too_many
 
 log = logging.getLogger(__name__)
@@ -305,6 +307,21 @@ async def session(
     request: Request, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
     return {"user": await accounts.view(db, user, declared=request.app.state.declared_permissions)}
+
+
+@router.get("/activity")
+async def activity(
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+    before: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> dict[str, Any]:
+    """The person's own security activity (14.10): auth's entries about
+    them, newest first, in pages, each saying whether they did it."""
+    where = [AuditEvent.subject_id == user.id, AuditEvent.action.startswith("auth.")]
+    page = await audit_log.read(db, where=where, before=before, limit=limit)
+    items = [audit_log.own_item(entry, user.id) for entry in page.entries]
+    return {"items": items, "next": page.next}
 
 
 @router.post("/sign-out", status_code=204, dependencies=[Depends(public)])
