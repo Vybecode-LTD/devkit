@@ -8,9 +8,9 @@ Updated 2026-11-16, `main` at `44d57bf`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| DevKit v1.0 | 21 | 0 | 0 | 28 | 5 | 2 | ███░░░░░░░ 37% (21 of 56) |
+| DevKit v1.0 | 21 | 0 | 1 | 27 | 5 | 2 | ███░░░░░░░ 37% (21 of 56) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 21 | 0 | 0 | 113 | 5 | 5 | █░░░░░░░░░ 14% (21 of 144) |
+| Everything | 21 | 0 | 1 | 112 | 5 | 5 | █░░░░░░░░░ 14% (21 of 144) |
 
 ## DevKit v1.0
 
@@ -77,7 +77,7 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 | The kernel's own mails as templates a site can reword | Done | [#60](https://github.com/Vybecode-LTD/devkit/pull/60) | [0033](decisions/0033-kernel-email.md) |  |
 | Jobs: the Postgres queue, the scheduler, mail retries | Done | [#63](https://github.com/Vybecode-LTD/devkit/pull/63) | [0035](decisions/0035-kernel-jobs.md) |  |
 | Events: emitted in the caller's transaction, delivered as jobs, dead letters | Done | [#65](https://github.com/Vybecode-LTD/devkit/pull/65) | [0036](decisions/0036-kernel-events.md) |  |
-| Audit, widened from auth's | To do |  |  |  |
+| Audit, widened from auth's | Next |  |  |  |
 | Notifications, with per-person preferences and one-click unsubscribe | To do |  |  |  |
 | Moderation: reports, the staff queue, filters and actions | To do | [#56](https://github.com/Vybecode-LTD/devkit/pull/56) |  | The permission is declared |
 | Public rendering: head tags, server copy, sitemap, robots, llms.txt | To do |  |  |  |

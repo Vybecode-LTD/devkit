@@ -330,8 +330,8 @@
    "gate": "not passed",
    "step_order": 6,
    "step": "Audit, widened from auth's",
-   "status": "todo",
-   "status_label": "To do",
+   "status": "next",
+   "status_label": "Next",
    "prs": "",
    "decisions": "",
    "note": ""

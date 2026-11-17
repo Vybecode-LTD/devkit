@@ -1,40 +1,38 @@
 # Handoff
 
-Overwritten every session. 2026-11-16 to 17, overnight (Claude Code, the owner's machine): K3 jobs (#63, decision 0035), contract first, then three rounds of review fixes in the PR. Then this page (#64).
+Overwritten every session. 2026-11-16, evening Eastern (2026-11-17 UTC; Claude Code, the owner's machine): K3 events (#65, decision 0036), contract first, one review fix in the PR, landed by this session under the owner's new grant. Then this page (#66).
 
 ## State
 
 - **K0, K1 done and audited; K2 steps 1 to 8 done** (#1 to #54). Steps 9 to 11 wait until the site needs them (decision 0029).
-- **K3, in decision 0029's order:** storage (#58, 0032), email (#59, 0033), the kernel's mails as templates (#60), and now **jobs** (#63, 0035; contract `dev plans/contracts/k3-jobs.md`):
-  - `kernel.jobs`: `@jobs.handler` and `@jobs.scheduled(cron, name)` in a module's `jobs.py`; `jobs.enqueue(db, name, payload, run_at=, key=, sealed=)` in the caller's transaction. At least once: a handler MUST be safe to run twice.
-  - `kernel.worker`: `SKIP LOCKED` claims under a 60 s lease renewed every 20 s, outcomes fenced by the try number, backoff to an hour, a scheduler under an advisory lock. **In the web process by default** (`JOBS_IN_WEB`, the owner's choice); a site with heavy jobs runs `serve(create_worker(...))` as its own service (Vibrant Mindz will, for ffmpeg; `python -m harness.worker` here).
-  - **Mail is on the queue, sealed:** every kernel mail is `email.queue_message` before its route's commit; `BackgroundTasks` is gone. Retries follow `MailError.retryable`.
-  - `kernel.remove_unverified` (hourly): unverified accounts 7 days after **their address was set** (`auth_user.email_set_at`, migration `kernel_0007`; an email change's undo restarts the clock, the owner's choice), staff never. `kernel.prune_jobs` (daily).
-- **The K3 gate's "job survives a worker restart"** is `test_a_killed_worker_s_job_is_finished_by_the_next` (a killed child process). Still to come for the gate: an event delivered once to a handler that's safe to run twice.
-- **Tests:** last local run 1223 passed, 7 skipped (5 live storage, 1 symlink, 1 SIGTERM on Linux only), 27 strict expected failures; coverage 98.08 %, the jobs files at 100 %. CI passed on `main` at 4a666e3.
-- **GitHub:** public `Vybecode-LTD/devkit`. A PR lands by fast-forwarding `main` once "CI result" is green, with the owner's OK; **the owner runs that push** (auto mode refuses it; memory note `landing-push-needs-owner`).
+- **K3, in decision 0029's order:** storage (#58, 0032), email (#59, 0033), the kernel's mails as templates (#60), jobs (#63, 0035), and now **events** (#65, 0036; contract `dev plans/contracts/k3-events.md`):
+  - `kernel.events`: `@events.payload(name, v=1)` declares a payload in the owner's `events.py`; `@events.on(event, "<id>.<name>")` declares a listener whose job delivers it; `events.emit(db, name, payload)` adds one job per listener to the caller's transaction. **The jobs table is the outbox:** no `kernel_event_outbox`, no dispatcher (SPEC 11 changed).
+  - 8 tries with the jobs' backoff; a dead delivery is the dead-letter entry (K4's System page). A delivery waits while its module is off; a module `MODULES` leaves out gets none. Every listener and try sees one `event.id`: listeners MUST be safe to run twice.
+  - The start checks module.json's `events.emits` / `listens` against `events.py`, owners, and listeners to undeclared kernel or installed-module events.
+  - **The kernel emits** `auth.user.created`, `auth.user.verified` (sign-up's link, a reset that confirms the address, an email change's confirmation), `auth.user.deleted` (`kernel.remove_unverified`) and `kernel.settings.changed`. The other four in SPEC 11 come with their changes (moderation; K4's admin).
+  - `python -m tools.event_schemas` writes `schema/events/*.v1.schema.json`.
+- **The K3 gate's event test** is `test_an_event_reaches_its_listener_once_and_a_second_run_changes_nothing`; the job-restart one is `test_a_killed_worker_s_job_is_finished_by_the_next`.
+- **Tests:** last local run 1279 passed, 7 skipped (5 live storage, 1 symlink, 1 SIGTERM on Linux only), 27 strict expected failures; coverage 98.12 %, `events.py` at 100 %; 23 of 23 mutants killed. CI passed on `main` at 161d0fa.
+- **Pushing and merging are the agent's call in this project** (the owner, explicitly, 2026-11-17; `CLAUDE.md` Rules, under `C:\DEV\knowledge\owner.md`'s rule that it needs the owner's explicit statement). #65 landed by this session's own fast-forward push.
 
 ## Next
 
-1. **K3 events, contract first** (SPEC 11; `C:\DEV\_templates\feature-CONTRACT.md`): `events.emit(db, name, payload)` writing `kernel_event_outbox` in the caller's transaction, the dispatcher in this worker (a kernel job), handlers by `@events.on(name)` found in `events.py`, retries with backoff and a dead-letter list after 8 failures, a switched-off module's handlers waiting. Then `remove_unverified` emits `auth.user.deleted` (it has no event yet), and K3's gate test: an event delivered once to a handler that's safe to run twice.
-2. Then audit, notifications, moderation, public rendering, and K3's gate; then **the rename PR** (decision 0034).
-3. Then K4, K5 (the site template's worker service and Dockerfile), the ten hooks, and the site's steps 1 to 7.
+1. **K3 audit, contract first** (`C:\DEV\_templates\feature-CONTRACT.md`): `audit.record(actor, action, target, meta)` (SPEC 6), widened from auth's `auth_audit_event` (SPEC 14.10; `kernel/auth/audit.py`, which has `record` and `record_by_kernel`). Lift from VybeSite `services/staff_activity.py` and Basefra.me `app/audit/` (KICKOFF K3). Decide with the owner whether it's one table or auth's plus a kernel one, and the retention. `settings.save` has a `# K3: audit it` marker.
+2. Then notifications, moderation (it emits `auth.user.suspended`), public rendering, and K3's gate; then **the rename PR** (decision 0034).
+3. Then K4 (the System page reads dead jobs and deliveries), K5, the ten hooks, and the site's steps 1 to 7.
 
 ## Open questions for the owner
 
-- Decision 0035's own calls: 5 tries for a handler and for mail, 1 for a scheduled job; backoff from 30 s to an hour; a 60 s lease; 1 s polling; 4 at once; a 20 s drain; 64 KiB payloads; done jobs kept 7 days and dead ones 30; missed slots caught up for 7 days; the watchdog at 2 minutes; removal hourly at :17, pruning at 03:41 UTC. Keep them?
-- Decisions 0032 and 0033's own calls (storage links of 5 minutes unless asked, 6 hours at most; `get`'s 32 MiB; `string.Template`; Resend's 10 s and SMTP's 15 s timeouts). Keep them?
-- When to make the R2 test buckets for `test_storage_live.py`: before the site's step 2.
-- Desk steps: reset the Postgres `postgres` password (the owner types it); `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` if wanted.
+- Decision 0036's own calls: a listener's 300-second default timeout; `auth.user.verified` on an email change's confirmation as well as sign-up's link and a reset; no deliveries at all for a module `MODULES` leaves out. Keep them?
+- Still open from earlier sessions: decision 0035's calls (listed in that record), 0032 and 0033's, when to make the R2 test buckets, and the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
+- `C:\DEV\knowledge` has `owner.md` uncommitted: this session's push-and-merge rule and an older Boston-time line. The owner commits it.
 
 ## Notes
 
-- **Tests run due jobs themselves.** No test app runs a worker (`JOBS_IN_WEB=false` in `conftest.py`); `kernel/tests/conftest.py`'s `Draining` transport runs them after each answer (`Client(app, drain=False)` for a test that counts queries or has no database), the harness's `GET /api/_test/mail` runs them first, and `/reset` forgets queued mail. `Worker.run_due` runs one job at a time, oldest first, so mail arrives in order.
-- **Each module's `jobs.py`** is found by type (`jobs.Job`); a scheduled job must match module.json's `jobs` or the start stops. `modules/_template/backend/my_module/jobs.py` has the example.
-- **Updating a PR branch behind `main`:** merge `main` in and push normally; force-pushing is refused.
-- **Every PR that changes a step's status updates `docs/progress.json`** and runs `python -m tools.progress`.
-- Git Bash collapses `\\` in heredocs and runs backticks in double quotes; Write/Edit decode `\u`: write scripts with the Write tool and build such characters with `chr()`.
-- Race and lock-order tests must really race; never hand an ORM row past the route (memory notes).
+- **Tests hear the kernel's events** through `kernel/tests/conftest.py`'s `heard` fixture (list it after the fixture that builds the app). In `test_events.py` the app's worker runs only its modules' jobs: with the kernel's, a test that moves the clock also runs mail other tests left queued.
+- **Tests run due jobs themselves** (`Draining`, `/api/_test/mail`), as before.
+- Git Bash: `cat > file` with nothing piped in waits for ever; write scripts with the Write tool. Heredocs collapse `\\`; Write/Edit decode `\u`. A subprocess on Windows needs `sys.executable`, not `.venv/Scripts/python.exe`.
+- Working-tree files are CRLF (`autocrlf`); a byte-exact restore (mutants) reads and writes bytes.
 
 ## Warnings
 
