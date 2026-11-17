@@ -33,7 +33,8 @@ What it does, in order:
    default) the lifespan runs it in this process; a site that runs
    `kernel.worker.serve` as a service of its own turns it off (decision 0035).
 
-Steps 1 to 3, 7 and 8, and the jobs' checks, are `assemble`, which
+Steps 1 to 3, 7 and 8, the jobs' checks and registering each module's
+settings model are `assemble`, which
 `kernel.worker.create_worker` shares, so a worker process starts on exactly
 what the web app would.
 
@@ -86,7 +87,7 @@ from kernel.worker import Worker
 log = logging.getLogger(__name__)
 
 #: The kernel's own jobs: queued mail, pruning the queue, and removing
-#: accounts never verified (decision 0035).
+#: accounts whose address isn't verified (decision 0035).
 KERNEL_JOBS: tuple[jobs.Job, ...] = (email.SEND_MAIL, jobs.PRUNE, REMOVE_UNVERIFIED)
 
 
@@ -148,6 +149,11 @@ def assemble(
         raise RuntimeError(f"Refusing to start: {error}") from error
     checked = Checked(mailer if mailer is not None else mailer_from_config(config))
     email.install(checked, templates, site_name=config.site_name, site_url=config.site_url)
+    # Here, not in create_app: a job in a worker of its own reads its module's
+    # settings too (Codex on #63).
+    for module in installed:
+        if module.settings is not None:
+            settings.register(module.id, module.settings)
     return Assembled(config, installed, registry, checked, declared)
 
 
@@ -167,8 +173,6 @@ def create_app(
     for module in installed:
         for directive, source in module.csp:
             policy.allow(directive, source, module=module.id)
-        if module.settings is not None:
-            settings.register(module.id, module.settings)
 
     owns_database = database is None
     db = database or built.database()

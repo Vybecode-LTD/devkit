@@ -655,3 +655,26 @@ async def test_any_request_voids_the_last_link_whatever_the_address(
     await _change(mine, target)
     refused = await _confirm(site.browser(), token)
     assert (refused.status_code, refused.json()["code"]) == (400, "auth.token_invalid")
+
+
+async def test_confirming_and_undoing_each_set_when_the_address_was_set(site: Site) -> None:
+    """Decision 0035, the owner's choice: an unverified account is removed 7
+    days after its address was set, so an undo gives the address it puts
+    back a full week, however old the account is."""
+    person = await _person(site)
+    long_ago = clock.now() - timedelta(days=30)
+    async with site.db() as db:
+        await db.execute(
+            update(User)
+            .where(User.id == person.id)
+            .values(email_verified_at=None, email_set_at=long_ago)
+        )
+        await db.commit()
+    _, undo = await _changed(site, person)
+    confirmed = await _account(site, person)
+    assert abs((confirmed.email_set_at - clock.now()).total_seconds()) < 5
+    clock.advance(6 * 86400)
+    assert (await _undo(site.browser(), undo)).status_code == 200
+    restored = await _account(site, person)
+    assert restored.email_verified_at is None
+    assert abs((restored.email_set_at - clock.now()).total_seconds()) < 5

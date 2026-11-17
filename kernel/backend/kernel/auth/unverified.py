@@ -1,11 +1,11 @@
 """Unverified accounts are removed after 7 days (SPEC.md 14.7; decision 0035;
 contract dev plans/contracts/k3-jobs.md).
 
-`kernel.remove_unverified` runs hourly. It removes an account only when it
-has never had a verified address, was made more than 7 days ago, is
-`active`, and holds no role but `member`: an owner's or staff account is
-never removed, however it was made, and neither is a suspended one or one
-on its way out (`deleting`, which has its own grace period).
+`kernel.remove_unverified` runs hourly. It removes an account only when its
+address isn't verified (`email_verified_at` is empty) and was set more than 7
+days ago (`email_set_at`), it is `active`, and it holds no role but `member`: an owner's or
+staff account is never removed, however it was made, and neither is a
+suspended one or one on its way out (`deleting`, which has its own grace period).
 
 **One lock order:** each batch locks the account rows first, as every route
 does (`accounts.lock`), skipping any a request holds: a verification that
@@ -14,6 +14,13 @@ account next hour if it's still unverified. The delete checks the same
 conditions again, so nothing that changed since the select is removed. The
 account's sessions, tokens, factors and roles go with it by cascade; the
 audit log keeps one row each, under the account's id alone.
+
+**The clock restarts with the address** (the owner's choice): an email
+change's undo puts back the address the account had, unverified if it was
+(decision 0024), and sets `email_set_at`, so the address put back gets a full
+7 days to be verified however old the account is. An account someone made
+with another person's address is still removed a week after the undo that
+gave the address back.
 
 Until K3's events land, a removed account emits no `auth.user.deleted`: no
 module holds an unverified account's data yet.
@@ -42,7 +49,7 @@ def _removable(cutoff: datetime) -> list[ColumnElement[bool]]:
     )
     return [
         User.email_verified_at.is_(None),
-        User.created_at < cutoff,
+        User.email_set_at < cutoff,
         User.status == "active",
         ~holds_more,
     ]

@@ -1,4 +1,4 @@
-"""`kernel.remove_unverified`: accounts never verified are removed after 7 days
+"""`kernel.remove_unverified`: accounts whose address isn't verified are removed after 7 days
 (SPEC.md 14.7; decision 0035). Staff, verified, suspended and departing
 accounts never are, and an account a request holds is left for the next run."""
 
@@ -42,6 +42,7 @@ async def _account(
     verified: bool = False,
     roles: tuple[str, ...] = ("member",),
     status: str = "active",
+    address_days_old: float | None = None,
 ) -> uuid.UUID:
     email = f"Kim.{uuid.uuid4().hex[:10]}@Site.test"
     async with database.sessions() as db:
@@ -51,6 +52,8 @@ async def _account(
             status=status,
             email_verified_at=clock.now() if verified else None,
             created_at=clock.now() - timedelta(days=days_old),
+            email_set_at=clock.now()
+            - timedelta(days=days_old if address_days_old is None else address_days_old),
         )
         db.add(user)
         await db.flush()
@@ -137,3 +140,15 @@ async def test_every_batch_is_swept(database: Database, monkeypatch: pytest.Monk
     await _sweep(database)
     for account in accounts:
         assert not await _exists(database, account)
+
+
+async def test_the_7_days_count_from_when_the_address_was_set(database: Database) -> None:
+    """The owner's choice (decision 0035): an email change's undo puts back
+    an unverified address, and that address gets a full 7 days of its own,
+    however old the account is."""
+    restored = await _account(database, days_old=30, address_days_old=1)
+    await _sweep(database)
+    assert await _exists(database, restored)
+    clock.advance(6 * 86400 + 60)  # the address now 7 days and a minute old
+    await _sweep(database)
+    assert not await _exists(database, restored)

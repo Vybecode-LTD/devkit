@@ -222,3 +222,19 @@ def test_no_kernel_code_sends_mail_around_the_queue() -> None:
         assert "BackgroundTasks" not in source, path.name
         if path.name not in ("email.py", "mail_adapters.py"):
             assert "mailer.send(" not in source, path.name
+
+
+async def test_any_message_check_accepts_fits_the_queue(build: Build) -> None:
+    """The longest bodies `check` takes, in the characters that grow most
+    as UTF-8 and as JSON, still queue and arrive whole (Codex on #63)."""
+    captured = CapturingMailer()
+    app = build(captured)
+    to = _address()
+    wide = chr(0x6C49) * email.MAX_BODY  # three bytes each in UTF-8
+    escaped = chr(1) * (email.MAX_BODY - 1) + "x"  # six bytes each in JSON
+    async with app.state.database.sessions() as db:
+        await email.queue_message(db, to, chr(0x1F4E8) * email.MAX_SUBJECT, wide, escaped)
+        await db.commit()
+    await app.state.worker.run_due()
+    [sent] = captured.to(to)
+    assert (sent.text, sent.html) == (wide, escaped)

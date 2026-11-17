@@ -77,6 +77,12 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320))
     email_normal: Mapped[str] = mapped_column(String(320), unique=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: When the address was set: at sign-up, an email change and an email
+    #: change's undo. An unverified account is removed 7 days after it
+    #: (kernel.auth.unverified, decision 0035).
+    email_set_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     password_hash: Mapped[str | None] = mapped_column(Text)
     display_name: Mapped[str | None] = mapped_column(String(120))
     status: Mapped[str] = mapped_column(String(16), server_default=text("'active'"))

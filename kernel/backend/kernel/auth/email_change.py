@@ -265,6 +265,7 @@ async def confirm_email_change(
     user.email = str(redeemed.data["email"])
     user.email_normal = redeemed.email_normal
     user.email_verified_at = now
+    user.email_set_at = now
     await _write_address(db)
     await _void_confirms(db, user.id)
     undo = await tokens.issue(
@@ -316,6 +317,8 @@ async def undo_email_change(
     user.email = str(redeemed.data["email"])
     user.email_normal = redeemed.email_normal
     user.email_verified_at = datetime.fromisoformat(verified) if verified else None
+    # A fresh 7 days for the address put back, if it isn't verified (decision 0035).
+    user.email_set_at = clock.now()
     await _write_address(db)
     await sessions.end_all(db, user)
     await tokens.void(db, user.id, _ENDED)

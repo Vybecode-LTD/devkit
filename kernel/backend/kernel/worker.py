@@ -147,7 +147,7 @@ class Worker:
         due = (
             select(JobRow.id)
             .where(self._claimable(owners, now))
-            .order_by(JobRow.run_at)
+            .order_by(JobRow.run_at, JobRow.created_at)
             .limit(limit)
             .with_for_update(skip_locked=True)
         )
@@ -248,7 +248,10 @@ class Worker:
         else:
             await self._finish(claimed, "done", last_error=None)
         finally:
-            self._running.pop(claimed.id, None)
+            # Only this try's: a newer try of the same job, claimed again here
+            # once this one's lease lapsed, keeps its renewal (CodeRabbit on #63).
+            if self._running.get(claimed.id) == claimed.tries:
+                del self._running[claimed.id]
 
     async def _renew(self) -> None:
         if not self._running:
@@ -297,17 +300,21 @@ class Worker:
             return bool(await db.scalar(select(held)))
 
     async def run_due(self, *, wait: float = 10.0, limit: int = 1000) -> int:
-        """Runs every job due now, then waits up to `wait` seconds for the ones
-        other workers hold, so the caller reads a settled queue: for tests and
-        the harness. Returns how many jobs this call ran."""
+        """Runs every job due now, oldest first and one at a time, then waits
+        up to `wait` seconds for the ones other workers hold, so the caller
+        reads a settled queue in the order it was filled: for tests and the
+        harness, whose mail then arrives as each route queued it. Returns how
+        many jobs this call ran."""
         ran = 0
         deadline: float | None = None
         async with self._renewals():
             while ran < limit:
-                claimed = await self._claim(min(self.concurrency, limit - ran))
+                # One claim at a time: a job claimed but waiting its turn
+                # would hold a lease nothing renews.
+                claimed = await self._claim(1)
                 if claimed:
-                    await asyncio.gather(*(self._run_one(job) for job in claimed))
-                    ran += len(claimed)
+                    await self._run_one(claimed[0])
+                    ran += 1
                     continue
                 if deadline is None:
                     deadline = time.monotonic() + wait
@@ -381,11 +388,25 @@ class Worker:
                         continue
                     await _nap(stop, tasks, self.poll)
             finally:
-                if tasks:
-                    _, pending = await asyncio.wait(set(tasks), timeout=self.drain)
-                    for task in pending:
-                        task.cancel()
-                    await asyncio.gather(*pending, return_exceptions=True)
+                pending = set(tasks)
+                deadline = time.monotonic() + self.drain
+                # Beating while it waits: a drain may outlast the watchdog's
+                # limit, and only a loop that stops answering should trip it.
+                while pending and (left := deadline - time.monotonic()) > 0:
+                    self.beat()
+                    _, pending = await asyncio.wait(pending, timeout=min(left, 1.0))
+                for task in pending:
+                    task.cancel()
+                # Bounded too: a handler still cleaning up after its cancel is
+                # left to its lease rather than holding the stop up.
+                if pending:
+                    _, stragglers = await asyncio.wait(pending, timeout=max(self.drain, 1.0))
+                    if stragglers:
+                        log.warning(
+                            "%d jobs are still finishing after the drain; their leases "
+                            "will lapse and another worker will run them again.",
+                            len(stragglers),
+                        )
 
 
 async def _nap(stop: asyncio.Event, tasks: set[asyncio.Task[None]], seconds: float) -> None:

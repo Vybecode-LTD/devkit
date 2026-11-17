@@ -338,3 +338,14 @@ def test_backoff_doubles_from_30_seconds_to_an_hour_with_jitter() -> None:
 
 def test_the_jobs_lease_is_longer_than_its_renewal() -> None:
     assert jobs.LEASE > 2 * jobs.RENEW_EVERY
+
+
+async def test_an_owner_longer_than_its_column_is_refused_before_the_insert(
+    db: AsyncSession,
+) -> None:
+    """CodeRabbit on #63: a 65-character owner fits the name's 130 but not
+    `kernel_job.module`'s 64, and must not reach the database."""
+    with pytest.raises(ValueError, match="name"):
+        await jobs.enqueue(db, "a" * 65 + ".send", {})
+    assert await jobs.enqueue(db, "a" * 64 + ".send", {}) is not None
+    await db.rollback()

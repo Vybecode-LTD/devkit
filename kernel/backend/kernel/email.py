@@ -311,8 +311,11 @@ async def send(template: str, to: str, context: Mapping[str, str | int]) -> None
     await _current().mailer.send(to, rendered.subject, rendered.text, rendered.html)
 
 
-#: A queued mail's payload: a message within `check`'s bounds, as JSON.
-_QUEUED_MAIL_LIMIT = 2 * MAX_BODY + 8 * 1024
+#: A queued mail's payload: any message within `check`'s bounds, as JSON.
+#: `check` counts characters; a character takes at most 6 bytes once encoded
+#: (4 in UTF-8, 6 for a control character JSON escapes as \u00XX), so a
+#: message `send` would take is never refused here (Codex on #63).
+_QUEUED_MAIL_LIMIT = 6 * (MAX_ADDRESS + MAX_SUBJECT + 2 * MAX_BODY) + 1024
 
 
 async def queue(db: AsyncSession, template: str, to: str, context: Mapping[str, str | int]) -> None:

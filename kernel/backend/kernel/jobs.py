@@ -62,6 +62,8 @@ if TYPE_CHECKING:
 #: `<owner>.<name>`: the owner as a module id (SPEC.md section 5) or `kernel`.
 NAME = re.compile(r"([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\.([a-z][a-z0-9_]*)")
 MAX_NAME = 130
+#: `kernel_job.module`'s width, as `kernel_module_state.module_id`'s.
+MAX_OWNER = 64
 MAX_PAYLOAD = 64 * 1024
 MAX_KEY = 200
 DEFAULT_TRIES = 5
@@ -134,10 +136,11 @@ class Job:
 
 
 def check_name(name: str) -> None:
-    if len(name) > MAX_NAME or NAME.fullmatch(name) is None:
+    match = NAME.fullmatch(name) if len(name) <= MAX_NAME else None
+    if match is None or len(match.group(1)) > MAX_OWNER:
         raise ValueError(
-            "A job's name is <module id>.<name>, the name in [a-z][a-z0-9_]* and "
-            f"{MAX_NAME} characters at most, not {name!r}."
+            "A job's name is <module id>.<name>, the name in [a-z][a-z0-9_]*, the "
+            f"module id {MAX_OWNER} characters at most and the whole {MAX_NAME}, not {name!r}."
         )
 
 

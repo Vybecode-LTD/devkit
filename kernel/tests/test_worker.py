@@ -26,6 +26,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+from pydantic import BaseModel
 from sqlalchemy import select, text, update
 
 from kernel import clock, jobs
@@ -35,6 +36,7 @@ from kernel.email import LogMailer
 from kernel.models import Job as JobRow
 from kernel.models import JobSchedule, ModuleState
 from kernel.modules import InstalledModule, ModuleRegistry
+from kernel.settings import settings
 from kernel.tests.conftest import Client, make_config, manifest, unique_id
 from kernel.worker import (
     SCHEDULER_LOCK,
@@ -1101,3 +1103,113 @@ async def test_stop_signals_fall_back_to_the_signal_module(
         signal.raise_signal(signal.SIGINT)  # asked twice: still just stopping
         await asyncio.sleep(0.05)
     assert signal.getsignal(signal.SIGINT) == before
+
+
+class _DigestSettings(BaseModel):
+    day: str = "monday"
+
+
+def test_a_worker_process_knows_its_modules_settings() -> None:
+    """A job in a worker of its own reads its module's settings as one in the
+    web process does (Codex on #63)."""
+    owner = unique_id()
+    module = InstalledModule(manifest(owner), settings=_DigestSettings)
+    create_worker(modules=[module], config=make_config())
+    assert settings.model(owner) is _DigestSettings
+
+
+async def test_the_watchdog_hears_from_a_worker_while_it_drains(database: Database) -> None:
+    """A drain longer than the watchdog's limit isn't mistaken for a stuck
+    loop (Codex on #63): the loop beats while it waits for running jobs."""
+    owner = unique_id()
+    started = asyncio.Event()
+
+    async def finishing(ctx: jobs.Context, payload: dict[str, Any]) -> None:
+        started.set()
+        await asyncio.sleep(1.3)
+
+    worker = _worker(database, owner, jobs.handler(f"{owner}.send")(finishing), poll=0.05, drain=5)
+    stopped = asyncio.Event()
+    beats_after_stop: list[float] = []
+
+    def beat() -> None:
+        if stopped.is_set():
+            beats_after_stop.append(time.monotonic())
+
+    worker.beat = beat
+    job_id = await _enqueue(database, f"{owner}.send")
+    loop = asyncio.create_task(worker.run(stopped))
+    await asyncio.wait_for(started.wait(), timeout=10)
+    stopped.set()
+    await asyncio.wait_for(loop, timeout=10)
+    assert len(beats_after_stop) >= 2
+    assert await _state_is(database, job_id, "done")
+
+
+async def test_run_due_runs_the_queue_oldest_first_one_at_a_time(database: Database) -> None:
+    """As each route's mail used to arrive, so the harness's mail reads in
+    order (CI on #63): the older job finishes first even when it's slower."""
+    owner = unique_id()
+    finished: list[str] = []
+
+    async def record(ctx: jobs.Context, payload: dict[str, Any]) -> None:
+        await asyncio.sleep(float(payload["takes"]))
+        finished.append(str(payload["n"]))
+
+    worker = _worker(database, owner, jobs.handler(f"{owner}.send")(record))
+    now = clock.now()
+    await _enqueue(database, f"{owner}.send", {"n": "older", "takes": 0.2}, run_at=now)
+    await _enqueue(
+        database,
+        f"{owner}.send",
+        {"n": "newer", "takes": 0},
+        run_at=now + timedelta(milliseconds=1),
+    )
+    assert await worker.run_due() == 2
+    assert finished == ["older", "newer"]
+
+
+async def test_a_try_that_ends_leaves_a_newer_try_s_renewal_in_place(database: Database) -> None:
+    """CodeRabbit on #63: when this worker has claimed its own job again (its
+    lease lapsed), the older try ending mustn't drop the newer try's lease
+    renewal."""
+    owner = unique_id()
+    worker: Worker
+
+    async def superseded(ctx: jobs.Context, payload: dict[str, Any]) -> None:
+        worker._running[ctx.job_id] = ctx.try_number + 1  # a newer try, registered meanwhile
+
+    worker = _worker(database, owner, jobs.handler(f"{owner}.send")(superseded))
+    job_id = await _enqueue(database, f"{owner}.send")
+    await worker.run_due()
+    assert worker._running.get(job_id) == 2
+
+
+async def test_a_cancelled_job_s_cleanup_doesn_t_hold_the_stop_up(
+    database: Database, caplog: pytest.LogCaptureFixture
+) -> None:
+    """CodeRabbit on #63: once the drain is over, the wait for cancelled jobs
+    is bounded too; one still cleaning up is left to its lease."""
+    owner = unique_id()
+    started = asyncio.Event()
+
+    async def slow_to_let_go(ctx: jobs.Context, payload: dict[str, Any]) -> None:
+        started.set()
+        try:
+            await asyncio.sleep(3600)
+        finally:
+            await asyncio.sleep(3)  # cleanup that outlasts the drain
+
+    worker = _worker(
+        database, owner, jobs.handler(f"{owner}.send", timeout=3600)(slow_to_let_go), drain=0.2
+    )
+    await _enqueue(database, f"{owner}.send")
+    stop = asyncio.Event()
+    loop = asyncio.create_task(worker.run(stop))
+    await asyncio.wait_for(started.wait(), timeout=10)
+    began = time.monotonic()
+    stop.set()
+    with caplog.at_level(logging.WARNING, logger="kernel.worker"):
+        await asyncio.wait_for(loop, timeout=10)
+    assert time.monotonic() - began < 2
+    assert "still finishing" in caplog.text

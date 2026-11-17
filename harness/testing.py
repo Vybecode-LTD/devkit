@@ -37,8 +37,9 @@ from kernel.auth.accounts import normal_email
 from kernel.auth.models import Role, Totp, User, UserRole
 from kernel.auth.passwords import normal
 from kernel.config import KernelConfig
-from kernel.email import CapturingMailer
+from kernel.email import SEND_MAIL, CapturingMailer
 from kernel.errors import Problem
+from kernel.models import Job
 from kernel.ratelimit import RateLimiter
 
 router = APIRouter(dependencies=[Depends(public)])
@@ -65,11 +66,16 @@ async def reset(request: Request, body: Reset | None = None) -> Response:
     await limiter.reset()
     clock.reset()
     request.app.state.breached = set()
-    _captured(request).clear()
-    if body is not None and body.accounts:
-        async with request.app.state.database.sessions() as session:
+    async with request.app.state.database.sessions() as session:
+        # Mail still waiting in the queue is forgotten with the mailbox, or
+        # it would land in the mailbox this reset empties.
+        await session.execute(
+            delete(Job).where(Job.name == SEND_MAIL.name, Job.state.in_(("queued", "running")))
+        )
+        if body is not None and body.accounts:
             await session.execute(delete(User))
-            await session.commit()
+        await session.commit()
+    _captured(request).clear()
     return Response(status_code=204)
 
 

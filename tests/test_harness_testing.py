@@ -216,3 +216,27 @@ async def test_users_defaults_to_an_unverified_member_with_nothing_else(
             assert await db.scalar(select(User).where(User.email == "wizard@site.test")) is None
     finally:
         await app.state.database.dispose()
+
+
+async def test_reset_forgets_mail_still_waiting_in_the_queue(
+    monkeypatch: pytest.MonkeyPatch, migrated_url: str
+) -> None:
+    """CodeRabbit on #63: a mail queued before `/reset` mustn't land in the
+    mailbox the reset just emptied."""
+    import uuid
+
+    from kernel import email
+
+    monkeypatch.setenv("HARNESS_TEST_SUPPORT", "1")
+    app = testing.build_test_app(migrated_url)
+    to = f"left.{uuid.uuid4().hex[:8]}@site.test"
+    try:
+        async with app.state.database.sessions() as session:
+            await email.queue_message(session, to, "Left over", "From before the reset")
+            await session.commit()
+        async with _client(app) as client:
+            assert (await client.post("/api/_test/reset")).status_code == 204
+            got = await client.get("/api/_test/mail", params={"to": to})
+        assert got.json() == {"messages": []}
+    finally:
+        await app.state.database.dispose()
