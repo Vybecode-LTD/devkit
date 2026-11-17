@@ -16,13 +16,13 @@ AI DevKit (MechFrame after K3, decision 0034): website modules around a FastAPI 
 ## 3. State (verified 2026-11-17, end of session)
 
 - `main` at 161d0fa (#65, K3 events, landed). Its branch is deleted.
-- **#66** (`docs/handoff-k3-audit`: `docs/HANDOFF.md`, `CLAUDE.md`/`AGENTS.md`, progress, this file) is the only open PR. Land it when "CI result" is green.
+- **#66** (`docs/handoff-k3-audit`: `docs/HANDOFF.md`, `CLAUDE.md`/`AGENTS.md`, progress, this file) is the only open PR. Land it when "CI result" is green on its head and the review bots have no open findings.
 - Last local full run: 1279 passed, 7 skipped, 27 xfailed, coverage 98.12 %. CI passed on 161d0fa. Nothing is half-done.
 - `C:\DEV\knowledge\owner.md` is uncommitted (the push-and-merge rule and an older line): the owner's to commit.
 
 ## 4. The job, in order
 
-1. If #66 is still open, land it once "CI result" is green; then `git switch main`, `git pull --ff-only`.
+1. If #66 is still open, land it once "CI result" is green on its head and the review bots have no open findings (`CLAUDE.md` Rules); then `git switch main`, `git pull --ff-only`.
 2. **K3 audit:** write `dev plans/contracts/k3-audit.md` and bring the owner its goal and non-goals. Inputs: SPEC 6 (`audit.record(actor, action, target, meta)`), 14.10 and 10 (retention), `kernel/auth/audit.py` (`record`, `record_by_kernel`, `auth_audit_event`), KICKOFF K3 (lift from VybeSite `services/staff_activity.py`, Basefra.me `app/audit/`). Ask the owner: one table or auth's plus a kernel one; who reads it (K4's Audit log page, `auth.audit.read`); retention. `settings.save`'s `# K3: audit it` marker is a first use. Update `docs/progress.json` in the PR.
 3. Then notifications, moderation (it emits `auth.user.suspended`), public rendering, K3's gate; then the rename PR.
 
