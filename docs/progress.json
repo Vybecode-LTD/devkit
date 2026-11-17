@@ -87,7 +87,7 @@
         {"name": "Audit: one append-only log for every module, auth's widened", "status": "done", "prs": [67], "decisions": ["0037"]},
         {"name": "Notifications, with per-person preferences and one-click unsubscribe", "status": "done", "prs": [69], "decisions": ["0038"]},
         {"name": "Moderation: reports, the staff queue, filters and actions", "status": "done", "prs": [56, 71], "decisions": ["0031", "0039"]},
-        {"name": "Public rendering: head tags, server copy, sitemap, robots, llms.txt", "status": "next"},
+        {"name": "Public rendering: head tags, server copy, sitemap, robots, llms.txt", "status": "done", "prs": [73], "decisions": ["0041"]},
         {"name": "Retention", "status": "later"},
         {"name": "The AI client", "status": "later"}
       ]

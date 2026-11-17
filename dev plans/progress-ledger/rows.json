@@ -372,10 +372,10 @@
    "gate": "not passed",
    "step_order": 9,
    "step": "Public rendering: head tags, server copy, sitemap, robots, llms.txt",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#73",
+   "decisions": "0041",
    "note": ""
   },
   {

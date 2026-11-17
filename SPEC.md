@@ -188,7 +188,7 @@ Every module MUST ship a `module.json` that validates against `devkit/schema/mod
 
 Modules MUST import only from the kernel's public surface: `kernel/__init__.py` on the backend and `kernel/web/index.ts` on the front end. Anything else in the kernel is private and may change in any release. The public surface follows semver.
 
-**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: a name is in `kernel/__init__.py` once it's built: of K3, storage, email, jobs, events, audit, notifications and moderation are so far.
+**Backend (Python).** For modules. "Since" is the kernel phase that adds the name: a name is in `kernel/__init__.py` once it's built: of K3, storage, email, jobs, events, audit, notifications, moderation and server_copy are so far.
 
 | Name | Gives | Example | Since |
 | --- | --- | --- | --- |
@@ -212,6 +212,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `audit.record(db, action, actor=, target=, subject=, result=, details=, request=)` | An append-only audit entry, added to the caller's transaction: `<owner>.<name>` actions, a `(kind, id)` target, details of ids and counts, never a secret or an address (14.10, decision 0037) | Role changed | K3 |
 | `notifications.notify(db, user_id, key, context, link=)` | A notice in the site and by email, each by the person's choice for that key (module.json's `notifications` gives the default), written in the caller's transaction; each key has an email template of its name, whose subject is the notice's title; every notice email has one-click unsubscribe (RFC 8058) for that key (decision 0038) | Someone replied to your comment | K3 |
 | `moderation.report(db, target, reporter=, reason=)`, `@moderation.kind(name, actions=)`, `moderation.screen / hold / act`, `Depends(moderation.can_post)` | Reports on what a module declares reportable (in `moderation.py`, each kind describing its thing, hiding or deleting it, and showing again what was held when staff dismiss the case), one case per thing in the staff queue, word and link filters that hold text and never drop it, and actions (dismiss, hide, delete, time out, ban), all audited and told to the author. Acting needs `kernel.moderation.act` (admin and editor by default; decision 0031); a ban, which suspends the account, also needs `auth.user.suspend` (decision 0039) | A reported comment | K3 |
+| `server_copy.Pages`, `Page`, `Moved`, `Entry`, the builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`, `time`, `section`, `article`, `cleaned`), `server_copy.identity(db)` | A module's public pages, readable without JavaScript: its `server_copy.py`'s `PAGES` answers `page(db, path, params)` for each address its `routes.public` patterns match with the page's head, words and JSON-LD (or a move, or None for a 404), from the same rows its API reads, and lists them for the sitemap; the builders escape every value and nh3 cleans the finished words; `identity` is the site's name and the settings section `kernel.site` (section 9, decision 0041) | A blog post's page | K3 |
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
@@ -220,7 +221,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | --- | --- | --- |
 | `create_app(modules=, config=)` | The site's FastAPI app: the kernel, the modules, their routes, settings and CSP hosts | K1 |
 | `Database(url)` | The engine and session factory `create_app` uses | K1 |
-| `InstalledModule`, `Manifest` | A module as the app is built from it: its manifest, `router`, `Settings` and `CSP` | K1 |
+| `InstalledModule`, `Manifest` | A module as the app is built from it: its manifest, `router`, `Settings`, `CSP` and, from K3, its emails, jobs, events, reportable kinds and `pages` | K1 |
 | `__version__` | The kernel's version, which the public surface follows under semver | K1 |
 
 **Front end (TypeScript)**
@@ -272,11 +273,11 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `devkit check` and code review enforce.
 
-**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates) and `moderation.py` (what people may report, decision 0039). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009) and `emails.py`'s `EMAILS` (decision 0033).
+**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates) and `moderation.py` (what people may report, decision 0039). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033) and `server_copy.py`'s `PAGES` (decision 0041).
 
 **Routes**
 
-- Mounted at `/api/<id>`, with admin routes under `/api/<id>/admin`.
+- Mounted at `/api/<id>`, with admin routes under `/api/<id>/admin`. Every other address is the kernel's: its files (`/sitemap.xml`, `/robots.txt`, `/llms.txt`), the built web app's files, and the pages of section 9, matched by module.json's `routes.public` and `routes.member`.
 - The kernel puts `require_module(id)` in front of every module router.
 - Every route MUST declare its access: public, member or a permission. A test fails any route that declares none.
 - Nothing changes state on GET.
@@ -354,18 +355,22 @@ Every public page MUST be readable without JavaScript, because GPTBot, ClaudeBot
 3. Structured data (JSON-LD): Organization or LocalBusiness on the home page, BlogPosting for a post, FAQPage where a page has questions.
 4. A real 404 for an address the site doesn't have, never a 200 shell.
 
-**What a module with public routes provides** in `server_copy.py`
+**What a module with public routes provides** in `server_copy.py`: `PAGES`, a `server_copy.Pages` (decision 0041, replacing the four functions first written here).
 
-| Function | Returns |
+| Method | Returns |
 | --- | --- |
-| `head(path)` | The head tags, or `None` if the path isn't this module's |
-| `copy(path)` | Escaped semantic HTML of the page's words: one `h1`, `h2` per section, no inline styles |
-| `structured_data(path)` | JSON-LD objects |
-| `sitemap()` | Every public URL with its last-modified time |
+| `page(db, path, params)` | For an address one of its `routes.public` patterns matched, with the pattern's `:name` parts: a `Page` (title, description, words, JSON-LD, image, Open Graph kind, published and modified times, noindex, the canonical's query), a `Moved` (a 301 or 302 to a path on this site), or None for a 404. One call reads the rows once |
+| `sitemap(db)` | Every public page as an `Entry` (path, last modified, and with a title, a link in `llms.txt`; `noindex` keeps it out of both) |
 
-**Kernel-owned files.** `sitemap.xml`, `robots.txt` (AI crawlers allowed by default, switchable per site) and `llms.txt`.
+The words come from the kernel's builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`, `time`, `section`, `article`), which escape every value: one `h1`, `h2` per section, no inline styles. `cleaned` passes HTML made elsewhere, such as a post's Markdown, through nh3, and the finished words are cleaned again against a tight allowlist. The start refuses a module with `routes.public` and no `PAGES`, or the reverse, and two patterns that answer the same address at the same rank: the one with more fixed segments wins.
 
-**The known cost: two renderers.** The server copy and the React page describe the same content, so they can drift apart. Both MUST read the same rows. A Playwright test checks that every visible heading and paragraph on the rendered page also appears in the server copy. A TypeScript port would remove this cost (section 19).
+**What the kernel answers** at an address outside the API: a module's page in the app's shell (`WEB_DIST`'s `index.html`, between its `page-head` and `page-body` markers, or a minimal shell while it's unset); a file of the built app, only ever from inside its folder, `/assets` immutable; a 301 for a trailing slash; the shell with noindex for a member page and the admin; a 404 with the shell and noindex for anything else or a module that's off; a 503 with `Retry-After` for a page whose rows can't be read. `/` is the kernel's home page (the site's name, description and Organization JSON-LD) until a module on declares it. HEAD is answered as GET.
+
+**The site's identity** is the settings section `kernel.site`: its description, kind (`Organization`, `LocalBusiness`, `MusicGroup`, `Person`), logo, social card (every page's image unless it has its own), profiles, the summary for `llms.txt` and the AI crawlers' switch. The name stays `SITE_NAME`.
+
+**Kernel-owned files**, generated per request from the modules on: `sitemap.xml` (50,000 addresses at most), `robots.txt` (every crawler welcome but in `/admin`, `/api/` and the member pages; the AI crawlers named in a group of their own, allowed by default and turned away while the site refuses them) and `llms.txt` (llmstxt.org, 500 links at most).
+
+**The known cost: two renderers.** The server copy and the React page describe the same content, so they can drift apart. Both MUST read the same rows. From K4's first React page, a Playwright test checks that every visible heading and paragraph on the rendered page also appears in the server copy. A TypeScript port would remove this cost (section 19).
 
 ## 10. Data rules and migrations
 
@@ -814,6 +819,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | Public rendering: a module's `server_copy.py` sets `PAGES`, whose `page(db, path, params)` answers each address its `routes.public` patterns match with the page's head, words and JSON-LD in one call (or a move, or None for a 404), and `sitemap(db)` lists its pages; the most fixed segments win and ties are refused at start; the kernel serves the built web app from `WEB_DIST` with its path and cache rules, answers member and admin pages with a noindex shell and any other address with a real 404, and writes `sitemap.xml`, `robots.txt` (AI crawlers allowed unless the site refuses them) and `llms.txt`; the site's identity is the settings section `kernel.site`; nh3 cleans the words (6, 7, 9; decision 0041) |
 | 2026-11-17 | The admin shell is built to the Vibrant Mindz canvas Admin design, styled by theme tokens, for every site: only its generic parts in the kernel, checked in the site's dark theme and Machined Light (8, 20, Q11; decision 0040, amending 0008) |
 | 2026-11-17 | Kernel moderation: modules declare what can be reported in `moderation.py` (`@moderation.kind`, which describes the thing and hides or deletes it); `moderation.report` keeps one open case per thing with the excerpt as first reported, at `POST /api/kernel/moderation/reports` for verified accounts, 20 an hour; word and link filters (`screen`, `hold`) hold text and never drop it; staff with `kernel.moderation.act` dismiss, hide, delete or time out (an hour to 30 days, `auth_user.timed_out_until`, `moderation.can_post`), and a ban suspends the account, which also needs `auth.user.suspend`; suspension and restore at `POST /api/auth/admin/users/{id}/suspend` and `/restore`, emitting `auth.user.suspended` and the new `auth.user.restored`; the author is told why, never by whom; moderators read their slice of the audit log (6, 7, 11, 14.7, 14.10, 14.11, decision 0039) |
 | 2026-11-17 | Kernel notifications: `notifications.notify(db, user_id, key, context, link=)` writes a notice and queues its email in the caller's transaction, each by the person's choice for that key, else module.json's default; each key needs an email template of its name; email only to an active account with a verified address; every notice email has a footer and one-click unsubscribe (RFC 8058) for that key alone; notices are kept 90 days after they're read and a year at most; security emails are never notices (6, 14.6, decision 0038) |

@@ -156,3 +156,16 @@ None. On 2026-11-17 the owner approved the goal and non-goals as written, with t
 5. **Serve the built web app from the kernel now?** Recommended: yes, with VybeSite's path and cache rules and a minimal shell while `WEB_DIST` is unset, so the harness and K5's site template use it as it is.
 
 ## Changes after approval
+
+Made while building (#73); decision 0041 records them.
+
+1. **`Entry(noindex=False)`.** The kernel can't know an entry's page is `noindex` without asking every page on each sitemap request, so the module marks the entry from the same rows it marks the page; `sitemap.xml` and `llms.txt` leave it out. The kernel also drops an entry that its module's own public pattern doesn't answer (a member page, another module's address, no address at all).
+2. **The plain head.** A member page, the admin, a 404 and a 503 carry the title, `noindex` and `og:site_name` only: they have no canonical address to give, as VybeSite's 404 head has none. "Every answer's head" holds for pages.
+3. **`PAGES`.** The harness finds a module's pages by the fixed name `PAGES` in its `server_copy.py`, as it finds `router`, `Settings`, `CSP` and `EMAILS` (SPEC 7).
+4. **A home module that's off.** While the module that declares `/` is off, the kernel's home page answers there, not a 404.
+5. **A build without the markers is refused at start,** where VybeSite served it as built with a warning.
+6. **`//`, a backslash or a control character** in a path is a 404 before anything else, so the trailing-slash 301 can never be turned toward another host.
+7. **The catch-all never matches `/api`** (a path convertor), so the API's misses stay 404 for every method and a wrong method on an API route stays 405, as before.
+8. **robots.txt's member rules** write `:names` as `*` and end with `$`, so `/account` doesn't also close `/accountant`.
+9. **What an unread identity does:** the default home page and `robots.txt` answer 503 (a 5xx robots.txt keeps crawlers out while the AI switch is unread); a module's page whose own rows were read still answers, with the site's name alone.
+10. **`docs/TESTING.md`** doesn't exist in this repo: nh3 is in the Stack (`CLAUDE.md`, `AGENTS.md`) and `requirements.in`.

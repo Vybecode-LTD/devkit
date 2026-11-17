@@ -1,0 +1,11 @@
+{
+  "$comment": "Advisories npm audit may report while no fixed version exists (tools/npm_audit.py, decision 0015). Each entry: the GHSA id, the package, why it's accepted, and until when (90 days at most). Remove an entry the moment a fix ships.",
+  "allow": [
+    {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "package": "picomatch",
+      "until": "2026-12-17",
+      "why": "ReDoS from an attacker-written extglob pattern, in every picomatch to 4.0.7, the latest; no fixed version on 2026-11-17. It reaches only the build and test tools (vite, vitest, typescript-eslint; npm ls --omit=dev lists none), whose globs are the project's own."
+    }
+  ]
+}

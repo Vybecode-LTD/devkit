@@ -16,4 +16,6 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 | `contracts/k3-audit.md` | K3's audit log: `audit.record` for every module, the staff and own-activity reads, pruning, `kernel.audit` (PR #67) |
 | `contracts/k3-notifications.md` | K3's notifications: `notifications.notify`, per-person preferences per key, one-click unsubscribe, `kernel.notifications` (PR #69 predicted) |
 | `contracts/k3-moderation.md` | K3's moderation: reports, the staff queue, word and link filters, actions and suspension, `kernel.moderation` (PR #71) |
-| `contracts/k3-public-rendering.md` | K3's public rendering: each page's head, words and JSON-LD in the shell, real 404s, `sitemap.xml`, `robots.txt`, `llms.txt`, `kernel.server_copy` (approved; PR #73 predicted) |
+| `contracts/k3-public-rendering.md` | K3's public rendering: each page's head, words and JSON-LD in the shell, real 404s, `sitemap.xml`, `robots.txt`, `llms.txt`, `kernel.server_copy` (PR #73) |
+
+`npm-audit-allowlist/` is a proposal waiting on the owner: `npm audit` with an expiring allowlist, for the picomatch advisory that has no fix yet (its README says why and how to adopt it).
