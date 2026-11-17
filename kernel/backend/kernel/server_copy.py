@@ -306,8 +306,9 @@ class Page:
 @dataclass(frozen=True)
 class Moved:
     """A page that lives somewhere else now: a 301 (or a 302 when not
-    `permanent`) to `path`, a path on this site. Without a query of its own,
-    the request's query goes with it."""
+    `permanent`) to `path`, a path on this site, which may end in a query and
+    a fragment. Without a query of its own, the request's query goes with it,
+    before the fragment."""
 
     path: str
     permanent: bool = True

@@ -307,8 +307,11 @@ async def answer(request: Request, full_path: str, db: AsyncSession = Depends(ge
         return _plain(built, f"Page not found · {name}", 404)
     if isinstance(found_page, server_copy.Moved):
         location = found_page.path
-        if query and "?" not in location:
-            location = f"{location}?{query}"
+        # The request's query goes before any fragment, and only where the
+        # path itself has none: a ? inside the fragment isn't a query (Codex on #73).
+        before, hash_mark, fragment = location.partition("#")
+        if query and "?" not in before:
+            location = f"{before}?{query}{hash_mark}{fragment}"
         return RedirectResponse(location, status_code=301 if found_page.permanent else 302)
     return _page(built, found_page, path, await _identity(db))
 

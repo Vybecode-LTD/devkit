@@ -66,6 +66,9 @@ def _blog(**kwargs: Any) -> FakePages:
             "/blog/old": Moved("/blog/hello"),
             "/blog/temp": Moved("/blog/hello", permanent=False),
             "/blog/elsewhere": Moved("/shop?from=blog"),
+            "/blog/anchored": Moved("/blog/hello#part"),
+            "/blog/marked": Moved("/blog/hello#q?b"),
+            "/blog/both": Moved("/shop?from=blog#top"),
         },
         entries=[Entry("/blog/hello", title="Hello", description="The first post.")],
         **kwargs,
@@ -191,7 +194,17 @@ async def test_a_moved_page_redirects_on_this_site(app_factory: AppFactory, dist
         kept = await client.get("/blog/old?x=1")
         temp = await client.get("/blog/temp")
         own = await client.get("/blog/elsewhere?dropped=1")
+        anchored = await client.get("/blog/anchored?page=2")
+        marked = await client.get("/blog/marked?page=2")
+        both = await client.get("/blog/both?dropped=1")
+        bare = await client.get("/blog/anchored")
     assert (old.status_code, old.headers["location"]) == (301, "/blog/hello")
+    # The request's query goes before the fragment, and a ? in the fragment isn't a query
+    # (Codex on #73).
+    assert anchored.headers["location"] == "/blog/hello?page=2#part"
+    assert marked.headers["location"] == "/blog/hello?page=2#q?b"
+    assert both.headers["location"] == "/shop?from=blog#top"
+    assert bare.headers["location"] == "/blog/hello#part"
     assert kept.headers["location"] == "/blog/hello?x=1"
     assert (temp.status_code, temp.headers["location"]) == (302, "/blog/hello")
     assert own.headers["location"] == "/shop?from=blog"
