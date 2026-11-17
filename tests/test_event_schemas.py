@@ -44,7 +44,11 @@ def test_writing_makes_missing_files_and_removes_left_over_ones(tmp_path: Path) 
     assert event_schemas.main(["--check"], folder=tmp_path) == 1
 
     assert event_schemas.main([], folder=tmp_path) == 0
-    assert {path.name for path in tmp_path.iterdir()} == KERNEL_FILES | {"README.md"}
+    names = {path.name for path in tmp_path.iterdir()}
+    # Every declared payload, the modules' too, not only the kernel's (CodeRabbit on #65).
+    assert names == set(event_schemas.schemas()) | {"README.md"}
+    assert names >= KERNEL_FILES
+    assert "gone.post.published.v1.schema.json" not in names
     written = json.loads((tmp_path / "kernel.settings.changed.v1.schema.json").read_text("utf-8"))
     assert sorted(written["required"]) == ["module", "version"]
     assert event_schemas.main(["--check"], folder=tmp_path) == 0
