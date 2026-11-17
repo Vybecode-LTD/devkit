@@ -14,7 +14,9 @@ For example:
     @moderation.kind("my-module.comment", actions=("hide", "delete"))
     class Comment(moderation.Kind):
         async def describe(self, db, id):
-            if not id.isdigit():  # a report can name any id
+            # A report can name any id: ASCII digits only, so "²", " 12" and
+            # "1_0" (which int() reads as 10) are no such thing.
+            if not (id.isascii() and id.isdigit()):
                 return None
             found = await db.get(models.Comment, int(id))
             if found is None:
