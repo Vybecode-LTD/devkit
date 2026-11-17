@@ -188,7 +188,13 @@ def test_the_actor_is_never_left_out() -> None:
 
 @pytest.mark.parametrize(
     "details",
-    [{"to": "ana@site.test"}, {"people": ["x", {"email": "b@c"}]}, {"note": "@"}],
+    [
+        {"to": "ana@site.test"},
+        {"people": ["x", {"email": "b@c"}]},
+        {"note": "@"},
+        {"ana@site.test": True},  # CodeRabbit on #67
+        {"outer": {"b@c": 1}},
+    ],
 )
 def test_details_never_hold_an_address(details: dict[str, Any]) -> None:
     with pytest.raises(ValueError, match="address"):
@@ -224,6 +230,25 @@ def test_details_never_name_a_secret(key: str) -> None:
 def test_details_hold_only_json(value: Any) -> None:
     with pytest.raises(ValueError, match="Audit details"):
         _record(details={"value": value})
+
+
+NUL = chr(0)
+
+
+@pytest.mark.parametrize(
+    "given",
+    [
+        {"details": {"label": f"a{NUL}b"}},
+        {"details": {f"a{NUL}": 1}},
+        {"details": {"list": [NUL]}},
+        {"target": ("blog.post", f"7{NUL}")},
+    ],
+)
+def test_a_nul_character_is_refused_before_postgres_sees_it(given: dict[str, Any]) -> None:
+    """CodeRabbit on #67: Postgres refuses it in JSONB and text, at the
+    caller's flush; `record` refuses it first."""
+    with pytest.raises(ValueError, match="NUL"):
+        _record(**given)
 
 
 @pytest.mark.parametrize("details", [["method", "totp"], "method=totp", 7])
@@ -420,6 +445,18 @@ async def test_the_database_refuses_to_delete_an_entry_but_for_the_pruning(
     assert await _entries(db, kind) == []
 
 
+async def test_the_database_refuses_to_empty_the_log(db: AsyncSession) -> None:
+    """CodeRabbit on #67: TRUNCATE runs no row trigger. Rolled back whatever
+    happens, so a run without the trigger loses nothing."""
+    kind, _ = await _one(db)
+    try:
+        with pytest.raises(DBAPIError, match="append-only"):
+            await db.execute(text("TRUNCATE kernel_audit_event"))
+    finally:
+        await db.rollback()
+    assert len(await _entries(db, kind)) == 1
+
+
 # --- pruning ------------------------------------------------------------------------
 
 
@@ -553,9 +590,9 @@ async def test_the_staff_s_log_is_newest_first_in_pages_that_neither_repeat_nor_
             body = response.json()
             seen += [item["target"]["id"] for item in body["items"]]
             pages += 1
-            if body["next"] is None:
+            if body["next_cursor"] is None:
                 break
-            query["before"] = body["next"]
+            query["cursor"] = body["next_cursor"]
     assert (seen, pages) == (["4", "3", "2", "1", "0"], 3)
 
 
@@ -582,9 +619,9 @@ async def test_entries_written_at_the_same_moment_page_by_id(
         while True:
             body = (await client.get(STAFF_LOG, params=query, headers=headers)).json()
             seen += [item["target"]["id"] for item in body["items"]]
-            if body["next"] is None:
+            if body["next_cursor"] is None:
                 break
-            query["before"] = body["next"]
+            query["cursor"] = body["next_cursor"]
     assert seen == ["2", "1", "0"]
 
 
@@ -624,7 +661,7 @@ async def test_an_item_on_the_staff_s_log_has_every_field(
                 "details": {"method": "totp"},
             }
         ],
-        "next": None,
+        "next_cursor": None,
     }
 
 
@@ -677,11 +714,11 @@ async def test_the_staff_s_log_filters_by_person_action_target_and_time(
         {"action": "auth"},
         {"action": "auth..x"},
         {"target_id": "7"},
-        {"before": "not-a-cursor"},
-        {"before": "123"},
-        {"before": "9999999999999999999.1"},  # past the last datetime (Codex on #67)
-        {"before": "1.9223372036854775808"},  # past Postgres's bigint
-        {"before": "1." + "9" * 20},
+        {"cursor": "not-a-cursor"},
+        {"cursor": "123"},
+        {"cursor": "9999999999999999999.1"},  # past the last datetime (Codex on #67)
+        {"cursor": "1.9223372036854775808"},  # past Postgres's bigint
+        {"cursor": "1." + "9" * 20},
         {"since": "yesterday"},
     ],
 )
@@ -739,17 +776,17 @@ async def test_one_s_own_activity_comes_in_pages(db: AsyncSession, app_factory: 
         headers = await _as(db, ana)
         first = (await client.get(OWN_LOG, params={"limit": 2}, headers=headers)).json()
         second = await client.get(
-            OWN_LOG, params={"limit": 2, "before": first["next"]}, headers=headers
+            OWN_LOG, params={"limit": 2, "cursor": first["next_cursor"]}, headers=headers
         )
-        bad = await client.get(OWN_LOG, params={"before": "x"}, headers=headers)
+        bad = await client.get(OWN_LOG, params={"cursor": "x"}, headers=headers)
         late = await client.get(
-            OWN_LOG, params={"before": "9999999999999999999.1"}, headers=headers
+            OWN_LOG, params={"cursor": "9999999999999999999.1"}, headers=headers
         )
         whole = (await client.get(OWN_LOG, params={"limit": 3}, headers=headers)).json()
     assert len(first["items"]) == 2
     assert len(second.json()["items"]) == 1
-    assert second.json()["next"] is None
-    assert (len(whole["items"]), whole["next"]) == (3, None)  # a full last page ends it
+    assert second.json()["next_cursor"] is None
+    assert (len(whole["items"]), whole["next_cursor"]) == (3, None)  # a full last page ends it
     assert {i["id"] for i in first["items"]}.isdisjoint(i["id"] for i in second.json()["items"])
     assert (bad.status_code, _code(bad)) == (422, "kernel.invalid_request")
     assert (late.status_code, _code(late)) == (422, "kernel.invalid_request")

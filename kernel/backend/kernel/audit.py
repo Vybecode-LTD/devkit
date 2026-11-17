@@ -27,7 +27,8 @@ Every refusal is a ValueError, raised before anything is added.
 
 **Reading** is `read`, for the staff's log (`GET /api/kernel/admin/audit`,
 `auth.audit.read`) and each person's own security activity
-(`GET /api/auth/activity`): newest first, in pages keyed on `(at, id)`.
+(`GET /api/auth/activity`): newest first, in pages keyed on `(at, id)`,
+as SPEC 7 has every list: `?cursor=&limit=` in, `{items, next_cursor}` out.
 """
 
 from __future__ import annotations
@@ -159,6 +160,8 @@ def _target(target: object) -> tuple[str, str]:
     if isinstance(raw, bool) or not isinstance(raw, str | int | uuid.UUID):
         raise ValueError("An audit target's id is text, a whole number or a UUID.")
     ident = str(raw)
+    if "\x00" in ident:
+        raise ValueError("An audit target's id never holds a NUL character.")
     if not 0 < len(ident) <= MAX_TARGET_ID:
         raise ValueError(f"An audit target's id is 1 to {MAX_TARGET_ID} characters.")
     return kind, ident
@@ -170,6 +173,16 @@ def _id(value: object, what: str) -> uuid.UUID | None:
     raise ValueError(f"An audit entry's {what} is an account's UUID or None.")
 
 
+def _text(value: str, where: str) -> None:
+    """ValueError for text an entry mustn't hold: a NUL, which Postgres's
+    JSONB and text refuse at the caller's flush, or an address (an `@`), as a
+    value or a key (CodeRabbit on #67)."""
+    if "\x00" in value:
+        raise ValueError(f"Audit entries never hold a NUL character ({where}).")
+    if "@" in value:
+        raise ValueError(f"Audit details never hold an address ({where}).")
+
+
 def _plain(value: Any, where: str) -> Any:
     """`value` as JSON, or ValueError for anything an entry mustn't hold."""
     if value is None or isinstance(value, bool | int):
@@ -177,8 +190,7 @@ def _plain(value: Any, where: str) -> Any:
     if isinstance(value, enum.Enum):
         return _plain(value.value, where)
     if isinstance(value, str):
-        if "@" in value:
-            raise ValueError(f"Audit details never hold an address ({where}).")
+        _text(value, where)
         return value
     if isinstance(value, float):
         if not math.isfinite(value):
@@ -193,6 +205,7 @@ def _plain(value: Any, where: str) -> Any:
         for key, item in value.items():
             if not isinstance(key, str):
                 raise ValueError(f"Audit details' keys are text ({where}).")
+            _text(key, f"{where} key")
             if _SECRET_PARTS & set(key.lower().split("_")):
                 raise ValueError(f"Audit details never name a secret ({where}.{key}).")
             out[key] = _plain(item, f"{where}.{key}")
@@ -264,13 +277,13 @@ _DIGITS = re.compile(r"[0-9]{1,19}")
 _MAX_ID = 2**63 - 1
 
 
-def cursor(entry: AuditEvent) -> str:
+def cursor_of(entry: AuditEvent) -> str:
     """Where the next page starts: after `entry`, which it names."""
     return f"{(entry.at - _EPOCH) // timedelta(microseconds=1)}.{entry.id}"
 
 
 def _after(value: str) -> tuple[datetime, int]:
-    """The `(at, id)` a cursor names. Problem 422 for one `cursor` couldn't
+    """The `(at, id)` a cursor names. Problem 422 for one `cursor_of` couldn't
     have made: not digits, a time past the last a datetime holds, or an id
     past the column's (Codex on #67)."""
     micros, dot, ident = value.partition(".")
@@ -285,7 +298,7 @@ def _after(value: str) -> tuple[datetime, int]:
             "kernel.invalid_request",
             422,
             "Some of what was sent isn't valid.",
-            errors={"before": ["Not a page of the audit log."]},
+            errors={"cursor": ["Not a page of the audit log."]},
         ) from None
 
 
@@ -299,14 +312,14 @@ async def read(
     db: AsyncSession,
     *,
     where: Sequence[ColumnElement[bool]] = (),
-    before: str | None = None,
+    cursor: str | None = None,
     limit: int = 50,
 ) -> Page:
-    """A page of entries matching `where`, newest first. Problem 422 for a
-    cursor `cursor` didn't make."""
+    """A page of entries matching `where`, newest first, after `cursor`
+    (SPEC 7's list shape). Problem 422 for a cursor `cursor_of` didn't make."""
     query = select(AuditEvent).where(*where)
-    if before is not None:
-        at, ident = _after(before)
+    if cursor is not None:
+        at, ident = _after(cursor)
         query = query.where(
             (AuditEvent.at < at) | ((AuditEvent.at == at) & (AuditEvent.id < ident))
         )
@@ -314,7 +327,7 @@ async def read(
     found = list((await db.scalars(query)).all())
     more = len(found) > limit
     entries = found[:limit]
-    return Page(entries, cursor(entries[-1]) if more else None)
+    return Page(entries, cursor_of(entries[-1]) if more else None)
 
 
 def item(entry: AuditEvent) -> dict[str, Any]:

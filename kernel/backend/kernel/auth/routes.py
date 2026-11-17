@@ -313,15 +313,15 @@ async def session(
 async def activity(
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
-    before: str | None = None,
+    cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=100),
 ) -> dict[str, Any]:
     """The person's own security activity (14.10): auth's entries about
     them, newest first, in pages, each saying whether they did it."""
     where = [AuditEvent.subject_id == user.id, AuditEvent.action.startswith("auth.")]
-    page = await audit_log.read(db, where=where, before=before, limit=limit)
+    page = await audit_log.read(db, where=where, cursor=cursor, limit=limit)
     items = [audit_log.own_item(entry, user.id) for entry in page.entries]
-    return {"items": items, "next": page.next}
+    return {"items": items, "next_cursor": page.next}
 
 
 @router.post("/sign-out", status_code=204, dependencies=[Depends(public)])

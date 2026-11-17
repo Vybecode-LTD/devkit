@@ -2,8 +2,10 @@
 table): auth's `auth_audit_event` is renamed `kernel_audit_event`, keeping its
 rows, and gains a target (`target_type`, `target_id`) so any module can
 record what it acted on. Two indexes serve the staff's log by person and by
-target. A trigger makes it append-only: an UPDATE is refused, and a DELETE
-but in a transaction that set `kernel.audit_prune` (`kernel.prune_audit`).
+target. Two triggers make it append-only: an UPDATE is refused, and a
+DELETE but in a transaction that set `kernel.audit_prune`
+(`kernel.prune_audit`); a TRUNCATE, which runs no row trigger, is refused
+outright (CodeRabbit on #67).
 
 Revision ID: kernel_0008
 Revises: kernel_0007
@@ -63,9 +65,14 @@ def upgrade() -> None:
         "CREATE TRIGGER kernel_audit_event_append_only BEFORE UPDATE OR DELETE "
         "ON kernel_audit_event FOR EACH ROW EXECUTE FUNCTION kernel_audit_event_append_only()"
     )
+    op.execute(
+        "CREATE TRIGGER kernel_audit_event_no_truncate BEFORE TRUNCATE ON kernel_audit_event "
+        "FOR EACH STATEMENT EXECUTE FUNCTION kernel_audit_event_append_only()"
+    )
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER kernel_audit_event_no_truncate ON kernel_audit_event")
     op.execute("DROP TRIGGER kernel_audit_event_append_only ON kernel_audit_event")
     op.execute("DROP FUNCTION kernel_audit_event_append_only()")
     op.drop_index("ix_kernel_audit_event_target", table_name="kernel_audit_event")

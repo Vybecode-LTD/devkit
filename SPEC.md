@@ -620,7 +620,7 @@ Both limits are site settings (Q6).
 
 ### 14.10 Audit log
 
-- `kernel_audit_event` is the one audit log, auth's and every module's, written through `audit.record` (section 6, decision 0037). It is append-only: Postgres refuses to change an entry, and to delete one but in the nightly pruning. Auth records sign-ins and failures, second-factor and passkey changes, password and email changes, provider links, role changes, ended sessions, API keys, suspensions and deletions; modules record what they act on.
+- `kernel_audit_event` is the one audit log, auth's and every module's, written through `audit.record` (section 6, decision 0037). It is append-only: Postgres refuses to change an entry, to empty the table, and to delete an entry but in the nightly pruning. Auth records sign-ins and failures, second-factor and passkey changes, password and email changes, provider links, role changes, ended sessions, API keys, suspensions and deletions; modules record what they act on.
 - Each row holds the time, actor, subject, action, result, target, IP, user agent and details. Rows are kept 1 year by default (`AUDIT_KEEP_DAYS`, at least 30), then `kernel.prune_audit` removes them.
 - Staff holding `auth.audit.read` see all of it (`GET /api/kernel/admin/audit`, behind the admin gate), filtered by person, action, target and time. Each person sees their own security activity on the account page (`GET /api/auth/activity`), told whether they did it but never which staff member did.
 

@@ -82,7 +82,7 @@ async def audit_log(
     target_id: str | None = None,
     since: datetime | None = None,
     until: datetime | None = None,
-    before: str | None = None,
+    cursor: str | None = None,
     limit: int = Query(default=50, ge=1, le=100),
 ) -> dict[str, Any]:
     """Every module's entries, newest first, in pages: by who did it
@@ -113,5 +113,5 @@ async def audit_log(
         where.append(AuditEvent.at >= _utc(since))
     if until is not None:
         where.append(AuditEvent.at < _utc(until))
-    page = await audit.read(db, where=where, before=before, limit=limit)
-    return {"items": [audit.item(entry) for entry in page.entries], "next": page.next}
+    page = await audit.read(db, where=where, cursor=cursor, limit=limit)
+    return {"items": [audit.item(entry) for entry in page.entries], "next_cursor": page.next}

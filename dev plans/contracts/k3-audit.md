@@ -37,14 +37,14 @@ def record(
 - **`request`**, when given, keeps the client's network (`client_address`, as INET) and the first 300 characters of its user agent.
 - **Auth's helpers stay:** `kernel.auth.audit.record(db, request, action, result, *, actor, subject, details)` and `record_by_kernel` become thin wrappers over `audit.record`, so their call sites don't change.
 
-**Reading** (both answer `{"items": [...], "next": <cursor> | null}`, newest first, keyset on `(at, id)`; `limit` 1 to 100, default 50; 422 on a bad filter):
+**Reading** (both take `?cursor=&limit=` and answer `{"items": [...], "next_cursor": <cursor> | null}`, SPEC 7's list shape, newest first, keyset on `(at, id)`; `limit` 1 to 100, default 50; 422 on a bad filter):
 
-- `GET /api/kernel/audit` (`auth.audit.read`): filters `actor`, `subject`, `action` (exact, or a prefix ending in `.` such as `blog.`), `target_type` with `target_id`, `since`, `until`, `before` (the cursor). Each item: `{id, at, action, result, actor_id, subject_id, target: {type, id} | null, ip, user_agent, details}`. 401 signed out, 403 without the permission.
+- `GET /api/kernel/audit` (`auth.audit.read`): filters `actor`, `subject`, `action` (exact, or a prefix ending in `.` such as `blog.`), `target_type` with `target_id`, `since`, `until`, `cursor`. Each item: `{id, at, action, result, actor_id, subject_id, target: {type, id} | null, ip, user_agent, details}`. 401 signed out, 403 without the permission.
 - `GET /api/auth/activity` (signed in): the person's own security activity, entries whose subject is them and whose action is `auth.*`. Each item as above, but `by_you: bool` replaces `actor_id`, so it never names a staff member.
 
 **Pruning:** `kernel.prune_audit`, scheduled daily (`@jobs.scheduled`, as `kernel.prune_jobs`), deletes entries older than `AUDIT_KEEP_DAYS` (`KernelConfig`, default 365, at least 30) in batches of 1,000.
 
-**Append-only in the database:** a trigger refuses every UPDATE, and every DELETE unless the transaction set `kernel.audit_prune` (`SET LOCAL`), which only `kernel.prune_audit` does.
+**Append-only in the database:** a trigger refuses every UPDATE, and every DELETE unless the transaction set `kernel.audit_prune` (`SET LOCAL`), which only `kernel.prune_audit` does; a second refuses every TRUNCATE.
 
 ## 3. Data
 
@@ -92,4 +92,6 @@ None. On 2026-11-17 the owner approved the goal and non-goals as written, with t
 
 ## Changes after approval
 
-- 2026-11-17: the staff's log is `GET /api/kernel/admin/audit`, not `/api/kernel/audit`: under `/api/<id>/admin` the admin gate applies (a staff role and a confirmed second factor, `docs/contracts/auth-api.md`, Staff), as for every staff route. `kernel.audit` also exposes `install`, `keep`, `check_action`, `read`, `item`, `own_item`, `cursor`, `PRUNE`, `PRUNE_SWITCH`, `BATCH`, `NAME`, `PREFIX` and `MAX_DETAILS`, for `assemble`, the routes and the tests. A bad cursor answers 422 `kernel.invalid_request` on both routes. `kernel.models` imports auth's models last, since auth's re-export the audit log's model from it.
+- 2026-11-17, review of #67 (CodeRabbit and Codex): both routes use SPEC 7's list names, `?cursor=` in and `next_cursor` out, not `before` and `next`; a cursor past the last datetime or Postgres's bigint is a 422; `record` refuses a NUL character (Postgres's JSONB and text refuse it at the flush) and an address as a details key; a second trigger refuses TRUNCATE, which runs no row trigger.
+
+- 2026-11-17: the staff's log is `GET /api/kernel/admin/audit`, not `/api/kernel/audit`: under `/api/<id>/admin` the admin gate applies (a staff role and a confirmed second factor, `docs/contracts/auth-api.md`, Staff), as for every staff route. `kernel.audit` also exposes `install`, `keep`, `check_action`, `read`, `item`, `own_item`, `cursor_of`, `PRUNE`, `PRUNE_SWITCH`, `BATCH`, `NAME`, `PREFIX` and `MAX_DETAILS`, for `assemble`, the routes and the tests. A bad cursor answers 422 `kernel.invalid_request` on both routes. `kernel.models` imports auth's models last, since auth's re-export the audit log's model from it.
