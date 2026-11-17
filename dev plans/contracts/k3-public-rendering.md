@@ -52,7 +52,7 @@ class Pages(server_copy.Pages):
 | A page whose rows can't be read | 503 with `Retry-After`, never a 404 for a page that may exist |
 
 **Every answer's head and shell:**
-- The head carries the title, description, an absolute canonical, `og:title`, `og:description`, `og:url`, an absolute `og:type` and `og:image` (the page's, else the site's card), `og:site_name`, `twitter:card`, and `article:published_time` and `article:modified_time` when given.
+- The head carries the title, description, an absolute canonical, `og:title`, `og:description`, an absolute `og:url`, `og:type` (a type value: `website`, `article`), an absolute `og:image` (the page's, else the site's card), `og:site_name`, `twitter:card`, and `article:published_time` and `article:modified_time` when given.
 - The shell is sent `Cache-Control: no-cache`. HEAD is answered as GET, without the body.
 - JSON-LD goes in `<script type="application/ld+json">`, escaped so no value can close the tag. The CSP is unchanged, since a data block never runs.
 - With `WEB_DIST` unset, the kernel's own minimal shell is used: no scripts, the same markers.
@@ -86,7 +86,7 @@ None: no tables. The settings section above is a row in `kernel_setting`.
 - `kernel/backend/kernel/shell.py`: serving `WEB_DIST` and the shell
 - `kernel/tests/test_server_copy.py`
 - `kernel/tests/test_shell.py`
-- `docs/decisions/0040-public-rendering.md`
+- `docs/decisions/0041-public-rendering.md`
 
 **Changed:**
 
@@ -126,7 +126,7 @@ None: no tables. The settings section above is a row in `kernel_setting`.
 **`test_server_copy.py`:**
 
 - Matching: fixed segments win, ties refused at start, a module off is 404, and `routes.public` and `pages` must come together.
-- Each head tag is absolute and escaped, `og:image` falls back to the card, and JSON-LD can't close its tag.
+- Each URL-valued head tag (canonical, `og:url`, `og:image`) is absolute, every tag escaped, `og:image` falls back to the card, and JSON-LD can't close its tag.
 - The builders escape everything and `words` never holds `style` or `script`.
 - The default home page.
 - `sitemap.xml`: only the modules on, `noindex` out, the cap.

@@ -336,7 +336,7 @@ export default defineModule({
 **Rules**
 
 - Styling comes only from tokens (`var(--dk-*)`). Hard-coded colors fail lint. Tailwind v4's theme maps to the same tokens.
-- Use the kernel UI kit before writing a new component. The admin shell is VybeSite's, as it stands.
+- Use the kernel UI kit before writing a new component. The admin shell is built to the Vibrant Mindz canvas Admin design, styled by theme tokens, for every site, with VybeSite's behavior (accordions, unsaved changes, save conflicts, section history) and not its looks; only its generic parts are the kernel's (decision 0040).
 - Data comes only through the generated client and TanStack Query; no `fetch` inside components.
 - Every route is lazy-loaded, so a module that is switched off costs nothing in the bundle a visitor downloads.
 - Forms guard unsaved changes and send a `version` for optimistic concurrency (VybeSite's SaveConflict).
@@ -814,7 +814,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
-| 2026-11-17 | The admin shell is built to the Vibrant Mindz canvas Admin design, styled by theme tokens, for every site: only its generic parts in the kernel, checked in the site's dark theme and Machined Light (20, Q11; decision 0040, amending 0008) |
+| 2026-11-17 | The admin shell is built to the Vibrant Mindz canvas Admin design, styled by theme tokens, for every site: only its generic parts in the kernel, checked in the site's dark theme and Machined Light (8, 20, Q11; decision 0040, amending 0008) |
 | 2026-11-17 | Kernel moderation: modules declare what can be reported in `moderation.py` (`@moderation.kind`, which describes the thing and hides or deletes it); `moderation.report` keeps one open case per thing with the excerpt as first reported, at `POST /api/kernel/moderation/reports` for verified accounts, 20 an hour; word and link filters (`screen`, `hold`) hold text and never drop it; staff with `kernel.moderation.act` dismiss, hide, delete or time out (an hour to 30 days, `auth_user.timed_out_until`, `moderation.can_post`), and a ban suspends the account, which also needs `auth.user.suspend`; suspension and restore at `POST /api/auth/admin/users/{id}/suspend` and `/restore`, emitting `auth.user.suspended` and the new `auth.user.restored`; the author is told why, never by whom; moderators read their slice of the audit log (6, 7, 11, 14.7, 14.10, 14.11, decision 0039) |
 | 2026-11-17 | Kernel notifications: `notifications.notify(db, user_id, key, context, link=)` writes a notice and queues its email in the caller's transaction, each by the person's choice for that key, else module.json's default; each key needs an email template of its name; email only to an active account with a verified address; every notice email has a footer and one-click unsubscribe (RFC 8058) for that key alone; notices are kept 90 days after they're read and a year at most; security emails are never notices (6, 14.6, decision 0038) |
 | 2026-11-17 | Kernel audit: one append-only log, auth's `auth_audit_event` renamed `kernel_audit_event` with a target; `audit.record(db, action, actor=, ...)` adds an entry to the caller's transaction, refusing a kernel action it doesn't know, an owner that isn't installed, a secret or an address in its details; staff read it at `GET /api/kernel/admin/audit` (`auth.audit.read`), each person their own at `GET /api/auth/activity`; entries go after `AUDIT_KEEP_DAYS` (365); a trigger refuses changes and deletes but the pruning's (6, 14.10, 14.11, decision 0037) |
