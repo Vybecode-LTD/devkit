@@ -10,17 +10,19 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 - **Path:** `C:\DEV\AI-DevKit`. **Remote:** `https://github.com/Vybecode-LTD/devkit`, **public** (decision 0011). Never commit secrets, client material or private notes; private notes go in `docs/private/` (gitignored).
 - **The contract:** `SPEC.md`. Every module, the kernel and the CLI follow it. Read the sections you touch before every change.
 
-## Current state (2026-11-16)
+## Current state (2026-11-17)
 
 - Spec v0.1 written, the owner's answers applied.
 - **K0 and K1 done and audited** (#1 to #31). **K2 (auth) steps 1 to 8 done** (#32 to #54; decisions 0019 to 0028 and 0030): passwords, sessions, access, sign-in and sign-up, codes and magic links, resets and email change, password change, TOTP and recovery codes, passkeys, and the undo link for an added factor. Steps 9 to 11 wait until the site needs them (decision 0029).
-- **K3 has started, in the site's order:** storage (`kernel/storage.py`, #58, decision 0032), email (`kernel/email.py`, `kernel/mail_adapters.py`, #59, decision 0033: SMTP first, Resend only where SMTP is blocked), and the kernel's 19 mails as `kernel.*` templates a site can reword (`kernel/auth/mails.py`, #60). Next: jobs (`docs/HANDOFF.md`).
-- **Progress** is one record, `docs/progress.json`, made into `docs/PROGRESS.md` and the owner's visual ledger (#61). v1.0: 33% (19 of 56 steps).
+- **K3 is under way, in the site's order:** storage (`kernel/storage.py`, #58, decision 0032), email (`kernel/email.py`, `kernel/mail_adapters.py`, #59, decision 0033: SMTP first, Resend only where SMTP is blocked), the kernel's 19 mails as `kernel.*` templates a site can reword (`kernel/auth/mails.py`, #60), and jobs (`kernel/jobs.py`, `cron.py`, `worker.py`, #63, decision 0035: a Postgres queue enqueued in the caller's transaction, the worker in the web process by default, mail on the queue sealed, unverified accounts removed 7 days after their address was set). Next: events (`docs/HANDOFF.md`).
+- **Progress** is one record, `docs/progress.json`, made into `docs/PROGRESS.md` and the owner's visual ledger (#61). v1.0: 35% (20 of 56 steps).
 - **The project becomes MechFrame after K3** (decision 0034). Keep the DevKit name until that PR.
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`); its step 0 is done (#55, #56). It doubles as the spec's validation build.
 - **After v1.0:** the module roadmap and ten contract hooks are decided (decision 0018, `docs/plans/module-roadmap.md`). The hooks land with `devkit-hook-designer` after the kernel phases and before blog, chat and payments are extracted (SPEC 19, phase 3).
 
 ## Last Completed Task
+
+2026-11-16 to 17, overnight (Claude Code, the owner's machine): K3 jobs (#63, decision 0035), contract first (the owner approved it and chose the worker in the web process by default, its own service for Vibrant Mindz). Codex, CodeRabbit and CI found, and the PR fixed with failing-first tests: settings unknown to a standalone worker, the watchdog killing a long drain, a mail-queue limit below what `check` accepts, mail arriving out of order in the harness, a stale renewal entry, an owner longer than its column, queued mail surviving `/reset`, a shutdown waiting on cancelled jobs, and an undo putting back an unverified address on an old account (the owner chose to restart the 7 days: `auth_user.email_set_at`, migration `kernel_0007`). 16 mutants, all killed. The owner ran the landing push (auto mode refuses it). Then the handoff (#64).
 
 2026-11-16, evening (Claude Code, the owner's machine, mostly over Remote Control): K3 began. Storage (#58, decision 0032; the owner chose two buckets and moto with an opt-in live test), email with templates (#59, decision 0033; the owner chose Resend, then set SMTP first), the kernel's mails as templates (#60), the progress record, document and visual ledger the owner asked for (#61), and the owner's rename to MechFrame after K3 (decision 0034). The review bots found, and the PRs fixed: a fullwidth-quote header injection in download names (#58); unsendable templates, an unchecked worker mailer and a duplicate after a failed SMTP QUIT (#59); dropped HTML in the kernel's mails (#60); three ledger gaps (#61). Then the handoff (#62).
 
