@@ -100,6 +100,19 @@ def test_only_the_modules_on_are_matched() -> None:
     assert routes.home_owner(frozenset({"news"})) is None
 
 
+async def test_a_module_off_isnt_read_for_the_sitemap() -> None:
+    """Its rows may be the very thing that's broken: its sitemap isn't asked."""
+    off = FakePages(entries=[Entry("/gone")], error=OSError("down"))
+    routes = server_copy.build(
+        [
+            public_module("on", public=["/on"], pages=FakePages(entries=[Entry("/on")])),
+            public_module("off", public=["/gone"], pages=off),
+        ]
+    )
+    found = await server_copy.entries(None, routes, frozenset({"on"}))  # type: ignore[arg-type]
+    assert [(module, entry.path) for module, entry in found] == [("kernel", "/"), ("on", "/on")]
+
+
 async def test_the_sitemap_follows_the_modules_on() -> None:
     news = FakePages(entries=[Entry("/news/latest"), Entry("/news/old")])
     routes = server_copy.build(
