@@ -1046,10 +1046,12 @@ def test_serve_runs_until_a_stop_signal_and_returns_0() -> None:
     worker = Worker([], registry=registry, database=nowhere, mailer=LogMailer(), poll=0.05)
     timer = threading.Timer(0.5, signal.raise_signal, (signal.SIGINT,))
     timer.start()
+    ended: list[int] = []
     try:
-        assert serve(worker, watchdog=60) == 0
+        assert serve(worker, watchdog=60, end=ended.append) == 0
     finally:
         timer.cancel()
+    assert ended == []  # nothing left running: a normal exit
 
 
 def test_create_worker_builds_what_create_app_would() -> None:
@@ -1213,3 +1215,63 @@ async def test_a_cancelled_job_s_cleanup_doesn_t_hold_the_stop_up(
         await asyncio.wait_for(loop, timeout=10)
     assert time.monotonic() - began < 2
     assert "still finishing" in caplog.text
+    assert len(worker.stragglers) == 1  # what `serve` ends the process over
+
+
+async def test_the_watchdog_hears_from_a_worker_while_cancelled_jobs_clean_up(
+    database: Database,
+) -> None:
+    """CodeRabbit on #63: the bounded wait after cancelling beats too, so a
+    long one isn't taken for a stuck loop."""
+    owner = unique_id()
+    started = asyncio.Event()
+
+    async def slow_to_let_go(ctx: jobs.Context, payload: dict[str, Any]) -> None:
+        started.set()
+        try:
+            await asyncio.sleep(3600)
+        finally:
+            await asyncio.sleep(3)
+
+    worker = _worker(
+        database, owner, jobs.handler(f"{owner}.send", timeout=3600)(slow_to_let_go), drain=1.5
+    )
+    stopped = asyncio.Event()
+    beats: list[float] = []
+    worker.beat = lambda: beats.append(time.monotonic()) if stopped.is_set() else None
+    await _enqueue(database, f"{owner}.send")
+    loop = asyncio.create_task(worker.run(stopped))
+    await asyncio.wait_for(started.wait(), timeout=10)
+    began = time.monotonic()
+    stopped.set()
+    await asyncio.wait_for(loop, timeout=10)
+    cancelled_at = began + 1.5
+    assert [beat for beat in beats if beat >= cancelled_at - 0.05], beats
+
+
+def test_serve_ends_the_process_when_cancelled_jobs_won_t_finish(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CodeRabbit on #63: `asyncio.run` would wait for a job still cleaning up
+    after its cancel, however long; `serve` ends the process instead, and the
+    job's lease lapses."""
+    registry = ModuleRegistry([], [], ttl=0)
+    nowhere = Database("postgresql://devkit:devkit@127.0.0.1:1/none")
+    worker = Worker([], registry=registry, database=nowhere, mailer=LogMailer())
+
+    async def run_leaving_a_straggler(stop: asyncio.Event) -> None:
+        async def stubborn() -> None:
+            try:
+                await asyncio.sleep(3600)
+            finally:
+                await asyncio.sleep(0.3)
+
+        task = asyncio.create_task(stubborn())
+        await asyncio.sleep(0)
+        task.cancel()
+        worker.stragglers = {task}
+
+    monkeypatch.setattr(worker, "run", run_leaving_a_straggler)
+    ended: list[int] = []
+    assert serve(worker, watchdog=60, end=ended.append) == 0
+    assert ended == [0]

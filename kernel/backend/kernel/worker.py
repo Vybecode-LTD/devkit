@@ -119,6 +119,9 @@ class Worker:
         self._running: dict[uuid.UUID, int] = {}
         #: Called on every turn of the loop; `serve` points it at the watchdog.
         self.beat: Callable[[], None] = lambda: None
+        #: Jobs still cleaning up after `run` cancelled them; `serve` ends the
+        #: process rather than wait for them.
+        self.stragglers: set[asyncio.Task[None]] = set()
 
     @property
     def names(self) -> frozenset[str]:
@@ -388,25 +391,30 @@ class Worker:
                         continue
                     await _nap(stop, tasks, self.poll)
             finally:
-                pending = set(tasks)
-                deadline = time.monotonic() + self.drain
-                # Beating while it waits: a drain may outlast the watchdog's
-                # limit, and only a loop that stops answering should trip it.
-                while pending and (left := deadline - time.monotonic()) > 0:
-                    self.beat()
-                    _, pending = await asyncio.wait(pending, timeout=min(left, 1.0))
+                pending = await self._wait_beating(set(tasks), self.drain)
                 for task in pending:
                     task.cancel()
                 # Bounded too: a handler still cleaning up after its cancel is
                 # left to its lease rather than holding the stop up.
-                if pending:
-                    _, stragglers = await asyncio.wait(pending, timeout=max(self.drain, 1.0))
-                    if stragglers:
-                        log.warning(
-                            "%d jobs are still finishing after the drain; their leases "
-                            "will lapse and another worker will run them again.",
-                            len(stragglers),
-                        )
+                self.stragglers = await self._wait_beating(pending, max(self.drain, 1.0))
+                if self.stragglers:
+                    log.warning(
+                        "%d jobs are still finishing after the drain; their leases "
+                        "will lapse and another worker will run them again.",
+                        len(self.stragglers),
+                    )
+
+    async def _wait_beating(
+        self, pending: set[asyncio.Task[None]], seconds: float
+    ) -> set[asyncio.Task[None]]:
+        """Waits up to `seconds` for `pending`, beating about once a second: a
+        drain may outlast the watchdog's limit, and only a loop that stops
+        answering should trip it. Returns the tasks still running."""
+        deadline = time.monotonic() + seconds
+        while pending and (left := deadline - time.monotonic()) > 0:
+            self.beat()
+            _, pending = await asyncio.wait(pending, timeout=min(left, 1.0))
+        return pending
 
 
 async def _nap(stop: asyncio.Event, tasks: set[asyncio.Task[None]], seconds: float) -> None:
@@ -495,9 +503,16 @@ def stop_on_signals(stop: asyncio.Event) -> Iterator[None]:
                 loop.remove_signal_handler(sig)
 
 
-def serve(worker: Worker, *, watchdog: float = WATCHDOG_SECONDS) -> int:
+def serve(
+    worker: Worker,
+    *,
+    watchdog: float = WATCHDOG_SECONDS,
+    end: Callable[[int], object] = os._exit,
+) -> int:
     """Runs `worker` as a process of its own until SIGTERM or SIGINT. Returns
-    the exit status: 0."""
+    the exit status: 0. A job still cleaning up after the drain ends the
+    process at once instead (`end`), still with 0: `asyncio.run` would wait for
+    it however long, and its lease lapses for another worker."""
 
     async def main() -> None:
         stop = asyncio.Event()
@@ -508,6 +523,12 @@ def serve(worker: Worker, *, watchdog: float = WATCHDOG_SECONDS) -> int:
                 await worker.run(stop)
         finally:
             await worker.database.dispose()
+        if worker.stragglers:
+            log.warning(
+                "Ending the worker with %d jobs still cleaning up; their leases will lapse.",
+                len(worker.stragglers),
+            )
+            end(0)
 
     asyncio.run(main())
     return 0
