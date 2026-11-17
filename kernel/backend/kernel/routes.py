@@ -1,5 +1,5 @@
 """The kernel's own routes, at /api/kernel: the health check, the modules on,
-and the staff's audit log (decision 0037)."""
+the staff's audit log (decision 0037), and each person's notices (decision 0038)."""
 
 from __future__ import annotations
 
@@ -9,14 +9,16 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, ConfigDict, RootModel, StrictBool, model_validator
 from sqlalchemy import ColumnElement, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import audit
+from kernel import audit, notifications
 from kernel.access import public
-from kernel.auth.dependencies import require_permission
+from kernel.auth.dependencies import current_user, require_permission
+from kernel.auth.models import User
 from kernel.db import get_db
 from kernel.errors import Problem
 from kernel.models import AuditEvent
@@ -115,3 +117,110 @@ async def audit_log(
         where.append(AuditEvent.at < _utc(until))
     page = await audit.read(db, where=where, cursor=cursor, limit=limit)
     return {"items": [audit.item(entry) for entry in page.entries], "next_cursor": page.next}
+
+
+# --- each person's notices (kernel.notifications, decision 0038) ------------------------
+
+
+async def _modules_on(request: Request) -> frozenset[str]:
+    on: frozenset[str] = await request.app.state.modules.current(
+        request.app.state.database.sessions
+    )
+    return on
+
+
+@router.get("/notifications")
+async def notices(
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+    cursor: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> dict[str, Any]:
+    """The person's notices, newest first, in pages, and how many are unread."""
+    return await notifications.listed(db, user.id, cursor=cursor, limit=limit)
+
+
+class ReadNotices(BaseModel):
+    """`{ids: [...]}` (1 to 100 of the person's notices) or `{all: true}`."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    ids: list[str] | None = None
+    all: StrictBool | None = None
+
+    @model_validator(mode="after")
+    def _one(self) -> ReadNotices:
+        if (self.ids is None) == (self.all is None) or self.all is False:
+            raise ValueError("Send either ids or all: true.")
+        if self.ids is not None and not 1 <= len(self.ids) <= 100:
+            raise ValueError("Send 1 to 100 ids.")
+        return self
+
+
+@router.post("/notifications/read", status_code=204)
+async def read_notices(
+    body: ReadNotices, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
+) -> Response:
+    """Marks the person's own notices read; anyone else's id changes nothing."""
+    ids = None
+    if body.ids is not None:
+        try:
+            ids = [uuid.UUID(value) for value in body.ids]
+        except ValueError:
+            raise _invalid("ids", "Each id is a notice's id.") from None
+    await notifications.mark_read(db, user.id, ids)
+    return Response(status_code=204)
+
+
+class Choice(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    in_site: StrictBool
+    email: StrictBool
+
+
+class Choices(RootModel[dict[str, Choice]]):
+    """`{"<key>": {in_site, email}, ...}`, strict as every body (SPEC 7)."""
+
+    model_config = ConfigDict(strict=True)
+
+
+@router.get("/notifications/preferences")
+async def notice_preferences(
+    request: Request, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Every key of the modules on, with the person's choice for it."""
+    on = await _modules_on(request)
+    return {"items": await notifications.preferences(db, user.id, on)}
+
+
+@router.put("/notifications/preferences")
+async def choose_notices(
+    request: Request,
+    body: Choices,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Saves the person's choices for the keys sent; 422 for a key of no module on."""
+    on = await _modules_on(request)
+    changes = {key: (choice.in_site, choice.email) for key, choice in body.root.items()}
+    await notifications.choose(db, user.id, changes, on)
+    return {"items": await notifications.preferences(db, user.id, on)}
+
+
+@router.get(
+    notifications.UNSUBSCRIBE_API.removeprefix("/api/kernel"), dependencies=[Depends(public)]
+)
+async def unsubscribe_link(token: str = "", db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """What the link would turn off, changing nothing: link scanners open links."""
+    return await notifications.looked_up(db, token)
+
+
+@router.post(
+    notifications.UNSUBSCRIBE_API.removeprefix("/api/kernel"), dependencies=[Depends(public)]
+)
+async def unsubscribe(token: str = "", db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """One click (RFC 8058): email off for the link's key. No session and no
+    Origin needed (security.SameOriginWrites lets it through): the token is the proof."""
+    await notifications.unsubscribe(db, token)
+    return {"email": False}

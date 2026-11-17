@@ -391,3 +391,38 @@ async def test_smtp_still_says_why_a_send_failed_when_quit_fails_too(
     with pytest.raises(MailError, match="554") as caught:
         await smtp().send("reader@vibe.test", "Hello", "the body text")
     assert caught.value.retryable is False
+
+
+# --- headers: one-click unsubscribe (kernel.notifications, decision 0038) -----------
+
+UNSUBSCRIBE = {
+    "List-Unsubscribe": "<https://vibe.test/api/kernel/notifications/unsubscribe?token=abc>",
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+}
+
+
+async def test_smtp_sets_the_headers_it_is_given(fake_smtp: type[FakeSMTP]) -> None:
+    await smtp().send("reader@vibe.test", "Hello", "the body text", headers=UNSUBSCRIBE)
+    [message] = [value for name, value in fake_smtp.calls if name == "send"]
+    assert message["List-Unsubscribe"] == UNSUBSCRIBE["List-Unsubscribe"]
+    assert message["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"
+
+
+async def test_smtp_sets_no_extra_header_without_any(fake_smtp: type[FakeSMTP]) -> None:
+    await smtp().send("reader@vibe.test", "Hello", "the body text")
+    [message] = [value for name, value in fake_smtp.calls if name == "send"]
+    assert message["List-Unsubscribe"] is None
+
+
+async def test_resend_passes_the_headers_it_is_given() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"id": "4ef9a417"})
+
+    await resend(handler).send("reader@vibe.test", "Hello", "the body text", headers=UNSUBSCRIBE)
+    await resend(handler).send("reader@vibe.test", "Hello", "the body text")
+    first, second = (json.loads(request.content) for request in seen)
+    assert first["headers"] == UNSUBSCRIBE
+    assert "headers" not in second

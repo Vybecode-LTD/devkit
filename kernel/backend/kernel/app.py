@@ -31,7 +31,9 @@ What it does, in order:
 9. Checks the kernel's events and every module's (`kernel.events.build`)
    and installs them for `kernel.events.emit` (decision 0036); installs the
    modules that may write to the audit log, and how long it's kept
-   (`kernel.audit.install`, decision 0037); checks the
+   (`kernel.audit.install`, decision 0037); checks each module's notification
+   keys against its templates and installs them (`kernel.notifications`,
+   decision 0038); checks the
    kernel's jobs and every module's, their listeners' deliveries among them
    (`kernel.jobs.build`), and builds the site's worker as `app.state.worker`.
    With JOBS_IN_WEB on (the default) the lifespan runs it in this process; a
@@ -60,7 +62,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from kernel import audit, email, error_tracking, events, jobs, logs
+from kernel import audit, email, error_tracking, events, jobs, logs, notifications
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.email_change import router as email_change_router
@@ -93,8 +95,14 @@ log = logging.getLogger(__name__)
 
 #: The kernel's own jobs: queued mail, pruning the queue, removing accounts
 #: whose address isn't verified (decision 0035), and pruning the audit log
-#: (decision 0037).
-KERNEL_JOBS: tuple[jobs.Job, ...] = (email.SEND_MAIL, jobs.PRUNE, REMOVE_UNVERIFIED, audit.PRUNE)
+#: (decision 0037) and the notices (decision 0038).
+KERNEL_JOBS: tuple[jobs.Job, ...] = (
+    email.SEND_MAIL,
+    jobs.PRUNE,
+    REMOVE_UNVERIFIED,
+    audit.PRUNE,
+    notifications.PRUNE,
+)
 
 
 @dataclass(frozen=True)
@@ -140,8 +148,15 @@ def assemble(
         raise RuntimeError(f"Refusing to start: {error}") from error
     try:
         templates = build_templates(
-            [("kernel", KERNEL_MAILS), *((module.id, module.emails) for module in installed)],
+            [
+                ("kernel", {**KERNEL_MAILS, **notifications.TEMPLATES}),
+                *((module.id, module.emails) for module in installed),
+            ],
             emails or {},
+        )
+        kinds = notifications.build(
+            ((module.id, module.manifest.raw.get("notifications") or []) for module in installed),
+            templates,
         )
         catalog = events.build(
             [
@@ -177,6 +192,7 @@ def assemble(
     email.install(checked, templates, site_name=config.site_name, site_url=config.site_url)
     events.install(catalog)
     audit.install((module.id for module in installed), keep_days=config.audit_keep_days)
+    notifications.install(kinds)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).
     for module in installed:

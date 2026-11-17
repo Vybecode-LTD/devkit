@@ -163,7 +163,10 @@ class SecurityHeaders:
 # --- same-origin writes -------------------------------------------------------------
 
 UNSAFE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
-_WEBHOOK = re.compile(r"^/api/[a-z][a-z0-9-]*/webhooks/")
+#: Writes another site may send: a module's webhooks, and the one-click
+#: unsubscribe a mail client posts (RFC 8058, kernel.notifications), which
+#: carries no Origin of this site and needs none: its token is the proof.
+_WEBHOOK = re.compile(r"^/api/[a-z][a-z0-9-]*/webhooks/|^/api/kernel/notifications/unsubscribe$")
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 

@@ -23,8 +23,10 @@
   while a refusal ends it. The kernel's own mails go this way; `send` stays
   for a job or a script that sends now.
 
-- `Mailer`: `async send(to, subject, text, html=None)`. An adapter delivers or
-  raises, and never logs the address, the subject or the body.
+- `Mailer`: `async send(to, subject, text, html=None, headers=None)`. An
+  adapter delivers or raises, and never logs the address, the subject or the
+  body. `headers` are only the one-click unsubscribe pair a notice email
+  carries (`HEADERS`, RFC 8058; kernel.notifications).
 - `Checked`: what `create_app` puts in front of the site's adapter, so every
   adapter gets one recipient, no line break in the address or the subject
   (header injection), and bounded sizes. A message that fails the checks is
@@ -67,8 +69,20 @@ _ADDRESS = re.compile(r"[^@\s,;:<>()\[\]\"\\]+@[^@\s,;:<>()\[\]\"\\]+")
 _BREAKS = {"Cc", "Zl", "Zp"}
 
 
+#: The only headers a message may add: one-click unsubscribe (RFC 8058).
+HEADERS = frozenset({"List-Unsubscribe", "List-Unsubscribe-Post"})
+MAX_HEADER = 1000
+
+
 class Mailer(Protocol):
-    async def send(self, to: str, subject: str, text: str, html: str | None = None) -> None: ...
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        text: str,
+        html: str | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> None: ...
 
 
 def _has_break(value: str) -> bool:
@@ -81,7 +95,13 @@ def is_address(text: str) -> bool:
     return len(text) <= MAX_ADDRESS and not _has_break(text) and bool(_ADDRESS.fullmatch(text))
 
 
-def check(to: str, subject: str, text: str, html: str | None = None) -> None:
+def check(
+    to: str,
+    subject: str,
+    text: str,
+    html: str | None = None,
+    headers: Mapping[str, str] | None = None,
+) -> None:
     """Raises ValueError, naming the field, unless the message is safe to hand
     to any adapter."""
     if not is_address(to):
@@ -91,6 +111,11 @@ def check(to: str, subject: str, text: str, html: str | None = None) -> None:
     _check_body("text", text)
     if html is not None:
         _check_body("html", html)
+    for name, value in (headers or {}).items():
+        if name not in HEADERS:
+            raise ValueError(f"A message may add only the header(s) {sorted(HEADERS)}.")
+        if not value.strip() or len(value) > MAX_HEADER or _has_break(value):
+            raise ValueError(f"A message's {name} header must be one line of 1 to {MAX_HEADER}.")
 
 
 def _check_body(field: str, body: str) -> None:
@@ -104,15 +129,32 @@ class Checked:
     def __init__(self, inner: Mailer) -> None:
         self.inner = inner
 
-    async def send(self, to: str, subject: str, text: str, html: str | None = None) -> None:
-        check(to, subject, text, html)
-        await self.inner.send(to, subject, text, html)
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        text: str,
+        html: str | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
+        check(to, subject, text, html, headers)
+        if headers:
+            await self.inner.send(to, subject, text, html, headers)
+        else:
+            await self.inner.send(to, subject, text, html)
 
 
 class LogMailer:
     """Sends nothing: the default until a site sets its adapter."""
 
-    async def send(self, to: str, subject: str, text: str, html: str | None = None) -> None:
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        text: str,
+        html: str | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         log.warning("A message was dropped: no mail adapter is set, so the site sends no mail.")
 
 
@@ -122,6 +164,7 @@ class Captured:
     subject: str
     text: str
     html: str | None
+    headers: Mapping[str, str] | None = None
 
 
 class CapturingMailer:
@@ -130,8 +173,15 @@ class CapturingMailer:
     def __init__(self, keep: int = 1000) -> None:
         self._messages: deque[Captured] = deque(maxlen=keep)
 
-    async def send(self, to: str, subject: str, text: str, html: str | None = None) -> None:
-        self._messages.append(Captured(to, subject, text, html))
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        text: str,
+        html: str | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
+        self._messages.append(Captured(to, subject, text, html, dict(headers or {}) or None))
 
     def to(self, address: str) -> list[Captured]:
         """The messages to `address`, oldest first. Addresses match lowercased,
@@ -260,6 +310,11 @@ def install(
     _postbox = _Postbox(checked, dict(templates), site_name, site_url.rstrip("/"))
 
 
+def site_url() -> str:
+    """SITE_URL as `install` was given it, without a trailing slash."""
+    return _current().site_url
+
+
 def _current() -> _Postbox:
     if _postbox is None:
         raise RuntimeError(
@@ -327,16 +382,24 @@ async def queue(db: AsyncSession, template: str, to: str, context: Mapping[str, 
 
 
 async def queue_message(
-    db: AsyncSession, to: str, subject: str, text: str, html: str | None = None
+    db: AsyncSession,
+    to: str,
+    subject: str,
+    text: str,
+    html: str | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> None:
     """Queues a message already rendered (the kernel's auth mails render
     theirs through `kernel.auth.mails`). Sealed: its links and codes are
     never readable in the jobs table, and are wiped once it's sent."""
-    check(to, subject, text, html)
+    check(to, subject, text, html, headers)
+    payload: dict[str, Any] = {"to": to, "subject": subject, "text": text, "html": html}
+    if headers:
+        payload["headers"] = dict(headers)
     await jobs.enqueue_up_to(
         db,
         SEND_MAIL.name,
-        {"to": to, "subject": subject, "text": text, "html": html},
+        payload,
         run_at=None,
         key=None,
         sealed=True,
@@ -347,7 +410,13 @@ async def queue_message(
 async def _send_queued(ctx: jobs.Context, payload: dict[str, Any]) -> None:
     mailer: Mailer = ctx._mailer
     try:
-        await mailer.send(payload["to"], payload["subject"], payload["text"], payload.get("html"))
+        await mailer.send(
+            payload["to"],
+            payload["subject"],
+            payload["text"],
+            payload.get("html"),
+            payload.get("headers"),
+        )
     except MailError as error:
         if error.retryable:
             after = None if error.retry_after is None else max(0.0, error.retry_after)

@@ -156,6 +156,10 @@ _SEED = [
     "INSERT INTO kernel_job (id, name, module, key, run_at) "
     "VALUES (gen_random_uuid(), 'blog.send_digest', 'blog', 'week-47', now())",
     "INSERT INTO kernel_job_schedule (name, last_slot) VALUES ('blog.publish_scheduled', now())",
+    "INSERT INTO kernel_notification (id, user_id, key, title, link) "
+    "VALUES (gen_random_uuid(), :user, 'blog.reply', 'Ben replied', '/blog/1')",
+    "INSERT INTO kernel_notification_preference (user_id, key, in_site, email) "
+    "VALUES (:user, 'blog.reply', true, false)",
 ]
 
 

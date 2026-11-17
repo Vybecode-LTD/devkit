@@ -27,6 +27,7 @@ import asyncio
 import logging
 import smtplib
 import ssl
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid, parseaddr
@@ -82,7 +83,14 @@ class SmtpMailer:
     password: str = field(repr=False)
     from_header: str
 
-    async def send(self, to: str, subject: str, text: str, html: str | None = None) -> None:
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        text: str,
+        html: str | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         message = EmailMessage()
         message["From"] = self.from_header
         message["To"] = _recipient(to)
@@ -90,6 +98,8 @@ class SmtpMailer:
         message["Date"] = formatdate(usegmt=True)
         message["Message-ID"] = make_msgid(domain=parseaddr(self.from_header)[1].rpartition("@")[2])
         message.set_content(text)
+        for name, value in (headers or {}).items():
+            message[name] = value
         if html is not None:
             message.add_alternative(html, subtype="html")
         try:
@@ -146,7 +156,14 @@ class ResendMailer:
     #: Tests hand in httpx.MockTransport; a site leaves it None.
     transport: httpx.AsyncBaseTransport | None = field(default=None, repr=False)
 
-    async def send(self, to: str, subject: str, text: str, html: str | None = None) -> None:
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        text: str,
+        html: str | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         payload: dict[str, object] = {
             "from": self.from_header,
             "to": [_recipient(to)],
@@ -155,6 +172,8 @@ class ResendMailer:
         }
         if html is not None:
             payload["html"] = html
+        if headers:
+            payload["headers"] = dict(headers)
         try:
             async with httpx.AsyncClient(
                 timeout=RESEND_TIMEOUT_SECONDS, transport=self.transport

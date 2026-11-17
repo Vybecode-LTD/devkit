@@ -180,6 +180,49 @@ class AuditEvent(Base):
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
 
 
+class Notification(Base):
+    """A notice in the site's list for one person (kernel.notifications,
+    decision 0038): its title is its email template's subject, rendered.
+    Kept 90 days after it's read and a year at most (`kernel.prune_notifications`)."""
+
+    __tablename__ = "kernel_notification"
+    __table_args__ = (
+        Index("ix_kernel_notification_user", "user_id", "created_at"),
+        Index(
+            "ix_kernel_notification_unread",
+            "user_id",
+            postgresql_where=text("read_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="CASCADE")
+    )
+    key: Mapped[str] = mapped_column(String(100))
+    title: Mapped[str] = mapped_column(String(255))
+    link: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class NotificationPreference(Base):
+    """A person's choice for one key, once it differs from the module's
+    default (kernel.notifications)."""
+
+    __tablename__ = "kernel_notification_preference"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("auth_user.id", ondelete="CASCADE"), primary_key=True
+    )
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    in_site: Mapped[bool] = mapped_column(Boolean)
+    email: Mapped[bool] = mapped_column(Boolean)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 # Auth's tables live in kernel.auth.models; importing them here puts every
 # kernel table in Base.metadata for Alembic and the model checks. Last, since
 # auth's models import the audit log's from here.

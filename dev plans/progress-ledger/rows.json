@@ -344,10 +344,10 @@
    "gate": "not passed",
    "step_order": 7,
    "step": "Notifications, with per-person preferences and one-click unsubscribe",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#69",
+   "decisions": "0038",
    "note": ""
   },
   {
@@ -358,8 +358,8 @@
    "gate": "not passed",
    "step_order": 8,
    "step": "Moderation: reports, the staff queue, filters and actions",
-   "status": "todo",
-   "status_label": "To do",
+   "status": "next",
+   "status_label": "Next",
    "prs": "#56",
    "decisions": "",
    "note": "The permission is declared"

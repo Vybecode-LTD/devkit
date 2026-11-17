@@ -51,7 +51,13 @@
     "web"
   ],
   "jobs": [],
-  "notifications": [],
+  "notifications": [
+    {
+      "key": "my-module.something_happened",
+      "description": "Something happened to one of your things",
+      "default": "both"
+    }
+  ],
   "data_hooks": {
     "export": true,
     "delete": true

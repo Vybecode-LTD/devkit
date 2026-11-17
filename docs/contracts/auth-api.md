@@ -91,6 +91,19 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | `POST /api/auth/account/export` | | 202; the download link is emailed |
 | `GET /api/auth/activity?cursor=&limit=` | | 200 `{"items": [{id, at, action, result, by_you, target, ip, user_agent, details}], "next_cursor"}`: the person's own `auth.*` entries, newest first; `limit` 1 to 100 (50); 422 `kernel.invalid_request` for a `cursor` no answer gave |
 
+## Notifications (kernel.notifications, decision 0038)
+
+Lists take `?cursor=&limit=` (1 to 100, 50) and answer `{items, next_cursor}` (SPEC 7); a `cursor` no answer gave is 422 `kernel.invalid_request`.
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/kernel/notifications` | | 200 `{"items": [{id, key, title, link, created_at, read_at}], "next_cursor", "unread"}`, newest first, the person's own |
+| `POST /api/kernel/notifications/read` | `{ids: [1 to 100]}` or `{all: true}` | 204; only the person's own notices change |
+| `GET /api/kernel/notifications/preferences` | | 200 `{"items": [{key, description, default, in_site, email}]}`: every key of the modules on |
+| `PUT /api/kernel/notifications/preferences` | `{"<key>": {in_site, email}}` | 200, the whole list; 422 for a key of no module on |
+| `GET /api/kernel/notifications/unsubscribe?token=` | | Public. 200 `{key, description, email}`, changing nothing; 404 `kernel.not_found` for a token the kernel didn't sign |
+| `POST /api/kernel/notifications/unsubscribe?token=` | (RFC 8058's `List-Unsubscribe=One-Click`, ignored) | Public, and the one write another site may send: 200 `{"email": false}`, email off for that key alone; 404 as above |
+
 ## Staff
 
 Every route under `/api/<anything>/admin`, whatever its method, needs a session (else 401 `kernel.not_signed_in`), a staff role (else 403 `kernel.forbidden`) **and a confirmed second factor on the account** (else 403 `auth.second_factor_required`). Then it needs its own permission, else 403 `kernel.forbidden`. Owners hold every permission.
