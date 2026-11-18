@@ -66,8 +66,9 @@ jobs:
           # The Python job also validates every manifest, so schemas and recipes count.
           # tests/test_link_skills.py reads skills/.
           python=$(any '^(kernel/(backend|migrations|tests)/|kernel/kernel\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|tools/|tests/|skills/|schema/|recipes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
-          # The web tests read kernel/kernel.json for the version.
-          web=$(any '^(kernel/web/|kernel/kernel\.json$|harness/web/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|\.npmrc$)')
+          # The web tests read kernel/kernel.json for the version. The Web job runs
+          # npm audit's allowlist (tools/npm_audit*) against the real lockfile.
+          web=$(any '^(kernel/web/|kernel/kernel\.json$|harness/web/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|\.npmrc$|tools/npm_audit(\.py|_allow\.json)$)')
           if [ "$everything" = true ]; then python=true; pins=true; web=true; fi
           # 3.12 is the floor (SPEC.md section 2). 3.13 runs too when the pins change.
           if [ "$pins" = true ]; then pythons='["3.12", "3.13"]'; else pythons='["3.12"]'; fi

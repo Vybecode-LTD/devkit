@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from datetime import date
 from typing import Any
@@ -136,3 +137,22 @@ def _allow_file(allowed: list[dict[str, str]]) -> Any:
             return json.dumps({"allow": allowed})
 
     return _File()
+
+
+def _ci_filter(name: str) -> re.Pattern[str]:
+    """The pattern CI's `changes` job uses to decide whether a job runs."""
+    workflow = (npm_audit.ROOT / ".github" / "workflows" / "ci.yml").read_text("utf-8")
+    match = re.search(rf"^\s*{name}=\$\(any '([^']+)'\)", workflow, re.MULTILINE)
+    assert match, f"ci.yml has no {name} filter"
+    return re.compile(match.group(1))
+
+
+@pytest.mark.parametrize("path", ["tools/npm_audit.py", "tools/npm_audit_allow.json"])
+def test_a_change_to_the_audit_runs_the_web_job(path: str) -> None:
+    # The Web job is the one that runs the audit against the real lockfile: a
+    # change to the tool or its list must be checked there before it merges.
+    assert _ci_filter("web").search(path)
+
+
+def test_an_unrelated_tool_doesn_t_run_the_web_job() -> None:
+    assert not _ci_filter("web").search("tools/progress.py")
