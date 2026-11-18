@@ -21,6 +21,22 @@ from kernel.settings import settings
 
 ROOT = Path(__file__).resolve().parents[1]
 
+#: The settings a half setup in .env would trip over.
+MAIL_AND_STORAGE = (
+    "MAIL_FROM",
+    "MAIL_FROM_NAME",
+    "SMTP_HOST",
+    "SMTP_USERNAME",
+    "SMTP_PASSWORD",
+    "RESEND_API_KEY",
+    "STORAGE_ENDPOINT_URL",
+    "STORAGE_ACCESS_KEY_ID",
+    "STORAGE_SECRET_ACCESS_KEY",
+    "STORAGE_BUCKET",
+    "STORAGE_PUBLIC_BUCKET",
+    "STORAGE_PUBLIC_URL",
+)
+
 
 def test_it_refuses_to_start_without_a_database_server(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TEST_DATABASE_URL", raising=False)
@@ -41,6 +57,10 @@ def test_its_app_never_reads_a_local_env_file(
     starting, whatever the launcher blanks (cubic on #79), so it reads none."""
     from harness.testing import build_test_app
 
+    # Only the .env below may hold mail or storage settings: none from the shell
+    # (cubic on #79).
+    for name in MAIL_AND_STORAGE:
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text(
         "STORAGE_PUBLIC_BUCKET=public\nMAIL_FROM=site@mechframe.test\n", "utf-8"
