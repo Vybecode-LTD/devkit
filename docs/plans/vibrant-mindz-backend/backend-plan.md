@@ -68,6 +68,15 @@ The canvas **Admin** page draws six of these: Dashboard, Players, Album editor, 
 6. **`licensing`:** the beat store opens.
 7. **`print-on-demand`:** the apparel designer opens.
 
+**Owner decisions, 2026-11-17** (recorded here 2026-11-18 from the VM Website session; its `design/specs/backend-plan.md`, section 4, is the source; the options that lost are in brackets):
+
+- **One primary-button hover, site and admin:** `#FF9447` (the admin boards used `#FF8C3D`; all 26 now use `#FF9447`). For K4's admin shell: the primary action hovers to the theme's accent-hover, as on the site. Brief: VM Website `design/specs/admin-look.md`, "The shell as drawn". [Keeping both; making the site match the admin.]
+- **A Videos page at `/videos`, built in step 2** with `discography`, `audio-player` and `featured`: the homepage's player plus every video in the `featured` slot `videos` (`GET /api/featured/slots/videos`, the same list as the homepage's Videos section, which stays and links to it), filtered by a new optional column `featured_placement.video_kind` (`'music-video' | 'rap-battle' | 'poetry'`, names still to be confirmed by the owner). Admin › Homepage › Players › Videos gets a Kind menu per video. Specs: VM Website `design/specs/players-admin.md` (data model, admin), `videos-player.md` ("The Videos page"), `site-pages.md` (the Videos row); boards `design/site/Videos.dc.html` and `AdminPlayers.dc.html`. [The homepage section alone.]
+- **Payment methods at launch (step 5):** cards, Apple Pay and Google Pay, all on Stripe's hosted Checkout, which shows the wallets with no extra build. Apple Pay needs the live domain checked by Stripe once: a step on Admin › Marketplace › Payments' launch checklist (six steps, was five). PayPal stays a later provider. Board: `AdminPayments.dc.html`. [Cards only; cards, wallets and PayPal at launch.]
+- **Steps 6 and 7 are designed after launch:** the beat store and the apparel designer get their screens once the site is live. [Designing them now.]
+
+**For K4:** the site's theme, VM Website `design/theme/vibrant-mindz/`, holds every value the 44 canvas boards use (a census test there fails on a value the theme lacks). Its README's "At K4" says how it moves: copy `tokens.json`, `tokens.css` and the generator; rename the tokens to Machined Light's names; the census stays in the VM Website folder and is rerun after the rename, so no value changes.
+
 ## 5. What the scaffold zip holds
 
 - For each **new** module (`featured`, `discography`, `audio-player`, `roster`, `portfolio`, `comments`, `licensing`): a filled `module.json`, `MODULE.md`, model, schema and router stubs following `modules/_template`, and contract-test stubs.

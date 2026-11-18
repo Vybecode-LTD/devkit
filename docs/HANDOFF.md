@@ -19,6 +19,8 @@ Overwritten every session. 2026-11-17, night Eastern (Claude Code, the owner's m
 1. Done: K3's gate passed (#75), and the rename to MechFrame landed (#76).
 2. K4 (the admin shell to decision 0040; mount with `createRoot` and style or hide `[data-server-copy]`; the Playwright parity test with the first React page), K5 (the site template sets `WEB_DIST`), the ten hooks, the site's steps 1 to 7.
 
+- **The Vibrant Mindz site's owner decisions of 2026-11-17** (one primary hover `#FF9447` with K4's admin shell hovering to accent-hover; a Videos page at `/videos` in the site's step 2 with `featured_placement.video_kind`; cards, Apple Pay and Google Pay on Stripe Checkout at launch, PayPal later; steps 6 and 7 designed after launch) are in `docs/plans/vibrant-mindz-backend/backend-plan.md`, section 4, with the site theme's move at K4.
+
 ## Open questions for the owner
 
 - **Settled by the owner (2026-11-17):** member pages stay `noindex` in their shell, not disallowed in `robots.txt` (contract change 8, decision 0041 item 8).
