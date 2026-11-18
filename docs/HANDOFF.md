@@ -32,7 +32,7 @@ Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claud
    - mount with `createRoot`, and style or hide `[data-server-copy]`;
    - the Playwright parity test with the first React page.
 
-   It touches seams (the typed client, the module slots), so its contract comes first (`_templates/feature-CONTRACT.md`).
+   It touches seams (the typed client, the module slots), so its contract comes first (`C:\DEV\_templates\feature-CONTRACT.md`).
 2. Then K5 (the `mechframe` CLI and the site template, which sets `WEB_DIST`), the ten hooks, and the site's steps 1 to 7.
 3. **By 2026-12-17:** recheck picomatch. Upgrade if a fixed release is out; otherwise renew the allowance on purpose, with its reason. The check fails on its own once a newer picomatch is published.
 
@@ -42,6 +42,7 @@ Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claud
 - When to make the R2 test buckets. The desk steps: the `postgres` password, and `Set-ExecutionPolicy` if wanted.
 - Rename the folder `C:\DEV\AI-DevKit`? Claude Code's memory for the project moves with it. Also rename the claude.ai account's `devkit-*` skills (decision 0034).
 - The Videos page's kind names (`music-video`, `rap-battle`, `poetry`) are still to be confirmed.
+- **Apple Pay's domain step:** Stripe's docs say Apple Pay on its hosted Checkout needs no domain registration (that's for embedded Checkout and Elements). Keep the step on Admin › Marketplace › Payments' checklist, or drop it? (backend plan section 4.)
 - `C:\DEV\knowledge\owner.md` is uncommitted: the owner commits it.
 
 ## Notes

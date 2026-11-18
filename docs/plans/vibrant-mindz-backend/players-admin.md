@@ -1,4 +1,4 @@
-<!-- Copied from VM Website/design/specs/players-admin.md on 2026-11-15. The VM Website copy is the source; update both. -->
+<!-- Copied from VM Website/design/specs/players-admin.md on 2026-11-15, synced 2026-11-18. The VM Website copy is the source; update both. -->
 
 # Players admin: Spotlight, Releases and Videos (spec for the real site)
 
@@ -29,6 +29,7 @@ featured_slot       key PK ('spotlight' | 'releases' | 'videos' on this site), l
 featured_placement  id, slot_key FK, position, kind ('item' | 'link'),
                     ref_module, ref_type, ref_id        -- for an item, such as discography / track / <uuid>
                     url, title, poster_url              -- for a link, such as a YouTube video
+                    video_kind (null)                   -- a video's kind, the Videos page's filters: 'music-video' | 'rap-battle' | 'poetry' (suggested names, the owner to confirm)
                     starts_at (null), ends_at (null)
                     unique (slot_key, position)
 ```
@@ -50,7 +51,7 @@ One page, three tabs, the same layout on each. It's drawn on the canvas's **Admi
 
 1. **Spotlight:** "Add track" opens a picker over the library (search, album filter). Drag to reorder, remove, set optional start and end dates. The first live track is what the hero's play button names.
 2. **Releases:** "Add album" picker, drag to reorder. Each row links to the album editor for its track order and credits.
-3. **Videos:** paste one or several YouTube links at once; each is parsed and its title fetched. Edit titles, set an optional poster, drag to reorder.
+3. **Videos:** paste one or several YouTube links at once; each is parsed and its title fetched. Edit titles, set an optional poster and kind, drag to reorder. The same list feeds the homepage's Videos section and the Videos page (`/videos`, owner, 2026-11-17), which reads `GET /api/featured/slots/videos` and filters by kind. Each row's Kind menu is on the Players board's Videos tab (`design/site/AdminPlayers.dc.html`).
 
 Every tab shows a **Now playing** strip (what's live this minute), an **Up next** list (scheduled items), and a live preview of the real homepage component. Save puts it live. There's no separate publish step, but the audit log can restore any earlier version.
 

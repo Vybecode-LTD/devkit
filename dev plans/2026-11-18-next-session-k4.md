@@ -11,7 +11,7 @@ MechFrame (AI DevKit until 2026-11-18, decision 0034): website modules around a 
 - Pushing and landing are your call here (`CLAUDE.md` Rules): land by fast-forward when "CI result" is green on the head and no thread from Codex, CodeRabbit or cubic is open. Auto-fix may be on: it wakes you on failures and comments, not on green.
 - Stage by name; `gitleaks git --pre-commit --staged` first.
 - Changing CI's security gates is the owner's call: ask first.
-- K4 touches seams (the typed client, `defineModule`'s slots, the admin shell's routes): write its contract from `_templates/feature-CONTRACT.md` and get the owner's OK before code.
+- K4 touches seams (the typed client, `defineModule`'s slots, the admin shell's routes): write its contract from `C:\DEV\_templates\feature-CONTRACT.md` and get the owner's OK before code.
 
 ## 3. State (verified at the end of 2026-11-18)
 
@@ -30,12 +30,12 @@ MechFrame (AI DevKit until 2026-11-18, decision 0034): website modules around a 
 - K4's contract questions, when it's written.
 - Decisions 0032 to 0039's own calls: keep them? The R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy`).
 - Rename the folder `C:\DEV\AI-DevKit` (memory moves with it) and the account's `devkit-*` skills?
-- The Videos page's kind names (`music-video`, `rap-battle`, `poetry`).
+- The Videos page's kind names (`music-video`, `rap-battle`, `poetry`); and whether the Apple Pay domain step stays on the payments checklist (Stripe says hosted Checkout needs none: backend plan section 4).
 
 ## 6. Environment and traps
 
 - Tests: `TEST_DATABASE_URL="postgresql://devkit:devkit@localhost:55432/postgres" MECHFRAME_REQUIRE_DB=1 .venv/Scripts/python.exe -m pytest --cov=kernel`, 8 to 14 minutes, `run_in_background`, logged to the scratchpad. The local role is still `devkit`; compose and CI say `mechframe`.
-- Web: `npm.cmd ci`, `npm.cmd run lint`, `typecheck`, `test`, `build`; `python -m tools.npm_audit`.
+- Web: `npm.cmd ci`, `npm.cmd run lint`, `npm.cmd run typecheck`, `npm.cmd test`, `npm.cmd run build`; `python -m tools.npm_audit`.
 - CodeRabbit skips a PR over 100 files; cubic reviews every push.
 - The Bash tool decodes `\n` in heredoc strings: build escapes with `chr(92)`. Long heredocs with quotes break: use the Write tool. Files are CRLF.
 
