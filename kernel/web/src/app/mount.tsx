@@ -12,7 +12,7 @@ import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
 
-import { retryUnlessRefused } from "../api/client";
+import { apiQueryOptions, retryUnlessRefused } from "../api/client";
 import { defineModule, type ModuleDefinition } from "../modules";
 import { SessionHandlers } from "../session/session";
 import { KernelContext, type AdminSection, type KernelSetup } from "./context";
@@ -61,17 +61,40 @@ export function kernelQueryClient(): QueryClient {
   return new QueryClient({ defaultOptions: { queries: { retry: retryUnlessRefused } } });
 }
 
-export function mountApp(options: AppOptions): void {
+/**
+ * Which modules are on, read once before the router is built so its routes
+ * are the modules on's (`buildRoutes`); `undefined` if it can't be read, and
+ * then every module's routes stand, each page waiting on its own switch. Read
+ * without the cache's retries: the server's words stay up meanwhile, and a
+ * slow answer shouldn't keep the app away.
+ */
+async function modulesOn(queryClient: QueryClient): Promise<ReadonlySet<string> | undefined> {
+  try {
+    const { on } = await queryClient.query({ ...apiQueryOptions("get", "/api/kernel/modules"), retry: false });
+    return new Set(on);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Mounts the app. The page and the modules are checked at once (a mistake
+ * throws here); the app draws once it knows which modules are on.
+ */
+export function mountApp(options: AppOptions): Promise<void> {
   const root = options.root ?? document.getElementById("root");
   if (!root) throw new Error("The page has no #root to mount the app in.");
   checkModules(options.modules);
   const setup: KernelSetup = { modules: options.modules, adminSections: options.adminSections ?? [] };
-  const router = createBrowserRouter(buildRoutes(setup.modules));
-  createRoot(root).render(
-    <StrictMode>
-      <KernelProviders queryClient={kernelQueryClient()} setup={setup}>
-        <RouterProvider router={router} />
-      </KernelProviders>
-    </StrictMode>,
-  );
+  const queryClient = kernelQueryClient();
+  return modulesOn(queryClient).then((on) => {
+    const router = createBrowserRouter(buildRoutes(setup.modules, on));
+    createRoot(root).render(
+      <StrictMode>
+        <KernelProviders queryClient={queryClient} setup={setup}>
+          <RouterProvider router={router} />
+        </KernelProviders>
+      </StrictMode>,
+    );
+  });
 }

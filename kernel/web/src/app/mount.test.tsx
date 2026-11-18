@@ -19,23 +19,65 @@ describe("mountApp", () => {
       "GET /api/auth/session": problem(401, "kernel.not_signed_in"),
     });
     document.body.innerHTML = '<div id="root"><div data-server-copy><h1>The server\'s words</h1></div></div>';
-    mountApp({ modules: [] });
+    await mountApp({ modules: [] });
     expect(await screen.findByRole("heading", { name: "Mounted" })).toBeInTheDocument();
     expect(document.querySelector("[data-server-copy]")).toBeNull();
     expect(screen.getByText("Words from the API.")).toBeInTheDocument();
   });
 
+  it("builds its routes from the modules on, so one that's off never keeps an address (Codex on #79)", async () => {
+    routedFetch({
+      "GET /api/kernel/site": { status: 200, body: site },
+      "GET /api/kernel/modules": { status: 200, body: { on: ["pages"] } },
+      "GET /api/auth/session": problem(401, "kernel.not_signed_in"),
+    });
+    const posts = defineModule({
+      id: "posts",
+      routes: { public: [{ path: "/blog/:slug", lazy: () => Promise.resolve({ default: () => <h1>A post</h1> }) }], member: [], admin: [] },
+    });
+    const pages = defineModule({
+      id: "pages",
+      routes: { public: [{ path: "/:section/:slug", lazy: () => Promise.resolve({ default: () => <h1>A page</h1> }) }], member: [], admin: [] },
+    });
+    history.pushState(null, "", "/blog/hello");
+    document.body.innerHTML = '<div id="root"></div>';
+    try {
+      await mountApp({ modules: [posts, pages] });
+      expect(await screen.findByRole("heading", { name: "A page" })).toBeInTheDocument();
+    } finally {
+      history.pushState(null, "", "/");
+    }
+  });
+
+  it("builds its routes from every module when it can't read which are on", async () => {
+    routedFetch({ "GET /api/kernel/site": { status: 200, body: site } });
+    const posts = defineModule({
+      id: "posts",
+      routes: { public: [{ path: "/blog/:slug", lazy: () => Promise.resolve({ default: () => <h1>A post</h1> }) }], member: [], admin: [] },
+    });
+    history.pushState(null, "", "/blog/hello");
+    document.body.innerHTML = '<div id="root"></div>';
+    try {
+      await mountApp({ modules: [posts] });
+      // Its page waits for the switch it can't read: nothing, rather than a 404 that may be wrong.
+      expect(await screen.findByRole("navigation", { name: "Site" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Page not found" })).toBeNull();
+    } finally {
+      history.pushState(null, "", "/");
+    }
+  });
+
   it("mounts where it's told", async () => {
     routedFetch({ "GET /api/kernel/site": { status: 200, body: site } });
     const root = document.body.appendChild(document.createElement("section"));
-    mountApp({ modules: [], root });
+    await mountApp({ modules: [], root });
     expect(await screen.findByRole("heading", { name: "Mounted" })).toBeInTheDocument();
     expect(root).not.toBeEmptyDOMElement();
   });
 
   it("refuses a page without #root", () => {
     expect(() => {
-      mountApp({ modules: [] });
+      void mountApp({ modules: [] });
     }).toThrow(/no #root/);
   });
 });

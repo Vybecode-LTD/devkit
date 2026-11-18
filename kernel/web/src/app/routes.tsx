@@ -62,7 +62,15 @@ function moduleRoute(module: ModuleDefinition, route: ModuleRoute, permission?: 
   };
 }
 
-export function buildRoutes(modules: readonly ModuleDefinition[]): RouteObject[] {
+/**
+ * The router's routes, from the modules `on` (every module given while it's
+ * unknown). A module that's off has no routes at all, so its pattern never
+ * keeps an address from a module on whose pattern also takes it, as the
+ * server's `Routes.resolve(path, on)` has it (Codex on #79). A module switched
+ * off while the app is open is still the 404 page (`ModulePage`).
+ */
+export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet<string>): RouteObject[] {
+  const modules = on === undefined ? given : given.filter((module) => on.has(module.id));
   const kernel = (access: KernelPage["access"]) => KERNEL_PAGES.filter((page) => page.access === access);
   const dashboard = KERNEL_PAGES.find((page) => page.path === "/admin");
   const owners = modules.flatMap((module) =>

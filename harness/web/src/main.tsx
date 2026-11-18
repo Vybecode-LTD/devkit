@@ -8,4 +8,4 @@ const bindings = import.meta.glob<{ default: ModuleDefinition }>(
   { eager: true },
 );
 
-mountApp({ modules: Object.values(bindings).map((binding) => binding.default) });
+void mountApp({ modules: Object.values(bindings).map((binding) => binding.default) });

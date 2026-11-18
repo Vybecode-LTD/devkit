@@ -6,6 +6,7 @@ import { renderApp, testUser } from "../../testing";
 import { defineModule, type ModuleDefinition } from "../modules";
 import { routedFetch } from "../test-fetch";
 import { isMissingCode } from "./RouteError";
+import { FOCUS_WAIT_MS } from "./RouteFocus";
 
 function pageSaying(words: string) {
   return () => Promise.resolve({ default: () => <h1>{words}</h1> });
@@ -57,6 +58,22 @@ describe("the public pages", () => {
   it("are a module's page, loaded when asked for", async () => {
     renderApp({ path: "/blog", modules: [blog] });
     expect(await screen.findByRole("heading", { name: "The blog" })).toBeInTheDocument();
+  });
+
+  it("leave an address to a module on when the one with the more fixed route is off, as the server does (Codex on #79)", async () => {
+    const posts = defineModule({
+      id: "posts",
+      routes: { public: [{ path: "/blog/:slug", lazy: pageSaying("A post") }], member: [], admin: [] },
+    });
+    const pages = defineModule({
+      id: "pages",
+      routes: { public: [{ path: "/:section/:slug", lazy: pageSaying("A page") }], member: [], admin: [] },
+    });
+    const { unmount } = renderApp({ path: "/blog/hello", modules: [posts, pages] });
+    expect(await screen.findByRole("heading", { name: "A post" })).toBeInTheDocument();
+    unmount();
+    renderApp({ path: "/blog/hello", modules: [posts, pages], on: ["pages"] });
+    expect(await screen.findByRole("heading", { name: "A page" })).toBeInTheDocument();
   });
 
   it("are the 404 page for a module that's off, and for an address no one has", async () => {
@@ -161,6 +178,52 @@ describe("moving between pages", () => {
     await waitFor(() => {
       expect(heading).toHaveFocus();
     });
+  });
+
+  it("waits for a page whose code comes later than a frame, then focuses its heading (Codex on #79)", async () => {
+    const slow = defineModule({
+      id: "slow",
+      routes: {
+        public: [
+          {
+            path: "/slow",
+            lazy: () =>
+              new Promise((resolve) => {
+                setTimeout(() => {
+                  resolve({ default: () => <h1>Late heading</h1> });
+                }, 120);
+              }),
+          },
+        ],
+        member: [],
+        admin: [],
+      },
+    });
+    const { router } = renderApp({ modules: [slow] });
+    await screen.findByRole("heading", { name: "Test Site" });
+    await act(() => router.navigate("/slow"));
+    const heading = await screen.findByRole("heading", { name: "Late heading" });
+    await waitFor(() => {
+      expect(heading).toHaveFocus();
+    });
+  });
+
+  it("focuses the page's main area when it has no heading after a while", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const bare = defineModule({
+        id: "bare",
+        routes: { public: [{ path: "/bare", lazy: () => Promise.resolve({ default: () => <span>No heading</span> }) }], member: [], admin: [] },
+      });
+      const { router } = renderApp({ modules: [bare] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/bare"));
+      await screen.findByText("No heading");
+      await act(() => vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS + 50));
+      expect(screen.getByRole("main")).toHaveFocus();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("signs out from the frame and goes home", async () => {

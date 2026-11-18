@@ -90,6 +90,8 @@ export function renderWithKernel(ui: ReactElement, options: KernelRenderOptions 
 
 /** The whole app, the kernel's routes and the modules', at `options.path`. */
 export function renderApp(options: KernelRenderOptions = {}): KernelRender {
-  const router = createMemoryRouter(buildRoutes(options.modules ?? []), { initialEntries: [options.path ?? "/"] });
+  const modules = options.modules ?? [];
+  const on = new Set(options.on ?? modules.map((module) => module.id));
+  const router = createMemoryRouter(buildRoutes(modules, on), { initialEntries: [options.path ?? "/"] });
   return drawn(router, options);
 }
