@@ -1,59 +1,64 @@
 # Handoff
 
-Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claude Code, the owner's machine, the morning part with the owner): K3's gate checked and passed, npm audit's expiring allowlist adopted (#75), and AI DevKit renamed MechFrame (#76). The owner moved the repo to github.com/mechframe/mechframe and installed Codex, CodeRabbit and cubic there. The session landed #75 and #76 itself. Then this page (#77).
+Overwritten every session. This one: 2026-11-18, afternoon Eastern (Claude Code, the owner's machine). K4's contract was written and approved. #78, K4's typed client, went through four review rounds, and this page rides in it. The next session lands #78.
 
 ## State
 
-- **K0, K1 done and audited; K2 steps 1 to 8 done** (#1 to #54). Steps 9 to 11 wait until the site needs them (decision 0029).
-- **K3 done, gate passed** (#75; the evidence: `dev plans/2026-11-17-k3-gate-evidence.md`): storage, email, the kernel's mails, jobs, events, audit, notifications, moderation and public rendering, each with its tests and each service file at 100 % coverage. Both named tests: `test_events.py::test_an_event_reaches_its_listener_once_and_a_second_run_changes_nothing` and `test_worker.py::test_a_killed_worker_s_job_is_finished_by_the_next`. Retention and the AI client stay `later`, outside the gate (the owner, 2026-11-17).
-- **npm audit** runs `python -m tools.npm_audit` (decision 0015, amended). It fails on any advisory not in `tools/npm_audit_allow.json`, on an entry past its `until` date or more than 90 days out, and on an entry npm no longer reports. It also fails on an allowed advisory that `npm audit --omit=dev` reports, and on a release of the package newer than the entry's `latest`. The one entry: picomatch GHSA-fc5q-39xc-vjpf, until **2026-12-17**, `latest` 4.0.7. A change to either file runs the Web job.
-- **MechFrame** (#76, decision 0034):
-  - The CLI is `mechframe` (also `mf`), with `mechframe.lock.json` as its lock file.
-  - npm: `mechframe`, `@mechframe/kernel` and `@mechframe/harness-web`. The Python project is `mechframe`; **the import stays `kernel`**.
-  - Wire names: cookies `__Host-mf_session` and `__Host-mf_device`, API keys `mf_live_…`, errors `urn:mechframe:problem:…`.
-  - `MECHFRAME_REQUIRE_DB`, hosts `mechframe.test`, the skills `mechframe-*`.
-  - Old names stay only in history: decision records, SPEC's earlier change-log lines, `dev plans/done/`, the contracts. They also stay in the folder `C:\DEV\AI-DevKit` and in the owner's local Postgres role `devkit` (port 55432). Compose and CI use `mechframe`.
-- **The repo** is public at github.com/mechframe/mechframe. The `main` ruleset came with it, the old URL redirects, and the local remote points here. Reviewers: Codex, CodeRabbit (it skips a PR over 100 files) and cubic, which reviews every push and found real slips on both PRs.
-- **The Vibrant Mindz owner decisions of 2026-11-17** are in `docs/plans/vibrant-mindz-backend/backend-plan.md` section 4, with the options that lost:
-  - one primary-button hover, `#FF9447`; K4's admin shell hovers to the theme's accent-hover;
-  - a Videos page at `/videos` in the site's step 2, with `featured_placement.video_kind` (kinds confirmed 2026-11-18);
-  - cards, Apple Pay and Google Pay on Stripe's hosted Checkout at launch, with no domain step, PayPal later;
-  - steps 6 and 7 designed after launch.
-
-  The same section says how the site's theme moves in at K4.
-- **Tests:** 1,705 passed, 8 skipped, 27 strict expected failures (K2 steps 9 to 11); coverage 98.48 %.
+- **K0 to K3 are done.** K3's gate passed (#75). K2 steps 9 to 11 wait (decision 0029). The device list's three routes, part of K2 step 4, were never built and have no contract tests. They moved to K4's account PR.
+- **K4's contract is approved**: `dev plans/contracts/k4-web-kernel.md` and decision 0042. It covers eight PRs: typed client, app shell, themes, UI kit, auth and account screens, admin shell, people and roles, settings and System.
+  - **The owner's answers (2026-11-18):** the admin includes role editing, New role and Settings › System; the server's words are hidden by `@media (scripting: enabled)` with a 3 s reveal; Playwright runs locally before each push and in CI on main's pushes, weekly and by hand; Depth waits.
+  - **My calls in it:** only custom roles can be edited; fields on the Site board with no settings home are left off.
+  - **Contract changes:** seven so far, in its list.
+- **#78 is open: K4.1, the typed client.** Every fix is pushed. CI was green on `1acb8f0` and runs again on the head, which carries cubic's last fix and this page.
+  - Every API route declares an `Answer` model that refuses unnamed keys, checked on the way out. A route that sets a cookie or header builds its JSON through `answer()`, and a syntax-tree guard refuses any other `JSONResponse`.
+  - `kernel/openapi.json` is committed, made by `python -m tools.openapi`, with errors documented as problems. The module ids `auth` and `kernel` are reserved.
+  - `kernel/web/src/api/` holds the client:
+    - openapi-fetch, plus openapi-react-query's hooks, with their types restated so the error is an `ApiProblem` and a query reads only;
+    - types from `npm run api:types` (`api:check` in CI);
+    - a query doesn't retry a 4xx;
+    - a 401 signs the session out; a write refused for a step-up asks once and resends once.
+- **npm audit allowlist is empty.** GitHub withdrew the picomatch advisory on 2026-11-18, so the December recheck is gone.
+- **Tests:**
+  - The last full run was on `23f3c14`'s tree: 1,728 passed, 8 skipped, 27 xfailed, coverage 98.53 %.
+  - Since then: `tests/test_openapi.py` (23 tests), `test_modules` and the 22 web tests all pass.
+  - The web has 22 Vitest tests in the client file and 29 in all.
 
 ## Next
 
-1. **K4, the web kernel** (KICKOFF K4; SPEC 8):
-   - the app shell, `useSession()`, the typed client and `defineModule`;
-   - the UI kit, the auth screens and themes;
-   - the admin shell to decision 0040, its primary action hovering to accent-hover;
-   - mount with `createRoot`, and style or hide `[data-server-copy]`;
-   - the Playwright parity test with the first React page.
-
-   It touches seams (the typed client, the module slots), so its contract comes first (`C:\DEV\_templates\feature-CONTRACT.md`).
-2. Then K5 (the `mechframe` CLI and the site template, which sets `WEB_DIST`), the ten hooks, and the site's steps 1 to 7.
-3. **By 2026-12-17:** recheck picomatch. Upgrade if a fixed release is out; otherwise renew the allowance on purpose, with its reason. The check fails on its own once a newer picomatch is published.
+1. **Land #78**: fast-forward, once "CI result" is green on its head and no thread is open. Then republish the progress ledger.
+2. **K4.2, the app shell.** The starting prompt is `dev plans/2026-11-18-next-session-k4-app-shell.md`.
+3. **Then K4.3 to K4.8, with these notes:**
+   - **Themes (K4.3):**
+     - `border` is the edges of cards and rows, `border-strong` the edges of controls; Machined Light's `--color-border` maps to `border-strong`.
+     - `font.mono` is the code face: Vibrant Mindz's `typography.fontFamily.code`, not its `mono` (Doto).
+     - Details: contract change 5; VM Website `design/theme/vibrant-mindz/shell-slots.md`.
+   - **Admin focus (the owner, 2026-11-18, 15:40 Eastern, through the VM Website session):**
+     - Keyboard focus in the admin is an accent ring drawn like Machined Light's `--shadow-focus`: a 1px `#FF7A1F` line and a 4px glow of it at 28%.
+     - On a filled control (the primary button, a switch that's on), a 2px gap of the page colour comes first.
+     - In a list that clips its rows, the ring is drawn inside the row.
+     - The current nav item and tab keep their 2px edge under the ring.
+     - The sign-in and account screens keep the site's 2px `#36B4FF` outline, 3px off, so the kit draws focus two ways.
+     - Tokens: `shadow.focus-ring`, `focus-ring-gap`, `focus-ring-inset`, `nav-current-focus`, `tab-current-focus`. Brief: VM Website `design/specs/admin-look.md`, "Keyboard focus" (canvas version 70).
+   - **Kit findings from the same session:**
+     - A sticky save bar can hide the focused control (WCAG 2.4.11), so the kit sets `scroll-padding-bottom` to the bar's height while it shows.
+     - Chrome makes a sideways-scrolling table a Tab stop, so give the scroller a visible focus style.
+4. Then K5, the ten hooks, and the site's steps 1 to 7.
 
 ## Open questions for the owner
 
 - Decisions 0032 to 0039's own calls, each listed in its record: keep them?
 - When to make the R2 test buckets. The desk steps: the `postgres` password, and `Set-ExecutionPolicy` if wanted.
-- Rename the folder `C:\DEV\AI-DevKit`? Claude Code's memory for the project moves with it. Also rename the claude.ai account's `devkit-*` skills (decision 0034).
-- For the site's step 4: how many days links from new community members are held for a moderator (backend plan section 4, owner answers of 2026-11-18).
+- Rename the folder `C:\DEV\AI-DevKit` (Claude Code's memory moves with it) and the account's `devkit-*` skills?
 - `C:\DEV\knowledge\owner.md` is uncommitted: the owner commits it.
 
 ## Notes
 
-- **npm's `fixAvailable` doesn't mean a fix shipped:** for picomatch it names a downgrade of vite to 6.2.7. A newer release of the package is the signal, and only a person can say whether it fixes the advisory.
-- **A fresh org install of the review bots doesn't review a PR that's already open.** Comment `@codex review` and `@coderabbitai review` to start them; cubic reviews on its own.
-- **A text-pass rename keeps real paths only if they're listed:** `AI-DevKit/docs/…` with no `C:\DEV\` before it became `AI-MechFrame/…` (cubic caught it).
-- **The tool decodes `\n` inside a heredoc's Python strings into real newlines:** build escapes with `chr(92)`.
-- **Never `--cov=kernel.<module>`**: it breaks the fixtures. Use `--cov=kernel`.
-- Long heredocs with quotes break the Bash tool: write scripts with the Write tool. Working-tree files are CRLF.
+- **#78 drew 25 findings:** Codex 1, CodeRabbit 14, cubic 11. All were real, and all were fixed with a test that failed first where they touched code. Expect several rounds.
+- **A helper agent claimed the device routes had strict-xfail tests. None existed.** Grep before writing a claim into docs.
+- **The Bash tool turns `\n` inside a heredoc's Python strings into real newlines.** Edit test strings that hold escapes with the Edit tool.
+- **openapi-typescript asks for TypeScript `^5` as a peer;** a `package.json` override holds it on 6.
 
 ## Warnings
 
-- Nothing from VybeSite's `dev plans\` or `snapshots\`. Run VybeSite's brand check on lifted code; it bans some short phrases, test data included.
-- Editing CI's security gates is the owner's call: ask first, as #75 did.
+- Nothing from VybeSite's `dev plans\` or `snapshots\`. Run VybeSite's brand check on lifted code.
+- Editing CI's security gates is the owner's call: ask first.

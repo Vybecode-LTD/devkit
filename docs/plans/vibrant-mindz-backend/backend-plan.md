@@ -78,7 +78,7 @@ The canvas **Admin** page draws six of these: Dashboard, Players, Album editor, 
 **Owner answers, 2026-11-18** (from the VM Website sessions; the same source, section 4):
 
 - **The video kinds are confirmed:** `music-video`, `rap-battle` and `poetry` (Music videos, Rap battles, Poetry).
-- **Links from new community members are held** for a moderator for their first [n] days (step 4, `community`; the Channels and Moderation boards draw it). The number of days is still to pick. [Dropping the rule; the link filter alone.]
+- **Links from new community members are held** for a moderator for their first 7 days (step 4, `community`; the Channels and Moderation boards draw it; the owner picked 7 on 2026-11-18, afternoon). [Dropping the rule; the link filter alone.]
 - **"petro" on Catalyst is petroTHAdestroyer.** The site's seed links that credit to the petroTHAdestroyer profile, so Catalyst shows there. The Credits board (`AdminCredits.dc.html`) still draws the credit unlinked, which is how the screen looks before someone links it.
 
 **For K4:** the site's theme, VM Website `design/theme/vibrant-mindz/`, holds every value the 44 canvas boards use (a census test there fails on a value the theme lacks). Its README's "At K4" says how it moves: copy `tokens.json`, `tokens.css` and the generator; rename the tokens to Machined Light's names; the census stays in the VM Website folder and is rerun after the rename, so no value changes.
