@@ -147,12 +147,12 @@
    "phase": "K2: auth",
    "gate": "not passed",
    "step_order": 4,
-   "step": "4. Sessions and the device list",
+   "step": "4. Sessions",
    "status": "done",
    "status_label": "Done",
    "prs": "#32 #33",
    "decisions": "",
-   "note": "Found 2026-11-18: the device list's three routes were never built, and no contract test calls them; K4's auth and account PR writes their tests and builds them"
+   "note": "The device list's three routes were never built, and no contract test calls them (found 2026-11-18): they moved to K4's step \"Auth and account screens, with the device routes\""
   },
   {
    "milestone": "MechFrame v1.0",

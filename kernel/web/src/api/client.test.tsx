@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
@@ -266,7 +266,9 @@ describe("the hooks", () => {
     const { result } = renderHook(() => useApiMutation("post", "/api/auth/verify-email/resend"), {
       wrapper,
     });
-    result.current.mutate({});
+    act(() => {
+      result.current.mutate({});
+    });
     await waitFor(() => {
       expect(result.current.isError).toBe(true);
     });

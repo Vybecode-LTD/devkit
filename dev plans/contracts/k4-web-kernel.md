@@ -34,7 +34,7 @@ useSlot(name); <SlotOutlet name="…">                 // <Seo title description
 renderWithKernel(ui, { path?, session?, modules? })  // testing.ts, for every module's component tests
 ```
 
-- **The client** is openapi-fetch over types from openapi-typescript. Same origin, cookies only. Any non-2xx answer throws `ApiProblem` (a network failure is status 0, `kernel.unreachable`). A 401 `kernel.not_signed_in` sets the session to signed out. A mutation that gets 403 `auth.step_up_required` opens the step-up dialog and retries once; a query never does. Query keys are `["api", method, path, init]`.
+- **The client** is openapi-fetch over types from openapi-typescript. Same origin, cookies only. Any non-2xx answer throws `ApiProblem` (a network failure is status 0, `kernel.unreachable`). A 401 `kernel.not_signed_in` sets the session to signed out. A mutation that gets 403 `auth.step_up_required` opens the step-up dialog and retries once; a query never does. Query keys are openapi-react-query's, `[method, path, init?]` (change 1 below; cubic on #78).
 - **`useSession`** reads `GET /api/auth/session`; `staff` is any role but `member`. A sign-in's answer sets it directly.
 - **Guards:** signed out → `/sign-in?next=<path>`, and `next` is only ever a same-site path (one leading `/`, no `//` or `\`). Without the permission: the kernel's no-access page, never a redirect. The admin itself: a member gets the 404 page; staff without a second factor go to `/account?needs=second-factor`.
 - **`defineModule`'s slots become typed** (today `Record<string, SlotEntry[]>`):

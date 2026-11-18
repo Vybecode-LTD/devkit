@@ -12,6 +12,7 @@ test seeing a 500.
 
 from __future__ import annotations
 
+import ast
 import json
 import types
 from pathlib import Path
@@ -67,13 +68,38 @@ def test_a_204_route_declares_no_body() -> None:
 RAW_JSON_ALLOWED = {"kernel/answers.py", "kernel/errors.py"}
 
 
+def _builds_json(source: str) -> bool:
+    """Whether code builds a JSON response other than through `answer`: it
+    imports JSONResponse under any name, reaches it as an attribute, or makes
+    a response whose `media_type` is JSON (cubic on #78: a text search missed
+    aliases and a plain Response)."""
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and any(
+            alias.name == "JSONResponse" for alias in node.names
+        ):
+            return True
+        if isinstance(node, ast.Attribute) and node.attr == "JSONResponse":
+            return True
+        if isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                value = keyword.value
+                if (
+                    keyword.arg == "media_type"
+                    and isinstance(value, ast.Constant)
+                    and isinstance(value.value, str)
+                    and "json" in value.value
+                ):
+                    return True
+    return False
+
+
 def _raw_json(roots: list[Path]) -> list[str]:
-    """Each backend file under `roots` that builds a JSONResponse itself."""
+    """Each backend file under `roots` that builds a JSON response itself."""
     found = []
     for root in roots:
         for path in sorted(root.rglob("*.py")):
             name = path.relative_to(root).as_posix()
-            if name not in RAW_JSON_ALLOWED and "JSONResponse(" in path.read_text("utf-8"):
+            if name not in RAW_JSON_ALLOWED and _builds_json(path.read_text("utf-8")):
                 found.append(name)
     return found
 
@@ -88,12 +114,34 @@ def test_routes_build_json_only_through_answer() -> None:
 def test_the_json_guard_reads_a_module_s_backend_too(tmp_path: Path) -> None:
     kernel_dir, module_dir = tmp_path / "kernel" / "backend", tmp_path / "blog" / "backend"
     (kernel_dir / "kernel").mkdir(parents=True)
-    (kernel_dir / "kernel" / "errors.py").write_text("JSONResponse(", encoding="utf-8")
+    (kernel_dir / "kernel" / "errors.py").write_text(
+        "from starlette.responses import JSONResponse", encoding="utf-8"
+    )
     (module_dir / "blog").mkdir(parents=True)
     (module_dir / "blog" / "router.py").write_text(
-        'return JSONResponse({"x": 1})', encoding="utf-8"
+        "from fastapi.responses import JSONResponse", encoding="utf-8"
     )
     assert _raw_json([kernel_dir, module_dir]) == ["blog/router.py"]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from fastapi.responses import JSONResponse as Out",
+        "from fastapi import responses; responses.JSONResponse({})",
+        "from fastapi import Response; Response(b'{}', media_type='application/json')",
+        "Response(b'{}', media_type='application/problem+json')",
+    ],
+)
+def test_the_json_guard_sees_through_an_alias_or_a_plain_response(source: str) -> None:
+    assert _builds_json(source)
+
+
+def test_the_json_guard_lets_other_answers_be() -> None:
+    assert not _builds_json("from fastapi.responses import Response, HTMLResponse")
+    assert not _builds_json("Response(status_code=204)")
+    assert not _builds_json("FileResponse(path, media_type=kind)")
+    assert not _builds_json("HTMLResponse(text, media_type='text/html')")
 
 
 def test_the_committed_specs_are_current() -> None:

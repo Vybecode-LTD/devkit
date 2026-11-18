@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import Response
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -163,7 +163,7 @@ class ModerationLog(Answer):
     response_model=Health,
     responses={503: {"model": Health, "description": "The database didn't answer"}},
 )
-async def health(request: Request) -> JSONResponse:
+async def health(request: Request) -> Response:
     """For the host's health check: 200 while the database answers, else 503."""
     database = request.app.state.database
     try:
