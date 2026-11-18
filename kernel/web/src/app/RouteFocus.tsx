@@ -6,9 +6,9 @@
  * A page whose code is still loading draws nothing at first, so the focus
  * waits for its heading to appear (Codex on #79). A page that shows none
  * within `FOCUS_WAIT_MS` has its main area focused meanwhile, and its heading
- * still gets the focus when it comes, unless the person has moved it since,
- * or gone to another page; the watch ends after `FOCUS_GIVE_UP_MS`
- * (CodeRabbit on #79). On back and
+ * still gets the focus when it comes; the watch ends after `FOCUS_GIVE_UP_MS`.
+ * The moment the person moves the focus themselves, or goes to another
+ * page, all of it stops: theirs is never taken back (CodeRabbit on #79). On back and
  * forward the focus moves without scrolling, so the place ScrollRestoration
  * gives back stays (cubic on #79). The page is compared with the last one
  * focused for, so StrictMode's second run of the effect does nothing.
@@ -37,35 +37,52 @@ export function RouteFocus() {
   useEffect(() => {
     if (last.current === pathname) return;
     last.current = pathname;
-    let fallback: HTMLElement | null = null;
+    // Set while this effect moves the focus itself, so only the person's own
+    // moves stop it.
+    let ours = false;
+    const move = (target: HTMLElement) => {
+      ours = true;
+      try {
+        focus(target, keepScroll);
+      } finally {
+        ours = false;
+      }
+    };
     const observer = new MutationObserver(() => {
       const found = heading();
-      if (!found) return;
-      observer.disconnect();
-      // After the fallback, only while the focus is still where it put it.
-      if (fallback === null || document.activeElement === fallback) focus(found, keepScroll);
+      if (found) {
+        stop();
+        move(found);
+      }
     });
+    const theirs = () => {
+      if (!ours) stop();
+    };
     // After the new page has drawn: its heading may come a frame later, or
     // once its code has arrived.
     const frame = requestAnimationFrame(() => {
       const found = heading();
-      if (found) focus(found, keepScroll);
-      else observer.observe(document.body, { childList: true, subtree: true });
+      if (found) {
+        stop();
+        move(found);
+      } else observer.observe(document.body, { childList: true, subtree: true });
     });
     const wait = setTimeout(() => {
-      if (heading()) return;
-      fallback = document.querySelector<HTMLElement>("main");
-      if (fallback) focus(fallback, keepScroll);
+      const main = document.querySelector<HTMLElement>("main");
+      if (!heading() && main) move(main); // and keep watching for the heading
     }, FOCUS_WAIT_MS);
     const giveUp = setTimeout(() => {
-      observer.disconnect();
+      stop();
     }, FOCUS_GIVE_UP_MS);
-    return () => {
+    function stop(): void {
       cancelAnimationFrame(frame);
       clearTimeout(wait);
       clearTimeout(giveUp);
       observer.disconnect();
-    };
+      document.removeEventListener("focusin", theirs, true);
+    }
+    document.addEventListener("focusin", theirs, true);
+    return stop;
   }, [pathname, keepScroll]);
   return null;
 }

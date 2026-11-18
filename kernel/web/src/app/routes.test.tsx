@@ -350,6 +350,50 @@ describe("moving between pages", () => {
     }
   });
 
+  it("leaves the focus where the person put it before the fallback, too (CodeRabbit on #79)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [slowPage(FOCUS_WAIT_MS + 1000)] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/late"));
+      await act(() => vi.advanceTimersByTimeAsync(500));
+      const signIn = screen.getByRole("link", { name: "Sign in" });
+      act(() => {
+        signIn.focus();
+      });
+      await act(() => vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS));
+      expect(signIn).toHaveFocus();
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      await screen.findByRole("heading", { name: "Very late heading" });
+      await act(() => vi.advanceTimersByTimeAsync(50));
+      expect(signIn).toHaveFocus();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives a late heading no focus once the person has moved it, even back to the main area (CodeRabbit on #79)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [slowPage(FOCUS_WAIT_MS + 1000)] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/late"));
+      await act(() => vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS + 50));
+      const main = screen.getByRole("main");
+      expect(main).toHaveFocus();
+      act(() => {
+        screen.getByRole("link", { name: "Sign in" }).focus();
+        main.focus();
+      });
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      await screen.findByRole("heading", { name: "Very late heading" });
+      await act(() => vi.advanceTimersByTimeAsync(50));
+      expect(main).toHaveFocus();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("stops waiting for a heading once the person has moved to another page", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
