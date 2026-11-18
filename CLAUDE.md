@@ -10,7 +10,7 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 - **Path:** `C:\DEV\AI-DevKit`. **Remote:** `https://github.com/Vybecode-LTD/devkit`, **public** (decision 0011). Never commit secrets, client material or private notes; private notes go in `docs/private/` (gitignored).
 - **The contract:** `SPEC.md`. Every module, the kernel and the CLI follow it. Read the sections you touch before every change.
 
-## Current state (2026-11-17, after #73)
+## Current state (2026-11-18, after #75)
 
 - Spec v0.1 written, the owner's answers applied.
 - **K0 and K1 done and audited** (#1 to #31). **K2 (auth) steps 1 to 8 done** (#32 to #54; decisions 0019 to 0028 and 0030): passwords, sessions, access, sign-in and sign-up, codes and magic links, resets and email change, password change, TOTP and recovery codes, passkeys, and the undo link for an added factor. Steps 9 to 11 wait until the site needs them (decision 0029).
