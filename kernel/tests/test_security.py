@@ -15,7 +15,7 @@ from kernel.security import (
     origin_of,
 )
 
-SITE = "https://devkit.test"
+SITE = "https://mechframe.test"
 BASE_POLICY = (
     "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; "
     "img-src 'self' data: https:; connect-src 'self'; frame-src 'self'; media-src 'self'; "
@@ -89,13 +89,13 @@ async def test_a_modules_hosts_only_while_it_is_on() -> None:
 async def test_hsts_over_https_only_once_set() -> None:
     async with client(build(hsts=300)) as c:
         assert (await c.get("/page")).headers["strict-transport-security"] == "max-age=300"
-    async with client(build(hsts=300), "http://devkit.test") as c:
+    async with client(build(hsts=300), "http://mechframe.test") as c:
         assert "strict-transport-security" not in (await c.get("/page")).headers
 
 
 async def test_hsts_behind_a_tls_edge_when_the_site_is_https() -> None:
     """Railway ends TLS at its edge: the app sees http, the visitor https."""
-    async with client(build(hsts=300, https_site=True), "http://devkit.test") as c:
+    async with client(build(hsts=300, https_site=True), "http://mechframe.test") as c:
         assert (await c.get("/page")).headers["strict-transport-security"] == "max-age=300"
 
 
@@ -140,11 +140,11 @@ def test_a_host_is_added_once() -> None:
     [
         ({}, 200),  # not a browser
         ({"Sec-Fetch-Site": "same-origin", "Origin": SITE}, 200),
-        ({"Origin": "https://DEVKIT.test:443"}, 200),
+        ({"Origin": "https://MECHFRAME.test:443"}, 200),
         ({"Sec-Fetch-Site": "cross-site"}, 403),
         ({"Sec-Fetch-Site": "same-site"}, 403),
         ({"Origin": "https://evil.test"}, 403),
-        ({"Origin": "https://devkit.test:8443"}, 403),
+        ({"Origin": "https://mechframe.test:8443"}, 403),
         ({"Sec-Fetch-Site": "same-origin", "Origin": "null"}, 403),
     ],
 )
@@ -166,19 +166,19 @@ async def test_webhooks_reads_and_non_api_paths_pass() -> None:
 
 
 async def test_www_goes_to_the_site_with_path_and_query() -> None:
-    async with client(build(), "https://www.devkit.test") as c:
+    async with client(build(), "https://www.mechframe.test") as c:
         response = await c.get("/blog/a%20b?ref=mail&x=1")
     assert response.status_code == 301
-    assert response.headers["location"] == "https://devkit.test/blog/a%20b?ref=mail&x=1"
+    assert response.headers["location"] == "https://mechframe.test/blog/a%20b?ref=mail&x=1"
     assert response.headers["x-frame-options"] == "DENY"
 
 
 async def test_other_hosts_are_answered() -> None:
-    async with client(build(), "https://staging.devkit.test") as c:
+    async with client(build(), "https://staging.mechframe.test") as c:
         assert (await c.get("/page")).status_code == 200
 
 
 def test_origin_of() -> None:
-    assert origin_of("HTTPS://Devkit.Test:443/path") == "https://devkit.test"
+    assert origin_of("HTTPS://Mechframe.Test:443/path") == "https://mechframe.test"
     assert origin_of("http://localhost:5173") == "http://localhost:5173"
     assert origin_of("http://[::1]:8000") == "http://[::1]:8000"

@@ -32,7 +32,7 @@ No env vars; files go through kernel storage.
 
 ## Install notes
 
-`devkit add portfolio`. 
+`mechframe add portfolio`. 
 
 ## Extension points
 
@@ -46,4 +46,4 @@ No env vars; files go through kernel storage.
 
 ## Source and license
 
-New code for DevKit, proprietary (decision 0008).
+New code for MechFrame, proprietary (decision 0008).

@@ -5,7 +5,7 @@ description: "Integrate Printful API v2 for custom print-on-demand in Python/Fas
 
 # Printful v2 adapter
 
-Use this when a custom site (not Shopify or WooCommerce) sells print-on-demand products through Printful: a custom apparel designer, merch built from an artwork gallery, or any order that has to reach Printful from your own backend. It covers the facts that bite, the adapter shape, rendering the print file yourself, the order flow, webhooks and tests. It fits the AI DevKit `print-on-demand` module (FastAPI + async SQLAlchemy + Postgres + a job worker + S3-compatible storage).
+Use this when a custom site (not Shopify or WooCommerce) sells print-on-demand products through Printful: a custom apparel designer, merch built from an artwork gallery, or any order that has to reach Printful from your own backend. It covers the facts that bite, the adapter shape, rendering the print file yourself, the order flow, webhooks and tests. It fits the MechFrame `print-on-demand` module (FastAPI + async SQLAlchemy + Postgres + a job worker + S3-compatible storage).
 
 **Facts were checked against Printful's v2 docs on 2026-11-12. v2 is labelled beta, though Printful says its endpoints are usable in production. Re-check anything marked "verify" before relying on it, and prove every flow with draft orders before going live.**
 
@@ -182,7 +182,7 @@ def verify_printful(raw_body: bytes, signature_hex: str, secret_hex: str) -> boo
 - Draft, costs done, confirm: the state machine refuses to confirm before costs are `done` or below the margin floor.
 - 429 with `retry-after` waits and retries; the bucket never exceeds 120 a minute in a burst test.
 
-## In the AI DevKit
+## In the MechFrame
 
 - Module id `print-on-demand`; requires `shop` and `payments`; the apparel designer is its web binding (react-konva editor storing `placement, cx, cy, scale, rotation`).
 - Settings: Printful token and store id (secret), markup, curated products, margin floor, refund-after hours.

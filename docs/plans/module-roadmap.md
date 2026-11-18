@@ -34,7 +34,7 @@ Everything below runs after the Vibrant Mindz build in the module plan (kernel â
 | i18n | none | Rule now (no hard-coded UI strings); full i18n Later |
 | Flags | experiments (Later) | Later |
 
-Gate: each hook in SPEC.md with a passing contract test. Each one lands with the `devkit-hook-designer` skill: one repo decision record for the batch, one PR per hook.
+Gate: each hook in SPEC.md with a passing contract test. Each one lands with the `mechframe-hook-designer` skill: one repo decision record for the batch, one PR per hook.
 
 ## Framework tools: when each lands
 
@@ -200,7 +200,7 @@ Wants that fit here: `ai-enrich`, `ai-moderation`, `ai-forms`.
 
 ## Size check
 
-78 Musts is a lot, but 64 of them are S or M, and the extraction pipeline (`devkit-module-extractor`, `module-contract-lint`) makes those quick. The time goes into the 14 L's: `migrate`, `client-portal`, `crm`, `booking`, `directory`, `feed`, `groups`, `contests`, `rooms`, `wiki`, `helpdesk`, `license-keys`, `enterprise-sso`, `ai-studio`.
+78 Musts is a lot, but 64 of them are S or M, and the extraction pipeline (`mechframe-module-extractor`, `module-contract-lint`) makes those quick. The time goes into the 14 L's: `migrate`, `client-portal`, `crm`, `booking`, `directory`, `feed`, `groups`, `contests`, `rooms`, `wiki`, `helpdesk`, `license-keys`, `enterprise-sso`, `ai-studio`.
 
 ## Parked
 
@@ -210,4 +210,4 @@ Wants that fit here: `ai-enrich`, `ai-moderation`, `ai-forms`.
 
 ## Skill ideas
 
-`devkit-hook-designer` (in `skills/`) lands the wave 0 hooks. The skills the later waves want are in `docs/SKILL-BACKLOG.md`.
+`mechframe-hook-designer` (in `skills/`) lands the wave 0 hooks. The skills the later waves want are in `docs/SKILL-BACKLOG.md`.

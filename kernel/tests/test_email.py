@@ -24,7 +24,7 @@ from .conftest import make_config
 
 ADDRESS = "quill.ward@site.test"
 #: create_app connects to nothing until its lifespan runs, and these tests run none.
-NOWHERE = "postgresql://devkit:devkit@127.0.0.1:1/none"
+NOWHERE = "postgresql://mechframe:mechframe@127.0.0.1:1/none"
 
 
 class Recording:
@@ -197,6 +197,6 @@ async def test_a_route_gets_the_apps_mailer() -> None:
         return {"sent": True}
 
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="https://devkit.test") as client:
+    async with httpx.AsyncClient(transport=transport, base_url="https://mechframe.test") as client:
         assert (await client.post("/send")).status_code == 200
     assert [message.subject for message in capture.to(ADDRESS)] == ["Hello"]

@@ -312,7 +312,7 @@ async def test_a_reset_sets_the_password_and_signs_nobody_in(site: Site) -> None
     await _ask(site.http, person.email)
     reset = await _reset(site.browser(), _mailed(site, person))
     assert (reset.status_code, reset.json()) == (200, {"status": "password_reset"})
-    assert not any(c.startswith("__Host-dk_session=") for c in reset.headers.get_list("set-cookie"))
+    assert not any(c.startswith("__Host-mf_session=") for c in reset.headers.get_list("set-cookie"))
     assert (await _sign_in(site.browser(), person, PASSWORD)).status_code == 401
     assert (await _sign_in(site.browser(), person, NEW)).json()["status"] == "signed_in"
 

@@ -50,7 +50,7 @@ def app() -> FastAPI:
 @pytest.fixture
 async def client() -> httpx.AsyncClient:
     transport = httpx.ASGITransport(app=app(), raise_app_exceptions=False)
-    return httpx.AsyncClient(transport=transport, base_url="https://devkit.test")
+    return httpx.AsyncClient(transport=transport, base_url="https://mechframe.test")
 
 
 async def test_a_problem(client: httpx.AsyncClient) -> None:
@@ -58,7 +58,7 @@ async def test_a_problem(client: httpx.AsyncClient) -> None:
     assert response.status_code == 404
     assert response.headers["content-type"] == MEDIA_TYPE
     assert response.json() == {
-        "type": "urn:devkit:problem:blog.post_not_found",
+        "type": "urn:mechframe:problem:blog.post_not_found",
         "title": "Not Found",
         "status": 404,
         "detail": "There's no post at that address.",

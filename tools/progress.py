@@ -3,7 +3,7 @@
     python -m tools.progress           # rewrite docs/PROGRESS.md and the ledger's rows
     python -m tools.progress --check   # exit 1 if either is stale or the data is wrong
 
-`docs/progress.json` lists every phase to DevKit v1.0 and after it, each with
+`docs/progress.json` lists every phase to MechFrame v1.0 and after it, each with
 its steps and their status. Edit only that file. This tool makes both views of
 it from the same data:
 
@@ -31,7 +31,7 @@ DATA = ROOT / "docs" / "progress.json"
 DOC = ROOT / "docs" / "PROGRESS.md"
 ROWS = ROOT / "dev plans" / "progress-ledger" / "rows.json"
 DECISIONS = ROOT / "docs" / "decisions"
-REPO = "https://github.com/Vybecode-LTD/devkit"
+REPO = "https://github.com/mechframe/mechframe"
 
 #: Each status, in the order the views list them, with its label.
 STATUSES = {
@@ -127,7 +127,7 @@ def render(data: dict[str, Any], decisions: dict[str, str] | None = None) -> str
     decisions = _decision_files() if decisions is None else decisions
     phases = data["phases"]
     lines = [
-        "# DevKit progress",
+        "# MechFrame progress",
         "",
         "Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run "
         "the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the "

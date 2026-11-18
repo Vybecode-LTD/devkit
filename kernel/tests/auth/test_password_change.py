@@ -171,7 +171,7 @@ async def test_this_browser_gets_a_fresh_device_cookie_that_still_works(site: Si
     a fresh one, this browser would be a stranger over the failure limit."""
     person = await _person(site)
     changed = await _change(person.browser)
-    fresh = _cookie(changed, "__Host-dk_device")
+    fresh = _cookie(changed, "__Host-mf_device")
     assert fresh
     for _ in range(5):  # strangers push the address over its failure limit
         await _sign_in(site.browser(), person.email, "a wrong password 1")

@@ -4,7 +4,7 @@ import { KERNEL_WEB_VERSION } from "@/kernel";
 export function App() {
   return (
     <main>
-      <h1>DevKit harness</h1>
+      <h1>MechFrame harness</h1>
       <p>Kernel {KERNEL_WEB_VERSION}. The app shell arrives in phase K4.</p>
     </main>
   );

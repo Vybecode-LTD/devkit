@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://devkit.local/schema/events/auth.user.suspended.v1.schema.json",
+  "$id": "https://mechframe.local/schema/events/auth.user.suspended.v1.schema.json",
   "additionalProperties": false,
   "description": "Staff suspended an account (kernel.moderation): it's signed out\neverywhere and can't sign in. Close what you hold open for that person.",
   "properties": {

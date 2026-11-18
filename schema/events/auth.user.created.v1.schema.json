@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://devkit.local/schema/events/auth.user.created.v1.schema.json",
+  "$id": "https://mechframe.local/schema/events/auth.user.created.v1.schema.json",
   "additionalProperties": false,
   "description": "An account was made.",
   "properties": {

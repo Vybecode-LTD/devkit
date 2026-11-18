@@ -1,7 +1,7 @@
 """The modules in this repo, as the harness's app is built from them.
 
 A site lists its modules in `backend/app/modules.py`, written by
-`devkit add` (SPEC.md section 12). The harness finds them instead, by the
+`mechframe add` (SPEC.md section 12). The harness finds them instead, by the
 fixed layout (SPEC.md section 4):
 
 - `backend/<id_>/router.py`'s `router`, mounted at /api/<id>;

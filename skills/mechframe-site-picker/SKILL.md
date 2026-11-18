@@ -1,13 +1,13 @@
 ---
-name: "devkit-site-picker"
-description: "Turn a short site brief into an AI DevKit build plan: ask at most 3 questions, match a recipe, pick modules from the catalog with reasons, check dependencies and conflicts, and produce the devkit commands."
+name: "mechframe-site-picker"
+description: "Turn a short site brief into a MechFrame build plan: ask at most 3 questions, match a recipe, pick modules from the catalog with reasons, check dependencies and conflicts, and produce the mechframe commands."
 ---
 
-# DevKit site picker
+# MechFrame site picker
 
-Use this whenever a new site starts on the AI DevKit, or someone asks "what modules does this site need?". Input is a few sentences about the site, sometimes with the address of a site it replaces. Output is a confirmed module list with reasons, then the commands and settings to build it.
+Use this whenever a new site starts on the MechFrame, or someone asks "what modules does this site need?". Input is a few sentences about the site, sometimes with the address of a site it replaces. Output is a confirmed module list with reasons, then the commands and settings to build it.
 
-The DevKit spec (`SPEC.md`, section 17) and the repo's `AGENT-GUIDE.md` define this flow. Re-read them first; where they differ from this skill, they win. If the `devkit` CLI isn't built yet, do its steps by hand as spec section 12 describes.
+The MechFrame spec (`SPEC.md`, section 17) and the repo's `AGENT-GUIDE.md` define this flow. Re-read them first; where they differ from this skill, they win. If the `mechframe` CLI isn't built yet, do its steps by hand as spec section 12 describes.
 
 ## What to read, and what not to
 
@@ -80,7 +80,7 @@ Accounts are a cost, so add member sign-up only when a pick needs it (community,
 List every need that no module covers. For each, say one of:
 
 - **Site code:** it's specific to this site, so it goes in `site/` folders.
-- **Module candidate:** other sites would want it, so build or extract it as a module (see the `devkit-module-extractor` skill) and add it to the catalog.
+- **Module candidate:** other sites would want it, so build or extract it as a module (see the `mechframe-module-extractor` skill) and add it to the catalog.
 
 ## Step 6: present the plan and get a yes
 
@@ -105,12 +105,12 @@ Nothing is copied into the site until the owner confirms the list.
 After the yes:
 
 ```
-devkit new <site> --recipe <recipe>
-devkit add <module>        # one per module added beyond the recipe
-devkit remove <module>     # one per recipe module dropped
+mechframe new <site> --recipe <recipe>
+mechframe add <module>        # one per module added beyond the recipe
+mechframe remove <module>     # one per recipe module dropped
 ```
 
-Then set the theme, each module's settings and the env vars the CLI prints. Write the site's `CLAUDE.md` with the brief card, the confirmed module list, the gaps and the decisions taken. Build the site's own pages in `site/` folders. Run `devkit check` and the tests, and report the exact commands and results.
+Then set the theme, each module's settings and the env vars the CLI prints. Write the site's `CLAUDE.md` with the brief card, the confirmed module list, the gaps and the decisions taken. Build the site's own pages in `site/` folders. Run `mechframe check` and the tests, and report the exact commands and results.
 
 ## Worked example: Vibrant Mindz
 

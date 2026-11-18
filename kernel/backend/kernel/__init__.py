@@ -1,4 +1,4 @@
-"""The DevKit kernel: the always-installed core every module depends on.
+"""The MechFrame kernel: the always-installed core every module depends on.
 
 This file is the kernel's public surface (SPEC.md section 6). Modules and
 sites import from `kernel` only; every other name in this package is private

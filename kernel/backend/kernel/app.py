@@ -3,7 +3,7 @@
 Lifted from VybeSite `main.py`. A site's `backend/app/main.py` is:
 
     from kernel import create_app
-    from app.modules import INSTALLED   # written by `devkit add`
+    from app.modules import INSTALLED   # written by `mechframe add`
 
     app = create_app(modules=INSTALLED)
 

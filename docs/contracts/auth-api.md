@@ -2,7 +2,7 @@
 
 The kernel's auth routes, as the contract tests in `kernel/tests/contract/` call them. They say what a client sends and gets back, never how the server does it, so a TypeScript port (SPEC.md section 19) passes the same suite. Status codes and problem `code`s are the contract; `detail` sentences may be reworded.
 
-All bodies are JSON. Errors are problem details (`application/problem+json`, SPEC.md section 7). The session is the cookie `__Host-dk_session` (HttpOnly, Secure, SameSite=Lax, Path=/). Every state-changing request passes the same-origin check (`kernel.cross_site_write`, 403).
+All bodies are JSON. Errors are problem details (`application/problem+json`, SPEC.md section 7). The session is the cookie `__Host-mf_session` (HttpOnly, Secure, SameSite=Lax, Path=/). Every state-changing request passes the same-origin check (`kernel.cross_site_write`, 403).
 
 ## Answers that never say whether an account exists
 
@@ -16,7 +16,7 @@ A refused request answers 429 `kernel.rate_limited` with a `Retry-After` header 
   - 10 per IP per minute.
   - Past 5 failures on one account in 15 minutes, 10 in an hour or 20 in a day, 429 with the wait, even for the right password, **except** on a browser holding that account's device cookie, where the right password answers 200.
   - Unknown emails count the same way, so the answers match.
-- **Device cookie:** `__Host-dk_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
+- **Device cookie:** `__Host-mf_device` (HttpOnly, Secure, SameSite=Lax, Path=/) is set at a successful sign-in. It names the account, survives sign-out, and does nothing for any other account.
 - **Codes and links:** 3 per email per 15 minutes, 10 per IP per hour. A second `POST /api/auth/code` within 60 seconds answers the same 202 and sends nothing.
 - **Reset requests:** limited as codes are, the wait included: a second request within 60 seconds answers the same 202 and sends nothing.
 - **Email change:** 3 requests per account per 15 minutes; a request within 60 seconds of the last answers the same 202 and sends nothing. Past 3 mails to one address in 15 minutes, nothing more is sent to it.
@@ -85,7 +85,7 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | `GET /api/auth/sessions` | | 200 `{"items": [...]}` with `current` marked |
 | `DELETE /api/auth/sessions/{id}` | | 204 |
 | `POST /api/auth/sessions/sign-out-others` | | 204 |
-| `POST /api/auth/api-keys` | `{name, scopes, expires_in_days?}` | **step-up.** 201 `{"key": "dk_live_…"}`, shown once |
+| `POST /api/auth/api-keys` | `{name, scopes, expires_in_days?}` | **step-up.** 201 `{"key": "mf_live_…"}`, shown once |
 | `GET /api/auth/api-keys` / `DELETE /api/auth/api-keys/{id}` | | 200 / 204 |
 | `POST /api/auth/account/delete` | | **step-up.** 202 `{"status": "deletion_scheduled", "at": "..."}`; signing in cancels it |
 | `POST /api/auth/account/export` | | 202; the download link is emailed |

@@ -5,18 +5,18 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: devkit
-      POSTGRES_PASSWORD: devkit
-      POSTGRES_DB: devkit
+      POSTGRES_USER: mechframe
+      POSTGRES_PASSWORD: mechframe
+      POSTGRES_DB: mechframe
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U devkit"]
+      test: ["CMD-SHELL", "pg_isready -U mechframe"]
       interval: 2s
       timeout: 3s
       retries: 20
     volumes:
-      - devkit-db:/var/lib/postgresql/data
+      - mechframe-db:/var/lib/postgresql/data
 
 volumes:
-  devkit-db:
+  mechframe-db:

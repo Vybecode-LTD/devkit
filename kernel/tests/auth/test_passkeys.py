@@ -425,7 +425,7 @@ async def test_removing_a_passkey_voids_every_other_way_in(site: Site) -> None:
         await db.commit()
     removed = await person.browser.delete(f"/api/auth/passkeys/{made['id']}")
     assert removed.status_code == 204
-    assert "__Host-dk_device" in removed.headers.get("set-cookie", "")  # over the new epoch
+    assert "__Host-mf_device" in removed.headers.get("set-cookie", "")  # over the new epoch
     async with site.db() as db:
         live = await db.scalar(
             select(func.count())

@@ -17,7 +17,7 @@ Overwritten every session. 2026-11-17, night Eastern (Claude Code, the owner's m
 ## Next
 
 1. **K3's gate** (KICKOFF, K3): tests for each service, an event delivered once to a handler safe to run twice, a job surviving a worker restart. Retention and the AI client are `later` in `docs/progress.json`: confirm with the owner that the gate is checked without them.
-2. **The rename PR** (decision 0034): DevKit becomes MechFrame.
+2. **The rename PR** (decision 0034): AI DevKit becomes MechFrame.
 3. Then K4 (the admin shell to decision 0040; mount with `createRoot` and style or hide `[data-server-copy]`; the Playwright parity test with the first React page), K5 (the site template sets `WEB_DIST`), the ten hooks, the site's steps 1 to 7.
 
 ## Open questions for the owner

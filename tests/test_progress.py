@@ -67,7 +67,7 @@ def test_the_document_counts_links_and_lists() -> None:
     assert "| One | 1 | 0 | 0 | 1 | 1 | 0 | ███░░░░░░░ 33% (1 of 3) |" in text
     assert "### Phase A · 1 of 2 done · gate not passed yet" in text
     assert (
-        "| Built \\| piped | Done | [#5](https://github.com/Vybecode-LTD/devkit/pull/5) | [0001](decisions/0001-stack.md) | n |"
+        "| Built \\| piped | Done | [#5](https://github.com/mechframe/mechframe/pull/5) | [0001](decisions/0001-stack.md) | n |"
         in text
     )
     assert "### Phase B · 0 of 1 done\n\nDo B.\n\nTo do: `x`." in text

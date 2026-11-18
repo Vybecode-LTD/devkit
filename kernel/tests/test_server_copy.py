@@ -24,7 +24,7 @@ from kernel.settings import settings
 
 from .conftest import FakePages, public_module
 
-SITE = "https://devkit.test"
+SITE = "https://mechframe.test"
 
 IDENT = Identity(name="Test Site", url=SITE)
 
@@ -457,7 +457,7 @@ def test_a_link_somewhere_unsafe_keeps_only_its_words(href: str) -> None:
         "/menu",
         "https://social.test/us",
         "http://old.test",
-        "mailto:hi@devkit.test",
+        "mailto:hi@mechframe.test",
         "tel:+15550100",
         "#top",
     ],

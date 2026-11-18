@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://devkit.local/schema/kernel.schema.json",
-  "title": "DevKit kernel manifest (kernel/kernel.json)",
+  "$id": "https://mechframe.local/schema/kernel.schema.json",
+  "title": "MechFrame kernel manifest (kernel/kernel.json)",
   "description": "SPEC.md sections 3 and 6: the kernel's version, its services and where its public surface is.",
   "type": "object",
   "additionalProperties": false,

@@ -181,7 +181,7 @@ async def test_a_new_address_gets_an_unverified_member_account_and_a_link(site: 
     assert roles == ["member"]
 
     [message] = site.mail.to(email)
-    assert "DevKit site" in message.subject
+    assert "MechFrame site" in message.subject
     token = _token(message.text)
     [row] = tokens
     assert (row.purpose, row.email_normal, row.used_at) == ("verify_email", email.lower(), None)

@@ -91,16 +91,16 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: devkit
-          POSTGRES_PASSWORD: devkit
-          POSTGRES_DB: devkit
+          POSTGRES_USER: mechframe
+          POSTGRES_PASSWORD: mechframe
+          POSTGRES_DB: mechframe
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U devkit" --health-interval 2s
+          --health-cmd "pg_isready -U mechframe" --health-interval 2s
           --health-timeout 3s --health-retries 30
     env:
-      TEST_DATABASE_URL: postgresql://devkit:devkit@localhost:5432/postgres
-      DEVKIT_REQUIRE_DB: "1"
+      TEST_DATABASE_URL: postgresql://mechframe:mechframe@localhost:5432/postgres
+      MECHFRAME_REQUIRE_DB: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

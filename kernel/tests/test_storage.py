@@ -21,10 +21,10 @@ from moto import mock_aws
 from kernel import storage
 from kernel.config import reset_config
 
-ENDPOINT = "https://r2.devkit.test"
-PRIVATE = "devkit-private"
-PUBLIC = "devkit-public"
-PUBLIC_URL = "https://files.devkit.test"
+ENDPOINT = "https://r2.mechframe.test"
+PRIVATE = "mechframe-private"
+PUBLIC = "mechframe-public"
+PUBLIC_URL = "https://files.mechframe.test"
 KEY_ID = "test-key-id-AKIA0000"
 SECRET = "test-secret-do-not-print-8c1f"
 STORAGE_ENV = {

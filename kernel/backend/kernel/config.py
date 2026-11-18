@@ -59,9 +59,9 @@ class KernelConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
     debug: bool = False
-    site_name: str = "DevKit site"
+    site_name: str = "MechFrame site"
     site_url: str = "http://localhost:8000"
-    database_url: str = "postgresql://devkit:devkit@localhost:5432/devkit"
+    database_url: str = "postgresql://mechframe:mechframe@localhost:5432/mechframe"
     db_pool_size: int = Field(default=5, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)
 

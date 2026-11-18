@@ -41,7 +41,7 @@ def schemas() -> dict[str, dict[str, Any]]:
         file_name = f"{name}.v{version}{SUFFIX}"
         made[file_name] = {
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": f"https://devkit.local/schema/events/{file_name}",
+            "$id": f"https://mechframe.local/schema/events/{file_name}",
             **model.model_json_schema(),
             "title": f"{name} (v{version})",
         }

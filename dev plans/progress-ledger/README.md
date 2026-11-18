@@ -17,4 +17,4 @@ The repo's `docs/PROGRESS.md` and this ledger's rows are made from the same `doc
 4. Read `data/users/me` `check` on the ledger: `passed` means the page drew the new rows.
 5. Delete the previous asset once nothing points at it.
 
-The page itself changes only when this `index.html` does: write it to `files/index.html` (pinned to its version), then read `check` the same way. Its milestone labels ("DevKit v1.0", "Everything") are text in the page, so renaming a milestone in `docs/progress.json` means changing them here too.
+The page itself changes only when this `index.html` does: write it to `files/index.html` (pinned to its version), then read `check` the same way. Its milestone labels ("MechFrame v1.0", "Everything") are text in the page, so renaming a milestone in `docs/progress.json` means changing them here too.

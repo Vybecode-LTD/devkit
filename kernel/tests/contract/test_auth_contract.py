@@ -291,7 +291,7 @@ async def test_a_get_on_a_magic_link_signs_nobody_in(api: Api) -> None:
         f"/api/auth/link/confirm?token={token}",
     ):
         response = await scanner.http.get(path, extensions=UNCHECKED)
-        assert "__Host-dk_session" not in response.headers.get("set-cookie", "")
+        assert "__Host-mf_session" not in response.headers.get("set-cookie", "")
     assert (await scanner.session()).status_code == 401
     # The scanner used nothing up: the person's own click still works.
     assert (await api.http.post("/api/auth/link/confirm", json={"token": token})).status_code == 200
@@ -709,7 +709,7 @@ async def test_a_write_from_another_origin_is_refused(api: Api, headers: dict[st
 
 async def test_the_token_changes_at_sign_in(api: Api) -> None:
     user = await api.make_user()
-    api.plant_cookie("__Host-dk_session", "planted-by-an-attacker")
+    api.plant_cookie("__Host-mf_session", "planted-by-an-attacker")
     await api.signed_in_as(user)
     assert api.session_cookie not in {None, "planted-by-an-attacker"}
     first = api.session_cookie
@@ -734,7 +734,7 @@ async def test_the_token_changes_on_a_role_change(api: Api) -> None:
     assert (await member_side.session()).status_code == 200
     assert member_side.session_cookie not in {None, before}
     stale = api.another_browser()
-    stale.plant_cookie("__Host-dk_session", before)
+    stale.plant_cookie("__Host-mf_session", before)
     assert (await stale.session()).status_code == 401
 
 
@@ -823,14 +823,14 @@ async def test_a_device_cookie_helps_only_its_own_account(api: Api) -> None:
     await _over_the_limit(api, theirs.email)
     assert (await api.sign_in(theirs)).status_code == 429
     forged = api.another_browser()
-    forged.plant_cookie("__Host-dk_device", "forged")
+    forged.plant_cookie("__Host-mf_device", "forged")
     assert (await forged.sign_in(theirs)).status_code == 429
 
 
 async def test_the_device_cookie_outlives_sign_out_and_is_no_session(api: Api) -> None:
     await api.signed_in_as(await api.make_user())
     await api.http.post("/api/auth/sign-out")
-    device = api.http.cookies.get("__Host-dk_device")
+    device = api.http.cookies.get("__Host-mf_device")
     assert device
     assert device != api.session_cookie
     assert (await api.session()).status_code == 401

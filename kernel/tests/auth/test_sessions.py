@@ -524,7 +524,7 @@ def test_the_session_cookie_is_host_only_http_only_secure_and_lax() -> None:
     response = Response()
     sessions.set_session_cookie(response, "the-token", row)
     cookie = _set_cookie(response)
-    assert cookie.startswith("__Host-dk_session=the-token;")
+    assert cookie.startswith("__Host-mf_session=the-token;")
     for part in ("HttpOnly", "Secure", "SameSite=lax", "Path=/", f"Max-Age={30 * DAY}"):
         assert part in cookie
     assert "Domain" not in cookie
@@ -534,7 +534,7 @@ def test_clearing_the_session_cookie_repeats_its_attributes() -> None:
     response = Response()
     sessions.clear_session_cookie(response)
     cookie = _set_cookie(response)
-    assert cookie.startswith("__Host-dk_session=")
+    assert cookie.startswith("__Host-mf_session=")
     for part in ("HttpOnly", "Secure", "SameSite=lax", "Path=/", "Max-Age=0"):
         assert part in cookie
 
@@ -543,6 +543,6 @@ def test_the_device_cookie_is_its_own_cookie_and_lasts_a_year() -> None:
     response = Response()
     sessions.set_device_cookie(response, _transient())
     cookie = _set_cookie(response)
-    assert cookie.startswith("__Host-dk_device=")
+    assert cookie.startswith("__Host-mf_device=")
     for part in ("HttpOnly", "Secure", "SameSite=lax", "Path=/", f"Max-Age={365 * DAY}"):
         assert part in cookie

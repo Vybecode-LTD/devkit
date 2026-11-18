@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://devkit.local/schema/lock.schema.json",
-  "title": "DevKit site lock file (devkit.lock.json)",
+  "$id": "https://mechframe.local/schema/lock.schema.json",
+  "title": "MechFrame site lock file (mechframe.lock.json)",
   "description": "SPEC.md section 13: which kernel and module versions a site copied, with file hashes.",
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "devkit",
+    "mechframe",
     "spec",
     "kernel",
     "modules",
@@ -17,7 +17,7 @@
     "$schema": {
       "type": "string"
     },
-    "devkit": {
+    "mechframe": {
       "type": "string",
       "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
     },

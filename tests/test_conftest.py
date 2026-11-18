@@ -49,7 +49,7 @@ async def _exists(server_url: str, name: str) -> bool:
 async def test_drop_ends_its_own_sessions_when_force_is_refused(
     server_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    name = f"devkit_drop_{uuid.uuid4().hex[:12]}"
+    name = f"mechframe_drop_{uuid.uuid4().hex[:12]}"
     await conftest._create(name)
     # A session of the test role's own still in the database, as a pool a
     # test forgot to close would leave one.
@@ -97,6 +97,6 @@ async def test_drop_lets_any_other_error_through(monkeypatch: pytest.MonkeyPatch
 
     monkeypatch.setattr(conftest, "_admin", admin)
     with pytest.raises(asyncpg.ObjectInUseError):
-        await conftest._drop("devkit_never_made")
+        await conftest._drop("mechframe_never_made")
     assert len(fake.statements) == 1  # nothing else was tried
     assert fake.closed

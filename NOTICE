@@ -1,4 +1,4 @@
-AI DevKit includes third-party material under its own licenses.
+MechFrame includes third-party material under its own licenses.
 
 kernel/backend/kernel/auth/data/common-passwords.txt.gz
   The bundled common-password list (SPEC.md 14.2), built with

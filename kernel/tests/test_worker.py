@@ -1042,7 +1042,7 @@ async def test_pruning_works_through_every_batch(
 def test_serve_runs_until_a_stop_signal_and_returns_0() -> None:
     """No jobs, so nothing reaches the database (there is none here)."""
     registry = ModuleRegistry([], [], ttl=0)
-    nowhere = Database("postgresql://devkit:devkit@127.0.0.1:1/none")
+    nowhere = Database("postgresql://mechframe:mechframe@127.0.0.1:1/none")
     worker = Worker([], registry=registry, database=nowhere, mailer=LogMailer(), poll=0.05)
     timer = threading.Timer(0.5, signal.raise_signal, (signal.SIGINT,))
     timer.start()
@@ -1259,7 +1259,7 @@ def test_serve_ends_the_process_when_cancelled_jobs_won_t_finish(
     after its cancel, however long; `serve` ends the process instead, and the
     job's lease lapses."""
     registry = ModuleRegistry([], [], ttl=0)
-    nowhere = Database("postgresql://devkit:devkit@127.0.0.1:1/none")
+    nowhere = Database("postgresql://mechframe:mechframe@127.0.0.1:1/none")
     worker = Worker([], registry=registry, database=nowhere, mailer=LogMailer())
 
     async def run_leaving_a_straggler(stop: asyncio.Event) -> None:

@@ -22,7 +22,7 @@ from kernel.email import LogMailer
 from kernel.modules import InstalledModule, Manifest, ModuleRegistry
 from kernel.worker import Worker
 
-SITE = "https://devkit.test"
+SITE = "https://mechframe.test"
 
 
 def make_config(**overrides: Any) -> KernelConfig:

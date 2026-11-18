@@ -1,11 +1,11 @@
 ---
 name: alembic-multi-module-migrations
-description: Set up and work with Alembic when a FastAPI app is built from a kernel plus copied-in modules, each owning its own migration branch. Use when adding a module's first migration, wiring version_locations, labelling branches, making a module depend on the kernel's head, merging heads, autogenerating against several metadata sources, or writing the upgrade-downgrade-upgrade and model-drift tests. Built from AI DevKit's harness (harness/migrations.py, harness/alembic/env.py).
+description: Set up and work with Alembic when a FastAPI app is built from a kernel plus copied-in modules, each owning its own migration branch. Use when adding a module's first migration, wiring version_locations, labelling branches, making a module depend on the kernel's head, merging heads, autogenerating against several metadata sources, or writing the upgrade-downgrade-upgrade and model-drift tests. Built from MechFrame's harness (harness/migrations.py, harness/alembic/env.py).
 ---
 
 # Alembic with one branch per module
 
-One database, many owners: the kernel has a migration branch, and every module copied into the site has its own. Each branch moves on its own, and `upgrade heads` runs them all in dependency order. This is how AI DevKit (SPEC.md section 10) does it; the same shape fits any plugin-style app.
+One database, many owners: the kernel has a migration branch, and every module copied into the site has its own. Each branch moves on its own, and `upgrade heads` runs them all in dependency order. This is how MechFrame (SPEC.md section 10) does it; the same shape fits any plugin-style app.
 
 ## The layout
 

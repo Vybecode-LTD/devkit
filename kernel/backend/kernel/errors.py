@@ -4,7 +4,7 @@
 
 answers `application/problem+json`:
 
-    {"type": "urn:devkit:problem:blog.post_not_found", "title": "Not Found",
+    {"type": "urn:mechframe:problem:blog.post_not_found", "title": "Not Found",
      "status": 404, "detail": "There's no post at that address.",
      "code": "blog.post_not_found"}
 
@@ -43,7 +43,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 log = logging.getLogger(__name__)
 
 MEDIA_TYPE = "application/problem+json"
-TYPE_PREFIX = "urn:devkit:problem:"
+TYPE_PREFIX = "urn:mechframe:problem:"
 CODE = re.compile(r"^[a-z][a-z0-9-]*\.[a-z][a-z0-9_]*$")
 _RESERVED = frozenset({"type", "title", "status", "detail", "code", "errors", "instance"})
 

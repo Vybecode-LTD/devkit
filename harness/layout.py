@@ -1,4 +1,4 @@
-"""Where things are in the DevKit repo, for the harness, the tools and tests.
+"""Where things are in the MechFrame repo, for the harness, the tools and tests.
 
 A site keeps the same names under `backend/` (SPEC.md section 4); the CLI's
 site template (K5) gets its own copy of this file.

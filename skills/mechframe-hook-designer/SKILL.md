@@ -1,13 +1,13 @@
 ---
-name: devkit-hook-designer
-description: Add a cross-module hook to the AI DevKit contract, a slot every module can fill (search index, consent categories, entitlements, taxonomy, content lifecycle, seed data and the like). Checks what SPEC.md already offers, picks the smallest shape (manifest field, fixed-name module part, kernel API, UI slot or event), then lands the spec text, JSON Schema, kernel registry, template stub, tests seen failing first, the module-contract-lint row, the decision record and the change-log line together. Use when a decision says the spec needs a new hook, or when two modules are about to solve the same cross-cutting problem in different ways.
+name: mechframe-hook-designer
+description: Add a cross-module hook to the MechFrame contract, a slot every module can fill (search index, consent categories, entitlements, taxonomy, content lifecycle, seed data and the like). Checks what SPEC.md already offers, picks the smallest shape (manifest field, fixed-name module part, kernel API, UI slot or event), then lands the spec text, JSON Schema, kernel registry, template stub, tests seen failing first, the module-contract-lint row, the decision record and the change-log line together. Use when a decision says the spec needs a new hook, or when two modules are about to solve the same cross-cutting problem in different ways.
 ---
 
-# DevKit hook designer
+# MechFrame hook designer
 
 A hook is a contract point that many modules fill in the same way, so a shared module (site search, the privacy center, memberships) can work across all of them without importing any of them. Without one, each module bolts the feature on its own way and the shared module can't be built later.
 
-`SPEC.md` in the DevKit repo is the contract and its only copy (decision 0017). Re-read sections 5 to 11 and 16 before starting. Where this skill and the spec disagree, the spec wins.
+`SPEC.md` in the MechFrame repo is the contract and its only copy (decision 0017). Re-read sections 5 to 11 and 16 before starting. Where this skill and the spec disagree, the spec wins.
 
 ## The rules that matter most
 
@@ -67,7 +67,7 @@ In one branch:
 - **Schema and checker.** `schema/module.schema.json` (the field optional, with `additionalProperties: false` kept), plus any rule a JSON Schema can't say in `tools/validate_schemas.py`.
 - **Kernel.** An attribute on `InstalledModule` in `kernel/backend/kernel/modules.py`, and discovery where modules are actually found: `discover()` in `harness/registry.py` reads it with `_attribute()`, the way it reads `CSP`. A test that builds `InstalledModule` by hand passes without that line, so test discovery too. Then any registry or table with its migration on the `kernel` branch, and the public name in `kernel/__init__.py`.
 - **Template.** `modules/_template`: the manifest's default value, an empty stub of the part, and a line under "Extension points" in `MODULE.md`.
-- **Agent docs.** A row for the hook in `skills/module-contract-lint/SKILL.md`, and a step in `skills/devkit-module-extractor/SKILL.md` when extractions must fill it. The owner's account copies of both skills then need the same edit at the next skill batch, so note it in `docs/SKILL-BACKLOG.md`.
+- **Agent docs.** A row for the hook in `skills/module-contract-lint/SKILL.md`, and a step in `skills/mechframe-module-extractor/SKILL.md` when extractions must fill it. The owner's account copies of both skills then need the same edit at the next skill batch, so note it in `docs/SKILL-BACKLOG.md`.
 - **catalog.json.** Only if picking modules needs the new field (section 17).
 
 ## Step 5: records
@@ -80,11 +80,11 @@ In one branch:
 
 ## Step 6: verify
 
-From the repo root, in PowerShell, with the test Postgres up (CLAUDE.md, "Test Postgres"). `DEVKIT_REQUIRE_DB` makes a database test fail rather than skip when Postgres isn't reachable, so the registry and migration tests can't pass by not running:
+From the repo root, in PowerShell, with the test Postgres up (CLAUDE.md, "Test Postgres"). `MECHFRAME_REQUIRE_DB` makes a database test fail rather than skip when Postgres isn't reachable, so the registry and migration tests can't pass by not running:
 
 ```
 python -m tools.validate_schemas
-$env:DEVKIT_REQUIRE_DB = "1"
+$env:MECHFRAME_REQUIRE_DB = "1"
 python -m pytest
 python -m ruff check . ; python -m black --check . ; python -m mypy
 npm run lint ; npm run typecheck ; npm test      # when the web side changed

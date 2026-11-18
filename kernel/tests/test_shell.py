@@ -128,7 +128,7 @@ async def test_a_modules_page_is_the_shell_with_its_head_words_and_json_ld(
     head = _between(text, shell.HEAD_START, shell.HEAD_END)
     assert "<title>Hello</title>" in head
     assert "<title>Built</title>" not in text
-    assert '<link rel="canonical" href="https://devkit.test/blog/hello" />' in head
+    assert '<link rel="canonical" href="https://mechframe.test/blog/hello" />' in head
     assert '<meta property="og:type" content="article" />' in head
     (ld,) = re.findall(r'<script type="application/ld\+json">(.*?)</script>', head)
     assert json.loads(ld)["headline"] == "</script>"
@@ -144,7 +144,7 @@ async def test_the_canonical_is_the_pages_never_the_requests_query(
 ) -> None:
     async with Client(_app(app_factory, dist)) as client:
         response = await client.get("/blog/hello?utm_source=x")
-    assert '<link rel="canonical" href="https://devkit.test/blog/hello" />' in response.text
+    assert '<link rel="canonical" href="https://mechframe.test/blog/hello" />' in response.text
 
 
 async def test_the_module_is_asked_with_the_patterns_parameters(
@@ -172,13 +172,13 @@ async def test_a_trailing_slash_is_a_301_without_it(app_factory: AppFactory, dis
 @pytest.mark.parametrize(
     "address",
     [
-        "https://devkit.test//evil.test/",
-        "https://devkit.test//evil.test",
-        "https://devkit.test/%5Cevil.test/",
-        "https://devkit.test/%2F%2Fevil.test/",
-        "https://devkit.test/a%0D%0ASet-Cookie:%20x=1/",
-        "https://devkit.test/a%00b",
-        "https://devkit.test/blog//hello",
+        "https://mechframe.test//evil.test/",
+        "https://mechframe.test//evil.test",
+        "https://mechframe.test/%5Cevil.test/",
+        "https://mechframe.test/%2F%2Fevil.test/",
+        "https://mechframe.test/a%0D%0ASet-Cookie:%20x=1/",
+        "https://mechframe.test/a%00b",
+        "https://mechframe.test/blog//hello",
     ],
 )
 async def test_an_address_that_could_leave_the_site_is_a_404(
@@ -385,7 +385,7 @@ async def test_no_address_reaches_outside_the_folder(
     app_factory: AppFactory, dist: Path, path: str
 ) -> None:
     async with Client(_app(app_factory, dist)) as client:
-        response = await client.get("https://devkit.test" + path)
+        response = await client.get("https://mechframe.test" + path)
     assert SECRET not in response.text
     assert response.status_code in (301, 404)
 
@@ -520,14 +520,14 @@ async def test_the_kernel_files_are_served(app_factory: AppFactory, dist: Path) 
         robots = await client.get("/robots.txt")
         llms = await client.get("/llms.txt")
     assert sitemap.headers["content-type"] == "application/xml"
-    assert "<loc>https://devkit.test/blog/hello</loc>" in sitemap.text
-    assert "<loc>https://devkit.test/</loc>" in sitemap.text
+    assert "<loc>https://mechframe.test/blog/hello</loc>" in sitemap.text
+    assert "<loc>https://mechframe.test/</loc>" in sitemap.text
     assert robots.headers["content-type"] == "text/plain; charset=utf-8"
     assert "Disallow: /admin/" in robots.text
     assert "/account" not in robots.text  # member pages say noindex in their shell
-    assert "Sitemap: https://devkit.test/sitemap.xml" in robots.text
+    assert "Sitemap: https://mechframe.test/sitemap.xml" in robots.text
     assert llms.headers["content-type"] == "text/plain; charset=utf-8"
-    assert "## Blog\n\n- [Hello](https://devkit.test/blog/hello): The first post.\n" in llms.text
+    assert "## Blog\n\n- [Hello](https://mechframe.test/blog/hello): The first post.\n" in llms.text
     for response in (sitemap, robots, llms):
         assert response.status_code == 200
         assert "x-robots-tag" not in response.headers
@@ -613,7 +613,7 @@ async def test_head_as_get_on_its_own() -> None:
         await middleware(scope, receive, send)
 
     transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="https://devkit.test") as client:
+    async with httpx.AsyncClient(transport=transport, base_url="https://mechframe.test") as client:
         head = await client.head("/page")
         other = await client.head("/other")
         api = await client.head("/api/x")

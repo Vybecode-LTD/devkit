@@ -1,6 +1,6 @@
-# AGENT-GUIDE: building a site with AI DevKit
+# AGENT-GUIDE: building a site with MechFrame
 
-You are an AI agent asked to build a website with DevKit. This page is your front door. It follows `SPEC.md` section 17; if they ever differ, the spec wins. The `devkit-site-picker` skill (in `skills/`) holds the same flow in more detail.
+You are an AI agent asked to build a website with MechFrame. This page is your front door. It follows `SPEC.md` section 17; if they ever differ, the spec wins. The `mechframe-site-picker` skill (in `skills/`) holds the same flow in more detail.
 
 **Status (2026-11-12):** the catalog is empty and the CLI isn't built yet. Until they exist, use this guide to plan, and build by hand as `SPEC.md` section 12 describes.
 
@@ -24,8 +24,8 @@ You are an AI agent asked to build a website with DevKit. This page is your fron
    | --- | --- | --- | --- |
 
    Then list the modules considered and dropped (with the `avoid_when` reason), the gaps, and the settings to decide.
-7. **Build:** `devkit new <site> --recipe <recipe>`, then `devkit add` or `devkit remove` for each change to the recipe. Set the theme, each module's settings and the env vars the CLI prints. Write the site's `CLAUDE.md` with the brief card and the confirmed list.
-8. **Check:** `devkit check` and the tests. Report what ran and what it returned.
+7. **Build:** `mechframe new <site> --recipe <recipe>`, then `mechframe add` or `mechframe remove` for each change to the recipe. Set the theme, each module's settings and the env vars the CLI prints. Write the site's `CLAUDE.md` with the brief card and the confirmed list.
+8. **Check:** `mechframe check` and the tests. Report what ran and what it returned.
 
 ## Picking: distinctions agents get wrong
 

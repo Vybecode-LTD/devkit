@@ -62,7 +62,7 @@ from kernel.db import get_db
 from kernel.errors import Problem
 
 #: Where a replaced token waits on the request for `SessionCookies`.
-_REPLACED = "devkit_replaced_session"
+_REPLACED = "mechframe_replaced_session"
 
 
 def _mark[F: Callable[..., Any]](dependency: F, access: str, *, step_up: bool = False) -> F:

@@ -560,7 +560,7 @@ class Identity:
 
 @dataclass
 class _Installed:
-    name: str = "DevKit site"
+    name: str = "MechFrame site"
     url: str = "http://localhost:8000"
 
 

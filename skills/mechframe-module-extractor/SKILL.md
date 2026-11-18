@@ -1,13 +1,13 @@
 ---
-name: "devkit-module-extractor"
-description: "Turn a feature from an existing project into an AI DevKit module: pick the best source, cut its dependencies, reshape it to the module contract (manifest, kernel API, migrations, tests) and record where it came from."
+name: "mechframe-module-extractor"
+description: "Turn a feature from an existing project into a MechFrame module: pick the best source, cut its dependencies, reshape it to the module contract (manifest, kernel API, migrations, tests) and record where it came from."
 ---
 
-# DevKit module extractor
+# MechFrame module extractor
 
-Use this when lifting a feature (auth, blog, chat, payments, a forum, an embed system) out of an existing project and into the AI DevKit as a reusable module, or when porting a module from another stack (Supabase, Node/Express, Next.js) onto DevKit's stack. The result is a folder that passes the DevKit quality gate and that any agent can copy into a site.
+Use this when lifting a feature (auth, blog, chat, payments, a forum, an embed system) out of an existing project and into the MechFrame as a reusable module, or when porting a module from another stack (Supabase, Node/Express, Next.js) onto MechFrame's stack. The result is a folder that passes the MechFrame quality gate and that any agent can copy into a site.
 
-The DevKit spec (`SPEC.md` in the DevKit repo, its only copy) is the contract. Re-read sections 4 to 13 and 16 before starting, because the spec changes. Where this skill and the spec disagree, the spec wins. If the `devkit` CLI isn't built yet, do its steps by hand as spec section 12 describes.
+The MechFrame spec (`SPEC.md` in the MechFrame repo, its only copy) is the contract. Re-read sections 4 to 13 and 16 before starting, because the spec changes. Where this skill and the spec disagree, the spec wins. If the `mechframe` CLI isn't built yet, do its steps by hand as spec section 12 describes.
 
 **The stack:** Python 3.12+, FastAPI, Pydantic v2 (strict), async SQLAlchemy 2 with asyncpg, Postgres, Alembic with one branch per module; React 19, Vite, TypeScript strict, React Router 7, TanStack Query, design tokens as CSS variables.
 
@@ -17,15 +17,15 @@ Extracting is not copying. Pick the one best source for the feature, then reshap
 
 ## Step 1: choose the source
 
-1. Search for every implementation of the feature across the owner's projects (for example under `C:\DEV`). Check the DevKit inventory doc first; it already lists best sources per category.
-2. Rank them by: tests that exist and pass, how hardened the code is (security reviews, audit logs, bug notes), closeness to the DevKit stack, and how little it depends on the rest of its project.
+1. Search for every implementation of the feature across the owner's projects (for example under `C:\DEV`). Check the MechFrame inventory doc first; it already lists best sources per category.
+2. Rank them by: tests that exist and pass, how hardened the code is (security reviews, audit logs, bug notes), closeness to the MechFrame stack, and how little it depends on the rest of its project.
 3. Read the chosen project's `CLAUDE.md`, `docs/`, bug notes and decision records before touching code. They record what went wrong last time.
 4. Note the runner-up sources. They are for ideas only; their code doesn't go in.
 
 ## Step 2: provenance gate (stop if it fails)
 
-- Confirm the code is the owner's to reuse. Client-confidential code and material never enter DevKit (for this owner: nothing from the client folder named in `docs/private/README.md`).
-- For code lifted from VybeSite, run VybeSite's private brand check on the extracted files before they land. Never copy the check's term list into DevKit.
+- Confirm the code is the owner's to reuse. Client-confidential code and material never enter MechFrame (for this owner: nothing from the client folder named in `docs/private/README.md`).
+- For code lifted from VybeSite, run VybeSite's private brand check on the extracted files before they land. Never copy the check's term list into MechFrame.
 - Strip real customer data, fixtures with real people's details, keys, `.env` files, analytics ids, domain names and brand copy.
 - Record `source` in `module.json`: project, commit, path, license.
 - If ownership is unclear, stop and ask the owner.
@@ -55,7 +55,7 @@ Sort every import and call into one of four piles:
 3. **Specific to the old project.** Drop it, or turn it into a setting.
 4. **A third-party library.** Keep only if needed, and justify it in the PR.
 
-| Source pattern | DevKit replacement |
+| Source pattern | MechFrame replacement |
 | --- | --- |
 | Its own login, JWTs, session tables | `current_user`, `optional_user`, kernel sessions (spec 14) |
 | Role checks, admin flags | `require_permission("<id>.<resource>.<action>")`, declared in `permissions` |

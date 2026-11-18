@@ -289,7 +289,7 @@ class Token(Base):
 
 
 class ApiKey(Base):
-    """`dk_<live|test>_<key_id>_<secret>`; only the secret's SHA-256 is kept (14.9)."""
+    """`mf_<live|test>_<key_id>_<secret>`; only the secret's SHA-256 is kept (14.9)."""
 
     __tablename__ = "auth_api_key"
     __table_args__ = (CheckConstraint("mode IN ('live', 'test')", name="mode_known"),)

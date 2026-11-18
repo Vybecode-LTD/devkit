@@ -76,7 +76,7 @@ class _Below(logging.Filter):
         return record.levelno < self.level
 
 
-_MARK = "_devkit_handler"
+_MARK = "_mechframe_handler"
 
 
 def configure(log_format: str = "json", level: str = "INFO") -> None:

@@ -1,11 +1,11 @@
-# The DevKit repo's Python tooling. DevKit isn't installed as a package: sites
+# The MechFrame repo's Python tooling. MechFrame isn't installed as a package: sites
 # copy the kernel and modules in (decision 0002). This file only configures the
 # dev tools. Dependencies live in requirements.in and requirements-dev.in.
 
 [project]
-name = "ai-devkit"
+name = "mechframe"
 version = "0.0.0"
-description = "AI DevKit: reusable website modules for AI agents (dev environment only)"
+description = "MechFrame: reusable website modules for AI agents (dev environment only)"
 requires-python = ">=3.12"
 
 [tool.uv]
@@ -23,7 +23,7 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 addopts = ["--strict-markers", "--strict-config", "-ra", "--import-mode=importlib"]
 markers = [
-    "db: needs the test Postgres (compose.yaml); skipped when it isn't running, unless DEVKIT_REQUIRE_DB=1",
+    "db: needs the test Postgres (compose.yaml); skipped when it isn't running, unless MECHFRAME_REQUIRE_DB=1",
     "storage_live: needs a real S3-compatible store (TEST_STORAGE_*, kernel/tests/test_storage_live.py); skipped when none is set",
 ]
 filterwarnings = ["error", "ignore::DeprecationWarning:passlib.*"]

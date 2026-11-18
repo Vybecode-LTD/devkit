@@ -9,7 +9,7 @@ so no test signs or decrypts with a real key. DEBUG is off, as in production.
 The server is the one in compose.yaml (`docker compose up -d db`), or
 TEST_DATABASE_URL's. Each run makes its own database and drops it after; a
 migration test gets an empty one of its own. When no server answers, those
-tests are skipped with a note, unless DEVKIT_REQUIRE_DB=1 (CI), which fails
+tests are skipped with a note, unless MECHFRAME_REQUIRE_DB=1 (CI), which fails
 them instead.
 """
 
@@ -27,7 +27,7 @@ from cryptography.fernet import Fernet
 os.environ["SECRET_KEY"] = secrets.token_urlsafe(48)
 os.environ["ENCRYPTION_KEYS"] = Fernet.generate_key().decode()
 os.environ["DEBUG"] = "false"
-os.environ["SITE_URL"] = "https://devkit.test"  # .test is reserved (RFC 2606), never live
+os.environ["SITE_URL"] = "https://mechframe.test"  # .test is reserved (RFC 2606), never live
 os.environ["SENTRY_DSN"] = ""
 os.environ["MODULES"] = "*"
 os.environ["CLIENT_IP_HEADER"] = ""
@@ -45,7 +45,7 @@ os.environ["STORAGE_SECRET_ACCESS_KEY"] = ""
 os.environ["STORAGE_BUCKET"] = ""
 os.environ["STORAGE_PUBLIC_BUCKET"] = ""
 os.environ["STORAGE_PUBLIC_URL"] = ""
-os.environ["MOTO_S3_CUSTOM_ENDPOINTS"] = "https://r2.devkit.test"
+os.environ["MOTO_S3_CUSTOM_ENDPOINTS"] = "https://r2.mechframe.test"
 # No app a test builds runs a worker of its own (JOBS_IN_WEB): the tests run
 # due jobs themselves (`Worker.run_due`, which kernel/tests/conftest.py's
 # client does after every request), so what a job did is there to check.
@@ -63,9 +63,9 @@ import harness  # noqa: F401  (puts the kernel and modules on sys.path)
 import kernel  # noqa: F401
 
 ADMIN_URL = os.environ.get(
-    "TEST_DATABASE_URL", "postgresql://devkit:devkit@localhost:5432/postgres"
+    "TEST_DATABASE_URL", "postgresql://mechframe:mechframe@localhost:5432/postgres"
 )
-REQUIRE_DB = os.environ.get("DEVKIT_REQUIRE_DB") == "1"
+REQUIRE_DB = os.environ.get("MECHFRAME_REQUIRE_DB") == "1"
 DB_FIXTURES = {"server_url", "database_url", "empty_database_url", "migrated_url", "db", "engine"}
 
 
@@ -144,7 +144,7 @@ async def server_url() -> str:
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def migrated_url(server_url: str) -> AsyncIterator[str]:
     """A database for this run with every migration applied, dropped after."""
-    name = f"devkit_test_{uuid.uuid4().hex[:12]}"
+    name = f"mechframe_test_{uuid.uuid4().hex[:12]}"
     await _create(name)
     url = _with_database(server_url, name)
     from harness.migrations import upgrade
@@ -157,7 +157,7 @@ async def migrated_url(server_url: str) -> AsyncIterator[str]:
 @pytest_asyncio.fixture(loop_scope="session")
 async def empty_database_url(server_url: str) -> AsyncIterator[str]:
     """An empty database of this test's own, dropped after."""
-    name = f"devkit_empty_{uuid.uuid4().hex[:12]}"
+    name = f"mechframe_empty_{uuid.uuid4().hex[:12]}"
     await _create(name)
     yield _with_database(server_url, name)
     await _drop(name)

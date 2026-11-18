@@ -90,7 +90,7 @@ def _app(header: str = "") -> FastAPI:
 
 def _client(app: FastAPI, address: str = "203.0.113.9") -> httpx.AsyncClient:
     transport = httpx.ASGITransport(app=app, client=(address, 1234))
-    return httpx.AsyncClient(transport=transport, base_url="https://devkit.test")
+    return httpx.AsyncClient(transport=transport, base_url="https://mechframe.test")
 
 
 async def test_the_dependency_answers_429_at_the_threshold() -> None:

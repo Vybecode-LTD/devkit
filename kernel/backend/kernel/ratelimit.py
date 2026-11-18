@@ -182,7 +182,7 @@ def too_many(wait: int) -> Problem:
     )
 
 
-_ROUTE_PATHS = "_devkit_route_paths"
+_ROUTE_PATHS = "_mechframe_route_paths"
 
 
 def _route_paths(app: FastAPI) -> dict[int, list[tuple[re.Pattern[str] | None, str]]]:

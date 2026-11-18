@@ -1,4 +1,4 @@
-# KICKOFF: AI DevKit, phases K0 to K5 (the kernel)
+# KICKOFF: MechFrame, phases K0 to K5 (the kernel)
 
 **For Claude Code, run from `C:\DEV\AI-DevKit`.** To start: "Read KICKOFF.md and begin phase K0." Each phase is one or more pull requests, and each ends at its gate. Work the phases in order, one session at a time, and stop at each gate to report.
 
@@ -6,7 +6,7 @@
 
 ## What this is
 
-AI DevKit is a library of reusable website modules that any AI agent copies into a site's repo and wires together from a short brief. `SPEC.md` is the contract. This kickoff builds the **kernel**: the core every module depends on. Most of it is lifted from VybeSite (`C:\DEV\VybeSite\vybesite\`), with OAuth from Basefra.me and a few patterns from VybeMindz. The first real site built on DevKit is the new Vibrant Mindz site; its plan is `docs/plans/vibrant-mindz-module-plan.md`.
+MechFrame is a library of reusable website modules that any AI agent copies into a site's repo and wires together from a short brief. `SPEC.md` is the contract. This kickoff builds the **kernel**: the core every module depends on. Most of it is lifted from VybeSite (`C:\DEV\VybeSite\vybesite\`), with OAuth from Basefra.me and a few patterns from VybeMindz. The first real site built on MechFrame is the new Vibrant Mindz site; its plan is `docs/plans/vibrant-mindz-module-plan.md`.
 
 ## Read first, in this order
 
@@ -14,7 +14,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 2. `SPEC.md`, all of it, once. Re-read the sections a task touches before starting it.
 3. `docs/decisions/` (every record; the index is its README).
 4. `docs/private/inventory.md` (on the owner's machine, not in git), section 4.1: where each kernel piece lives today.
-5. `skills/devkit-module-extractor/SKILL.md`. Its steps (choose the source, provenance gate, inventory, cut dependencies) apply to lifting kernel code too.
+5. `skills/mechframe-module-extractor/SKILL.md`. Its steps (choose the source, provenance gate, inventory, cut dependencies) apply to lifting kernel code too.
 
 ## Ground rules for every phase
 
@@ -34,7 +34,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 
 1. `git init` on `main`, then commit the scaffold as it is: `chore: scaffold from spec v0.1`.
 2. Link the project skills so Claude Code loads them: for each folder in `skills\`, make a directory junction at `.claude\skills\<name>` (PowerShell: `New-Item -ItemType Junction -Path .claude\skills\<name> -Target skills\<name>`), the same pattern as `C:\DEV\knowledge\skills\link_skills.py`. Commit `skills\`, not the junctions.
-3. The repo `Vybecode-LTD/devkit` exists and is public (decision 0011): nothing private is ever committed.
+3. The repo `mechframe/mechframe` exists and is public (decision 0011): nothing private is ever committed.
 4. **Python.** A root `pyproject.toml` for the dev environment. `requirements.in` compiled to a hash-pinned `requirements.txt` with `uv pip compile --generate-hashes`, following VybeSite's `backend/requirements.in` (floors above known vulnerabilities, a comment per package). Dev tools: ruff, Black, mypy (strict for `kernel/`), pytest, pytest-asyncio, httpx, jsonschema.
 5. **The harness.** `harness/` is a small FastAPI app that mounts the kernel and any modules in this repo. Tests and local runs use it, and K5 turns it into `templates/site/`.
 6. **Postgres for tests.** A `compose.yaml` with Postgres 16, and a pytest fixture that gives each test run a throwaway database.
@@ -72,7 +72,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 1. **Contract tests first.** Write every test in SPEC.md 14.13 in `kernel/tests/contract/`, as HTTP calls (httpx against the harness) that don't import kernel internals. Commit them failing.
 2. **Accounts and access:** one `auth_user` table; roles, role permissions and per-resource overrides (spec 14.1 and 14.8). Sources: Basefra.me team RBAC; `C:\DEV\VybeMindz\per-resource-permission-overrides.zip`.
 3. **Passwords:** Argon2id from VybeSite `services/passwords.py`; at least 12 characters for every account (decision 0003); NFC; input capped at 256; the common-password list and the Pwned Passwords range API, failing open with a log line.
-4. **Sessions:** opaque 32-byte tokens in `__Host-dk_session`, stored as SHA-256, with the lifetimes in 14.5, rotation at sign-in, step-up and role change, the session epoch, the device list (VybeSite `SignedInDevices`) and the CSRF origin check. VybeSite uses JWTs here; port its behavior (max session age, revocation, device list), not its tokens.
+4. **Sessions:** opaque 32-byte tokens in `__Host-mf_session`, stored as SHA-256, with the lifetimes in 14.5, rotation at sign-in, step-up and role change, the session epoch, the device list (VybeSite `SignedInDevices`) and the CSRF origin check. VybeSite uses JWTs here; port its behavior (max session age, revocation, device list), not its tokens.
 5. **Email codes and magic links:** members only, from VybeSite `services/sign_in_codes.py`; links sign in only through the confirm page's POST.
 6. **Reset, verification and email change:** VybeSite `services/password_reset.py`; spec 14.7.
 7. **Second factors and step-up:** TOTP with pyotp, recovery codes, `require_recent_auth`; staff blocked from the admin without a second factor.
@@ -116,14 +116,14 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 
 ## K5: CLI and site template
 
-**Goal:** `devkit` works end to end.
+**Goal:** `mechframe` works end to end.
 
-- The commands in `cli/README.md`, run as `python -m devkit`, writing lock files that validate against `schema/lock.schema.json`.
+- The commands in `cli/README.md`, run as `python -m mechframe`, writing lock files that validate against `schema/lock.schema.json`.
 - `templates/site/` made from the harness.
 - The template's start command runs uvicorn with `--proxy-headers --forwarded-allow-ips` set to the host's edge, and its `.env.example` sets `CLIENT_IP_HEADER` (`X-Real-IP` on Railway). Without them every visitor shares the edge's address, and its rate limits.
-- `devkit catalog` regenerating `catalog.json`.
+- `mechframe catalog` regenerating `catalog.json`.
 
-**Gate:** in a temporary folder, `devkit new test-site` with the kernel only (no recipe modules exist yet) builds, migrates and passes its tests; `devkit check` passes on it.
+**Gate:** in a temporary folder, `mechframe new test-site` with the kernel only (no recipe modules exist yet) builds, migrates and passes its tests; `mechframe check` passes on it.
 
 ## The kernel is done when
 
@@ -132,7 +132,7 @@ AI DevKit is a library of reusable website modules that any AI agent copies into
 - The brand check, gitleaks, pip-audit and npm audit are clean.
 - `CLAUDE.md` (commands, current state), `docs/HANDOFF.md` and the decision records are current, and the owner has the list of spec sections that changed.
 
-Then write the next kickoff, `dev plans\<date>-next-session-modules-wave-1.md`: `pages`, `blog`, `embeds`, `contact` and `campaigns` from VybeSite with the `devkit-module-extractor` skill, on the Vibrant Mindz build order (`docs/plans/vibrant-mindz-module-plan.md`, section 11).
+Then write the next kickoff, `dev plans\<date>-next-session-modules-wave-1.md`: `pages`, `blog`, `embeds`, `contact` and `campaigns` from VybeSite with the `mechframe-module-extractor` skill, on the Vibrant Mindz build order (`docs/plans/vibrant-mindz-module-plan.md`, section 11).
 
 ## Every session ends with
 

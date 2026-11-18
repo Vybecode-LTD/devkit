@@ -30,13 +30,13 @@ PASSWORD = "quiet orbit lantern 4471 marsh"
         ("qwertyuiopasdf", pw.A_RUN),
         ("1234567890123", pw.A_RUN),
         ("horsebathorsebat", pw.REPEATED),
-        ("devkit.test password", pw.ABOUT_THIS_SITE),
+        ("mechframe.test password", pw.ABOUT_THIS_SITE),
         ("correct horse battery staple", None),
         ("über-straße-café-wörter", None),
     ],
 )
 def test_rules(password: str, reason: str | None) -> None:
-    assert by_rules(password, ["devkit.test", "DevKit site"]) == reason
+    assert by_rules(password, ["mechframe.test", "MechFrame site"]) == reason
 
 
 def test_twelve_counts_code_points_after_nfc() -> None:
@@ -178,11 +178,11 @@ async def test_a_password_past_256_is_never_checked_as_typed() -> None:
 
 @pytest.mark.parametrize("strong", ["!@#$%^&*()-=+[]{}", "😀🎉🔥🚀💯✨🌟🎈🍕🎸🌈🦄"])
 def test_symbol_and_emoji_passwords_arent_called_the_sites_name(strong: str) -> None:
-    assert by_rules(strong, ["devkit.test"]) is None
+    assert by_rules(strong, ["mechframe.test"]) is None
 
 
 def test_the_sites_name_with_symbols_is_still_refused() -> None:
-    assert by_rules("devkit.test!@#$%^&", ["devkit.test"]) == pw.ABOUT_THIS_SITE
+    assert by_rules("mechframe.test!@#$%^&", ["mechframe.test"]) == pw.ABOUT_THIS_SITE
 
 
 def test_the_common_list_matches_without_spaces() -> None:

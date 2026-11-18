@@ -203,7 +203,7 @@ class _Page(Convertor[str]):
         return value
 
 
-register_url_convertor("devkit_page", _Page())
+register_url_convertor("mechframe_page", _Page())
 
 
 # --- the answers --------------------------------------------------------------------------------
@@ -389,7 +389,7 @@ def install(app: FastAPI, routes: server_copy.Routes, built: Shell) -> None:
         "/llms.txt", llms, methods=["GET"], dependencies=marks, include_in_schema=False
     )
     router.add_api_route(
-        "/{full_path:devkit_page}",
+        "/{full_path:mechframe_page}",
         answer,
         methods=["GET"],
         dependencies=marks,

@@ -5,7 +5,7 @@ description: "Issue beat and composition license agreements (lease tiers, exclus
 
 # Beat license generator
 
-Use this when a site sells usage rights to music: beat leases, exclusive rights, or custom sync licenses for compositions. It covers the data model, issuing a license after payment, the PDF, the public verify page, exclusive-sale safety and the tests. It is written for a FastAPI + async SQLAlchemy + Postgres backend (the AI DevKit `licensing` module), but the logic ports anywhere.
+Use this when a site sells usage rights to music: beat leases, exclusive rights, or custom sync licenses for compositions. It covers the data model, issuing a license after payment, the PDF, the public verify page, exclusive-sale safety and the tests. It is written for a FastAPI + async SQLAlchemy + Postgres backend (the MechFrame `licensing` module), but the logic ports anywhere.
 
 **Not legal advice.** This skill turns owner-approved templates into documents. The owner sets every term and price, and a lawyer writes or reviews each template before it sells anything. Never invent legal terms for the owner; leave a clearly marked placeholder and ask.
 
@@ -109,7 +109,7 @@ Lines starting `[LAWYER:` must be gone before a template can be published; add a
 
 ## Issuing a license
 
-Run this as a background job on the payment-succeeded event (in DevKit, `payments.checkout.completed`), never inside the webhook request.
+Run this as a background job on the payment-succeeded event (in MechFrame, `payments.checkout.completed`), never inside the webhook request.
 
 1. Load the order, the work, the tier version and the template version that the buyer accepted.
 2. Lock the work row (`SELECT ... FOR UPDATE`). For an exclusive, confirm it's still `exclusive_pending` for this order.
@@ -193,7 +193,7 @@ Each work lists contributors with shares that add up to 100. Store each sale's s
 - Download links for WAV and stems exist only after payment and expire.
 - The PDF contains the license id, work title, tier name and licensee artist name.
 
-## In the AI DevKit
+## In the MechFrame
 
 - Module id `licensing`; requires `shop`, `payments`, `downloads`; works with `audio-player` for previews and `campaigns` for free-download-for-email.
 - Permissions: `licensing.work.manage`, `licensing.tier.manage`, `licensing.license.revoke`.

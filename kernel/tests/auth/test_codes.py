@@ -170,7 +170,7 @@ async def _warm(site: Site, connections: int = 3) -> None:
 
 def _signed_in(response: httpx.Response) -> bool:
     cookies = response.headers.get_list("set-cookie")
-    return response.status_code == 200 and any(c.startswith("__Host-dk_session=") for c in cookies)
+    return response.status_code == 200 and any(c.startswith("__Host-mf_session=") for c in cookies)
 
 
 # --- asking ---------------------------------------------------------------------

@@ -1,25 +1,25 @@
-# AGENTS.md: AI DevKit (same rules as CLAUDE.md)
+# AGENTS.md: MechFrame (same rules as CLAUDE.md)
 
 The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, which Claude Code loads for every folder under `C:\DEV`. This file is the project map. Where the two differ, this file wins. `AGENTS.md` holds the same text for other agents.
 
 ## Identity
 
-- **What:** AI DevKit, a library of reusable website modules (auth, blog, chat, payments, community, media and more) that any AI agent copies into a site's repo and wires together from a short brief.
+- **What:** MechFrame, a library of reusable website modules (auth, blog, chat, payments, community, media and more) that any AI agent copies into a site's repo and wires together from a short brief.
 - **Owner:** VybeCode Software (VybeCod.ing / Vibrant Mindz).
 - **Not:** a hosted platform, a WordPress-style CMS, or a package registry. Modules are copied in at build time (decision 0002).
-- **Path:** `C:\DEV\AI-DevKit`. **Remote:** `https://github.com/Vybecode-LTD/devkit`, **public** (decision 0011). Never commit secrets, client material or private notes; private notes go in `docs/private/` (gitignored).
+- **Path:** `C:\DEV\AI-DevKit`. **Remote:** `https://github.com/mechframe/mechframe`, **public** (decision 0011). Never commit secrets, client material or private notes; private notes go in `docs/private/` (gitignored).
 - **The contract:** `SPEC.md`. Every module, the kernel and the CLI follow it. Read the sections you touch before every change.
 
 ## Current state (2026-11-17, after #73)
 
 - Spec v0.1 written, the owner's answers applied.
 - **K0 and K1 done and audited** (#1 to #31). **K2 (auth) steps 1 to 8 done** (#32 to #54; decisions 0019 to 0028 and 0030): passwords, sessions, access, sign-in and sign-up, codes and magic links, resets and email change, password change, TOTP and recovery codes, passkeys, and the undo link for an added factor. Steps 9 to 11 wait until the site needs them (decision 0029).
-- **K3 is under way, in the site's order:** storage (`kernel/storage.py`, #58, decision 0032), email (`kernel/email.py`, `kernel/mail_adapters.py`, #59, decision 0033: SMTP first, Resend only where SMTP is blocked), the kernel's 19 mails as `kernel.*` templates a site can reword (`kernel/auth/mails.py`, #60), jobs (`kernel/jobs.py`, `cron.py`, `worker.py`, #63, decision 0035: a Postgres queue enqueued in the caller's transaction, the worker in the web process by default, mail on the queue sealed, unverified accounts removed 7 days after their address was set), events (`kernel/events.py`, #65, decision 0036: deliveries are jobs written at emit, so the jobs table is the outbox; 8 tries; the kernel emits four events), audit (`kernel/audit.py`, #67, decision 0037: one append-only `kernel_audit_event` for every module, auth's renamed; `audit.record` in the caller's transaction; staff and own-activity reads; pruned after `AUDIT_KEEP_DAYS`), notifications (`kernel/notifications.py`, #69, decision 0038: `notifications.notify` in the caller's transaction, each person's choice per key, one-click unsubscribe), moderation (`kernel/moderation.py`, #71, decision 0039: kinds a module declares in `moderation.py`, one case per thing, filters that hold and never drop, dismiss, hide, delete, time-outs, and bans as suspensions at `POST /api/auth/admin/users/{id}/suspend`), and public rendering (`kernel/server_copy.py`, `shell.py`, #73, decision 0041: a module's `PAGES` answers each public address with its head, words and JSON-LD, the kernel serves `WEB_DIST` with real 404s and writes `sitemap.xml`, `robots.txt` and `llms.txt`, member pages are `noindex`). **K3's gate passed** (#75, `dev plans/2026-11-17-k3-gate-evidence.md`) on the nine services built; retention and the AI client are outside it (the owner). npm audit runs with an expiring allowlist (`tools/npm_audit.py`, decision 0015 amended). Next: the rename to MechFrame (`docs/HANDOFF.md`).
+- **K3 is under way, in the site's order:** storage (`kernel/storage.py`, #58, decision 0032), email (`kernel/email.py`, `kernel/mail_adapters.py`, #59, decision 0033: SMTP first, Resend only where SMTP is blocked), the kernel's 19 mails as `kernel.*` templates a site can reword (`kernel/auth/mails.py`, #60), jobs (`kernel/jobs.py`, `cron.py`, `worker.py`, #63, decision 0035: a Postgres queue enqueued in the caller's transaction, the worker in the web process by default, mail on the queue sealed, unverified accounts removed 7 days after their address was set), events (`kernel/events.py`, #65, decision 0036: deliveries are jobs written at emit, so the jobs table is the outbox; 8 tries; the kernel emits four events), audit (`kernel/audit.py`, #67, decision 0037: one append-only `kernel_audit_event` for every module, auth's renamed; `audit.record` in the caller's transaction; staff and own-activity reads; pruned after `AUDIT_KEEP_DAYS`), notifications (`kernel/notifications.py`, #69, decision 0038: `notifications.notify` in the caller's transaction, each person's choice per key, one-click unsubscribe), moderation (`kernel/moderation.py`, #71, decision 0039: kinds a module declares in `moderation.py`, one case per thing, filters that hold and never drop, dismiss, hide, delete, time-outs, and bans as suspensions at `POST /api/auth/admin/users/{id}/suspend`), and public rendering (`kernel/server_copy.py`, `shell.py`, #73, decision 0041: a module's `PAGES` answers each public address with its head, words and JSON-LD, the kernel serves `WEB_DIST` with real 404s and writes `sitemap.xml`, `robots.txt` and `llms.txt`, member pages are `noindex`). **K3's gate passed** (#75, `dev plans/2026-11-17-k3-gate-evidence.md`) on the nine services built; retention and the AI client are outside it (the owner). npm audit runs with an expiring allowlist (`tools/npm_audit.py`, decision 0015 amended). The rename to MechFrame landed after it (#76). Next: K4 (`docs/HANDOFF.md`).
 - **Progress** is one record, `docs/progress.json`, made into `docs/PROGRESS.md` and the owner's visual ledger (#61). v1.0: 44% (25 of 56 steps).
-- **The project becomes MechFrame after K3** (decision 0034). Keep the DevKit name until that PR.
+- **The project is MechFrame** (decision 0034, #76); it was AI DevKit until K3. The repo is `mechframe/mechframe`, the planned CLI `mechframe` (also `mf`), the cookies `__Host-mf_*`, the variables `MECHFRAME_*`; the Python import stays `kernel`. Decision records and other history keep the old name as written.
 - **The admin shell** is built in K4 to the Vibrant Mindz canvas Admin design, styled by tokens, for every site: only its generic parts in the kernel, checked in the site's dark theme and Machined Light (decision 0040, amending 0008).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`); its step 0 is done (#55, #56). It doubles as the spec's validation build.
-- **After v1.0:** the module roadmap and ten contract hooks are decided (decision 0018, `docs/plans/module-roadmap.md`). The hooks land with `devkit-hook-designer` after the kernel phases and before blog, chat and payments are extracted (SPEC 19, phase 3).
+- **After v1.0:** the module roadmap and ten contract hooks are decided (decision 0018, `docs/plans/module-roadmap.md`). The hooks land with `mechframe-hook-designer` after the kernel phases and before blog, chat and payments are extracted (SPEC 19, phase 3).
 
 ## Last Completed Task
 
@@ -52,7 +52,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | Python environment, first time | `py -3.12 -m venv .venv`, then `.venv\Scripts\Activate.ps1` |
 | Install Python dependencies | `python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt` |
 | Re-pin after editing a `.in` file | `python -m uv pip compile requirements.in --generate-hashes --universal --python-version 3.12 -o requirements.txt`, and the same for `requirements-dev.in` into `requirements-dev.txt` |
-| Test Postgres | `docker compose up -d db`; or any local Postgres 16+ with a `devkit` role (CREATEDB) and `TEST_DATABASE_URL` pointing at it, as on the owner's machine |
+| Test Postgres | `docker compose up -d db`; or any local Postgres 16+ with a role that has CREATEDB and `TEST_DATABASE_URL` pointing at it (compose and CI call it `mechframe`; the owner's machine keeps its `devkit` role on port 55432) |
 | Python tests | `python -m pytest` (add `-m "not db"` to run without Postgres) |
 | Lint, format, types | `python -m ruff check .`, `python -m black .`, `python -m mypy` |
 | Manifests against the schemas | `python -m tools.validate_schemas` |
@@ -84,13 +84,13 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 
 | Skill | Use it when |
 | --- | --- |
-| `devkit-module-extractor` | Lifting a feature from another project into `modules/` |
-| `devkit-site-picker` | Turning a site brief into a module list and build commands |
+| `mechframe-module-extractor` | Lifting a feature from another project into `modules/` |
+| `mechframe-site-picker` | Turning a site brief into a module list and build commands |
 | `beat-license-generator` | Building the `licensing` module |
 | `printful-v2-adapter` | Building the `print-on-demand` module |
 | `alembic-multi-module-migrations` | Adding a module's migrations, merging heads, the round-trip tests |
 | `module-contract-lint` | Reviewing a module (or the kernel) against the contract before it merges |
-| `devkit-hook-designer` | Adding a cross-module hook to the contract (search index, consent, entitlements and the rest of the 2026-11-13 roadmap hooks) |
+| `mechframe-hook-designer` | Adding a cross-module hook to the contract (search index, consent, entitlements and the rest of the 2026-11-13 roadmap hooks) |
 
 ## Project map
 
@@ -98,14 +98,14 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | --- | --- |
 | `SPEC.md` | The contract (v0.1) |
 | `KICKOFF.md` | The first build sessions' prompt: phases K0 to K5 |
-| `AGENT-GUIDE.md` | Front door for an agent building a site with DevKit |
+| `AGENT-GUIDE.md` | Front door for an agent building a site with MechFrame |
 | `schema/` | JSON Schemas: module manifest, recipe, lock file; event payload schemas land in `schema/events/` |
 | `kernel/` | The always-installed core: `backend/kernel/` (Python), `migrations/`, `tests/`, `web/` |
 | `modules/` | One folder per module; `modules/_template/` is the starting point, and the Vibrant Mindz scaffolds wait as `modules/_<id>/` until built |
 | `recipes/` | Preset module bundles per kind of site |
 | `themes/` | Token sets; Machined Light and Depth arrive in K4 (only the README so far) |
 | `templates/site/` | The empty site every project starts from (built in K5) |
-| `cli/` | The `devkit` CLI (built in K5) |
+| `cli/` | The `mechframe` CLI (built in K5) |
 | `harness/` | Dev app that mounts the kernel and modules for tests and local runs; `harness/alembic/` is the one Alembic environment, `harness/migrations.py` drives it |
 | `tools/` | Repo tooling: `validate_schemas.py`, `link_skills.py`, `build_common_passwords.py` (rebuilds the bundled list; steps in NOTICE) |
 | `tests/` | Repo-level tests: schemas, migrations round trip, tools |
@@ -130,7 +130,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 - pytest runs with `--import-mode=importlib`; the root `conftest.py` imports the real `kernel` package before collection so `kernel/tests/*` can't shadow it.
 - React Router stays on 7.x (the spec) though 8.x is out; TypeScript stays on 6.0.x for typescript-eslint.
 - VybeSite's code is React 18.3; lifted components move to React 19 (ref as a prop, no `forwardRef`).
-- VybeSite uses JWT sessions and separate staff and member tables. DevKit uses opaque cookie sessions and one `auth_user` table (spec 14.1 and 14.5, decision 0003). Port the behavior, not the shape.
+- VybeSite uses JWT sessions and separate staff and member tables. MechFrame uses opaque cookie sessions and one `auth_user` table (spec 14.1 and 14.5, decision 0003). Port the behavior, not the shape.
 
 ## Session end
 

@@ -1,11 +1,11 @@
 ---
 name: module-contract-lint
-description: Check an AI DevKit module (or the kernel) against the module contract before it merges or is copied into a site. Covers the manifest schema, folder layout, package and table naming, every route declaring public, member or permission access, no cross-module imports except listed public surfaces, token-only styles, data hooks and the quality gate. Use when reviewing a module PR, finishing an extraction, or when a site's devkit check fails.
+description: Check a MechFrame module (or the kernel) against the module contract before it merges or is copied into a site. Covers the manifest schema, folder layout, package and table naming, every route declaring public, member or permission access, no cross-module imports except listed public surfaces, token-only styles, data hooks and the quality gate. Use when reviewing a module PR, finishing an extraction, or when a site's mechframe check fails.
 ---
 
 # Module contract lint
 
-A module is only reusable if it keeps the contract (SPEC.md sections 4 to 16). This is the checklist and the commands that prove each point. Run it from the DevKit repo root, or from a site whose modules were copied in. Where the spec has changed since this skill was written, the spec wins.
+A module is only reusable if it keeps the contract (SPEC.md sections 4 to 16). This is the checklist and the commands that prove each point. Run it from the MechFrame repo root, or from a site whose modules were copied in. Where the spec has changed since this skill was written, the spec wins.
 
 Report every row as pass or fail with the command or file that shows it. A row that can't be checked yet (the CLI isn't built, the module has no web binding) is "not applicable", with the reason. Never mark a row passed by reasoning about code you haven't run.
 

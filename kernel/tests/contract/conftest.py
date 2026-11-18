@@ -37,7 +37,7 @@ import pyotp
 import pytest
 import pytest_asyncio
 
-SITE = "https://devkit.test"
+SITE = "https://mechframe.test"
 #: Seconds `Api.mail` waits for mail a running server sends after its answer.
 MAIL_WAIT = 5.0
 #: Not on the bundled list and not seen by Have I Been Pwned (checked 2026-11-12).
@@ -84,7 +84,7 @@ def _base() -> str:
 
 
 def cookie_domain() -> str:
-    return urlsplit(_base()).hostname or "devkit.test"
+    return urlsplit(_base()).hostname or "mechframe.test"
 
 
 @contextmanager
@@ -135,12 +135,12 @@ async def api(server: httpx.AsyncBaseTransport) -> AsyncIterator[Api]:
 
 #: Pass as `extensions=UNCHECKED` for a probe that calls what isn't an API route
 #: on purpose (a scanner opening a link with GET).
-UNCHECKED = {"devkit_unchecked": True}
+UNCHECKED = {"mechframe_unchecked": True}
 
 
 async def _check_route(response: httpx.Response) -> None:
     request = response.request
-    if request.extensions.get("devkit_unchecked"):
+    if request.extensions.get("mechframe_unchecked"):
         return
     path = request.url.path
     if not in_contract(request.method, path):
@@ -181,7 +181,7 @@ class Api:
 
     @property
     def session_cookie(self) -> str | None:
-        return self.http.cookies.get("__Host-dk_session")
+        return self.http.cookies.get("__Host-mf_session")
 
     def plant_cookie(self, name: str, value: str) -> None:
         self.http.cookies.set(name, value, domain=cookie_domain(), path="/")

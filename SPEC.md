@@ -1,10 +1,10 @@
-# AI DevKit Spec v0.1
+# MechFrame Spec v0.1
 
 Version 0.1 · 2026-11-12. From phase K0 on, this file is the source of truth, and since 2026-11-13 the only copy: the claude.ai doc "AI DevKit Spec v0.1" is retired, frozen as of 2026-11-12 (decision 0017). Every change here gets a decision record in `docs/decisions/`, a line in the change log at the bottom, and a note to the owner listing the sections that changed.
 
 ## 1. Purpose and scope
 
-DevKit is a library of modules that any AI agent copies into a site's repo and wires together from a short brief. It exists to cut build time on the owner's own and client sites. It is not a hosted platform.
+MechFrame is a library of modules that any AI agent copies into a site's repo and wires together from a short brief. It exists to cut build time on the owner's own and client sites. It is not a hosted platform.
 
 **In scope for v1:** websites, meaning a public site, a member area and an admin, built from one kernel plus modules.
 
@@ -21,7 +21,7 @@ The words MUST, SHOULD and MAY are used as in RFC 2119.
 
 ## 2. Locked decisions and the v1 stack
 
-The backend is Python, modules are copied in, and auth is homemade. These were locked on 2026-11-12. The inventory behind them is the project doc `devkit-inventory-and-stack-plan.md`.
+The backend is Python, modules are copied in, and auth is homemade. These were locked on 2026-11-12. The inventory behind them is the project doc `mechframe-inventory-and-stack-plan.md`.
 
 | # | Decision | Why |
 | --- | --- | --- |
@@ -53,7 +53,7 @@ The backend is Python, modules are copied in, and auth is homemade. These were l
 
 | Term | Meaning |
 | --- | --- |
-| Site | One project's repo, built from DevKit |
+| Site | One project's repo, built from MechFrame |
 | Kernel | The always-installed core that every module depends on: auth, users, roles, settings, database, email, notifications, storage, events, jobs, moderation, security, module switches |
 | Module | A folder copied into a site: a capability, one or more bindings and a manifest |
 | Capability | A module's platform-neutral part: data, services, HTTP API, events |
@@ -62,16 +62,16 @@ The backend is Python, modules are copied in, and auth is homemade. These were l
 | Recipe | A preset list of modules and settings for one kind of site |
 | Theme | A token set: color, type, spacing, radius, motion |
 | Slot | A named place in the kernel UI that a module can add to |
-| Lock file | A site's `devkit.lock.json`: which kernel and module versions were copied, with file hashes |
+| Lock file | A site's `mechframe.lock.json`: which kernel and module versions were copied, with file hashes |
 
 ## 4. Repository layout
 
-DevKit is one repo of sources; a site is a separate repo that holds copies. Every module has the same fixed folders, so an agent always knows where things go.
+MechFrame is one repo of sources; a site is a separate repo that holds copies. Every module has the same fixed folders, so an agent always knows where things go.
 
-**The DevKit repo**
+**The MechFrame repo**
 
 ```
-devkit/
+mechframe/
   AGENT-GUIDE.md          start here, for any AI
   AGENTS.md  CLAUDE.md    repo rules for agents (same content)
   SPEC.md                 this spec, versioned
@@ -99,7 +99,7 @@ devkit/
   themes/<name>/          tokens.json tokens.css
   recipes/<name>.json
   templates/site/         the empty site every project starts from
-  cli/                    devkit new | add | remove | check | diff | upgrade | catalog | create-owner
+  cli/                    mechframe new | add | remove | check | diff | upgrade | catalog | create-owner
   docs/decisions/
 ```
 
@@ -107,7 +107,7 @@ devkit/
 
 ```
 <site>/
-  devkit.lock.json
+  mechframe.lock.json
   CLAUDE.md  AGENTS.md
   backend/
     app/main.py           builds the app from the kernel and enabled modules
@@ -123,13 +123,13 @@ devkit/
   Dockerfile  railway.toml
 ```
 
-Code written for one site goes in `site/` folders. Copied folders MAY be edited, but `devkit check` reports every edit against the lock file (section 12).
+Code written for one site goes in `site/` folders. Copied folders MAY be edited, but `mechframe check` reports every edit against the lock file (section 12).
 
-DevKit itself lives at `C:\DEV\AI-DevKit`, in the GitHub repo `Vybecode-LTD/devkit`: public for now, the code still proprietary (decision 0011).
+MechFrame itself lives at `C:\DEV\AI-DevKit`, in the GitHub repo `mechframe/mechframe`: public for now, the code still proprietary (decision 0011).
 
 ## 5. Module manifest (module.json)
 
-Every module MUST ship a `module.json` that validates against `devkit/schema/module.schema.json`. Agents pick modules from `use_when` and `avoid_when`; the CLI installs from the rest.
+Every module MUST ship a `module.json` that validates against `mechframe/schema/module.schema.json`. Agents pick modules from `use_when` and `avoid_when`; the CLI installs from the rest.
 
 | Field | Type | Rule |
 | --- | --- | --- |
@@ -142,7 +142,7 @@ Every module MUST ship a `module.json` that validates against `devkit/schema/mod
 | `requires` | object | `kernel` range, plus `modules` as `{id: range}` |
 | `conflicts` | string[] | Module ids that cannot be installed alongside |
 | `permissions` | object[] | `{key, description, default_roles}`. Keys are `<id>.<resource>.<action>` |
-| `settings` | object[] | `{key, type, default, secret, description}`: the summary an agent reads. The `Settings` model in `schemas.py` is the source of truth (section 7); `devkit check` fails a manifest that disagrees with it, and `secret` is true exactly for its `SecretStr` fields |
+| `settings` | object[] | `{key, type, default, secret, description}`: the summary an agent reads. The `Settings` model in `schemas.py` is the source of truth (section 7); `mechframe check` fails a manifest that disagrees with it, and `secret` is true exactly for its `SecretStr` fields |
 | `env` | object[] | `{name, required, description}` |
 | `routes` | object | `api` prefix, plus `public`, `member` and `admin` paths |
 | `tables` | string[] | Every table the module owns |
@@ -271,7 +271,7 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 ## 7. Backend rules
 
-Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `devkit check` and code review enforce.
+Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `mechframe check` and code review enforce.
 
 **Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates) and `moderation.py` (what people may report, decision 0039). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033) and `server_copy.py`'s `PAGES` (decision 0041).
 
@@ -287,7 +287,7 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 - A module MUST NOT import another module, except through that module's public surface: `public.py` on the backend and `web/public.ts` on the front end, and only when it is listed in `requires.modules`. This is how a blog post shows `<Comments>`.
 - Everything else goes through kernel events.
 
-**Errors.** One shape: RFC 9457 problem details (`application/problem+json`) with `type`, `title`, `status` and `detail`, plus a stable `code` such as `blog.post_not_found`. `type` is `urn:devkit:problem:<code>`, the same on every site. Field errors go in an `errors` map.
+**Errors.** One shape: RFC 9457 problem details (`application/problem+json`) with `type`, `title`, `status` and `detail`, plus a stable `code` such as `blog.post_not_found`. `type` is `urn:mechframe:problem:<code>`, the same on every site. Field errors go in an `errors` map.
 
 **Inputs and outputs**
 
@@ -346,7 +346,7 @@ export default defineModule({
 
 ## 9. Public rendering, SEO and AI crawlers
 
-Every public page MUST be readable without JavaScript, because GPTBot, ClaudeBot and PerplexityBot fetch pages but don't run their scripts; only Google's and Apple's crawlers render JS ([Vercel, Dec 2024](https://vercel.com/blog/the-rise-of-the-ai-crawler)). Python can't render React on the server, so DevKit uses VybeSite's server-copy pattern.
+Every public page MUST be readable without JavaScript, because GPTBot, ClaudeBot and PerplexityBot fetch pages but don't run their scripts; only Google's and Apple's crawlers render JS ([Vercel, Dec 2024](https://vercel.com/blog/the-rise-of-the-ai-crawler)). Python can't render React on the server, so MechFrame uses VybeSite's server-copy pattern.
 
 **What the server sends for each public URL** (VybeSite `site_routes.py` and `site_html.py`)
 
@@ -387,7 +387,7 @@ Each module owns its own tables and its own migration branch. It links only to t
 - Each module's migrations form their own Alembic branch, labeled with the module id and depending on the kernel's branch.
 - Every migration MUST downgrade cleanly. CI runs upgrade, downgrade, upgrade on an empty database and on seeded data.
 - A migration that drops or rewrites data is marked `destructive = True` in its file, and the CLI asks before running it.
-- Removing a module keeps its tables unless the owner runs `devkit remove <id> --drop-data`.
+- Removing a module keeps its tables unless the owner runs `mechframe remove <id> --drop-data`.
 
 **Personal data**
 
@@ -431,33 +431,33 @@ An outgoing-webhooks module MAY forward any event to outside URLs, signed with H
 
 ## 12. Module lifecycle
 
-A module is copied in with `devkit add`, switched on and off at runtime, and upgraded by comparing against the lock file. Local edits are allowed but always visible.
+A module is copied in with `mechframe add` (the CLI is `mechframe`, with `mf` as a second name: decision 0034), switched on and off at runtime, and upgraded by comparing against the lock file. Local edits are allowed but always visible.
 
-**`devkit add <id>`**
+**`mechframe add <id>`**
 
 1. Check `requires` and `conflicts` against the lock file. Stop on any conflict.
 2. Copy the module's backend, migrations and web folders into the site.
 3. Regenerate `backend/app/modules.py` and `web/src/modules.ts`, the two registries the app is built from.
 4. Append its env vars to `.env.example` and print the ones still to set.
-5. Record its version and every copied file's hash in `devkit.lock.json`.
+5. Record its version and every copied file's hash in `mechframe.lock.json`.
 6. Run its migrations (`alembic upgrade <id>@head`).
 7. Run its tests and report the result.
 
 **Switching on and off.** A module is on when the deploy's `MODULES` list allows it and the admin hasn't switched it off on the Features page (VybeSite's parts). While off, its routes answer 404, its slots are hidden, its jobs pause and its event handlers wait. A switch applies at once in the process that made it and within `MODULES_CACHE_SECONDS` (5 by default) in every other worker (decision 0009).
 
-**`devkit remove <id>`.** Switch it off, offer an export of its data, delete its code and registry entries, and keep its tables unless `--drop-data` is given.
+**`mechframe remove <id>`.** Switch it off, offer an export of its data, delete its code and registry entries, and keep its tables unless `--drop-data` is given.
 
 **Upgrades**
 
-- `devkit diff <id>` compares three versions: the copy recorded in the lock file, the site's current files, and the latest DevKit version.
-- `devkit upgrade <id>` applies the change when the site hasn't edited the module. Otherwise it writes a patch for an agent to merge.
-- `devkit check` lists every edited file in copied folders, every module behind its latest version, and every open advisory.
+- `mechframe diff <id>` compares three versions: the copy recorded in the lock file, the site's current files, and the latest MechFrame version.
+- `mechframe upgrade <id>` applies the change when the site hasn't edited the module. Otherwise it writes a patch for an agent to merge.
+- `mechframe check` lists every edited file in copied folders, every module behind its latest version, and every open advisory.
 
 **Customizing without editing.** Prefer settings, slots, event handlers and pages in `site/`. Edit copied files only when those can't do the job.
 
 ## 13. Versioning, the lock file and advisories
 
-The kernel, each module and this spec carry their own semver. Because copies don't update themselves, security fixes travel as advisories that `devkit check` flags in every site.
+The kernel, each module and this spec carry their own semver. Because copies don't update themselves, security fixes travel as advisories that `mechframe check` flags in every site.
 
 **What counts as a major version**
 
@@ -469,7 +469,7 @@ The kernel, each module and this spec carry their own semver. Because copies don
 
 ```json
 {
-  "devkit": "0.1.0",
+  "mechframe": "0.1.0",
   "spec": "0.1",
   "kernel": {"version": "0.1.0", "files": {"backend/kernel/auth/sessions.py": "sha256:..."}},
   "modules": {
@@ -480,13 +480,13 @@ The kernel, each module and this spec carry their own semver. Because copies don
 }
 ```
 
-**Advisories.** `ADVISORIES.md` and `advisories.json` in DevKit list each security fix: an id, the affected module and versions, the fixed version, its severity and a one-line description. `devkit check` exits non-zero on any open advisory of high severity, so a site's CI fails until it is patched.
+**Advisories.** `ADVISORIES.md` and `advisories.json` in MechFrame list each security fix: an id, the affected module and versions, the fixed version, its severity and a one-line description. `mechframe check` exits non-zero on any open advisory of high severity, so a site's CI fails until it is patched.
 
 Every module keeps a `CHANGELOG.md`. A change to this spec is recorded in `docs/decisions/` before it lands.
 
 ## 14. Authentication and authorization
 
-DevKit owns all of auth: the design, the data and the tests. It never hand-rolls crypto; hashing, TOTP, WebAuthn and OAuth use vetted libraries. Every rule below has a test in the auth contract suite (14.13).
+MechFrame owns all of auth: the design, the data and the tests. It never hand-rolls crypto; hashing, TOTP, WebAuthn and OAuth use vetted libraries. Every rule below has a test in the auth contract suite (14.13).
 
 **Lifted from:** VybeSite (sessions, sign-in codes, signed-in devices, Argon2id, password reset, the secret checks), Basefra.me (OAuth providers, CSRF, API keys, invites, its account-takeover fixes) and VybeMindz (session revocation, invite-only, per-resource permissions).
 
@@ -497,7 +497,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 - Staff means any account with a role other than `member`, a site's custom roles included. Staff MUST have a second factor (14.4) before reaching the admin.
 - Public sign-up creates only `member` accounts. Staff roles come from an owner or admin, or from an invite that names the role.
 - **Who can grant what** (decision 0013): a role can be granted or removed only by someone who holds every permission it carries. Only an owner grants, removes or suspends an owner, and the last owner can't be removed, demoted or suspended. Built-in roles can't be deleted. The same rules bind invites.
-- The first owner is made with `devkit create-owner`, or with a one-time setup token printed at first boot (VybeSite `setup_admin.py`).
+- The first owner is made with `mechframe create-owner`, or with a one-time setup token printed at first boot (VybeSite `setup_admin.py`).
 
 ### 14.2 Sign-in methods
 
@@ -512,7 +512,7 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 **Passwords**, following [NIST SP 800-63B-4](https://pages.nist.gov/800-63-4/sp800-63b/authenticators) section 3.1.1.2 and the [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html):
 
 - Hashed with Argon2id (argon2-cffi), at least 19 MiB of memory, 2 iterations and parallelism 1, which is OWASP's minimum (`ARGON2_MEMORY_KIB`, `ARGON2_TIME_COST`, `ARGON2_LANES`). Setup benchmarks the host and raises memory where it can. Hashes are upgraded at sign-in when parameters rise. Hashing runs on a pool of its own, `ARGON2_CONCURRENCY` wide; a request that can't get a slot within 5 seconds answers 503 `kernel.busy` with `Retry-After` (decision 0014).
-- At least 12 characters for every account, the owner's call (Q7). That is below NIST's 15 for a password used alone, so the blocklist below, the rate limits in 14.6 and passkeys offered first make up the gap. Staff always have a second factor, which puts them above NIST's 8. At least 64 characters are accepted; DevKit caps input at 256 to bound hashing cost.
+- At least 12 characters for every account, the owner's call (Q7). That is below NIST's 15 for a password used alone, so the blocklist below, the rate limits in 14.6 and passkeys offered first make up the gap. Staff always have a second factor, which puts them above NIST's 8. At least 64 characters are accepted; MechFrame caps input at 256 to bound hashing cost.
 - Unicode allowed and NFC-normalized, with each code point counted as one character.
 - No composition rules, no forced rotation, no hints and no security questions.
 - Checked against a bundled common-password list and the Pwned Passwords range API, where only the first 5 characters of the SHA-1 leave the server. If the API is down, the password is accepted and the miss is logged. A refused password is always explained.
@@ -562,13 +562,13 @@ DevKit owns all of auth: the design, the data and the tests. It never hand-rolls
 
 Web sessions are opaque random tokens kept in a cookie and checked against the database on every request, so any session can be ended instantly. No session token is ever readable by JavaScript.
 
-- The token is 32 random bytes in the cookie `__Host-dk_session`, set HttpOnly, Secure, SameSite=Lax, Path=/. The database stores only its SHA-256.
+- The token is 32 random bytes in the cookie `__Host-mf_session`, set HttpOnly, Secure, SameSite=Lax, Path=/. The database stores only its SHA-256.
 - A new token is issued at sign-in, at step-up and on any role change, so a session can't be fixed in advance. Each session records the account's `role_version`; a role change raises it, the session's next request gets a new token, and the old one stops working.
 - Each session records when it started, when it was last seen, the user agent, a device label and a coarse location. The account page lists them, with sign-out for each and "sign out everywhere else" (VybeSite `SignedInDevices`).
 - `auth_user.session_epoch` goes up on a password change, a reset, a second-factor reset (removing a confirmed TOTP or any passkey, the owner's answers; decisions 0027 and 0028) or a suspension, which ends every older session. Removing a TOTP or a passkey keeps the session it came from, with a fresh device cookie, as a password change does.
 - A password change keeps the session it came from, at the new epoch and with a fresh device cookie, and ends every other; it gives way to a reset that lands while it runs (decision 0025).
 - CSRF: SameSite=Lax plus an Origin check on every request that changes state (VybeSite `same_origin.py`).
-- **Known devices:** a browser that has signed in to an account keeps a signed, HttpOnly `__Host-dk_device` cookie naming that account. Over the account's failure limit (14.6), the right password still signs in on such a browser, so strangers' guesses can't lock an owner out. The cookie survives sign-out, is never the session, and helps no other account.
+- **Known devices:** a browser that has signed in to an account keeps a signed, HttpOnly `__Host-mf_device` cookie naming that account. Over the account's failure limit (14.6), the right password still signs in on such a browser, so strangers' guesses can't lock an owner out. The cookie survives sign-out, is never the session, and helps no other account.
 - Native and third-party clients (14.14) get short-lived access tokens and rotating refresh tokens instead. Reusing an old refresh token revokes the whole chain.
 
 | Account | Idle timeout | Absolute limit |
@@ -592,7 +592,7 @@ Both limits are site settings (Q6).
 | Second-factor check | 5 failures per sign-in, then the sign-in starts over; past 10 failures on one account in an hour, its challenges wait out the hour (decision 0019); a passkey counts as a code does (decision 0028) |
 | Step-up | 5 failures per session in 15 minutes, then the session ends; a wrong current password at a password change counts as one (decision 0025), and so does a wrong code confirming a TOTP (decision 0026) or a wrong passkey (decision 0028) |
 
-- No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; DevKit stays far below it.
+- No permanent lockout, since that would let anyone lock out anyone. After 10 failures on one account in an hour, a Cloudflare Turnstile challenge MAY be added. NIST's ceiling is 100 consecutive failures; MechFrame stays far below it.
 - Sign-in, sign-up and reset give the same answer, in similar time, whether or not the account exists. A missing account, or a stored value that isn't an Argon2 hash, still costs one Argon2 verify, against a dummy made at start-up. A code ask, a try at a code and a reset request have no hash to hide behind: they answer no sooner than a fixed floor of 0.2 seconds, far above the few queries a known address costs (decisions 0021 and 0022). A limit refused answers 429 `kernel.rate_limited` with `Retry-After`, the same for an account that exists and one that doesn't.
 - Limits keyed on an email use the normalized address, so case variants share one budget.
 - Sign-up with an address that already has an account sends that address a notice instead, and answers exactly as for a new one.
@@ -622,7 +622,7 @@ Both limits are site settings (Q6).
 ### 14.9 API keys
 
 - For machines only, never for people signing in.
-- Format `dk_<live|test>_<8-character id>_<32-byte secret>`, shown once. Only the secret's SHA-256 is stored, which is enough for a random secret.
+- Format `mf_<live|test>_<8-character id>_<32-byte secret>`, shown once. Only the secret's SHA-256 is stored, which is enough for a random secret.
 - Scoped to some of the creator's permissions, expiring after 90 days by default, recording last use, and revocable. A key acts with the permissions its scopes and its creator hold now, so a role removed narrows it, and a suspended or deleted creator's keys stop working.
 
 ### 14.10 Audit log
@@ -694,12 +694,12 @@ The kernel sets these defaults for every site, and a module MUST NOT weaken them
 - **Secrets:** environment variables only, never in the repo or in logs. gitleaks runs in CI.
 - **Python dependencies:** compiled with uv, hash-pinned, and checked with pip-audit.
 - **npm dependencies:** lockfile installs only, and `ignore-scripts=true` in `.npmrc`, since install scripts are how the 2025 npm worms spread. Each new package is justified in its PR.
-- **Provenance:** every module records its source in `source`. Nothing from the client folder named in `docs/private/README.md` or other client-confidential material enters DevKit. VybeSite's private brand check runs on any code lifted from VybeSite before it lands.
-- **Licenses:** DevKit is proprietary, and selected modules MAY be released under MIT. Each module states its license in `source`, and third-party code is listed in a NOTICE file.
+- **Provenance:** every module records its source in `source`. Nothing from the client folder named in `docs/private/README.md` or other client-confidential material enters MechFrame. VybeSite's private brand check runs on any code lifted from VybeSite before it lands.
+- **Licenses:** MechFrame is proprietary, and selected modules MAY be released under MIT. Each module states its license in `source`, and third-party code is listed in a NOTICE file.
 
 ## 16. Quality gate
 
-A module is `stable` only when it passes every row below in CI. `devkit check` runs the same checks inside a site. CI runs on every pull request, every push to `main` and weekly (decision 0015). The end-to-end, accessibility, public-pages and tokens rows run from K4, when there are pages to run them on.
+A module is `stable` only when it passes every row below in CI. `mechframe check` runs the same checks inside a site. CI runs on every pull request, every push to `main` and weekly (decision 0015). The end-to-end, accessibility, public-pages and tokens rows run from K4, when there are pages to run them on.
 
 | Area | Bar | Tool |
 | --- | --- | --- |
@@ -713,7 +713,7 @@ A module is `stable` only when it passes every row below in CI. `devkit check` r
 | Public pages | Server-copy test passes (section 9); title, description, one `h1`, canonical, JSON-LD | Playwright, the SEO gate |
 | Security | Auth contract tests (14.13) when auth is touched; gitleaks and pip-audit clean; npm audit clean but for advisories with no fix on the expiring allowlist (`tools/npm_audit_allow.json`, 90 days at most) |  |
 | Tokens | No hard-coded colors | Stylelint and ESLint rules |
-| Docs | `module.json` validates; `MODULE.md` has every required section | `devkit check` |
+| Docs | `module.json` validates; `MODULE.md` has every required section | `mechframe check` |
 
 ## 17. The AI-facing layer
 
@@ -724,10 +724,10 @@ Any agent starts at `AGENT-GUIDE.md`, picks from `catalog.json` and recipes, and
 1. Read the brief. Ask at most 3 questions, and only ones whose answers change the module list: who the visitors are, whether they get accounts, whether money changes hands, what content the site publishes.
 2. Match a recipe whose `fits` lines describe the site. If none fits, start from `minimal`.
 3. Propose the module list. Give one line on why for each, from its `use_when`, and list the modules considered and dropped, from their `avoid_when`.
-4. After the owner confirms, run `devkit new <site> --recipe <name>`, then `devkit add` for each change to the recipe.
+4. After the owner confirms, run `mechframe new <site> --recipe <name>`, then `mechframe add` for each change to the recipe.
 5. Set the theme, settings and env vars, and write the site's `CLAUDE.md`.
 6. Build the site's own pages in `site/`.
-7. Run `devkit check` and the tests, and report the exact results.
+7. Run `mechframe check` and the tests, and report the exact results.
 
 **`MODULE.md`, required sections:** what it does; use when and avoid when; what it adds (routes, tables, slots, permissions, events); settings and env vars; install notes; extension points; known limits; source and license.
 
@@ -770,7 +770,7 @@ flowchart TB
   p2 --> p3["3. Validate the spec: blog, chat and payments extracted against it"]
   p3 --> g1{"Gate: v1.0 frozen when all three pass the quality gate"}
   g1 --> p4["4. Module waves: VybeSite parts first, then VybeMindz, Basefra.me, Brewr"]
-  p4 --> p5["5. Picker: recipes, the devkit CLI, AGENT-GUIDE"]
+  p4 --> p5["5. Picker: recipes, the mechframe CLI, AGENT-GUIDE"]
   p5 --> g2{"Gate: first real site (the new Vibrant Mindz site) built from a brief"}
   g2 --> p6["6. After v1.0: TypeScript port study, judged by the same contract tests"]
 ```
@@ -810,7 +810,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 | Q5 | SMS codes | Not in v1 |
 | Q6 | Session limits | Members 14 days idle and 30 days total; staff 8 hours and 7 days |
 | Q7 | Password minimum | 12 characters for every account (the owner's call) |
-| Q8 | Repo | `C:\DEV\AI-DevKit`, GitHub repo `Vybecode-LTD/devkit` (public for now, decision 0011) |
+| Q8 | Repo | `C:\DEV\AI-DevKit`, GitHub repo `mechframe/mechframe` (public for now, decision 0011) |
 | Q9 | License | Proprietary, with MIT allowed for selected modules |
 | Q10 | First real site | The new Vibrant Mindz site |
 | Q11 | Admin shell | Built to the Vibrant Mindz canvas Admin design, styled by tokens, with VybeSite's behavior (decision 0040, amending 0008) |
@@ -819,6 +819,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-17 | AI DevKit is renamed MechFrame throughout: prose, the planned CLI (`mechframe`, also `mf`), the lock file `mechframe.lock.json`, the npm names (`@mechframe/kernel`, `@mechframe/harness-web`), the cookies `__Host-mf_session` and `__Host-mf_device`, the API key prefix `mf_live_` / `mf_test_`, problem types `urn:mechframe:problem:`, the `MECHFRAME_*` variables, the skills `mechframe-*` and the repo `mechframe/mechframe`; the Python import stays `kernel`, and earlier change-log lines keep the old name (every section; decision 0034) |
 | 2026-11-17 | npm audit may pass an advisory that has no fixed version, while it's on the expiring allowlist `tools/npm_audit_allow.json` with its reason, for 90 days at most; CI runs `python -m tools.npm_audit` in place of `npm audit --audit-level=low` (16, decision 0015) |
 | 2026-11-17 | Public rendering: a module's `server_copy.py` sets `PAGES`, whose `page(db, path, params)` answers each address its `routes.public` patterns match with the page's head, words and JSON-LD in one call (or a move, or None for a 404), and `sitemap(db)` lists its pages; the most fixed segments win and ties are refused at start; the kernel serves the built web app from `WEB_DIST` with its path and cache rules, answers member and admin pages with a noindex shell and any other address with a real 404, and writes `sitemap.xml`, `robots.txt` (AI crawlers allowed unless the site refuses them) and `llms.txt`; the site's identity is the settings section `kernel.site`; nh3 cleans the words (6, 7, 9; decision 0041) |
 | 2026-11-17 | The admin shell is built to the Vibrant Mindz canvas Admin design, styled by theme tokens, for every site: only its generic parts in the kernel, checked in the site's dark theme and Machined Light (8, 20, Q11; decision 0040, amending 0008) |

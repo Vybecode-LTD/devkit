@@ -25,7 +25,7 @@
 
 ## Install notes
 
-<!-- Anything beyond `devkit add my-module`: provider accounts, DNS, keys the owner must enter. -->
+<!-- Anything beyond `mechframe add my-module`: provider accounts, DNS, keys the owner must enter. -->
 
 ## Extension points
 

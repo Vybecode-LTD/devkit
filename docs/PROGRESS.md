@@ -1,4 +1,4 @@
-# DevKit progress
+# MechFrame progress
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
@@ -8,11 +8,11 @@ Updated 2026-11-17, `main` at `e009a13`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| DevKit v1.0 | 25 | 0 | 0 | 24 | 5 | 2 | ████░░░░░░ 44% (25 of 56) |
+| MechFrame v1.0 | 26 | 0 | 0 | 24 | 4 | 2 | ████░░░░░░ 46% (26 of 56) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 25 | 0 | 0 | 109 | 5 | 5 | █░░░░░░░░░ 17% (25 of 144) |
+| Everything | 26 | 0 | 0 | 109 | 4 | 5 | █░░░░░░░░░ 18% (26 of 144) |
 
-## DevKit v1.0
+## MechFrame v1.0
 
 The kernel, the CLI and the first validation modules, frozen once blog, chat and payments pass the quality gate on the Vibrant Mindz build (SPEC 19).
 
@@ -53,13 +53,13 @@ Gate: Every 14.13 contract test passes; each sign-in method works by hand; brand
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
 | 1. The contract suite, written first | Done |  |  | 128 pass; 27 wait on steps 9 to 11 |
-| 2. Accounts, roles and per-resource overrides | Done | [#36](https://github.com/Vybecode-LTD/devkit/pull/36), [#56](https://github.com/Vybecode-LTD/devkit/pull/56) | [0031](decisions/0031-moderation-permission.md) |  |
-| 3. Passwords | Done | [#7](https://github.com/Vybecode-LTD/devkit/pull/7), [#10](https://github.com/Vybecode-LTD/devkit/pull/10) |  |  |
-| 4. Sessions and the device list | Done | [#32](https://github.com/Vybecode-LTD/devkit/pull/32), [#33](https://github.com/Vybecode-LTD/devkit/pull/33) |  |  |
-| 5. Sign-in codes and magic links | Done | [#42](https://github.com/Vybecode-LTD/devkit/pull/42) | [0021](decisions/0021-codes-and-links.md) |  |
-| 6. Reset, verification and email change | Done | [#39](https://github.com/Vybecode-LTD/devkit/pull/39), [#43](https://github.com/Vybecode-LTD/devkit/pull/43), [#44](https://github.com/Vybecode-LTD/devkit/pull/44), [#45](https://github.com/Vybecode-LTD/devkit/pull/45), [#46](https://github.com/Vybecode-LTD/devkit/pull/46) | [0020](decisions/0020-sign-up-defaults.md), [0022](decisions/0022-password-resets.md), [0023](decisions/0023-verification-resend.md), [0024](decisions/0024-email-change.md), [0025](decisions/0025-password-change.md) |  |
-| 7. Second factors and step-up | Done | [#38](https://github.com/Vybecode-LTD/devkit/pull/38), [#47](https://github.com/Vybecode-LTD/devkit/pull/47), [#48](https://github.com/Vybecode-LTD/devkit/pull/48), [#52](https://github.com/Vybecode-LTD/devkit/pull/52) | [0019](decisions/0019-sign-in-limits-as-tiers.md), [0026](decisions/0026-totp-setup-and-confirm.md), [0027](decisions/0027-totp-removal-and-recovery-codes.md) |  |
-| 8. Passkeys, and the undo link for an added factor | Done | [#50](https://github.com/Vybecode-LTD/devkit/pull/50), [#54](https://github.com/Vybecode-LTD/devkit/pull/54) | [0028](decisions/0028-passkeys.md), [0030](decisions/0030-second-factor-undo.md) |  |
+| 2. Accounts, roles and per-resource overrides | Done | [#36](https://github.com/mechframe/mechframe/pull/36), [#56](https://github.com/mechframe/mechframe/pull/56) | [0031](decisions/0031-moderation-permission.md) |  |
+| 3. Passwords | Done | [#7](https://github.com/mechframe/mechframe/pull/7), [#10](https://github.com/mechframe/mechframe/pull/10) |  |  |
+| 4. Sessions and the device list | Done | [#32](https://github.com/mechframe/mechframe/pull/32), [#33](https://github.com/mechframe/mechframe/pull/33) |  |  |
+| 5. Sign-in codes and magic links | Done | [#42](https://github.com/mechframe/mechframe/pull/42) | [0021](decisions/0021-codes-and-links.md) |  |
+| 6. Reset, verification and email change | Done | [#39](https://github.com/mechframe/mechframe/pull/39), [#43](https://github.com/mechframe/mechframe/pull/43), [#44](https://github.com/mechframe/mechframe/pull/44), [#45](https://github.com/mechframe/mechframe/pull/45), [#46](https://github.com/mechframe/mechframe/pull/46) | [0020](decisions/0020-sign-up-defaults.md), [0022](decisions/0022-password-resets.md), [0023](decisions/0023-verification-resend.md), [0024](decisions/0024-email-change.md), [0025](decisions/0025-password-change.md) |  |
+| 7. Second factors and step-up | Done | [#38](https://github.com/mechframe/mechframe/pull/38), [#47](https://github.com/mechframe/mechframe/pull/47), [#48](https://github.com/mechframe/mechframe/pull/48), [#52](https://github.com/mechframe/mechframe/pull/52) | [0019](decisions/0019-sign-in-limits-as-tiers.md), [0026](decisions/0026-totp-setup-and-confirm.md), [0027](decisions/0027-totp-removal-and-recovery-codes.md) |  |
+| 8. Passkeys, and the undo link for an added factor | Done | [#50](https://github.com/mechframe/mechframe/pull/50), [#54](https://github.com/mechframe/mechframe/pull/54) | [0028](decisions/0028-passkeys.md), [0030](decisions/0030-second-factor-undo.md) |  |
 | 9. OAuth and OpenID Connect | Waiting |  |  | Before the site's launch at step 5 |
 | 10. Invites and API keys | Waiting |  |  | Invites before the site's step 4; API keys after |
 | 11. Abuse protection, deletion and data export | Waiting |  |  | Before the site's launch at step 5 |
@@ -72,25 +72,25 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
-| Storage | Done | [#58](https://github.com/Vybecode-LTD/devkit/pull/58) | [0032](decisions/0032-kernel-storage.md) |  |
-| Email: templates, SMTP first, Resend where SMTP is blocked | Done | [#59](https://github.com/Vybecode-LTD/devkit/pull/59) | [0033](decisions/0033-kernel-email.md) |  |
-| The kernel's own mails as templates a site can reword | Done | [#60](https://github.com/Vybecode-LTD/devkit/pull/60) | [0033](decisions/0033-kernel-email.md) |  |
-| Jobs: the Postgres queue, the scheduler, mail retries | Done | [#63](https://github.com/Vybecode-LTD/devkit/pull/63) | [0035](decisions/0035-kernel-jobs.md) |  |
-| Events: emitted in the caller's transaction, delivered as jobs, dead letters | Done | [#65](https://github.com/Vybecode-LTD/devkit/pull/65) | [0036](decisions/0036-kernel-events.md) |  |
-| Audit: one append-only log for every module, auth's widened | Done | [#67](https://github.com/Vybecode-LTD/devkit/pull/67) | [0037](decisions/0037-kernel-audit.md) |  |
-| Notifications, with per-person preferences and one-click unsubscribe | Done | [#69](https://github.com/Vybecode-LTD/devkit/pull/69) | [0038](decisions/0038-kernel-notifications.md) |  |
-| Moderation: reports, the staff queue, filters and actions | Done | [#56](https://github.com/Vybecode-LTD/devkit/pull/56), [#71](https://github.com/Vybecode-LTD/devkit/pull/71) | [0031](decisions/0031-moderation-permission.md), [0039](decisions/0039-kernel-moderation.md) |  |
-| Public rendering: head tags, server copy, sitemap, robots, llms.txt | Done | [#73](https://github.com/Vybecode-LTD/devkit/pull/73) | [0041](decisions/0041-public-rendering.md) |  |
+| Storage | Done | [#58](https://github.com/mechframe/mechframe/pull/58) | [0032](decisions/0032-kernel-storage.md) |  |
+| Email: templates, SMTP first, Resend where SMTP is blocked | Done | [#59](https://github.com/mechframe/mechframe/pull/59) | [0033](decisions/0033-kernel-email.md) |  |
+| The kernel's own mails as templates a site can reword | Done | [#60](https://github.com/mechframe/mechframe/pull/60) | [0033](decisions/0033-kernel-email.md) |  |
+| Jobs: the Postgres queue, the scheduler, mail retries | Done | [#63](https://github.com/mechframe/mechframe/pull/63) | [0035](decisions/0035-kernel-jobs.md) |  |
+| Events: emitted in the caller's transaction, delivered as jobs, dead letters | Done | [#65](https://github.com/mechframe/mechframe/pull/65) | [0036](decisions/0036-kernel-events.md) |  |
+| Audit: one append-only log for every module, auth's widened | Done | [#67](https://github.com/mechframe/mechframe/pull/67) | [0037](decisions/0037-kernel-audit.md) |  |
+| Notifications, with per-person preferences and one-click unsubscribe | Done | [#69](https://github.com/mechframe/mechframe/pull/69) | [0038](decisions/0038-kernel-notifications.md) |  |
+| Moderation: reports, the staff queue, filters and actions | Done | [#56](https://github.com/mechframe/mechframe/pull/56), [#71](https://github.com/mechframe/mechframe/pull/71) | [0031](decisions/0031-moderation-permission.md), [0039](decisions/0039-kernel-moderation.md) |  |
+| Public rendering: head tags, server copy, sitemap, robots, llms.txt | Done | [#73](https://github.com/mechframe/mechframe/pull/73) | [0041](decisions/0041-public-rendering.md) |  |
 | Retention | Later |  |  | Outside K3's gate (the owner, 2026-11-17); its tests come with it |
 | The AI client | Later |  |  | Outside K3's gate (the owner, 2026-11-17); its tests come with it |
 
-### Rename to MechFrame · 0 of 2 done
+### Rename to MechFrame · 1 of 2 done
 
-AI DevKit becomes MechFrame once K3 is done (decision 0034).
+AI DevKit became MechFrame once K3 was done (decision 0034).
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
-| One PR: prose, packages, cookies, variables, skills and links say MechFrame | Waiting |  | [0034](decisions/0034-rename-to-mechframe.md) | After K3 |
+| One PR: prose, packages, cookies, variables, skills and links say MechFrame | Done | [#76](https://github.com/mechframe/mechframe/pull/76) | [0034](decisions/0034-rename-to-mechframe.md) |  |
 | The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there | Waiting |  | [0034](decisions/0034-rename-to-mechframe.md) | With the rename PR |
 
 ### K4: web kernel · 0 of 5 done · gate not passed yet
@@ -103,11 +103,11 @@ To do: `App shell, useSession, the typed client, defineModule and slots`, `UI ki
 
 ### K5: CLI and site template · 0 of 4 done · gate not passed yet
 
-devkit works end to end.
+mechframe works end to end.
 
-Gate: devkit new test-site builds, migrates and passes its tests; devkit check passes on it.
+Gate: mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it.
 
-To do: `The devkit commands and lock files`, `templates/site, made from the harness`, `The start command and .env.example for a host's edge`, `devkit catalog`.
+To do: `The mechframe commands and lock files`, `templates/site, made from the harness`, `The start command and .env.example for a host's edge`, `mechframe catalog`.
 
 ### Contract hooks · 0 of 10 done
 
@@ -123,7 +123,7 @@ Gate: v1.0 is frozen when blog, chat (community) and payments pass the quality g
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
-| Step 0: scaffold, moderation permission, custom roles | Done | [#55](https://github.com/Vybecode-LTD/devkit/pull/55), [#56](https://github.com/Vybecode-LTD/devkit/pull/56) | [0029](decisions/0029-vibrant-mindz-order.md), [0031](decisions/0031-moderation-permission.md) |  |
+| Step 0: scaffold, moderation permission, custom roles | Done | [#55](https://github.com/mechframe/mechframe/pull/55), [#56](https://github.com/mechframe/mechframe/pull/56) | [0029](decisions/0029-vibrant-mindz-order.md), [0031](decisions/0031-moderation-permission.md) |  |
 | Step 1: media, pages, blog, embeds, contact, campaigns | To do |  |  |  |
 | Step 2: discography, audio player, featured | To do |  |  |  |
 | Step 3: roster, portfolio, reactions, comments | To do |  |  |  |

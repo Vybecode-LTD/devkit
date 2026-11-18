@@ -1,6 +1,6 @@
-# Vibrant Mindz on DevKit: module plan
+# Vibrant Mindz on MechFrame: module plan
 
-2026-11-12 · Mirrors the design doc "Vibrant Mindz on DevKit: module plan" (https://claude.ai/artifact/HsedU8JoNedu4ySBSU2Vrc).
+2026-11-12 · Mirrors the design doc "Vibrant Mindz on MechFrame: module plan" (https://claude.ai/artifact/HsedU8JoNedu4ySBSU2Vrc).
 
 The new Vibrant Mindz site needs 17 modules plus 2 new kernel services. Seven modules already exist in the owner's code, four are planned in VybeSite's notes, and six are new. Each one is generic, so every music, art or merch site after this one reuses it.
 
@@ -74,7 +74,7 @@ Embeds are already built in VybeSite. What the site still lacks is a player for 
 
 **`embeds`: lift it as it is.** A supported link alone on its line becomes the provider's player: YouTube, SoundCloud, Spotify and Bandcamp (`services/embeds.json`, `MediaEmbed.tsx`, contract `dev plans/contracts/media-embeds.md` in VybeSite). Each player is a sandboxed iframe on its provider's one host. It loads as it nears the screen, never autoplays, and keeps a linked caption, the backlink SoundCloud's and Spotify's terms ask for.
 
-To make it a DevKit module:
+To make it a MechFrame module:
 
 - Expose it as a Markdown extension any module can use: blog, pages, comments, community messages and product pages.
 - Add each provider's host to the CSP's `frame-src` only while that provider is switched on.
@@ -142,7 +142,7 @@ These three are VybeSite's commerce plan (product idea 4), split up so a site ca
 
 ## 7. Custom apparel designer (print on demand)
 
-This is already fully designed in VybeSite's notes: product idea 5 and its research report. DevKit splits it in two, so other sites can use the fulfilment without the designer. The `printful-v2-adapter` skill holds the implementation detail.
+This is already fully designed in VybeSite's notes: product idea 5 and its research report. MechFrame splits it in two, so other sites can use the fulfilment without the designer. The `printful-v2-adapter` skill holds the implementation detail.
 
 **`print-on-demand`, the capability**
 
@@ -208,7 +208,7 @@ VybeMindz is already this module. The work is moving it onto the kernel, not bui
 - **SEO.** Approved comments join the page's server copy, so crawlers that don't run JavaScript see the discussion too.
 - **Bridge to the community (optional).** A setting posts each new blog post into a community channel, with links both ways.
 
-## 10. Changes this needs in the DevKit spec
+## 10. Changes this needs in the MechFrame spec
 
 Five changes, none of which touch the locked decisions. All five were applied to the spec on 2026-11-12 and are listed in its change log.
 
@@ -224,12 +224,12 @@ Blog, chat and payments, the three modules the spec uses to validate v0.1, are a
 
 Since 2026-11-16 the kernel's remaining work runs in the order this site needs it (decision 0029): K3, K4 and K5 before step 1, and K2's last steps where the site needs them.
 
-The site launches once the shop works, as decided for VybeSite on 11 October. Each step is also a DevKit milestone, so the site and the framework grow together.
+The site launches once the shop works, as decided for VybeSite on 11 October. Each step is also a MechFrame milestone, so the site and the framework grow together.
 
 1. **Kernel**, plus `pages`, `blog`, `embeds`, `contact` and `campaigns`, lifted from VybeSite.
 2. **`comments` and `reactions`**, then `discography`, `portfolio` and `roster`, so the content side is complete.
 3. **`community`**, ported from VybeMindz.
-4. **`payments`, `shop` and `downloads`.** Blog, chat and payments now all exist, so this is where DevKit's v1.0 gate is checked. **The new site launches here.**
+4. **`payments`, `shop` and `downloads`.** Blog, chat and payments now all exist, so this is where MechFrame's v1.0 gate is checked. **The new site launches here.**
 5. **`licensing` and `audio-player`:** the beat store opens.
 6. **`print-on-demand`:** the apparel designer opens.
 

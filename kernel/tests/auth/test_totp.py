@@ -441,7 +441,7 @@ async def test_removing_a_totp_gives_this_browser_a_fresh_device_cookie(site: Si
     person = await _person(site)
     await _with_totp(site, person)
     removed = await person.browser.delete("/api/auth/totp")
-    assert _cookie(removed, "__Host-dk_device")
+    assert _cookie(removed, "__Host-mf_device")
     for _ in range(5):  # strangers push the address over its failure limit
         await site.browser().post(
             "/api/auth/sign-in", json={"email": person.email, "password": "a wrong password 1"}
@@ -572,10 +572,10 @@ async def test_after_a_role_change_the_answers_that_roll_back_carry_the_new_cook
             update(User).where(User.id == person.id).values(role_version=User.role_version + 1)
         )
         await db.commit()
-    old = person.browser.cookies.get("__Host-dk_session")
+    old = person.browser.cookies.get("__Host-mf_session")
     response = await person.browser.request(method, path)
     assert response.status_code == status, response.text
-    new = _cookie(response, "__Host-dk_session")
+    new = _cookie(response, "__Host-mf_session")
     assert new
     assert new != old
     assert (await person.browser.get("/api/auth/session")).status_code == 200
@@ -701,6 +701,6 @@ async def test_two_step_ups_on_one_cookie_that_meet_at_the_account_issue_one_tok
 
     answers = await _with_the_account_held(site, person, [step_up, step_up])
     assert [answer.status_code for answer in answers] == [200, 200]
-    issued = [a for a in answers if "__Host-dk_session" in a.headers.get("set-cookie", "")]
+    issued = [a for a in answers if "__Host-mf_session" in a.headers.get("set-cookie", "")]
     assert len(issued) == 1
     assert (await person.browser.get("/api/auth/session")).status_code == 200

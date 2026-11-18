@@ -28,7 +28,7 @@ def config(**values: object) -> KernelConfig:
     base: dict[str, object] = {
         "secret_key": GOOD_SECRET,
         "encryption_keys": GOOD_KEY,
-        "site_url": "https://devkit.test",
+        "site_url": "https://mechframe.test",
         "debug": False,
     }
     base.update(values)
@@ -137,7 +137,7 @@ def test_the_hint_makes_keys_that_pass() -> None:
 @pytest.mark.parametrize(
     ("url", "problem"),
     [
-        ("http://devkit.test", "SITE_URL must be https outside DEBUG."),
+        ("http://mechframe.test", "SITE_URL must be https outside DEBUG."),
         ("https://localhost:8000", "SITE_URL is a local address (localhost), not the site's own."),
         ("https://127.0.0.1", "SITE_URL is a local address (127.0.0.1), not the site's own."),
         ("https://[::1]:8443", "SITE_URL is a local address (::1), not the site's own."),

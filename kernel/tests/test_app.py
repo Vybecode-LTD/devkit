@@ -49,7 +49,7 @@ async def test_health(app_factory: AppFactory) -> None:
 
 
 async def test_health_without_a_database(app_factory: AppFactory) -> None:
-    app = app_factory(database_url="postgresql://devkit:devkit@127.0.0.1:1/none")
+    app = app_factory(database_url="postgresql://mechframe:mechframe@127.0.0.1:1/none")
     async with Client(app, drain=False) as client:  # no database: no queue to run
         response = await client.get("/api/kernel/health")
     assert (response.status_code, response.json()["database"]) == (503, "unreachable")
@@ -166,7 +166,7 @@ async def test_an_unexpected_error_keeps_the_security_headers(app_factory: AppFa
     app = app_factory([_boom_module()])
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app, raise_app_exceptions=True)
-        async with httpx.AsyncClient(transport=transport, base_url="https://devkit.test") as c:
+        async with httpx.AsyncClient(transport=transport, base_url="https://mechframe.test") as c:
             response = await c.get("/api/probe/boom")  # raises here if the error escapes
     assert (response.status_code, response.json()["code"]) == (500, "kernel.internal_error")
     assert "default-src 'self'" in response.headers["content-security-policy"]

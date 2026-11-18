@@ -1,7 +1,7 @@
 """Web sessions (SPEC.md 14.5), lifted from VybeSite's `services/sessions.py`
 and `services/members.py`, onto one `auth_user` table and its roles.
 
-**A session is a random token in an HttpOnly cookie** (`__Host-dk_session`),
+**A session is a random token in an HttpOnly cookie** (`__Host-mf_session`),
 and the database keeps only the token's SHA-256, one row per signed-in
 browser. A copy of the table signs nobody in, no page script can read the
 cookie, and deleting a row ends that session at once.
@@ -51,10 +51,10 @@ from kernel import clock
 from kernel.auth.hashing import keyed_hash, same
 from kernel.auth.models import Session, User, UserRole
 
-SESSION_COOKIE = "__Host-dk_session"
+SESSION_COOKIE = "__Host-mf_session"
 #: A browser that has signed in to an account before (14.5, decision 0013).
 #: Never the session: signing out keeps it.
-DEVICE_COOKIE = "__Host-dk_device"
+DEVICE_COOKIE = "__Host-mf_device"
 DEVICE_DAYS = 365
 
 #: The longest gap between writes of `last_seen_at`. An hour either way

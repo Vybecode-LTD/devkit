@@ -123,9 +123,9 @@ def test_scrub_removes_the_private_parts() -> None:
         "event_id": "a" * 32,
         "user": {"ip_address": "203.0.113.9"},
         "request": {
-            "url": "https://devkit.test/api/x?token=abc",
+            "url": "https://mechframe.test/api/x?token=abc",
             "data": {"password": "pw"},
-            "cookies": {"__Host-dk_session": "s"},
+            "cookies": {"__Host-mf_session": "s"},
             "query_string": "token=abc",
             "headers": {"User-Agent": "UA", "Authorization": "Bearer t", "Cookie": "c"},
         },
@@ -137,7 +137,7 @@ def test_scrub_removes_the_private_parts() -> None:
     assert cleaned["contexts"]["trace"]["trace_id"] == "b" * 32
     assert "user" not in cleaned
     assert cleaned["request"] == {
-        "url": "https://devkit.test/api/x",
+        "url": "https://mechframe.test/api/x",
         "headers": {"User-Agent": "UA"},
     }
     assert cleaned["message"] == f"failed for {ADDRESS}"
@@ -247,7 +247,7 @@ async def test_each_request_gets_one_redacted_access_line(
     assert [line.getMessage().rsplit(" ", 1)[0] for line in lines] == [
         f"GET /api/{module_id}/items/{{item_id}} 200",
         "GET (no route) 404",
-        "GET /{full_path:devkit_page} 404",  # every other address is the shell's (decision 0041)
+        "GET /{full_path:mechframe_page} 404",  # every other address is the shell's (decision 0041)
     ]
     assert lines[0].route == f"/api/{module_id}/items/{{item_id}}"  # type: ignore[attr-defined]
     assert lines[0].status == 200  # type: ignore[attr-defined]

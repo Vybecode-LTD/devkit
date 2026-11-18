@@ -71,9 +71,9 @@ async def test_reset_with_accounts_forgets_every_account(
             session.add(User(email=email, email_normal=email))
             await session.commit()
         transport = httpx.ASGITransport(app=app)
-        headers = {"Origin": "https://devkit.test", "Sec-Fetch-Site": "same-origin"}
+        headers = {"Origin": "https://mechframe.test", "Sec-Fetch-Site": "same-origin"}
         async with httpx.AsyncClient(
-            transport=transport, base_url="https://devkit.test", headers=headers
+            transport=transport, base_url="https://mechframe.test", headers=headers
         ) as client:
             assert (await client.post("/api/_test/reset")).status_code == 204
             async with database.sessions() as session:
@@ -88,9 +88,9 @@ async def test_reset_with_accounts_forgets_every_account(
 
 
 def _client(app: FastAPI) -> httpx.AsyncClient:
-    headers = {"Origin": "https://devkit.test", "Sec-Fetch-Site": "same-origin"}
+    headers = {"Origin": "https://mechframe.test", "Sec-Fetch-Site": "same-origin"}
     return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="https://devkit.test", headers=headers
+        transport=httpx.ASGITransport(app=app), base_url="https://mechframe.test", headers=headers
     )
 
 

@@ -32,7 +32,7 @@ No env vars; files go through kernel storage.
 
 ## Install notes
 
-`devkit add audio-player`. Admin screen design: canvas board "Homepage board (Spotlight bar and Releases deck)" (https://claude.ai/artifact/W7EZQumtcK36K3xczG8mNH, Admin page).
+`mechframe add audio-player`. Admin screen design: canvas board "Homepage board (Spotlight bar and Releases deck)" (https://claude.ai/artifact/W7EZQumtcK36K3xczG8mNH, Admin page).
 
 ## Extension points
 
@@ -47,4 +47,4 @@ No env vars; files go through kernel storage.
 
 ## Source and license
 
-New code for DevKit, proprietary (decision 0008).
+New code for MechFrame, proprietary (decision 0008).

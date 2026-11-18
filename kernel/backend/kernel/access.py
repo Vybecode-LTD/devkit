@@ -25,9 +25,9 @@ from fastapi.routing import APIRoute, APIWebSocketRoute, iter_route_contexts
 from starlette.routing import Mount
 
 #: Set by the access dependencies: public, member, owner_or or permission.
-ACCESS_MARK = "__devkit_access__"
+ACCESS_MARK = "__mechframe_access__"
 #: Set by `require_recent_auth`, so the step-up routes can be listed.
-STEP_UP_MARK = "__devkit_step_up__"
+STEP_UP_MARK = "__mechframe_step_up__"
 
 
 def public() -> None:

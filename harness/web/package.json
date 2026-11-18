@@ -1,5 +1,5 @@
 {
-  "name": "@devkit/harness-web",
+  "name": "@mechframe/harness-web",
   "private": true,
   "version": "0.0.0",
   "description": "The harness's web app: the kernel's shell with every module in this repo, for local runs and tests.",
