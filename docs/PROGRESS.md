@@ -2,7 +2,7 @@
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
-Updated 2026-11-17, `main` at `ec0d350`. Progress counts steps, not effort: each row below is one step, whatever its size.
+Updated 2026-11-17, `main` at `e009a13`. Progress counts steps, not effort: each row below is one step, whatever its size.
 
 ## Overall
 
@@ -64,11 +64,11 @@ Gate: Every 14.13 contract test passes; each sign-in method works by hand; brand
 | 10. Invites and API keys | Waiting |  |  | Invites before the site's step 4; API keys after |
 | 11. Abuse protection, deletion and data export | Waiting |  |  | Before the site's launch at step 5 |
 
-### K3: kernel services · 9 of 11 done · gate not passed yet
+### K3: kernel services · 9 of 11 done · gate passed
 
 Everything else modules rely on, in the order the site's modules use it.
 
-Gate: Tests for each service; an event delivered once to a handler safe to run twice; a job surviving a worker restart.
+Gate: Tests for each service; an event delivered once to a handler safe to run twice; a job surviving a worker restart. Checked on the nine services built; retention and the AI client are outside it (the owner, 2026-11-17).
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
@@ -81,8 +81,8 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 | Notifications, with per-person preferences and one-click unsubscribe | Done | [#69](https://github.com/Vybecode-LTD/devkit/pull/69) | [0038](decisions/0038-kernel-notifications.md) |  |
 | Moderation: reports, the staff queue, filters and actions | Done | [#56](https://github.com/Vybecode-LTD/devkit/pull/56), [#71](https://github.com/Vybecode-LTD/devkit/pull/71) | [0031](decisions/0031-moderation-permission.md), [0039](decisions/0039-kernel-moderation.md) |  |
 | Public rendering: head tags, server copy, sitemap, robots, llms.txt | Done | [#73](https://github.com/Vybecode-LTD/devkit/pull/73) | [0041](decisions/0041-public-rendering.md) |  |
-| Retention | Later |  |  |  |
-| The AI client | Later |  |  |  |
+| Retention | Later |  |  | Outside K3's gate (the owner, 2026-11-17); its tests come with it |
+| The AI client | Later |  |  | Outside K3's gate (the owner, 2026-11-17); its tests come with it |
 
 ### Rename to MechFrame · 0 of 2 done
 

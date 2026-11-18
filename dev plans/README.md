@@ -4,6 +4,8 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 
 `progress-ledger/` is the source of the visual progress ledger, https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm: its page (`index.html`) and the rows `python -m tools.progress` makes from `docs/progress.json` (`rows.json`); its README says how to republish it.
 
+`2026-11-17-k3-gate-evidence.md` is the evidence K3's gate was checked on: each service's tests and coverage, the two named tests, and the kernel's contract lint (#75).
+
 `contracts/` holds the one-page contract each feature that touches a seam gets before its code (`C:\DEV\knowledge\decisions\0008-feature-contracts.md`):
 
 | File | What |
@@ -18,4 +20,4 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 | `contracts/k3-moderation.md` | K3's moderation: reports, the staff queue, word and link filters, actions and suspension, `kernel.moderation` (PR #71) |
 | `contracts/k3-public-rendering.md` | K3's public rendering: each page's head, words and JSON-LD in the shell, real 404s, `sitemap.xml`, `robots.txt`, `llms.txt`, `kernel.server_copy` (PR #73) |
 
-`npm-audit-allowlist/` is a proposal waiting on the owner: `npm audit` with an expiring allowlist, for the picomatch advisory that has no fix yet (its README says why and how to adopt it).
+`npm-audit-allowlist/`: the proposal for `npm audit` with an expiring allowlist, adopted 2026-11-17 (#75, decision 0015). The tool, its list and its tests now live in `tools/` and `tests/`; the README stays as the record of why.

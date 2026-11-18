@@ -174,8 +174,11 @@ jobs:
       - name: Build the harness
         run: npm run build
 
-      - name: Audit every dependency (npm audit)
-        run: npm audit --audit-level=low
+      - name: Audit every dependency (npm audit, with the expiring allowlist)
+        # Fails on any advisory not in tools/npm_audit_allow.json, on an entry past
+        # its date or more than 90 days out, and on one npm no longer reports
+        # (decision 0015). Standard library only: the runner's own Python.
+        run: python3 -m tools.npm_audit
 
   secrets:
     # Every run, whatever it touches. The release binary, checked against the

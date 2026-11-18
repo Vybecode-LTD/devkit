@@ -1,6 +1,6 @@
 {
   "updated": "2026-11-17",
-  "main": "ec0d350",
+  "main": "e009a13",
   "ledger_url": "https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm",
   "milestones": [
     {
@@ -76,8 +76,8 @@
       "milestone": "v1",
       "name": "K3: kernel services",
       "goal": "Everything else modules rely on, in the order the site's modules use it.",
-      "gate": "Tests for each service; an event delivered once to a handler safe to run twice; a job surviving a worker restart.",
-      "gate_passed": false,
+      "gate": "Tests for each service; an event delivered once to a handler safe to run twice; a job surviving a worker restart. Checked on the nine services built; retention and the AI client are outside it (the owner, 2026-11-17).",
+      "gate_passed": true,
       "items": [
         {"name": "Storage", "status": "done", "prs": [58], "decisions": ["0032"]},
         {"name": "Email: templates, SMTP first, Resend where SMTP is blocked", "status": "done", "prs": [59], "decisions": ["0033"]},
@@ -88,8 +88,8 @@
         {"name": "Notifications, with per-person preferences and one-click unsubscribe", "status": "done", "prs": [69], "decisions": ["0038"]},
         {"name": "Moderation: reports, the staff queue, filters and actions", "status": "done", "prs": [56, 71], "decisions": ["0031", "0039"]},
         {"name": "Public rendering: head tags, server copy, sitemap, robots, llms.txt", "status": "done", "prs": [73], "decisions": ["0041"]},
-        {"name": "Retention", "status": "later"},
-        {"name": "The AI client", "status": "later"}
+        {"name": "Retention", "status": "later", "note": "Outside K3's gate (the owner, 2026-11-17); its tests come with it"},
+        {"name": "The AI client", "status": "later", "note": "Outside K3's gate (the owner, 2026-11-17); its tests come with it"}
       ]
     },
     {

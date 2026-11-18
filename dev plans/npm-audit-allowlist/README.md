@@ -1,6 +1,6 @@
-# Proposal: npm audit with an expiring allowlist (waiting on the owner)
+# Proposal: npm audit with an expiring allowlist (adopted)
 
-**Not wired in.** Built on 2026-11-17 and parked here, because loosening a CI security gate is the owner's call.
+**Adopted on 2026-11-17 by the owner (#75, decision 0015):** the three files moved to `tools/npm_audit.py`, `tools/npm_audit_allow.json` and `tests/test_npm_audit.py`, and CI runs `python3 -m tools.npm_audit`. What follows is the proposal as it was parked.
 
 ## Why
 
