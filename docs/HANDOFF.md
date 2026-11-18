@@ -1,46 +1,59 @@
 # Handoff
 
-Overwritten every session. 2026-11-17, night Eastern (Claude Code, the owner's machine): K3 public rendering (#73, decision 0041), built tests first to its approved contract, with thirteen changes after approval recorded in the contract. #72 had already landed, and the session landed #73 itself. Then this page (#74).
+Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claude Code, the owner's machine, the morning part with the owner): K3's gate checked and passed, npm audit's expiring allowlist adopted (#75), and AI DevKit renamed MechFrame (#76). The owner moved the repo to github.com/mechframe/mechframe and installed Codex, CodeRabbit and cubic there. The session landed #75 and #76 itself. Then this page (#77).
 
 ## State
 
 - **K0, K1 done and audited; K2 steps 1 to 8 done** (#1 to #54). Steps 9 to 11 wait until the site needs them (decision 0029).
-- **K3, in decision 0029's order:** storage (#58, 0032), email (#59, 0033), the kernel's mails (#60), jobs (#63, 0035), events (#65, 0036), audit (#67, 0037), notifications (#69, 0038), moderation (#71, 0039), and now **public rendering** (#73, 0041; contract `dev plans/contracts/k3-public-rendering.md`):
-  - `kernel.server_copy`: a module's `server_copy.py` sets `PAGES`, a `server_copy.Pages` whose `page(db, path, params)` answers each address its `routes.public` patterns match with a `Page` (head, words, JSON-LD), a `Moved` or None (404), in one read; `sitemap(db)` lists `Entry`s (`noindex` keeps one out; a titled one is in `llms.txt`). More fixed segments win; the start refuses ties, `routes.public` without pages or the reverse, and patterns under `/api`, `/admin` or on a kernel file.
-  - The builders (`h1` ... `article`) escape every value; `cleaned` puts HTML made elsewhere through nh3 (new, hash-pinned) without `h1`; the finished words are cleaned again.
-  - `kernel.shell`: `WEB_DIST`'s `index.html` is the shell, refused at start without its `page-head`/`page-body` markers; unset, a minimal shell. Files only from inside the folder; `/assets` immutable; trailing-slash 301; noindex shells for member and admin pages; real 404s; 503 with `Retry-After` when rows can't be read; HEAD as GET. The catch-all is registered last and never matches `/api`.
-  - `sitemap.xml`, `robots.txt` (AI crawlers in their own group, refused by `kernel.site`'s `ai_crawlers`; it closes `/admin` and `/api/` only, member pages being `noindex` in their shell) and `llms.txt`, per request from the modules on. Matching, the sitemap and the home page use the modules that are on. The site's identity is the settings section `kernel.site`; the kernel's home page answers `/` until a module on declares it.
-- **Review (all fixed in the PR, each with a failing-first test):** Codex: a `Moved` with a fragment took the request's query into the fragment. CodeRabbit: matching must use the modules on; a failed module-switch read left the transaction aborted and made a page a 503 (`_on` rolls back now); and two `robots.txt` findings on member-page rules, which led to dropping them (see the question below).
-- **Tests:** last local run 1,684 passed, 8 skipped, 27 strict expected failures; coverage 98.50 %, `server_copy.py` and `shell.py` at 100 %; 35 of 35 mutants killed. The harness was checked live with `curl` (no JavaScript): `/` one `h1` and its words, a missing address a real 404.
-- **Decision 0040 (the owner):** K4's admin shell to the Vibrant Mindz canvas Admin design, styled by tokens (amends 0008).
+- **K3 done, gate passed** (#75; the evidence: `dev plans/2026-11-17-k3-gate-evidence.md`): storage, email, the kernel's mails, jobs, events, audit, notifications, moderation and public rendering, each with its tests and each service file at 100 % coverage. Both named tests: `test_events.py::test_an_event_reaches_its_listener_once_and_a_second_run_changes_nothing` and `test_worker.py::test_a_killed_worker_s_job_is_finished_by_the_next`. Retention and the AI client stay `later`, outside the gate (the owner, 2026-11-17).
+- **npm audit** runs `python -m tools.npm_audit` (decision 0015, amended). It fails on any advisory not in `tools/npm_audit_allow.json`, on an entry past its `until` date or more than 90 days out, and on an entry npm no longer reports. It also fails on an allowed advisory that `npm audit --omit=dev` reports, and on a release of the package newer than the entry's `latest`. The one entry: picomatch GHSA-fc5q-39xc-vjpf, until **2026-12-17**, `latest` 4.0.7. A change to either file runs the Web job.
+- **MechFrame** (#76, decision 0034):
+  - The CLI is `mechframe` (also `mf`), with `mechframe.lock.json` as its lock file.
+  - npm: `mechframe`, `@mechframe/kernel` and `@mechframe/harness-web`. The Python project is `mechframe`; **the import stays `kernel`**.
+  - Wire names: cookies `__Host-mf_session` and `__Host-mf_device`, API keys `mf_live_…`, errors `urn:mechframe:problem:…`.
+  - `MECHFRAME_REQUIRE_DB`, hosts `mechframe.test`, the skills `mechframe-*`.
+  - Old names stay only in history: decision records, SPEC's earlier change-log lines, `dev plans/done/`, the contracts. They also stay in the folder `C:\DEV\AI-DevKit` and in the owner's local Postgres role `devkit` (port 55432). Compose and CI use `mechframe`.
+- **The repo** is public at github.com/mechframe/mechframe. The `main` ruleset came with it, the old URL redirects, and the local remote points here. Reviewers: Codex, CodeRabbit (it skips a PR over 100 files) and cubic, which reviews every push and found real slips on both PRs.
+- **The Vibrant Mindz owner decisions of 2026-11-17** are in `docs/plans/vibrant-mindz-backend/backend-plan.md` section 4, with the options that lost:
+  - one primary-button hover, `#FF9447`; K4's admin shell hovers to the theme's accent-hover;
+  - a Videos page at `/videos` in the site's step 2, with `featured_placement.video_kind`;
+  - cards, Apple Pay and Google Pay on Stripe Checkout at launch, PayPal later;
+  - steps 6 and 7 designed after launch.
+
+  The same section says how the site's theme moves in at K4.
+- **Tests:** 1,705 passed, 8 skipped, 27 strict expected failures (K2 steps 9 to 11); coverage 98.48 %.
 
 ## Next
 
-1. Done: K3's gate passed (#75), and the rename to MechFrame landed (#76).
-2. K4 (the admin shell to decision 0040; mount with `createRoot` and style or hide `[data-server-copy]`; the Playwright parity test with the first React page), K5 (the site template sets `WEB_DIST`), the ten hooks, the site's steps 1 to 7.
+1. **K4, the web kernel** (KICKOFF K4; SPEC 8):
+   - the app shell, `useSession()`, the typed client and `defineModule`;
+   - the UI kit, the auth screens and themes;
+   - the admin shell to decision 0040, its primary action hovering to accent-hover;
+   - mount with `createRoot`, and style or hide `[data-server-copy]`;
+   - the Playwright parity test with the first React page.
 
-- **The Vibrant Mindz site's owner decisions of 2026-11-17** (one primary hover `#FF9447` with K4's admin shell hovering to accent-hover; a Videos page at `/videos` in the site's step 2 with `featured_placement.video_kind`; cards, Apple Pay and Google Pay on Stripe Checkout at launch, PayPal later; steps 6 and 7 designed after launch) are in `docs/plans/vibrant-mindz-backend/backend-plan.md`, section 4, with the site theme's move at K4.
+   It touches seams (the typed client, the module slots), so its contract comes first (`_templates/feature-CONTRACT.md`).
+2. Then K5 (the `mechframe` CLI and the site template, which sets `WEB_DIST`), the ten hooks, and the site's steps 1 to 7.
+3. **By 2026-12-17:** recheck picomatch. Upgrade if a fixed release is out; otherwise renew the allowance on purpose, with its reason. The check fails on its own once a newer picomatch is published.
 
 ## Open questions for the owner
 
-- **Settled by the owner (2026-11-17):** member pages stay `noindex` in their shell, not disallowed in `robots.txt` (contract change 8, decision 0041 item 8).
-- **K3's gate:** Retention and the AI client are `later` in `progress.json` but in KICKOFF's K3 table: is the gate checked without them?
-- **main's push runs are red** on `npm audit`: GHSA-fc5q-39xc-vjpf (picomatch ReDoS) covers every version through 4.0.7, the latest, with no fix; it reaches only dev tooling. Pull requests that don't touch web paths skip that job. A ready allowlist (expiring, fails when stale) is parked in `dev plans/npm-audit-allowlist/`; changing the CI gate is yours to approve. Or wait for upstream.
 - Decisions 0032 to 0039's own calls, each listed in its record: keep them?
-- When to make the R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy` if wanted).
+- When to make the R2 test buckets. The desk steps: the `postgres` password, and `Set-ExecutionPolicy` if wanted.
+- Rename the folder `C:\DEV\AI-DevKit`? Claude Code's memory for the project moves with it. Also rename the claude.ai account's `devkit-*` skills (decision 0034).
+- The Videos page's kind names (`music-video`, `rap-battle`, `poetry`) are still to be confirmed.
 - `C:\DEV\knowledge\owner.md` is uncommitted: the owner commits it.
 
 ## Notes
 
-- **httpx drops a HEAD answer's body itself:** a HEAD test through it can't see whether the app sent one. Check the ASGI messages (`test_head_drops_the_body_from_the_messages_themselves`).
-- **A review finding can change what the approved contract said:** say so in its "Changes after approval", the decision and SPEC, and tell the owner (robots.txt above).
-- **A mutant that survives may be redundant output but real behaviour:** the off-module check in `entries` was; a test that the off module isn't read at all killed it.
-- **A test's secret must not be able to appear in a random id:** `token=abc` turned up inside `shop-abc88e5e` (main's 17:13 UTC run). Use letters a hex id can't hold.
-- **An `ON CONFLICT` on a partial unique index** names its predicate as literal SQL.
+- **npm's `fixAvailable` doesn't mean a fix shipped:** for picomatch it names a downgrade of vite to 6.2.7. A newer release of the package is the signal, and only a person can say whether it fixes the advisory.
+- **A fresh org install of the review bots doesn't review a PR that's already open.** Comment `@codex review` and `@coderabbitai review` to start them; cubic reviews on its own.
+- **A text-pass rename keeps real paths only if they're listed:** `AI-DevKit/docs/…` with no `C:\DEV\` before it became `AI-MechFrame/…` (cubic caught it).
+- **The tool decodes `\n` inside a heredoc's Python strings into real newlines:** build escapes with `chr(92)`.
 - **Never `--cov=kernel.<module>`**: it breaks the fixtures. Use `--cov=kernel`.
 - Long heredocs with quotes break the Bash tool: write scripts with the Write tool. Working-tree files are CRLF.
 
 ## Warnings
 
-- Nothing from the client folder named in `docs/private/README.md`, and nothing from VybeSite's `dev plans\` or `snapshots\`. Run VybeSite's brand check on lifted code; it bans some short phrases, test data included.
-- Editing CI's security gates is the owner's call: the auto-mode classifier refuses it, rightly.
+- Nothing from VybeSite's `dev plans\` or `snapshots\`. Run VybeSite's brand check on lifted code; it bans some short phrases, test data included.
+- Editing CI's security gates is the owner's call: ask first, as #75 did.

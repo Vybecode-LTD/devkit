@@ -2,7 +2,7 @@
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
-Updated 2026-11-18, `main` at `def8a06`. Progress counts steps, not effort: each row below is one step, whatever its size.
+Updated 2026-11-18, `main` at `c38cdfa`. Progress counts steps, not effort: each row below is one step, whatever its size.
 
 ## Overall
 
