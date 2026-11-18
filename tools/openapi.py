@@ -96,7 +96,9 @@ def main(argv: list[str] | None = None, *, root: Path = ROOT) -> int:
     wrong: list[str] = []
     for name, text in sorted(wanted.items()):
         path = root / name
-        if path.exists() and path.read_text(encoding="utf-8") == text:
+        # Bytes, not text: a file in another encoding is stale, never a traceback
+        # (CodeRabbit on #78); .gitattributes keeps these files LF.
+        if path.exists() and path.read_bytes() == text.encode("utf-8"):
             continue
         if check:
             wrong.append(f"stale or missing: {name}")

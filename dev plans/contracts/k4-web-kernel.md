@@ -70,7 +70,7 @@ A landing takes `?token=` out of the address bar before it renders. It acts only
 
 1. **Response models** on every `/api/auth` and `/api/kernel` route, so the client is typed end to end; the JSON doesn't change. `python -m tools.openapi` writes `kernel/openapi.json` (and each module's, SPEC 4), with `--check`.
 2. `GET /api/kernel/site` (public): `{name, description, kind, logo, card_image, same_as}`.
-3. auth-api.md's `GET /api/auth/sessions` (items `{id, device_label, location, started_at, last_seen_at, current}`), `DELETE /api/auth/sessions/{id}` and `POST /api/auth/sessions/sign-out-others`. Their strict-xfail contract tests turn green.
+3. auth-api.md's `GET /api/auth/sessions` (items `{id, device_label, location, started_at, last_seen_at, current}`), `DELETE /api/auth/sessions/{id}` and `POST /api/auth/sessions/sign-out-others`. No test calls them yet: their contract tests are written first, seen failing.
 4. auth-api.md's `GET /api/auth/admin/users?q=&cursor=&limit=` (items `{id, email, roles, verified, second_factor, status, created_at, last_seen_at}`) and `PUT /api/auth/admin/users/{id}/roles`. New: `GET /api/auth/admin/roles`, giving `{roles: [{id, name, description, permissions, people, builtin}], permissions: [{key, description, owner}]}` (`auth.user.manage`).
 5. **Editing roles** (new; SPEC 14.8 and auth-api.md). All need the new permission `auth.role.manage` ("Create, edit and delete roles, within the permissions you hold"; admin by default) and step-up:
    - `POST /api/auth/admin/roles` (`{id, name, description, permissions}`, the id `^[a-z][a-z0-9-]{1,63}$`) → 201.
@@ -100,7 +100,7 @@ None: no tables or migrations. Settings, switches, roles and sessions already ha
 
 ## 4. Files, in PR order
 
-1. **#78, the typed client:** response models in the kernel's routers; `tools/openapi.py`; `kernel/openapi.json`; `kernel/web/src/api/` (`schema.ts`, generated, and `client.ts`). Also this contract, decision 0042, and SPEC 6, 8, 9 and 16.
+1. **#78, the typed client:** response models in the kernel's routers; `tools/openapi.py`; `kernel/openapi.json`; `kernel/web/src/api/` (`schema.ts`, generated, and `client.ts`). Also this contract, decision 0042, and SPEC 4, 6, 7 and 18; SPEC 8, 9, 14.8 and 16 change with the PRs that build them.
 2. **The app shell:** `kernel/web/src/{app,session,guards,slots,site,seo}/`; `kernel.json` pages; `shell.py`; `GET /api/kernel/site`; harness `index.html` with the markers; `playwright.config.ts`; `kernel/tests/e2e/parity.spec.ts`; a CI E2E job that runs on main's pushes, weekly and by hand, never on a PR. Before every push, I run the suite locally and put the result in the PR.
 3. **Themes:** `themes/README.md`; `themes/machined-light/` (values from `C:\DEV\machined-light-design-system`, mapped to the kernel's names); `themes/vibrant-mindz/` (copied, renamed, census rerun in VM Website); `tools/themes.py`; the token lint.
 4. **The UI kit**, ported from VybeSite and drawn from `admin_kit.py`'s parts (`kernel/web/src/ui/`): Button, Field, Card, Pill, Attention, Accordion, Tabs, Table, Dialog, UnsavedDialog and the guard hooks, SaveBar, SaveConflict, SectionHistory, Toast, EmptyState, LoadError, ErrorBoundary, RouteFocus, ScrollMemory, Icon.
@@ -136,7 +136,7 @@ None: no tables or migrations. Settings, switches, roles and sessions already ha
 
 - **Backend:**
   - `tests/test_openapi.py`: committed specs are current, and every kernel route has a response model.
-  - Contract tests for additions 2 to 9, with the session tests' xfail removed. Role editing gets a test for each refusal, and one that a holder's next request carries a new session token.
+  - Contract tests for additions 2 to 9, the session routes' among them. Role editing gets a test for each refusal, and one that a holder's next request carries a new session token.
   - `test_shell.py`: kernel pages answer 200 with noindex, and a module pattern that overlaps one is refused.
   - Coverage stays at 95 % or more.
 - **Vitest:** the client (problems, 401, step-up retried once), session, guards (`next` cleaned), slots (off modules and permissions hidden, sidebar order), `defineModule`'s checks, kernel pages equal to `kernel.json`'s, `<Seo>` without duplicates, and every kit part and screen. Web coverage reaches 85 % per PR.
@@ -162,7 +162,7 @@ None. The owner answered all four on 2026-11-18:
 
 Made while building #78 (decision 0042 records them):
 
-1. **The hooks come from openapi-react-query**, which the contract didn't name. It adds no transitive packages: it uses openapi-fetch's helpers. Its query keys are `[method, path, init?]`, not `["api", method, path, init]`. `apiQueryOptions` is exported too, for `fetchQuery` and `prefetchQuery`.
+1. **The hooks come from openapi-react-query**, which the contract didn't name. It adds no transitive packages: it uses openapi-fetch's helpers. Its query keys are `[method, path, init?]`, not `["api", method, path, init]`. `apiQueryOptions` is exported too, for `fetchQuery` and `prefetchQuery`. The hooks' types are restated over `openapi-typescript-helpers` (now a declared dependency, the version openapi-fetch already pulls): their error is an `ApiProblem`, and a query takes reads only.
 2. **`createApiClient(options?)`** takes `{fetch, baseUrl}`, for tests only.
 3. **The backend's public surface gains `Answer`, `answer`, `Id` and `When`** (SPEC 6 and 7), since a module's routes declare their answers the same way.
 4. **openapi-typescript is held to TypeScript 6 by an override.** It asks for `^5` as a peer and runs fine on 6. Generated files keep LF (`.gitattributes`), so `--check` compares the same bytes on Windows and Linux.
@@ -171,3 +171,4 @@ Made while building #78 (decision 0042 records them):
    - So Machined Light's `--color-border`, its control border, maps to `border-strong`. Its cards take their edge from a shadow.
    - `font.mono` is the code face. Vibrant Mindz's is `typography.fontFamily.code` (ui-monospace). Its `mono` is Doto, a homepage display face.
 6. **The withdrawn picomatch advisory.** GitHub withdrew GHSA-fc5q-39xc-vjpf on 2026-11-18 at 15:38 UTC, and npm audit stopped reporting it. `tools/npm_audit` fails on an allowance npm no longer reports, by design, so #78 empties `tools/npm_audit_allow.json`. The 2026-12-17 recheck is gone with it.
+7. **The device list has no contract tests yet.** §2 and §7 first said its routes had strict-xfail tests to turn green. None calls them (CodeRabbit on #78), so the account PR writes them first.

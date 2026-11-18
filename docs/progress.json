@@ -61,7 +61,7 @@
         {"name": "1. The contract suite, written first", "status": "done", "note": "128 pass; 27 wait on steps 9 to 11"},
         {"name": "2. Accounts, roles and per-resource overrides", "status": "done", "prs": [36, 56], "decisions": ["0031"]},
         {"name": "3. Passwords", "status": "done", "prs": [7, 10]},
-        {"name": "4. Sessions and the device list", "status": "done", "prs": [32, 33], "note": "Found 2026-11-18: the device list's three routes were never built (their contract tests are strict-xfail); K4's auth and account PR builds them"},
+        {"name": "4. Sessions and the device list", "status": "done", "prs": [32, 33], "note": "Found 2026-11-18: the device list's three routes were never built, and no contract test calls them; K4's auth and account PR writes their tests and builds them"},
         {"name": "5. Sign-in codes and magic links", "status": "done", "prs": [42], "decisions": ["0021"]},
         {"name": "6. Reset, verification and email change", "status": "done", "prs": [39, 43, 44, 45, 46], "decisions": ["0020", "0022", "0023", "0024", "0025"]},
         {"name": "7. Second factors and step-up", "status": "done", "prs": [38, 47, 48, 52], "decisions": ["0019", "0026", "0027"]},

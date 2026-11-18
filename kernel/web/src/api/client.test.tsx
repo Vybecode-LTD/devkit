@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { ApiProblem, createApiClient, setApiHandlers } from "./client";
 import type { paths } from "./schema";
@@ -79,6 +79,23 @@ describe("ApiProblem", () => {
     expect(found.message).toBe("Try again in a minute.");
   });
 
+  it("keeps only well-formed members of a problem that is half one", async () => {
+    const response = new Response(
+      JSON.stringify({
+        title: "Unprocessable Content",
+        status: 422,
+        code: "auth.password_rejected",
+        detail: 5,
+        errors: { "body.password": ["Too short."], "body.email": 7, "body.name": ["ok", 3] },
+      }),
+      { status: 422, headers: { "content-type": "application/problem+json" } },
+    );
+    const found = await ApiProblem.from(response);
+    expect(found.type).toBe("urn:mechframe:problem:auth.password_rejected");
+    expect(found.detail).toBe("");
+    expect(found.errors).toEqual({ "body.password": ["Too short."] });
+  });
+
   it("makes a problem of an answer that isn't one, keeping its status", async () => {
     const found = await ApiProblem.from(
       new Response("<html>Bad gateway</html>", { status: 502, statusText: "Bad Gateway" }),
@@ -132,6 +149,31 @@ describe("the client", () => {
       code: "kernel.not_signed_in",
     });
     expect(signedOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("goes by the HTTP status, not the body's, before signing anyone out", async () => {
+    const signedOut = vi.fn();
+    setApiHandlers({ signedOut });
+    const { fetch } = fakeFetch({ ...problem(401, "kernel.not_signed_in"), status: 502 });
+    const { api } = createApiClient<paths>({ fetch });
+    await expect(api.GET("/api/auth/session")).rejects.toMatchObject({
+      code: "kernel.not_signed_in",
+    });
+    expect(signedOut).not.toHaveBeenCalled();
+  });
+
+  it("sends the step-up's resend with the call's own fetch when it was given one", async () => {
+    setApiHandlers({ stepUp: () => Promise.resolve(true) });
+    const shared = vi.fn(() => Promise.reject(new Error("the client's own fetch was used")));
+    const own = fakeFetch(problem(403, "auth.step_up_required"), {
+      status: 200,
+      body: { recovery_codes: ["a"] },
+    });
+    const { api } = createApiClient<paths>({ fetch: shared });
+    const { data } = await api.POST("/api/auth/recovery-codes", { fetch: own.fetch });
+    expect(data).toEqual({ recovery_codes: ["a"] });
+    expect(own.sent).toHaveLength(2);
+    expect(shared).not.toHaveBeenCalled();
   });
 
   it("asks for a step-up on a refused write, then sends it again once, body and all", async () => {
@@ -230,5 +272,23 @@ describe("the hooks", () => {
     });
     expect(result.current.error).toBeInstanceOf(ApiProblem);
     expect(result.current.error?.code).toBe("auth.already_verified");
+    expectTypeOf(result.current.error).toEqualTypeOf<ApiProblem | null>();
+  });
+
+  it("types a query's error as an ApiProblem too", () => {
+    const { useApiQuery } = createApiClient<paths>({ fetch: fakeFetch().fetch });
+    const { result } = renderHook(() => useApiQuery("get", "/api/kernel/modules"), { wrapper });
+    expectTypeOf(result.current.error).toEqualTypeOf<ApiProblem | null>();
+    expectTypeOf(result.current.data).toEqualTypeOf<{ on: string[] } | undefined>();
+  });
+
+  it("refuses a write as a query, in the types and when it runs", () => {
+    const { useApiQuery, apiQueryOptions } = createApiClient<paths>({ fetch: fakeFetch().fetch });
+    const useWriteAsQuery = () =>
+      // @ts-expect-error A query only reads: a write goes through useApiMutation.
+      useApiQuery("post", "/api/auth/recovery-codes");
+    expect(() => renderHook(useWriteAsQuery, { wrapper })).toThrow(/A query only reads/);
+    // @ts-expect-error The same for the query's options.
+    expect(() => apiQueryOptions("post", "/api/auth/recovery-codes")).toThrow(/A query only reads/);
   });
 });

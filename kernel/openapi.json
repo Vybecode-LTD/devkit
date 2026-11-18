@@ -245,7 +245,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -317,7 +317,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -351,7 +351,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReadNotices"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReadSome"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReadAll"
+                  }
+                ],
+                "title": "Body"
               }
             }
           },
@@ -362,7 +370,7 @@
             "description": "Successful Response"
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -444,7 +452,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -498,7 +506,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -550,7 +558,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -602,7 +610,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -716,7 +724,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -770,7 +778,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -834,7 +842,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -898,7 +906,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -943,7 +951,7 @@
             "description": "Successful Response"
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1032,7 +1040,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1095,7 +1103,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1143,7 +1151,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1240,7 +1248,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1311,7 +1319,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1372,7 +1380,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1423,7 +1431,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1471,7 +1479,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1519,7 +1527,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1596,7 +1604,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1659,7 +1667,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1722,7 +1730,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1770,7 +1778,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1818,7 +1826,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1866,7 +1874,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1914,7 +1922,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1962,7 +1970,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2010,7 +2018,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2086,7 +2094,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2183,7 +2191,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2231,7 +2239,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2319,7 +2327,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2360,7 +2368,7 @@
             "description": "Successful Response"
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2436,7 +2444,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2484,7 +2492,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2560,7 +2568,7 @@
             }
           },
           "422": {
-            "description": "What was sent isn't valid (`kernel.invalid_request`)",
+            "description": "What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4148,38 +4156,49 @@
         ],
         "additionalProperties": true
       },
-      "ReadNotices": {
+      "ReadAll": {
+        "properties": {
+          "all": {
+            "type": "boolean",
+            "const": true,
+            "title": "All"
+          },
+          "ids": {
+            "type": "null",
+            "title": "Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "all"
+        ],
+        "title": "ReadAll",
+        "description": "`{all: true}`: every one of them."
+      },
+      "ReadSome": {
         "properties": {
           "ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
             "title": "Ids"
           },
           "all": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "null",
             "title": "All"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "title": "ReadNotices",
-        "description": "`{ids: [...]}` (1 to 100 of the person's notices) or `{all: true}`."
+        "required": [
+          "ids"
+        ],
+        "title": "ReadSome",
+        "description": "`{ids: [...]}`: 1 to 100 of the person's notices."
       },
       "RecoveryCodes": {
         "properties": {

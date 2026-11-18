@@ -1424,14 +1424,27 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * ReadNotices
-         * @description `{ids: [...]}` (1 to 100 of the person's notices) or `{all: true}`.
+         * ReadAll
+         * @description `{all: true}`: every one of them.
          */
-        ReadNotices: {
+        ReadAll: {
+            /**
+             * All
+             * @constant
+             */
+            all: true;
             /** Ids */
-            ids?: string[] | null;
+            ids?: null;
+        };
+        /**
+         * ReadSome
+         * @description `{ids: [...]}`: 1 to 100 of the person's notices.
+         */
+        ReadSome: {
+            /** Ids */
+            ids: string[];
             /** All */
-            all?: boolean | null;
+            all?: null;
         };
         /** RecoveryCodes */
         RecoveryCodes: {
@@ -1812,7 +1825,7 @@ export interface operations {
                     "application/json": components["schemas"]["AuditPage"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1853,7 +1866,7 @@ export interface operations {
                     "application/json": components["schemas"]["Notices"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1882,7 +1895,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReadNotices"];
+                "application/json": components["schemas"]["ReadSome"] | components["schemas"]["ReadAll"];
             };
         };
         responses: {
@@ -1893,7 +1906,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1964,7 +1977,7 @@ export interface operations {
                     "application/json": components["schemas"]["NoticePreferences"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2004,7 +2017,7 @@ export interface operations {
                     "application/json": components["schemas"]["UnsubscribeLink"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2044,7 +2057,7 @@ export interface operations {
                     "application/json": components["schemas"]["Unsubscribed"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2086,7 +2099,7 @@ export interface operations {
                     "application/json": components["schemas"]["Reported"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2130,7 +2143,7 @@ export interface operations {
                     "application/json": components["schemas"]["Cases"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2170,7 +2183,7 @@ export interface operations {
                     "application/json": components["schemas"]["CaseWithReports"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2214,7 +2227,7 @@ export interface operations {
                     "application/json": components["schemas"]["CaseWithReports"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2258,7 +2271,7 @@ export interface operations {
                     "application/json": components["schemas"]["TimedOut"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2296,7 +2309,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2338,7 +2351,7 @@ export interface operations {
                     "application/json": components["schemas"]["ModerationLog"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2380,7 +2393,7 @@ export interface operations {
                     "application/json": components["schemas"]["SignedIn"] | components["schemas"]["SecondFactorNeeded"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2422,7 +2435,7 @@ export interface operations {
                     "application/json": components["schemas"]["SignedIn"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2492,7 +2505,7 @@ export interface operations {
                     "application/json": components["schemas"]["OwnActivity"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2561,7 +2574,7 @@ export interface operations {
                     "application/json": components["schemas"]["SteppedUp"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2605,7 +2618,7 @@ export interface operations {
                     "application/json": components["schemas"]["AccountStatus"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2645,7 +2658,7 @@ export interface operations {
                     "application/json": components["schemas"]["AccountStatus"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2687,7 +2700,7 @@ export interface operations {
                     "application/json": components["schemas"]["CheckEmail"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2729,7 +2742,7 @@ export interface operations {
                     "application/json": components["schemas"]["Verified"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2800,7 +2813,7 @@ export interface operations {
                     "application/json": components["schemas"]["CheckEmail"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2842,7 +2855,7 @@ export interface operations {
                     "application/json": components["schemas"]["SignedIn"] | components["schemas"]["SecondFactorNeeded"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2884,7 +2897,7 @@ export interface operations {
                     "application/json": components["schemas"]["SignedIn"] | components["schemas"]["SecondFactorNeeded"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2926,7 +2939,7 @@ export interface operations {
                     "application/json": components["schemas"]["CheckEmail"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2968,7 +2981,7 @@ export interface operations {
                     "application/json": components["schemas"]["PasswordReset"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3010,7 +3023,7 @@ export interface operations {
                     "application/json": components["schemas"]["CheckEmail"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3052,7 +3065,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailChanged"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3094,7 +3107,7 @@ export interface operations {
                     "application/json": components["schemas"]["EmailRestored"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3136,7 +3149,7 @@ export interface operations {
                     "application/json": components["schemas"]["PasswordChanged"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3207,7 +3220,7 @@ export interface operations {
                     "application/json": components["schemas"]["RecoveryCodes"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3305,7 +3318,7 @@ export interface operations {
                     "application/json": components["schemas"]["CreationOptions"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3347,7 +3360,7 @@ export interface operations {
                     "application/json": components["schemas"]["PasskeyView"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3414,7 +3427,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3458,7 +3471,7 @@ export interface operations {
                     "application/json": components["schemas"]["PasskeyView"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3529,7 +3542,7 @@ export interface operations {
                     "application/json": components["schemas"]["SignedIn"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3571,7 +3584,7 @@ export interface operations {
                     "application/json": components["schemas"]["RequestOptions"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3642,7 +3655,7 @@ export interface operations {
                     "application/json": components["schemas"]["SecondFactorUndone"];
                 };
             };
-            /** @description What was sent isn't valid (`kernel.invalid_request`) */
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {
                 headers: {
                     [name: string]: unknown;

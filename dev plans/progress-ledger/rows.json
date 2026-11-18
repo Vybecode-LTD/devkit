@@ -152,7 +152,7 @@
    "status_label": "Done",
    "prs": "#32 #33",
    "decisions": "",
-   "note": "Found 2026-11-18: the device list's three routes were never built (their contract tests are strict-xfail); K4's auth and account PR builds them"
+   "note": "Found 2026-11-18: the device list's three routes were never built, and no contract test calls them; K4's auth and account PR writes their tests and builds them"
   },
   {
    "milestone": "MechFrame v1.0",

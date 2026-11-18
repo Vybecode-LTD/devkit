@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import types
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Union, get_args, get_origin
 
 import httpx
 import pytest
@@ -212,9 +214,13 @@ def test_every_request_body_is_strict(app_factory: AppFactory) -> None:
             name = f"{','.join(sorted(route.methods))} {context.path}"
             bodies[name] = route.body_field.field_info.annotation
     assert "POST /api/auth/code" in bodies  # the control: the walk finds the bodies
-    loose = sorted(
-        name
-        for name, model in bodies.items()
-        if getattr(model, "model_config", {}).get("strict") is not True
-    )
+
+    def strict(model: object) -> bool:
+        # A body of two shapes is a union of models, each strict (decision 0042).
+        if get_origin(model) in (Union, types.UnionType):
+            return all(strict(member) for member in get_args(model))
+        return getattr(model, "model_config", {}).get("strict") is True
+
+    assert get_origin(bodies["POST /api/kernel/notifications/read"]) is not None
+    loose = sorted(name for name, model in bodies.items() if not strict(model))
     assert loose == []

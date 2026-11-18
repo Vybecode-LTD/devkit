@@ -19,7 +19,6 @@ from pydantic import (
     RootModel,
     StrictBool,
     field_validator,
-    model_validator,
 )
 from sqlalchemy import ColumnElement, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -279,21 +278,27 @@ async def notices(
     return await notifications.listed(db, user.id, cursor=cursor, limit=limit)
 
 
-class ReadNotices(BaseModel):
-    """`{ids: [...]}` (1 to 100 of the person's notices) or `{all: true}`."""
+class ReadSome(BaseModel):
+    """`{ids: [...]}`: 1 to 100 of the person's notices."""
 
     model_config = ConfigDict(strict=True, extra="forbid")
 
-    ids: list[str] | None = None
-    all: StrictBool | None = None
+    ids: list[str] = Field(min_length=1, max_length=100)
+    all: None = None
 
-    @model_validator(mode="after")
-    def _one(self) -> ReadNotices:
-        if (self.ids is None) == (self.all is None) or self.all is False:
-            raise ValueError("Send either ids or all: true.")
-        if self.ids is not None and not 1 <= len(self.ids) <= 100:
-            raise ValueError("Send 1 to 100 ids.")
-        return self
+
+class ReadAll(BaseModel):
+    """`{all: true}`: every one of them."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    all: Literal[True]
+    ids: None = None
+
+
+#: Two shapes, so the spec and the client's types say which bodies are taken
+#: (CodeRabbit on #78); the null the other one names is still taken.
+ReadNotices = ReadSome | ReadAll
 
 
 @router.post("/notifications/read", status_code=204)
@@ -302,7 +307,7 @@ async def read_notices(
 ) -> Response:
     """Marks the person's own notices read; anyone else's id changes nothing."""
     ids = None
-    if body.ids is not None:
+    if isinstance(body, ReadSome):
         try:
             ids = [uuid.UUID(value) for value in body.ids]
         except ValueError:

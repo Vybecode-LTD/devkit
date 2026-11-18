@@ -17,10 +17,12 @@ import types
 from pathlib import Path
 from typing import Annotated, Any, Union, get_args, get_origin
 
+import pytest
 from fastapi import FastAPI
 from jsonschema import Draft202012Validator
 
 import kernel
+from harness.layout import backend_dirs
 from kernel import openapi as documents
 from kernel.answers import Answer
 from tools import openapi
@@ -61,17 +63,37 @@ def test_a_204_route_declares_no_body() -> None:
     assert bodied == []
 
 
+#: The only files that may build a JSONResponse: `answer` itself, and problems.
+RAW_JSON_ALLOWED = {"kernel/answers.py", "kernel/errors.py"}
+
+
+def _raw_json(roots: list[Path]) -> list[str]:
+    """Each backend file under `roots` that builds a JSONResponse itself."""
+    found = []
+    for root in roots:
+        for path in sorted(root.rglob("*.py")):
+            name = path.relative_to(root).as_posix()
+            if name not in RAW_JSON_ALLOWED and "JSONResponse(" in path.read_text("utf-8"):
+                found.append(name)
+    return found
+
+
 def test_routes_build_json_only_through_answer() -> None:
     """A route that sets cookies or headers builds its JSON with `answer`, so
-    it's checked against its model too; only problems are built elsewhere."""
-    allowed = {"answers.py", "errors.py"}
-    base = Path(kernel.__file__).parent
-    offenders = sorted(
-        str(path.relative_to(base))
-        for path in base.rglob("*.py")
-        if path.name not in allowed and "JSONResponse(" in path.read_text(encoding="utf-8")
+    it's checked against its model too; only problems are built elsewhere.
+    The kernel's backend and every module's (CodeRabbit on #78)."""
+    assert _raw_json(backend_dirs()) == []
+
+
+def test_the_json_guard_reads_a_module_s_backend_too(tmp_path: Path) -> None:
+    kernel_dir, module_dir = tmp_path / "kernel" / "backend", tmp_path / "blog" / "backend"
+    (kernel_dir / "kernel").mkdir(parents=True)
+    (kernel_dir / "kernel" / "errors.py").write_text("JSONResponse(", encoding="utf-8")
+    (module_dir / "blog").mkdir(parents=True)
+    (module_dir / "blog" / "router.py").write_text(
+        'return JSONResponse({"x": 1})', encoding="utf-8"
     )
-    assert offenders == []
+    assert _raw_json([kernel_dir, module_dir]) == ["blog/router.py"]
 
 
 def test_the_committed_specs_are_current() -> None:
@@ -113,6 +135,10 @@ def test_problems_are_documented_as_problem_json() -> None:
                         }
                     }, (method, path, status)
     assert seen > len(spec["paths"])
+    # A 422 is a refused body or a route's own refusal, such as auth.password_rejected.
+    sign_up = spec["paths"]["/api/auth/sign-up"]["post"]["responses"]["422"]
+    assert "kernel.invalid_request" in sign_up["description"]
+    assert "own code" in sign_up["description"]
     health = spec["paths"]["/api/kernel/health"]["get"]["responses"]["503"]
     assert health["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/Health"
@@ -211,3 +237,51 @@ def test_the_app_serves_the_same_document_and_builds_it_once() -> None:
     first = app.openapi()
     assert app.openapi() is first
     assert first == documents.document(app)
+
+
+def test_a_route_model_named_problem_is_refused() -> None:
+    """The kernel's error schema is `Problem`: a route's model of that name
+    would be replaced by it in the document (CodeRabbit on #78)."""
+
+    class Problem(Answer):
+        summary: str
+
+    app = FastAPI()
+
+    @app.get("/api/blog/odd", response_model=Problem)
+    async def odd() -> dict[str, str]:  # pragma: no cover - never called
+        return {"summary": "x"}
+
+    with pytest.raises(ValueError, match="named Problem"):
+        documents.document(app)
+
+
+def test_marking_notices_read_takes_ids_or_all_true_and_nothing_else() -> None:
+    spec = openapi.specs()["kernel/openapi.json"]
+    body = spec["paths"]["/api/kernel/notifications/read"]["post"]["requestBody"]
+    schema = body["content"]["application/json"]["schema"]
+    shapes = [ref["$ref"].removeprefix("#/components/schemas/") for ref in schema["anyOf"]]
+    assert sorted(shapes) == ["ReadAll", "ReadSome"]
+    schemas = spec["components"]["schemas"]
+    validators = [Draft202012Validator(schemas[name]) for name in shapes]
+
+    def takes(sent: dict[str, Any]) -> bool:
+        return any(validator.is_valid(sent) for validator in validators)
+
+    assert takes({"all": True})
+    assert takes({"ids": ["6f1c2b9e-0a43-4c55-9d0c-6a7e2f1b3c4d"]})
+    assert takes({"all": True, "ids": None})
+    assert not takes({})
+    assert not takes({"all": False})
+    assert not takes({"ids": []})
+    assert not takes({"ids": ["a"] * 101})
+    assert not takes({"ids": ["a"], "all": True})
+
+
+def test_a_spec_saved_in_another_encoding_is_stale_not_an_error(tmp_path: Path) -> None:
+    openapi.main([], root=tmp_path)
+    spec = tmp_path / "kernel" / "openapi.json"
+    spec.write_text(spec.read_text(encoding="utf-8"), encoding="utf-16")
+    assert openapi.main(["--check"], root=tmp_path) == 1
+    assert openapi.main([], root=tmp_path) == 0
+    assert openapi.main(["--check"], root=tmp_path) == 0

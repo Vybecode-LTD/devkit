@@ -76,7 +76,10 @@ def document(app: FastAPI) -> dict[str, Any]:
             responses = operation.setdefault("responses", {})
             if "422" in responses:
                 responses["422"] = {
-                    "description": "What was sent isn't valid (`kernel.invalid_request`)",
+                    "description": (
+                        "What was sent isn't valid (`kernel.invalid_request`), or the route "
+                        "refused it with its own code, such as `auth.password_rejected`"
+                    ),
                     "content": copy.deepcopy(_PROBLEM_CONTENT),
                 }
             responses["default"] = {
@@ -85,6 +88,11 @@ def document(app: FastAPI) -> dict[str, Any]:
             }
     spec["paths"] = paths
     schemas = spec.setdefault("components", {}).setdefault("schemas", {})
+    if "Problem" in schemas:
+        raise ValueError(
+            "A route's model is named Problem, the name of the kernel's error schema "
+            "(RFC 9457): rename the model (CodeRabbit on #78)."
+        )
     schemas.pop("HTTPValidationError", None)
     schemas.pop("ValidationError", None)
     schemas["Problem"] = copy.deepcopy(PROBLEM)
