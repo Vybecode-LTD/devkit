@@ -173,6 +173,22 @@ describe("the client", () => {
     expect(twice.sent).toHaveLength(2);
   });
 
+  it("throws kernel.unreachable when the resend after a step-up can't reach the site", async () => {
+    setApiHandlers({ stepUp: () => Promise.resolve(true) });
+    const first = fakeFetch(problem(403, "auth.step_up_required"));
+    let calls = 0;
+    const fetch = vi.fn((request: Request) => {
+      calls += 1;
+      if (calls === 1) return first.fetch(request);
+      return Promise.reject(new TypeError("Failed to fetch"));
+    });
+    const { api } = createApiClient<paths>({ fetch });
+    const failed = api.POST("/api/auth/recovery-codes");
+    await expect(failed).rejects.toBeInstanceOf(ApiProblem);
+    await expect(failed).rejects.toMatchObject({ code: "kernel.unreachable", status: 0 });
+    expect(calls).toBe(2);
+  });
+
   it("never asks for a step-up on a read", async () => {
     const stepUp = vi.fn(() => Promise.resolve(true));
     setApiHandlers({ stepUp });

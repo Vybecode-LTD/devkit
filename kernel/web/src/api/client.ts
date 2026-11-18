@@ -64,7 +64,13 @@ function problems(send: Fetch): Middleware {
       if (response.status === 403 && copy) {
         const refused = await ApiProblem.from(response.clone());
         if (refused.code === "auth.step_up_required" && (await handlers.stepUp())) {
-          answer = await send(copy);
+          // Sent from here, outside openapi-fetch's own sending, so its onError
+          // never sees a failure: make one a problem here (Codex on #78).
+          try {
+            answer = await send(copy);
+          } catch {
+            throw ApiProblem.unreachable();
+          }
           if (answer.ok) return answer;
         }
       }
