@@ -14,8 +14,9 @@ name: CI
 # Actions are pinned to commit SHAs, the version in a comment beside each;
 # Dependabot (.github/dependabot.yml) proposes the bumps weekly.
 #
-# SPEC.md section 16's Playwright, axe, server-copy and token rows join this
-# file in K4, with the first pages (decision 0015).
+# SPEC.md section 16's Playwright, axe and server-copy rows run in e2e.yml
+# (main's pushes, weekly, by hand; never a PR: the owner, 2026-11-18). The
+# token rows join this file with the themes, in K4.
 
 on:
   pull_request:
@@ -68,8 +69,9 @@ jobs:
           python=$(any '^(kernel/(backend|migrations|tests)/|kernel/(kernel|openapi)\.json$|modules/[^/]+/openapi\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|tools/|tests/|skills/|schema/|recipes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
           # The web tests read kernel/kernel.json for the version. The Web job runs
           # npm audit's allowlist (tools/npm_audit*) against the real lockfile, and
-          # checks the API types against kernel/openapi.json.
-          web=$(any '^(kernel/web/|kernel/(kernel|openapi)\.json$|harness/web/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|\.npmrc$|tools/npm_audit(\.py|_allow\.json)$)')
+          # checks the API types against kernel/openapi.json. Its lint and types cover the
+          # Playwright files too, which run in e2e.yml.
+          web=$(any '^(kernel/web/|kernel/(kernel|openapi)\.json$|kernel/tests/e2e/|harness/web/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|playwright\.config\.ts$|\.npmrc$|tools/npm_audit(\.py|_allow\.json)$)')
           if [ "$everything" = true ]; then python=true; pins=true; web=true; fi
           # 3.12 is the floor (SPEC.md section 2). 3.13 runs too when the pins change.
           if [ "$pins" = true ]; then pythons='["3.12", "3.13"]'; else pythons='["3.12"]'; fi

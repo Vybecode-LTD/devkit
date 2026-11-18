@@ -8,9 +8,9 @@ Updated 2026-11-18, `main` at `c38cdfa`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 27 | 1 | 1 | 25 | 3 | 3 | ████░░░░░░ 45% (27 of 60) |
+| MechFrame v1.0 | 28 | 1 | 0 | 25 | 3 | 3 | ████░░░░░░ 46% (28 of 60) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 27 | 1 | 1 | 110 | 3 | 6 | █░░░░░░░░░ 18% (27 of 148) |
+| Everything | 28 | 1 | 0 | 110 | 3 | 6 | █░░░░░░░░░ 18% (28 of 148) |
 
 ## MechFrame v1.0
 
@@ -93,7 +93,7 @@ AI DevKit became MechFrame once K3 was done (decision 0034).
 | One PR: prose, packages, cookies, variables, skills and links say MechFrame | Done | [#76](https://github.com/mechframe/mechframe/pull/76) | [0034](decisions/0034-rename-to-mechframe.md) |  |
 | The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there | Done |  | [0034](decisions/0034-rename-to-mechframe.md) | 2026-11-18: transferred; Codex, CodeRabbit and cubic review there |
 
-### K4: web kernel · 0 of 9 done · gate not passed yet
+### K4: web kernel · 1 of 9 done · gate not passed yet
 
 The front-end half of the kernel.
 
@@ -101,8 +101,8 @@ Gate: Component tests, axe with no serious violations, Playwright runs of every 
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
-| The typed client: every answer typed, the committed specs, api and its hooks | In review | [#78](https://github.com/mechframe/mechframe/pull/78) | [0042](decisions/0042-web-kernel.md) |  |
-| The app shell: router, useSession, guards, slots, the kernel's pages, server copy, Playwright | Next |  |  |  |
+| The typed client: every answer typed, the committed specs, api and its hooks | Done | [#78](https://github.com/mechframe/mechframe/pull/78) | [0042](decisions/0042-web-kernel.md) |  |
+| The app shell: router, useSession, guards, slots, the kernel's pages, server copy, Playwright | In review | [#79](https://github.com/mechframe/mechframe/pull/79) | [0042](decisions/0042-web-kernel.md) |  |
 | Themes: Machined Light and Vibrant Mindz on the kernel's tokens | To do |  |  |  |
 | UI kit, moved to React 19 and tokens | To do |  |  |  |
 | Auth and account screens, with the device routes | To do |  |  |  |

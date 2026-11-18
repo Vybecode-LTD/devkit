@@ -24,7 +24,7 @@ from sqlalchemy import ColumnElement, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import audit, moderation, notifications
+from kernel import audit, moderation, notifications, server_copy
 from kernel.access import public
 from kernel.answers import Answer, AuditEntry, Id, TargetRef, When, answer
 from kernel.auth import sessions
@@ -52,6 +52,17 @@ class Health(Answer):
 
 class ModulesOn(Answer):
     on: list[str]
+
+
+class Site(Answer):
+    """The site's identity as the web app reads it (`useSite`)."""
+
+    name: str
+    description: str
+    kind: Literal["Organization", "LocalBusiness", "MusicGroup", "Person"]
+    logo: str
+    card_image: str
+    same_as: list[str]
 
 
 class AuditPage(Answer):
@@ -185,6 +196,22 @@ async def modules_on(request: Request) -> dict[str, Any]:
     off aren't named: a visitor learns nothing of what the site lacks."""
     registry = request.app.state.modules
     return {"on": sorted(await registry.current(request.app.state.database.sessions))}
+
+
+@router.get("/site", dependencies=[Depends(public)], response_model=Site)
+async def site(db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """The site's name and saved identity, for the web app's home page, frame
+    and `<Seo>` (K4 contract §2, addition 2). llms.txt's summary and the AI
+    crawlers' switch stay with the server."""
+    found = await server_copy.identity(db)
+    return {
+        "name": found.name,
+        "description": found.description,
+        "kind": found.kind,
+        "logo": found.logo,
+        "card_image": found.card_image,
+        "same_as": list(found.same_as),
+    }
 
 
 # --- the staff's audit log (SPEC.md 14.10) ---------------------------------------------

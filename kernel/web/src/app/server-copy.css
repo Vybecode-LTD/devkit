@@ -1,0 +1,43 @@
+/*
+ * The server's words, in [data-server-copy] (decision 0041; K4 contract §2).
+ *
+ * A reader without scripts sees them at once. A browser that runs scripts
+ * hides them until React's first render replaces them, so nobody sees one
+ * page and then another. In case the app never arrives (an extension blocks
+ * it, a file fails to load), they show anyway after 3 seconds: a delayed
+ * animation, so no script and no timer, and no change to the CSP.
+ *
+ * Their type and colour come from the theme (K4.3); until then, the
+ * browser's own, kept readable.
+ */
+@layer mf.base {
+  @keyframes mf-server-copy-reveal {
+    to {
+      visibility: visible;
+    }
+  }
+
+  @media (scripting: enabled) {
+    [data-server-copy] {
+      visibility: hidden;
+      animation: mf-server-copy-reveal 0s linear 3s forwards;
+    }
+  }
+
+  [data-server-copy] {
+    max-width: 70ch;
+    margin: 0 auto;
+    padding: 1rem;
+    line-height: 1.5;
+  }
+
+  .mf-skip {
+    position: absolute;
+    left: 0.5rem;
+    top: -10rem;
+  }
+
+  .mf-skip:focus {
+    top: 0.5rem;
+  }
+}

@@ -19,8 +19,10 @@ kernel's own minimal shell is used: no scripts, the same markers.
    `..`, an encoded `..` or `/`, an absolute path or a symlink can't reach
    outside it, and `index.html` is only ever an answer, never a file.
 3. A trailing slash (not `/`): 301 without it, the query kept.
-4. `/admin` and below: the shell, noindex, "Admin · {name}". The app decides
-   who sees what there.
+4. One of the kernel's own pages (`server_copy.KERNEL_PAGES`): the shell,
+   noindex, "{title} · {name}", whatever module pattern also takes it.
+   Anything else under `/admin`: the shell, noindex, "Admin · {name}". The
+   app decides who sees what there.
 5. A module's page (`kernel.server_copy`): its head, words and JSON-LD; a
    `Moved` is a 301 or 302; None, or the module off, is a 404. A member
    page is the shell, noindex, titled by the site's name, with no words.
@@ -295,6 +297,8 @@ async def answer(request: Request, full_path: str, db: AsyncSession = Depends(ge
     if path != "/" and path.endswith("/"):
         target = quote(path.rstrip("/"))
         return RedirectResponse(f"{target}?{query}" if query else target, status_code=301)
+    if (title := server_copy.KERNEL_PAGE_TITLES.get(path)) is not None:
+        return _plain(built, f"{title} · {name}", 200)
     if path == "/admin" or path.startswith("/admin/"):
         return _plain(built, f"Admin · {name}", 200)
     on = await _on(request, db)

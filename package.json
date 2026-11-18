@@ -15,6 +15,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "e2e": "playwright test",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json",
     "dev": "npm run dev --workspace harness/web",
@@ -32,7 +34,9 @@
     "react-router": "7.18.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
     "@testing-library/dom": "10.4.2",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
@@ -41,6 +45,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.3.0",
+    "@vitest/coverage-v8": "5.1.0",
     "eslint": "10.14.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.14.0",
@@ -55,10 +60,14 @@
     "minimatch": "11.0.8",
     "openapi-typescript": {
       "typescript": "$typescript"
+    },
+    "@axe-core/playwright": {
+      "playwright-core": "1.64.1"
     }
   },
   "//": [
     "overrides.minimatch: eslint 10 and typescript-eslint 8 ask for minimatch 10, which has GHSA-g3hv-75wg-m249 (dev-only, a DoS). 11.0.8 is past it; drop the override when they move to 11.",
-    "overrides.openapi-typescript: 7.13 asks for TypeScript ^5 as a peer; the repo is on 6.0.x for typescript-eslint, and the generator runs fine on it (npm run api:check passes). Drop the override when it allows 6."
+    "overrides.openapi-typescript: 7.13 asks for TypeScript ^5 as a peer; the repo is on 6.0.x for typescript-eslint, and the generator runs fine on it (npm run api:check passes). Drop the override when it allows 6.",
+    "overrides.@axe-core/playwright: it asks for playwright-core ^1 and would pull a newer one than the runner's; held to @playwright/test's own, so one Chromium build (1248) serves both."
   ]
 }

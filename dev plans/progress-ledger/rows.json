@@ -442,8 +442,8 @@
    "gate": "not passed",
    "step_order": 1,
    "step": "The typed client: every answer typed, the committed specs, api and its hooks",
-   "status": "review",
-   "status_label": "In review",
+   "status": "done",
+   "status_label": "Done",
    "prs": "#78",
    "decisions": "0042",
    "note": ""
@@ -456,10 +456,10 @@
    "gate": "not passed",
    "step_order": 2,
    "step": "The app shell: router, useSession, guards, slots, the kernel's pages, server copy, Playwright",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "",
-   "decisions": "",
+   "status": "review",
+   "status_label": "In review",
+   "prs": "#79",
+   "decisions": "0042",
    "note": ""
   },
   {

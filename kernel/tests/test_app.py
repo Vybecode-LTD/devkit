@@ -202,6 +202,17 @@ def test_the_kernels_permissions_match_its_manifest() -> None:
     assert {permission["key"] for permission in manifest["permissions"]} == KERNEL_PERMISSIONS
 
 
+def test_the_kernels_pages_match_its_manifest() -> None:
+    """A site never receives kernel.json, so the backend keeps the list in
+    code; this holds it to the manifest (K4 contract, change 8). The web
+    side's list has a test of its own (kernel/web/src/app/pages.test.ts)."""
+    from kernel.server_copy import KERNEL_PAGES
+
+    manifest = json.loads((KERNEL / "kernel.json").read_text("utf-8"))
+    listed = [(page["path"], page["title"], page["access"]) for page in manifest["pages"]]
+    assert listed == [(page.path, page.title, page.access) for page in KERNEL_PAGES]
+
+
 def test_every_request_body_is_strict(app_factory: AppFactory) -> None:
     """SPEC.md 7: every body is a Pydantic model in strict mode, so nothing is
     coerced silently that a port would have to copy (CodeRabbit on #42)."""

@@ -73,6 +73,108 @@
       ]
     }
   ],
+  "pages": [
+    {
+      "path": "/sign-in",
+      "title": "Sign in",
+      "access": "public"
+    },
+    {
+      "path": "/sign-up",
+      "title": "Sign up",
+      "access": "public"
+    },
+    {
+      "path": "/forgot-password",
+      "title": "Forgot password",
+      "access": "public"
+    },
+    {
+      "path": "/auth/verify",
+      "title": "Verify your email",
+      "access": "public"
+    },
+    {
+      "path": "/auth/link",
+      "title": "Sign in with a link",
+      "access": "public"
+    },
+    {
+      "path": "/auth/reset",
+      "title": "Choose a new password",
+      "access": "public"
+    },
+    {
+      "path": "/auth/email",
+      "title": "Confirm your new email",
+      "access": "public"
+    },
+    {
+      "path": "/auth/email/undo",
+      "title": "Undo the email change",
+      "access": "public"
+    },
+    {
+      "path": "/auth/second-factor/undo",
+      "title": "Remove the new sign-in step",
+      "access": "public"
+    },
+    {
+      "path": "/notifications/unsubscribe",
+      "title": "Unsubscribe",
+      "access": "public"
+    },
+    {
+      "path": "/account",
+      "title": "Your account",
+      "access": "member"
+    },
+    {
+      "path": "/account/notifications",
+      "title": "Notifications",
+      "access": "member"
+    },
+    {
+      "path": "/account/activity",
+      "title": "Your activity",
+      "access": "member"
+    },
+    {
+      "path": "/admin",
+      "title": "Dashboard",
+      "access": "admin"
+    },
+    {
+      "path": "/admin/people",
+      "title": "People",
+      "access": "admin"
+    },
+    {
+      "path": "/admin/roles",
+      "title": "Roles",
+      "access": "admin"
+    },
+    {
+      "path": "/admin/activity",
+      "title": "Activity",
+      "access": "admin"
+    },
+    {
+      "path": "/admin/settings",
+      "title": "Settings",
+      "access": "admin"
+    },
+    {
+      "path": "/admin/settings/features",
+      "title": "Features",
+      "access": "admin"
+    },
+    {
+      "path": "/admin/settings/system",
+      "title": "System",
+      "access": "admin"
+    }
+  ],
   "public_api": {
     "backend": "backend/kernel/__init__.py",
     "web": "web/index.ts"

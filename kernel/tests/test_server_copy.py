@@ -22,7 +22,7 @@ from kernel.modules import InstalledModule, Manifest
 from kernel.server_copy import Entry, Html, Identity, Moved, Page, SiteSettings
 from kernel.settings import settings
 
-from .conftest import FakePages, public_module
+from .conftest import Client, FakePages, public_module
 
 SITE = "https://mechframe.test"
 
@@ -142,13 +142,13 @@ def test_a_member_page_is_matched_as_one() -> None:
     routes = server_copy.build(
         [
             public_module(
-                "account", public=["/people/:name"], member=["/account/:tab"], pages=FakePages()
+                "library", public=["/people/:name"], member=["/library/:tab"], pages=FakePages()
             )
         ]
     )
-    found = routes.resolve("/account/settings")
+    found = routes.resolve("/library/settings")
     assert found is not None
-    assert (found.module, found.member) == ("account", True)
+    assert (found.module, found.member) == ("library", True)
     assert found.params == {"tab": "settings"}
 
 
@@ -185,8 +185,8 @@ def test_a_member_page_and_a_public_one_at_one_address_are_refused() -> None:
     with pytest.raises(ValueError, match="same addresses"):
         server_copy.build(
             [
-                public_module("one", public=["/account"], pages=FakePages()),
-                public_module("two", member=["/account"]),
+                public_module("one", public=["/library"], pages=FakePages()),
+                public_module("two", member=["/library"]),
             ]
         )
 
@@ -251,6 +251,58 @@ def test_a_pattern_the_kernel_cant_take_is_refused(pattern: str) -> None:
 def test_a_member_pattern_is_checked_too() -> None:
     with pytest.raises(ValueError, match="/admin/me"):
         server_copy.build([public_module("blog", member=["/admin/me"])])
+
+
+# --- the kernel's own pages (K4 contract §2, change 9) --------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("public", "member"),
+    [
+        (["/sign-in"], []),
+        (["/auth/:step"], []),
+        (["/auth/email/:what"], []),
+        (["/notifications/unsubscribe"], []),
+        ([], ["/account"]),
+        ([], ["/account/:tab"]),
+        ([], ["/forgot-password"]),
+    ],
+)
+def test_a_pattern_that_takes_a_kernel_page_is_refused(
+    public: list[str], member: list[str]
+) -> None:
+    pages = FakePages() if public else None
+    with pytest.raises(ValueError, match="the kernel's page"):
+        server_copy.build([public_module("blog", public=public, member=member, pages=pages)])
+
+
+def test_a_pattern_beside_the_kernels_pages_is_allowed() -> None:
+    routes = server_copy.build(
+        [
+            public_module("pages", public=["/:slug"], pages=FakePages()),
+            public_module("shop", public=["/shop"], member=["/account/orders"], pages=FakePages()),
+        ]
+    )
+    assert getattr(routes.resolve("/about"), "module", None) == "pages"
+    assert getattr(routes.resolve("/account/orders"), "module", None) == "shop"
+    assert routes.resolve("/sign-in") is None  # the kernel's, whatever /:slug takes
+
+
+async def test_the_sitemap_never_lists_a_kernel_page() -> None:
+    pages = FakePages(entries=[Entry("/about"), Entry("/sign-in"), Entry("/account")])
+    routes = server_copy.build([public_module("pages", public=["/:slug"], pages=pages)])
+    found = await server_copy.entries(None, routes, frozenset({"pages"}))  # type: ignore[arg-type]
+    assert [entry.path for _module, entry in found] == ["/", "/about"]
+
+
+def test_the_kernels_pages_are_named_once_each() -> None:
+    paths = [page.path for page in server_copy.KERNEL_PAGES]
+    assert len(paths) == len(set(paths))
+    assert all(page.access in ("public", "member", "admin") for page in server_copy.KERNEL_PAGES)
+    assert all(
+        page.path.startswith("/admin") == (page.access == "admin")
+        for page in server_copy.KERNEL_PAGES
+    )
 
 
 # --- the head ------------------------------------------------------------------------
@@ -568,14 +620,14 @@ async def test_the_sitemap_lists_only_the_modules_on_and_never_noindex() -> None
             Entry("/blog/hello", modified=when),
             Entry("/blog/draft", noindex=True),
             Entry("/somewhere/else"),
-            Entry("/account/me"),
+            Entry("/library/me"),
         ]
     )
     shop = FakePages(entries=[Entry("/shop")])
     routes = server_copy.build(
         [
             public_module(
-                "blog", public=["/blog", "/blog/:slug"], member=["/account/:tab"], pages=blog
+                "blog", public=["/blog", "/blog/:slug"], member=["/library/:tab"], pages=blog
             ),
             public_module("shop", public=["/shop"], pages=shop),
         ]
@@ -819,6 +871,56 @@ async def test_identity_reads_the_saved_section(app_factory: Any, db: AsyncSessi
         ident = await server_copy.identity(db)
         assert (ident.name, ident.url, ident.description) == ("Saved Site", SITE, "Saved.")
         assert (ident.same_as, ident.ai_crawlers) == (("https://social.test/us",), "refuse")
+    finally:
+        form = await settings.form(db, server_copy.SECTION)
+        defaults = SiteSettings().model_dump(mode="json")
+        await settings.save(db, server_copy.SECTION, defaults, version=form["version"])
+
+
+async def test_the_site_route_answers_the_identity_to_anyone(
+    app_factory: Any, db: AsyncSession
+) -> None:
+    """GET /api/kernel/site (K4 contract §2, addition 2): what the web app's
+    home page, footer and <Seo> need, and nothing a visitor shouldn't see
+    (llms.txt's summary and the crawler choice stay with the server)."""
+    app = app_factory([], site_name="Saved Site")
+    async with Client(app) as client:
+        plain = await client.get("/api/kernel/site")
+    assert plain.status_code == 200
+    assert plain.json() == {
+        "name": "Saved Site",
+        "description": "",
+        "kind": "Organization",
+        "logo": "",
+        "card_image": "",
+        "same_as": [],
+    }
+    form = await settings.form(db, server_copy.SECTION)
+    await settings.save(
+        db,
+        server_copy.SECTION,
+        {
+            "description": "Saved.",
+            "kind": "MusicGroup",
+            "logo": "/logo.png",
+            "card_image": "https://cdn.test/card.png",
+            "same_as": ["https://social.test/us"],
+            "llms_summary": "Not for the web app.",
+            "ai_crawlers": "refuse",
+        },
+        version=form["version"],
+    )
+    try:
+        async with Client(app) as client:
+            saved = (await client.get("/api/kernel/site")).json()
+        assert saved == {
+            "name": "Saved Site",
+            "description": "Saved.",
+            "kind": "MusicGroup",
+            "logo": "/logo.png",
+            "card_image": "https://cdn.test/card.png",
+            "same_as": ["https://social.test/us"],
+        }
     finally:
         form = await settings.form(db, server_copy.SECTION)
         defaults = SiteSettings().model_dump(mode="json")

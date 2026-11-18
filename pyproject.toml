@@ -92,5 +92,5 @@ warn_redundant_casts = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = ["alembic.*", "jsonschema.*", "boto3.*", "botocore.*"]
+module = ["alembic.*", "jsonschema.*", "boto3.*", "botocore.*", "asyncpg.*"]
 ignore_missing_imports = true

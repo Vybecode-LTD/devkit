@@ -1,0 +1,79 @@
+name: E2E
+
+# The kernel's end-to-end tests (K4 contract §7): Playwright in Chromium, with
+# axe, against the harness with its test support and the built web app
+# (`python -m harness.e2e`). The owner's call (2026-11-18): they run on main's
+# pushes, weekly and by hand, never on a pull request; the agent runs them
+# locally before each push and puts the result in the PR. So this workflow is
+# not part of "CI result", which a ruleset requires.
+#
+# Actions are pinned to the same commit SHAs as ci.yml; Dependabot bumps both.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "47 5 * * 1" # Mondays, 05:47 UTC, after CI's weekly run
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: End to end (Playwright, Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: mechframe
+          POSTGRES_PASSWORD: mechframe
+          POSTGRES_DB: mechframe
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mechframe" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql://mechframe:mechframe@localhost:5432/postgres
+      E2E_PYTHON: python
+      CI: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install Python dependencies
+        run: >-
+          python -m pip install --require-hashes --only-binary=:all:
+          -r requirements.txt -r requirements-dev.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install web dependencies
+        # The lockfile only, and no install scripts (.npmrc, SPEC.md section 15).
+        run: npm ci
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Build the harness
+        run: npm run build
+
+      - name: End-to-end tests
+        run: npm run e2e

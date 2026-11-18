@@ -85,7 +85,7 @@ def _app(
         public_module(
             "blog",
             public=["/blog", "/blog/:slug"],
-            member=["/account/:tab"],
+            member=["/library/:tab"],
             pages=pages or _blog(),
             name="Blog",
         ),
@@ -218,7 +218,7 @@ async def test_a_member_page_is_the_shell_with_noindex_and_no_words(
 ) -> None:
     pages = _blog()
     async with Client(_app(app_factory, dist, pages)) as client:
-        response = await client.get("/account/settings")
+        response = await client.get("/library/settings")
     assert response.status_code == 200
     assert _title(response.text) == "Test Site"
     assert _noindex(response.text)
@@ -226,7 +226,7 @@ async def test_a_member_page_is_the_shell_with_noindex_and_no_words(
     assert pages.asked == []
 
 
-@pytest.mark.parametrize("path", ["/admin", "/admin/users/1"])
+@pytest.mark.parametrize("path", ["/admin/users/1", "/admin/blog"])
 async def test_the_admin_is_the_shell_with_noindex(
     app_factory: AppFactory, dist: Path, path: str
 ) -> None:
@@ -236,6 +236,35 @@ async def test_the_admin_is_the_shell_with_noindex(
     assert _title(response.text) == "Admin · Test Site"
     assert _noindex(response.text)
     assert _between(response.text, shell.BODY_START, shell.BODY_END) == ""
+
+
+@pytest.mark.parametrize("page", server_copy.KERNEL_PAGES, ids=lambda page: page.path)
+async def test_each_kernel_page_is_the_shell_with_its_title_and_noindex(
+    app_factory: AppFactory, dist: Path, page: server_copy.KernelPage
+) -> None:
+    async with Client(_app(app_factory, dist)) as client:
+        response = await client.get(page.path, params={"token": "from-a-mail"})
+    assert response.status_code == 200
+    assert _title(response.text) == f"{page.title} · Test Site"
+    assert _noindex(response.text)
+    assert _between(response.text, shell.BODY_START, shell.BODY_END) == ""
+
+
+async def test_a_kernel_page_is_the_kernels_whatever_module_pattern_takes_it(
+    app_factory: AppFactory, dist: Path
+) -> None:
+    pages = FakePages({"/about": HELLO})
+    app = app_factory(
+        [public_module("pages", public=["/:slug"], pages=pages)],
+        site_name="Test Site",
+        web_dist=str(dist),
+    )
+    async with Client(app) as client:
+        kernels = await client.get("/sign-in")
+        theirs = await client.get("/about")
+    assert _title(kernels.text) == "Sign in · Test Site"
+    assert _title(theirs.text) == "Hello"
+    assert pages.asked == [("/about", {"slug": "about"})]
 
 
 async def test_a_real_file_is_served_and_assets_are_immutable(

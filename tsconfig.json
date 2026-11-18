@@ -2,7 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "types": ["vite/client", "node", "@testing-library/jest-dom/vitest"],
-    "paths": { "@/kernel": ["./kernel/web/index.ts"] }
+    "paths": { "@/kernel": ["./kernel/web/index.ts"], "@/kernel/testing": ["./kernel/web/testing.ts"] }
   },
   "include": [
     "kernel/web/**/*.ts",
@@ -14,7 +14,9 @@
     "modules/*/tests/web/**/*.ts",
     "modules/*/tests/web/**/*.tsx",
     "vitest.config.ts",
-    "vitest.setup.ts"
+    "vitest.setup.ts",
+    "playwright.config.ts",
+    "kernel/tests/e2e/**/*.ts"
   ],
   "exclude": ["node_modules", "modules/_template"]
 }

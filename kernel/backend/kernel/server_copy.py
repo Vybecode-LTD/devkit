@@ -33,7 +33,10 @@ The start refuses a module with one and not the other.
 segments; the start refuses two patterns that would answer the same address
 at the same rank, in one module or two, member pages included. `/` is the
 kernel's default home page (the site's name, description and Organization
-JSON-LD) until a module on declares it.
+JSON-LD) until a module on declares it. The kernel's own pages
+(`KERNEL_PAGES`: sign-in, the email landings, the account's, the admin's)
+always answer as the kernel's, and the start refuses a pattern that takes
+one under its first segment (`/account/:tab`); `/:slug` may, and never gets them.
 
 **The words** come from the builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`,
 `time`, `section`, `article`), which escape every value: anything that isn't
@@ -110,6 +113,46 @@ AI_CRAWLERS = (
 #: The kernel's own addresses, which no module's pattern may take.
 KERNEL_FILES = frozenset({"/sitemap.xml", "/robots.txt", "/llms.txt"})
 _RESERVED = frozenset({"api", "admin"})
+
+
+@dataclass(frozen=True)
+class KernelPage:
+    """One of the kernel's own pages: its address, its title and who sees it."""
+
+    path: str
+    title: str
+    access: Literal["public", "member", "admin"]
+
+
+#: The kernel's own pages (K4 contract §2), kept equal to `kernel/kernel.json`'s
+#: `pages` by a test: a site never receives the manifest (change 8). Each is the
+#: shell, `noindex`, titled "{title} · {name}"; the web app's router keeps the
+#: same list (`kernel/web/src/app/pages.ts`).
+KERNEL_PAGES: tuple[KernelPage, ...] = (
+    KernelPage("/sign-in", "Sign in", "public"),
+    KernelPage("/sign-up", "Sign up", "public"),
+    KernelPage("/forgot-password", "Forgot password", "public"),
+    KernelPage("/auth/verify", "Verify your email", "public"),
+    KernelPage("/auth/link", "Sign in with a link", "public"),
+    KernelPage("/auth/reset", "Choose a new password", "public"),
+    KernelPage("/auth/email", "Confirm your new email", "public"),
+    KernelPage("/auth/email/undo", "Undo the email change", "public"),
+    KernelPage("/auth/second-factor/undo", "Remove the new sign-in step", "public"),
+    KernelPage("/notifications/unsubscribe", "Unsubscribe", "public"),
+    KernelPage("/account", "Your account", "member"),
+    KernelPage("/account/notifications", "Notifications", "member"),
+    KernelPage("/account/activity", "Your activity", "member"),
+    KernelPage("/admin", "Dashboard", "admin"),
+    KernelPage("/admin/people", "People", "admin"),
+    KernelPage("/admin/roles", "Roles", "admin"),
+    KernelPage("/admin/activity", "Activity", "admin"),
+    KernelPage("/admin/settings", "Settings", "admin"),
+    KernelPage("/admin/settings/features", "Features", "admin"),
+    KernelPage("/admin/settings/system", "System", "admin"),
+)
+
+#: Each kernel page's title, by its address.
+KERNEL_PAGE_TITLES = {page.path: page.title for page in KERNEL_PAGES}
 
 _CONTROL = re.compile("[" + chr(0) + "-" + chr(31) + chr(127) + "]")
 
@@ -430,7 +473,10 @@ class Routes:
         """The pattern that answers `path`, a path with no trailing slash,
         among the modules `on` (every module installed when None): a module
         that's off steps aside, so its pattern never keeps an address from a
-        module on whose pattern also takes it."""
+        module on whose pattern also takes it. A kernel page is no module's,
+        so the shell, the sitemap and llms.txt all leave it to the kernel."""
+        if path in KERNEL_PAGE_TITLES:
+            return None
         segments = () if path == "/" else tuple(path[1:].split("/"))
         for pattern in self._patterns:
             if on is not None and pattern.module not in on:
@@ -483,6 +529,8 @@ def build(installed: Iterable[InstalledModule]) -> Routes:
             pages[module.id] = module.pages
         patterns += [_parse(module.id, text, False) for text in public]
         patterns += [_parse(module.id, text, True) for text in member]
+    for pattern in patterns:
+        _check_kernel_pages(pattern)
     for number, first in enumerate(patterns):
         for second in patterns[number + 1 :]:
             if first.rank == second.rank and first.meets(second):
@@ -491,6 +539,27 @@ def build(installed: Iterable[InstalledModule]) -> Routes:
                     "the same addresses at the same rank: give one more fixed segments."
                 )
     return Routes(patterns, pages, names)
+
+
+_KERNEL_PATTERNS = tuple(
+    _Pattern(KERNEL, page.path, tuple(page.path[1:].split("/")), page.access == "member")
+    for page in KERNEL_PAGES
+)
+
+
+def _check_kernel_pages(pattern: _Pattern) -> None:
+    """Refuses a pattern that takes one of the kernel's pages under the
+    kernel's own first segment (`/sign-in`, `/account/:tab`, `/auth/:step`).
+    One that starts with a `:name` (`/:slug`) may meet them: the shell and
+    the router answer a kernel page first, as the more fixed (change 9)."""
+    if not pattern.parts or pattern.parts[0].startswith(":"):
+        return
+    for page in _KERNEL_PATTERNS:
+        if pattern.meets(page):
+            raise ValueError(
+                f"{pattern.module}'s route {pattern.text} takes the kernel's page {page.text}: "
+                "fill the kernel's slots instead (account.section for an account page)."
+            )
 
 
 # --- the site's identity -----------------------------------------------------------------------

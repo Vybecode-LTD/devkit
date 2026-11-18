@@ -45,6 +45,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/kernel/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Site
+         * @description The site's name and saved identity, for the web app's home page, frame
+         *     and `<Seo>` (K4 contract §2, addition 2). llms.txt's summary and the AI
+         *     crawlers' switch stay with the server.
+         */
+        get: operations["site_api_kernel_site_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kernel/admin/audit": {
         parameters: {
             query?: never;
@@ -1584,6 +1606,27 @@ export interface components {
             status: "signed_in";
             user: components["schemas"]["UserView"];
         };
+        /**
+         * Site
+         * @description The site's identity as the web app reads it (`useSite`).
+         */
+        Site: {
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "Organization" | "LocalBusiness" | "MusicGroup" | "Person";
+            /** Logo */
+            logo: string;
+            /** Card Image */
+            card_image: string;
+            /** Same As */
+            same_as: string[];
+        };
         /** StepUp */
         StepUp: {
             /** Password */
@@ -1784,6 +1827,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModulesOn"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    site_api_kernel_site_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Site"];
                 };
             };
             /** @description A problem (RFC 9457) */

@@ -5,7 +5,7 @@
   "description": "SPEC.md sections 3 and 6: the kernel's version, its services and where its public surface is.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "version", "spec", "status", "services", "permissions", "public_api", "source"],
+  "required": ["id", "version", "spec", "status", "services", "permissions", "pages", "public_api", "source"],
   "properties": {
     "$schema": {"type": "string"},
     "id": {"const": "kernel"},
@@ -38,6 +38,21 @@
             "items": {"type": "string", "minLength": 1},
             "uniqueItems": true
           }
+        }
+      }
+    },
+    "pages": {
+      "description": "The kernel's own pages (K4 contract §2): each the shell, noindex, titled \"{title} · {name}\". The backend (kernel.server_copy.KERNEL_PAGES) and the web app's router (kernel/web/src/app/pages.ts) keep the same list in code, held to this one by tests: a site never receives this file.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "title", "access"],
+        "properties": {
+          "path": {"type": "string", "pattern": "^(/[a-z][a-z0-9-]*)+$"},
+          "title": {"type": "string", "minLength": 1, "maxLength": 60},
+          "access": {"enum": ["public", "member", "admin"]}
         }
       }
     },
