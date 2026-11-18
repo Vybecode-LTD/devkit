@@ -21,8 +21,8 @@ mountApp(options: AppOptions): void            // createRoot(options.root ?? #ro
 type AppOptions = { modules: ModuleDefinition[]; adminSections?: AdminSection[]; root?: HTMLElement };
 type AdminSection = { label: string; icon: IconName };   // the sidebar's order and icons for module sections
 
-api; useApiQuery(method, path, init?, options?); useApiMutation(method, path, options?)   // the kernel's paths
-createApiClient<Paths>(): { api; useApiQuery; useApiMutation }                          // a module's api.ts
+api; useApiQuery("get", path, init?, options?); useApiMutation(method, path, options?); apiQueryOptions("get", path, init?, options?)   // the kernel's paths
+createApiClient<Paths>(options?: { fetch?; baseUrl? }): { api; useApiQuery; useApiMutation; apiQueryOptions }   // a module's api.ts; the options are for tests
 class ApiProblem extends Error { status; code; title; detail; errors: Record<string, string[]>; extra }
 
 useSession(): Session; useSignOut(): () => Promise<void>

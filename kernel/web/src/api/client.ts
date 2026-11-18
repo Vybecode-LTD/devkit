@@ -186,6 +186,16 @@ export type UseApiMutation<Paths extends AnyPaths> = <
   queryClient?: QueryClient,
 ) => UseMutationResult<Answer<Paths, Method, Path, Init>, ApiProblem, Init, OnMutate>;
 
+/**
+ * A query's retries: what may pass on a second try (a network failure, a 5xx),
+ * up to TanStack's three, never a refusal (any 4xx). So an ended session is
+ * read once and told to the session once (cubic on #78).
+ */
+export function retryUnlessRefused(failures: number, error: unknown): boolean {
+  if (error instanceof ApiProblem && error.status >= 400 && error.status < 500) return false;
+  return failures < 3;
+}
+
 function onlyReads(method: string): void {
   if (method !== "get") {
     throw new Error(`A query only reads: ${method} goes through useApiMutation or api.`);
@@ -214,13 +224,19 @@ export function createApiClient<Paths extends AnyPaths>(options: ApiClientOption
   // error, and reads only for a query (CodeRabbit on #78).
   const useQuery = hooks.useQuery as (...args: unknown[]) => unknown;
   const queryOptions = hooks.queryOptions as (...args: unknown[]) => unknown;
-  const useApiQuery = ((method: string, ...rest: unknown[]) => {
+  const useApiQuery = ((
+    method: string,
+    path: unknown,
+    init?: unknown,
+    given?: object,
+    client?: unknown,
+  ) => {
     onlyReads(method);
-    return useQuery(method, ...rest);
+    return useQuery(method, path, init, { retry: retryUnlessRefused, ...given }, client);
   }) as UseApiQuery<Paths>;
-  const apiQueryOptions = ((method: string, ...rest: unknown[]) => {
+  const apiQueryOptions = ((method: string, path: unknown, init?: unknown, given?: object) => {
     onlyReads(method);
-    return queryOptions(method, ...rest);
+    return queryOptions(method, path, init, { retry: retryUnlessRefused, ...given });
   }) as ApiQueryOptions<Paths>;
   return {
     api,

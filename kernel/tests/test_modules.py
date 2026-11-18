@@ -44,6 +44,15 @@ def test_bad_installs_are_refused() -> None:
         registry(InstalledModule(manifest("shop")), InstalledModule(manifest("shop")))
 
 
+@pytest.mark.parametrize("taken", ["auth", "kernel"])
+def test_a_module_can_t_take_the_kernel_s_own_ids(taken: str) -> None:
+    """`/api/auth` and `/api/kernel` are the kernel's routes, `kernel` its
+    Alembic branch, and both its table prefixes: a module of either id would
+    collide with them, and its spec would fold into the kernel's (cubic on #78)."""
+    with pytest.raises(ValueError, match=f"{taken} is the kernel's own"):
+        registry(InstalledModule(manifest(taken)))
+
+
 async def test_switching_on_and_off(db: AsyncSession) -> None:
     base, extra = unique_id("base"), unique_id("extra")
     found = registry(

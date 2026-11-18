@@ -123,6 +123,11 @@ OFF = "This part of the site is switched off."
 log = logging.getLogger(__name__)
 
 
+#: Ids a module can't take: the kernel's own route prefixes (`/api/auth`,
+#: `/api/kernel`), Alembic branch and table prefixes (cubic on #78).
+RESERVED_IDS = frozenset({"auth", "kernel"})
+
+
 class ModuleRegistry:
     def __init__(
         self,
@@ -134,6 +139,8 @@ class ModuleRegistry:
     ) -> None:
         self.installed: dict[str, InstalledModule] = {}
         for module in installed:
+            if module.id in RESERVED_IDS:
+                raise ValueError(f"{module.id} is the kernel's own id: a module can't take it.")
             if module.id in self.installed:
                 raise ValueError(f"Module {module.id} is installed twice.")
             self.installed[module.id] = module

@@ -37,7 +37,8 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
       "maxLength": 40,
-      "description": "Route prefix and Alembic branch as written; table prefix and Python package with hyphens turned into underscores."
+      "not": {"enum": ["auth", "kernel"]},
+      "description": "Route prefix and Alembic branch as written; table prefix and Python package with hyphens turned into underscores. Not auth or kernel: those are the kernel's own."
     },
     "name": {
       "type": "string",

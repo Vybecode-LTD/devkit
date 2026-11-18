@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import { ApiProblem, createApiClient, setApiHandlers } from "./client";
+import { ApiProblem, createApiClient, retryUnlessRefused, setApiHandlers } from "./client";
 import type { paths } from "./schema";
 
 type Answer = { status: number; body?: unknown; type?: string };
@@ -275,6 +275,42 @@ describe("the hooks", () => {
     expect(result.current.error).toBeInstanceOf(ApiProblem);
     expect(result.current.error?.code).toBe("auth.already_verified");
     expectTypeOf(result.current.error).toEqualTypeOf<ApiProblem | null>();
+  });
+
+  it("reads an ended session once, even where queries retry by default", async () => {
+    const signedOut = vi.fn();
+    setApiHandlers({ signedOut });
+    const { fetch, sent } = fakeFetch(
+      problem(401, "kernel.not_signed_in"),
+      problem(401, "kernel.not_signed_in"),
+      problem(401, "kernel.not_signed_in"),
+      problem(401, "kernel.not_signed_in"),
+    );
+    const { useApiQuery } = createApiClient<paths>({ fetch });
+    const retrying = new QueryClient(); // TanStack's own default: three retries
+    function withRetries({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={retrying}>{children}</QueryClientProvider>;
+    }
+    const { result } = renderHook(() => useApiQuery("get", "/api/auth/session"), {
+      wrapper: withRetries,
+    });
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    expect(sent).toHaveLength(1);
+    expect(signedOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries what may pass on a second try, never a refusal", () => {
+    expect(retryUnlessRefused(0, ApiProblem.unreachable())).toBe(true);
+    expect(retryUnlessRefused(2, new ApiProblem({ ...problem(503, "kernel.busy").body }))).toBe(
+      true,
+    );
+    expect(retryUnlessRefused(3, ApiProblem.unreachable())).toBe(false);
+    for (const status of [400, 401, 403, 404, 409, 422, 429]) {
+      const refused = new ApiProblem({ ...problem(status, "kernel.refused").body });
+      expect(retryUnlessRefused(0, refused)).toBe(false);
+    }
   });
 
   it("types a query's error as an ApiProblem too", () => {
