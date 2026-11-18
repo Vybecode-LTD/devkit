@@ -18,8 +18,9 @@ services:
     volumes:
       # A new volume since the rename (2026-11-18, decision 0034): Postgres makes its
       # role only when it sets a volume up, so the old devkit-db has no mechframe
-      # role. It held only throwaway test databases: remove it with
-      #   docker volume ls -q -f name=devkit-db | xargs docker volume rm
+      # role. It held only throwaway test databases. Compose named it after this
+      # folder: list it with `docker volume ls -f name=devkit-db`, then remove that
+      # one by its exact name (here `docker volume rm ai-devkit_devkit-db`).
       - mechframe-db:/var/lib/postgresql/data
 
 volumes:
