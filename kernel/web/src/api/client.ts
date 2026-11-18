@@ -69,15 +69,27 @@ const READS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 type Fetch = (input: Request) => Promise<Response>;
 
-function problems(): Middleware {
+/** How many writes' copies are kept at most. A later middleware that answers a
+ * call itself skips onResponse and onError, so its copy is never claimed: the
+ * oldest goes once there are more (cubic on #78). */
+export const KEPT_COPIES = 64;
+
+/** The client's middleware; `pending()` counts the copies held, for tests. */
+export function problems(): Middleware & { pending: () => number } {
   // A copy of each write, made before it's sent (sending uses its body up),
   // so a write refused for a step-up can be sent again. Kept by the call's id,
   // not its Request, which a later middleware may replace (CodeRabbit on #78),
   // and dropped once the call is answered.
   const copies = new Map<string, Request>();
   return {
+    pending: () => copies.size,
     onRequest({ request, id }) {
-      if (!READS.has(request.method)) copies.set(id, request.clone());
+      if (READS.has(request.method)) return undefined;
+      copies.set(id, request.clone());
+      for (const oldest of copies.keys()) {
+        if (copies.size <= KEPT_COPIES) break;
+        copies.delete(oldest);
+      }
       return undefined;
     },
     async onResponse({ response, options, id }) {
@@ -209,6 +221,8 @@ function onlyReads(method: string): void {
 export type ApiClientOptions = {
   /** For tests: the fetch to send with. */
   fetch?: Fetch;
+  /** For tests: the client's own middleware, to look inside. */
+  middleware?: ReturnType<typeof problems>;
   /** For tests: the site's origin. The page's own by default. */
   baseUrl?: string;
 };
@@ -222,7 +236,7 @@ export function createApiClient<Paths extends AnyPaths>(options: ApiClientOption
     fetch: send,
   };
   const api: Client<Paths> = createClient<Paths>(settings);
-  api.use(problems());
+  api.use(options.middleware ?? problems());
   const hooks = createQueryClient(api);
   // The library's own hooks, with their types restated: ApiProblem as the
   // error, and reads only for a query (CodeRabbit on #78).

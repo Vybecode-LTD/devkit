@@ -3,7 +3,14 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import { ApiProblem, createApiClient, retryUnlessRefused, setApiHandlers } from "./client";
+import {
+  ApiProblem,
+  KEPT_COPIES,
+  createApiClient,
+  problems,
+  retryUnlessRefused,
+  setApiHandlers,
+} from "./client";
 import type { paths } from "./schema";
 
 type Answer = { status: number; body?: unknown; type?: string };
@@ -242,6 +249,19 @@ describe("the client", () => {
     const { data } = await api.POST("/api/auth/recovery-codes");
     expect(data).toEqual({ recovery_codes: ["a"] });
     expect(sent).toHaveLength(2);
+  });
+
+  it("lets go of the copies of writes another middleware answered itself", async () => {
+    const middleware = problems();
+    const { fetch } = fakeFetch();
+    const { api } = createApiClient<paths>({ fetch, middleware });
+    // A cache that answers every call itself: openapi-fetch then runs no
+    // onResponse or onError, so the copy is never claimed (cubic on #78).
+    api.use({ onRequest: () => new Response(JSON.stringify({ recovery_codes: [] })) });
+    for (let call = 0; call < KEPT_COPIES * 3; call += 1) {
+      await api.POST("/api/auth/recovery-codes");
+    }
+    expect(middleware.pending()).toBe(KEPT_COPIES);
   });
 
   it("never asks for a step-up on a read", async () => {
