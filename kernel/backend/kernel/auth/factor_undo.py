@@ -36,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.access import public
 from kernel.auth import accounts, audit, mails, sessions, tokens
+from kernel.auth.answers import SecondFactorUndone
 from kernel.auth.models import Passkey, RecoveryCode, Totp, User
 from kernel.config import KernelConfig
 from kernel.db import get_db
@@ -83,7 +84,9 @@ def _token_invalid() -> Problem:
     return Problem("auth.token_invalid", 400, "This link has expired or has already been used.")
 
 
-@router.post("/second-factor/undo", dependencies=[Depends(public)])
+@router.post(
+    "/second-factor/undo", dependencies=[Depends(public)], response_model=SecondFactorUndone
+)
 async def undo_second_factor(
     body: UndoLink,
     request: Request,

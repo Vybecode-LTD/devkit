@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import audit, moderation, notifications
 from kernel.access import public
+from kernel.answers import Answer, AuditEntry, Id, TargetRef, When, answer
 from kernel.auth import sessions
 from kernel.auth.dependencies import current_user, require_permission, signed_in
 from kernel.auth.models import User
@@ -41,7 +42,128 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=["kernel"])
 
 
-@router.get("/health", dependencies=[Depends(public)])
+# --- what these routes answer (kernel.answers, decision 0042) ---------------------------
+
+
+class Health(Answer):
+    status: Literal["ok", "unavailable"]
+    version: str
+    database: Literal["ok", "unreachable"]
+
+
+class ModulesOn(Answer):
+    on: list[str]
+
+
+class AuditPage(Answer):
+    items: list[AuditEntry]
+    next_cursor: str | None
+
+
+class Notice(Answer):
+    id: Id
+    key: str
+    title: str
+    link: str | None
+    created_at: When
+    read_at: When | None
+
+
+class Notices(Answer):
+    items: list[Notice]
+    next_cursor: str | None
+    unread: int
+
+
+class NoticePreference(Answer):
+    key: str
+    description: str
+    default: Literal["in_site", "email", "both"]
+    in_site: bool
+    email: bool
+
+
+class NoticePreferences(Answer):
+    items: list[NoticePreference]
+
+
+class UnsubscribeLink(Answer):
+    """What a one-click link would turn off."""
+
+    key: str
+    description: str
+    email: bool
+
+
+class Unsubscribed(Answer):
+    email: bool
+
+
+class Reported(Answer):
+    """The same empty answer for a first report and a repeat."""
+
+
+class CaseReport(Answer):
+    reporter_id: Id | None
+    reason: str
+    note: str | None
+    at: When
+
+
+class Case(Answer):
+    id: Id
+    target: TargetRef
+    source: Literal["report", "filter"]
+    status: Literal["open", "actioned", "dismissed"]
+    author_id: Id | None
+    excerpt: str
+    link: str | None
+    report_count: int
+    reasons: dict[str, int]
+    opened_at: When
+    last_report_at: When
+    closed_at: When | None
+    closed_by: Id | None
+    outcome: str | None
+
+
+class CaseWithReports(Case):
+    reports: list[CaseReport]
+
+
+class Cases(Answer):
+    items: list[Case]
+    next_cursor: str | None
+
+
+class TimedOut(Answer):
+    until: When
+
+
+class ModerationLogEntry(Answer):
+    """An audit entry as the moderators' log answers it: no address, no browser."""
+
+    id: int
+    at: When
+    action: str
+    result: str
+    actor_id: Id | None
+    subject_id: Id | None
+    target: TargetRef | None
+    details: dict[str, Any]
+
+
+class ModerationLog(Answer):
+    items: list[ModerationLogEntry]
+    next_cursor: str | None
+
+
+@router.get(
+    "/health",
+    dependencies=[Depends(public)],
+    response_model=Health,
+    responses={503: {"model": Health, "description": "The database didn't answer"}},
+)
 async def health(request: Request) -> JSONResponse:
     """For the host's health check: 200 while the database answers, else 503."""
     database = request.app.state.database
@@ -50,14 +172,15 @@ async def health(request: Request) -> JSONResponse:
             await session.execute(text("SELECT 1"))
     except (SQLAlchemyError, OSError) as error:
         log.error("health check: the database didn't answer (%s)", type(error).__name__)
-        return JSONResponse(
+        return answer(
+            Health,
             {"status": "unavailable", "version": __version__, "database": "unreachable"},
             status_code=503,
         )
-    return JSONResponse({"status": "ok", "version": __version__, "database": "ok"})
+    return answer(Health, {"status": "ok", "version": __version__, "database": "ok"})
 
 
-@router.get("/modules", dependencies=[Depends(public)])
+@router.get("/modules", dependencies=[Depends(public)], response_model=ModulesOn)
 async def modules_on(request: Request) -> dict[str, Any]:
     """The modules on, for the web shell (`useModuleEnabled`). Modules that are
     off aren't named: a visitor learns nothing of what the site lacks."""
@@ -86,7 +209,11 @@ def _named(value: str) -> bool:
     return len(value) <= audit.MAX_NAME and audit.NAME.fullmatch(value) is not None
 
 
-@router.get("/admin/audit", dependencies=[Depends(require_permission("auth.audit.read"))])
+@router.get(
+    "/admin/audit",
+    dependencies=[Depends(require_permission("auth.audit.read"))],
+    response_model=AuditPage,
+)
 async def audit_log(
     db: AsyncSession = Depends(get_db),
     actor: uuid.UUID | None = None,
@@ -141,7 +268,7 @@ async def _modules_on(request: Request) -> frozenset[str]:
     return on
 
 
-@router.get("/notifications")
+@router.get("/notifications", response_model=Notices)
 async def notices(
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
@@ -197,7 +324,7 @@ class Choices(RootModel[dict[str, Choice]]):
     model_config = ConfigDict(strict=True)
 
 
-@router.get("/notifications/preferences")
+@router.get("/notifications/preferences", response_model=NoticePreferences)
 async def notice_preferences(
     request: Request, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -206,7 +333,7 @@ async def notice_preferences(
     return {"items": await notifications.preferences(db, user.id, on)}
 
 
-@router.put("/notifications/preferences")
+@router.put("/notifications/preferences", response_model=NoticePreferences)
 async def choose_notices(
     request: Request,
     body: Choices,
@@ -221,7 +348,9 @@ async def choose_notices(
 
 
 @router.get(
-    notifications.UNSUBSCRIBE_API.removeprefix("/api/kernel"), dependencies=[Depends(public)]
+    notifications.UNSUBSCRIBE_API.removeprefix("/api/kernel"),
+    dependencies=[Depends(public)],
+    response_model=UnsubscribeLink,
 )
 async def unsubscribe_link(token: str = "", db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """What the link would turn off, changing nothing: link scanners open links."""
@@ -229,7 +358,9 @@ async def unsubscribe_link(token: str = "", db: AsyncSession = Depends(get_db)) 
 
 
 @router.post(
-    notifications.UNSUBSCRIBE_API.removeprefix("/api/kernel"), dependencies=[Depends(public)]
+    notifications.UNSUBSCRIBE_API.removeprefix("/api/kernel"),
+    dependencies=[Depends(public)],
+    response_model=Unsubscribed,
 )
 async def unsubscribe(token: str = "", db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """One click (RFC 8058): email off for the link's key. No session and no
@@ -280,6 +411,7 @@ class Report(BaseModel):
 @router.post(
     "/moderation/reports",
     status_code=202,
+    response_model=Reported,
     dependencies=[
         Depends(current_user),
         Depends(rate_limit(moderation.REPORTS_PER_HOUR, key="account")),
@@ -305,7 +437,11 @@ async def report(
     return {}
 
 
-@router.get("/admin/moderation/cases", dependencies=[Depends(require_permission(ACT))])
+@router.get(
+    "/admin/moderation/cases",
+    dependencies=[Depends(require_permission(ACT))],
+    response_model=Cases,
+)
 async def cases(
     db: AsyncSession = Depends(get_db),
     status: str = "open",
@@ -327,7 +463,11 @@ async def cases(
     )
 
 
-@router.get("/admin/moderation/cases/{case_id}", dependencies=[Depends(require_permission(ACT))])
+@router.get(
+    "/admin/moderation/cases/{case_id}",
+    dependencies=[Depends(require_permission(ACT))],
+    response_model=CaseWithReports,
+)
 async def one_case(case_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """A case with every report on it."""
     return await moderation.case(db, case_id)
@@ -345,7 +485,7 @@ class Action(BaseModel):
     minutes: int | None = None
 
 
-@router.post("/admin/moderation/cases/{case_id}/actions")
+@router.post("/admin/moderation/cases/{case_id}/actions", response_model=CaseWithReports)
 async def act(
     request: Request,
     case_id: uuid.UUID,
@@ -383,7 +523,7 @@ class TimeOut(BaseModel):
 TIME_OUT = "/admin/moderation/people/{user_id}/time-out"
 
 
-@router.put(TIME_OUT)
+@router.put(TIME_OUT, response_model=TimedOut)
 async def time_out(
     user_id: uuid.UUID,
     body: TimeOut,
@@ -410,7 +550,11 @@ async def lift_time_out(
     return Response(status_code=204)
 
 
-@router.get("/admin/moderation/log", dependencies=[Depends(require_permission(ACT))])
+@router.get(
+    "/admin/moderation/log",
+    dependencies=[Depends(require_permission(ACT))],
+    response_model=ModerationLog,
+)
 async def moderation_log(
     db: AsyncSession = Depends(get_db),
     subject: uuid.UUID | None = None,

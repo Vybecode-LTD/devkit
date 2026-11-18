@@ -84,6 +84,7 @@ mechframe/
                           events, jobs, security, modules, crypto, audit,
                           notifications, moderation
     migrations/           Alembic branch "kernel"
+    openapi.json          generated and committed: the /api/auth and /api/kernel paths
     web/                  app shell, session hooks, API client, slots, UI kit
     tests/
   modules/<id>/
@@ -214,6 +215,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `moderation.report(db, target, reporter=, reason=)`, `@moderation.kind(name, actions=)`, `moderation.screen / hold / act`, `Depends(moderation.can_post)` | Reports on what a module declares reportable (in `moderation.py`, each kind describing its thing, hiding or deleting it, and showing again what was held when staff dismiss the case), one case per thing in the staff queue, word and link filters that hold text and never drop it, and actions (dismiss, hide, delete, time out, ban), all audited and told to the author. Acting needs `kernel.moderation.act` (admin and editor by default; decision 0031); a ban, which suspends the account, also needs `auth.user.suspend` (decision 0039) | A reported comment | K3 |
 | `server_copy.Pages`, `Page`, `Moved`, `Entry`, the builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`, `time`, `section`, `article`, `cleaned`), `server_copy.identity(db)` | A module's public pages, readable without JavaScript: its `server_copy.py`'s `PAGES` answers `page(db, path, params)` for each address its `routes.public` patterns match with the page's head, words and JSON-LD (or a move, or None for a 404), from the same rows its API reads, and lists them for the sitemap; the builders escape every value and nh3 cleans the finished words; `identity` is the site's name and the settings section `kernel.site` (section 9, decision 0041) | A blog post's page | K3 |
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
+| `Answer`, `answer(Model, content)`, `Id`, `When` | The base of every route's answer model, which refuses keys it doesn't name, and the JSON response built through one for a route that sets a cookie or header (section 7, decision 0042) | `@router.get("/posts", response_model=Posts)` | K4 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
 
@@ -229,7 +231,8 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | Name | Gives |
 | --- | --- |
 | `useSession()` | The user, their roles, and `can(permission)` for showing or hiding UI |
-| `api` and `useApiQuery` / `useApiMutation` | The generated, typed client wrapped in TanStack Query |
+| `api` and `useApiQuery` / `useApiMutation` | The generated, typed client wrapped in TanStack Query, for the kernel's paths; any answer but a success throws an `ApiProblem` (decision 0042) |
+| `createApiClient<paths>()` | A module's own typed client and hooks, from its `openapi.json` |
 | `<RequireAuth>`, `<RequirePermission>` | Route guards |
 | `useModuleEnabled(id)` | Whether a module is switched on |
 | `useSettings(id)` | The module's settings, read-only on public pages |
@@ -292,6 +295,7 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 **Inputs and outputs**
 
 - Every body is a Pydantic model in strict mode; no raw dicts.
+- Every answer is a model too: an `Answer` (`kernel.answers`), named as the route's `response_model`, which refuses keys it doesn't name. A route that sets a cookie or header builds its JSON with `answer(Model, content)`; a 204 has no body. `tests/test_openapi.py` fails a route that declares no answer (decision 0042).
 - Lists use cursor pagination (`?cursor=&limit=`, at most 100) and return `{items, next_cursor}`.
 - Ids are UUIDs. Times are `timestamptz` in UTC. Money is integer minor units plus an ISO 4217 currency code.
 
@@ -755,7 +759,7 @@ Any agent starts at `AGENT-GUIDE.md`, picks from `catalog.json` and recipes, and
 A module's capability (data, services, API) is shared by every platform; only its bindings differ. v1 ships `web` bindings only, but these rules apply now so later platforms need no rework.
 
 - **No business logic in a binding.** Anything a desktop or phone app would also need lives in the capability and is reached through the API.
-- **The API is the contract.** Each module's `openapi.json` is committed, so clients for other platforms can be generated from it (C# for Avalonia, and whatever mobile stack is chosen).
+- **The API is the contract.** The kernel's `openapi.json` and each module's are committed, made by `python -m tools.openapi`, so clients for other platforms can be generated from them (C# for Avalonia, and whatever mobile stack is chosen), as the web's is (decision 0042).
 - **Tokens are the theme.** Themes are authored once in `tokens.json` and generated per platform, as the Depth design system already does for React, Avalonia and JUCE.
 - **Folders are reserved now.** `modules/<id>/avalonia/` and `modules/<id>/mobile/` sit beside `web/` when those bindings arrive, and `bindings` in the manifest lists which exist.
 - **Auth for native apps** follows 14.14.
@@ -819,6 +823,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-18 | K4 starts (decision 0042): every route declares its answer as an `Answer` model that refuses unnamed keys, checked on the way out; `kernel/openapi.json` is committed with each module's, its errors documented as problems; the web kernel's typed client (`api`, `useApiQuery`, `useApiMutation`, `createApiClient`, `ApiProblem`) is generated from it (4, 6, 7, 18) |
 | 2026-11-18 | AI DevKit is renamed MechFrame throughout: prose, the planned CLI (`mechframe`, also `mf`), the lock file `mechframe.lock.json`, the npm names (`@mechframe/kernel`, `@mechframe/harness-web`), the cookies `__Host-mf_session` and `__Host-mf_device`, the API key prefix `mf_live_` / `mf_test_`, problem types `urn:mechframe:problem:`, the `MECHFRAME_*` variables, the skills `mechframe-*` and the repo `mechframe/mechframe`; the Python import stays `kernel`, and earlier change-log lines keep the old name (every section; decision 0034) |
 | 2026-11-17 | npm audit may pass an advisory that has no fixed version and reaches only the build and test tools, while it's on the expiring allowlist `tools/npm_audit_allow.json` with its reason, for 90 days at most; CI runs `python -m tools.npm_audit` in place of `npm audit --audit-level=low` (16, decision 0015) |
 | 2026-11-17 | Public rendering: a module's `server_copy.py` sets `PAGES`, whose `page(db, path, params)` answers each address its `routes.public` patterns match with the page's head, words and JSON-LD in one call (or a move, or None for a 404), and `sitemap(db)` lists its pages; the most fixed segments win and ties are refused at start; the kernel serves the built web app from `WEB_DIST` with its path and cache rules, answers member and admin pages with a noindex shell and any other address with a real 404, and writes `sitemap.xml`, `robots.txt` (AI crawlers allowed unless the site refuses them) and `llms.txt`; the site's identity is the settings section `kernel.site`; nh3 cleans the words (6, 7, 9; decision 0041) |

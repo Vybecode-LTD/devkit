@@ -52,6 +52,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kernel import clock, events
 from kernel.access import public
 from kernel.auth import accounts, audit, mails, tokens
+from kernel.auth.answers import CheckEmail, Verified
 from kernel.auth.dependencies import current_user
 from kernel.auth.models import Token, User, UserRole
 from kernel.auth.passwords import Passwords, refusal, site_context
@@ -105,6 +106,7 @@ def _site(config: KernelConfig) -> str:
 @router.post(
     "/sign-up",
     status_code=202,
+    response_model=CheckEmail,
     dependencies=[Depends(public), Depends(rate_limit(SIGN_UPS_PER_IP))],
 )
 async def sign_up(
@@ -175,7 +177,7 @@ def _notice(config: KernelConfig) -> mails.Mail:
     return mails.rendered("kernel.sign_up_exists")
 
 
-@router.post("/verify-email", dependencies=[Depends(public)])
+@router.post("/verify-email", dependencies=[Depends(public)], response_model=Verified)
 async def verify_email(
     body: VerifyEmail, request: Request, db: AsyncSession = Depends(get_db)
 ) -> dict[str, str]:
@@ -209,7 +211,7 @@ async def verify_email(
     return {"status": "verified"}
 
 
-@router.post("/verify-email/resend", status_code=202)
+@router.post("/verify-email/resend", status_code=202, response_model=CheckEmail)
 async def resend_verification(
     request: Request,
     user: User = Depends(current_user),

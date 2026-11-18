@@ -8,9 +8,9 @@ Updated 2026-11-18, `main` at `c38cdfa`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 27 | 0 | 0 | 24 | 3 | 2 | ████░░░░░░ 48% (27 of 56) |
+| MechFrame v1.0 | 27 | 1 | 1 | 25 | 3 | 3 | ████░░░░░░ 45% (27 of 60) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 27 | 0 | 0 | 109 | 3 | 5 | █░░░░░░░░░ 18% (27 of 144) |
+| Everything | 27 | 1 | 1 | 110 | 3 | 6 | █░░░░░░░░░ 18% (27 of 148) |
 
 ## MechFrame v1.0
 
@@ -55,7 +55,7 @@ Gate: Every 14.13 contract test passes; each sign-in method works by hand; brand
 | 1. The contract suite, written first | Done |  |  | 128 pass; 27 wait on steps 9 to 11 |
 | 2. Accounts, roles and per-resource overrides | Done | [#36](https://github.com/mechframe/mechframe/pull/36), [#56](https://github.com/mechframe/mechframe/pull/56) | [0031](decisions/0031-moderation-permission.md) |  |
 | 3. Passwords | Done | [#7](https://github.com/mechframe/mechframe/pull/7), [#10](https://github.com/mechframe/mechframe/pull/10) |  |  |
-| 4. Sessions and the device list | Done | [#32](https://github.com/mechframe/mechframe/pull/32), [#33](https://github.com/mechframe/mechframe/pull/33) |  |  |
+| 4. Sessions and the device list | Done | [#32](https://github.com/mechframe/mechframe/pull/32), [#33](https://github.com/mechframe/mechframe/pull/33) |  | Found 2026-11-18: the device list's three routes were never built (their contract tests are strict-xfail); K4's auth and account PR builds them |
 | 5. Sign-in codes and magic links | Done | [#42](https://github.com/mechframe/mechframe/pull/42) | [0021](decisions/0021-codes-and-links.md) |  |
 | 6. Reset, verification and email change | Done | [#39](https://github.com/mechframe/mechframe/pull/39), [#43](https://github.com/mechframe/mechframe/pull/43), [#44](https://github.com/mechframe/mechframe/pull/44), [#45](https://github.com/mechframe/mechframe/pull/45), [#46](https://github.com/mechframe/mechframe/pull/46) | [0020](decisions/0020-sign-up-defaults.md), [0022](decisions/0022-password-resets.md), [0023](decisions/0023-verification-resend.md), [0024](decisions/0024-email-change.md), [0025](decisions/0025-password-change.md) |  |
 | 7. Second factors and step-up | Done | [#38](https://github.com/mechframe/mechframe/pull/38), [#47](https://github.com/mechframe/mechframe/pull/47), [#48](https://github.com/mechframe/mechframe/pull/48), [#52](https://github.com/mechframe/mechframe/pull/52) | [0019](decisions/0019-sign-in-limits-as-tiers.md), [0026](decisions/0026-totp-setup-and-confirm.md), [0027](decisions/0027-totp-removal-and-recovery-codes.md) |  |
@@ -93,13 +93,23 @@ AI DevKit became MechFrame once K3 was done (decision 0034).
 | One PR: prose, packages, cookies, variables, skills and links say MechFrame | Done | [#76](https://github.com/mechframe/mechframe/pull/76) | [0034](decisions/0034-rename-to-mechframe.md) |  |
 | The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there | Done |  | [0034](decisions/0034-rename-to-mechframe.md) | 2026-11-18: transferred; Codex, CodeRabbit and cubic review there |
 
-### K4: web kernel · 0 of 5 done · gate not passed yet
+### K4: web kernel · 0 of 9 done · gate not passed yet
 
 The front-end half of the kernel.
 
 Gate: Component tests, axe with no serious violations, Playwright runs of every sign-in method.
 
-To do: `App shell, useSession, the typed client, defineModule and slots`, `UI kit, moved to React 19 and tokens`, `Auth screens`, `Admin shell`, `Themes: Machined Light, then Depth`.
+| Step | Status | PRs | Decisions | Note |
+| --- | --- | --- | --- | --- |
+| The typed client: every answer typed, the committed specs, api and its hooks | In review | [#78](https://github.com/mechframe/mechframe/pull/78) | [0042](decisions/0042-web-kernel.md) |  |
+| The app shell: router, useSession, guards, slots, the kernel's pages, server copy, Playwright | Next |  |  |  |
+| Themes: Machined Light and Vibrant Mindz on the kernel's tokens | To do |  |  |  |
+| UI kit, moved to React 19 and tokens | To do |  |  |  |
+| Auth and account screens, with the device routes | To do |  |  |  |
+| Admin shell: sidebar, top bar, Dashboard and Activity | To do |  |  |  |
+| Admin people and roles, with role editing | To do |  |  |  |
+| Admin settings: Site, Features and System | To do |  |  |  |
+| Depth theme | Later |  |  | The owner, 2026-11-18: when a site wants it |
 
 ### K5: CLI and site template · 0 of 4 done · gate not passed yet
 

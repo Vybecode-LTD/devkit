@@ -9,6 +9,7 @@ rate limits, access marks and the app factory. From K2: the access
 dependencies (`current_user`, `optional_user`, `require_permission`,
 `require_owner_or`, `require_recent_auth`). From K3: `storage`, `email`,
 `jobs`, `events`, `audit`, `notifications`, `moderation` and `server_copy`.
+From K4: `Answer`, `answer`, `Id` and `When`, for every route's answer model.
 """
 
 from kernel import (
@@ -23,6 +24,7 @@ from kernel import (
     storage,
 )
 from kernel.access import public
+from kernel.answers import Answer, Id, When, answer
 from kernel.app import create_app
 from kernel.auth.dependencies import (
     OwnerOr,
@@ -40,13 +42,17 @@ from kernel.settings import settings
 from kernel.version import __version__
 
 __all__ = [
+    "Answer",
     "Base",
     "Database",
+    "Id",
     "InstalledModule",
     "Manifest",
     "OwnerOr",
     "Problem",
+    "When",
     "__version__",
+    "answer",
     "audit",
     "create_app",
     "crypto",

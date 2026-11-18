@@ -44,3 +44,5 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0038](0038-kernel-notifications.md) | Kernel notifications: one template per key, each person's choice per key, and one-click unsubscribe | Applied |
 | [0039](0039-kernel-moderation.md) | Kernel moderation: reports on declared kinds, one case per thing, filters that hold, bans as suspensions | Applied |
 | [0040](0040-admin-shell-design.md) | The admin shell is built to the Vibrant Mindz canvas design, styled by tokens (amends 0008) | Decided; applied in K4 |
+| [0041](0041-public-rendering.md) | Public rendering: one `page()` per address, matched by `routes.public`; the shell, `WEB_DIST` and the kernel's files | Applied |
+| [0042](0042-web-kernel.md) | The web kernel: typed answers and a client from committed specs, kernel pages in one list, `--mf-*` tokens, the admin to the boards | Decided; applied in K4 |

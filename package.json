@@ -18,10 +18,14 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json",
     "dev": "npm run dev --workspace harness/web",
-    "build": "npm run build --workspace harness/web"
+    "build": "npm run build --workspace harness/web",
+    "api:types": "openapi-typescript kernel/openapi.json -o kernel/web/src/api/schema.ts",
+    "api:check": "openapi-typescript kernel/openapi.json -o kernel/web/src/api/schema.ts --check"
   },
   "dependencies": {
     "@tanstack/react-query": "5.107.1",
+    "openapi-fetch": "0.17.0",
+    "openapi-react-query": "0.5.4",
     "react": "19.2.9",
     "react-dom": "19.2.9",
     "react-router": "7.18.5"
@@ -40,15 +44,20 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.14.0",
     "jsdom": "31.0.0",
+    "openapi-typescript": "7.13.0",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
     "vite": "8.3.8",
     "vitest": "5.1.0"
   },
   "overrides": {
-    "minimatch": "11.0.8"
+    "minimatch": "11.0.8",
+    "openapi-typescript": {
+      "typescript": "$typescript"
+    }
   },
   "//": [
-    "overrides.minimatch: eslint 10 and typescript-eslint 8 ask for minimatch 10, which has GHSA-g3hv-75wg-m249 (dev-only, a DoS). 11.0.8 is past it; drop the override when they move to 11."
+    "overrides.minimatch: eslint 10 and typescript-eslint 8 ask for minimatch 10, which has GHSA-g3hv-75wg-m249 (dev-only, a DoS). 11.0.8 is past it; drop the override when they move to 11.",
+    "overrides.openapi-typescript: 7.13 asks for TypeScript ^5 as a peer; the repo is on 6.0.x for typescript-eslint, and the generator runs fine on it (npm run api:check passes). Drop the override when it allows 6."
   ]
 }

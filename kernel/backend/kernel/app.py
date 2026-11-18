@@ -80,6 +80,7 @@ from kernel import (
     logs,
     moderation,
     notifications,
+    openapi,
     server_copy,
     shell,
 )
@@ -316,6 +317,7 @@ def create_app(
         if isinstance(permission, dict) and isinstance(permission.get("key"), str)
     )
     install_handlers(app)
+    openapi.install(app)
 
     app.include_router(kernel_router, prefix="/api/kernel")
     app.include_router(auth_router, prefix="/api/auth")

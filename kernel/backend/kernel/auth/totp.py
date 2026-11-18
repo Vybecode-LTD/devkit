@@ -57,10 +57,12 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from kernel import clock, crypto
+from kernel.answers import answer
 from kernel.auth import accounts, audit, factor_undo, mails, second_factor, sessions, tokens
+from kernel.auth.answers import RecoveryCodes, TotpSetup
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
 from kernel.auth.models import RecoveryCode, Totp, User
 from kernel.auth.routes import failed_step_up
@@ -94,7 +96,7 @@ def _config(request: Request) -> KernelConfig:
     return cast(KernelConfig, request.app.state.config)
 
 
-@router.post("/totp/setup")
+@router.post("/totp/setup", response_model=TotpSetup)
 async def set_up_totp(
     request: Request,
     user: User = Depends(require_recent_auth()),
@@ -124,10 +126,10 @@ async def set_up_totp(
         name=user.email, issuer_name=_config(request).site_name
     )
     await db.commit()
-    return JSONResponse({"secret": secret, "otpauth_uri": uri}, headers=_NO_STORE)
+    return answer(TotpSetup, {"secret": secret, "otpauth_uri": uri}, headers=_NO_STORE)
 
 
-@router.post("/totp/confirm")
+@router.post("/totp/confirm", response_model=RecoveryCodes)
 async def confirm_totp(
     body: TotpCode,
     request: Request,
@@ -157,7 +159,7 @@ async def confirm_totp(
     to = user.email
     await queue_message(db, to, *_added(_config(request), now, undo))
     await db.commit()
-    return JSONResponse({"recovery_codes": codes}, headers=_NO_STORE)
+    return answer(RecoveryCodes, {"recovery_codes": codes}, headers=_NO_STORE)
 
 
 @router.delete("/totp", status_code=204)
@@ -197,7 +199,7 @@ async def remove_totp(
     return response
 
 
-@router.post("/recovery-codes")
+@router.post("/recovery-codes", response_model=RecoveryCodes)
 async def replace_recovery_codes(
     request: Request,
     user: User = Depends(require_recent_auth()),
@@ -218,7 +220,7 @@ async def replace_recovery_codes(
     to, now = user.email, clock.now()
     await queue_message(db, to, *_replaced(_config(request), now))
     await db.commit()
-    return JSONResponse({"recovery_codes": codes}, headers=_NO_STORE)
+    return answer(RecoveryCodes, {"recovery_codes": codes}, headers=_NO_STORE)
 
 
 # --- security mail ------------------------------------------------------------------

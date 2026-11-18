@@ -13,6 +13,8 @@ export default tseslint.config(
       ".venv/**",
       "modules/_template/**",
       "templates/**",
+      // Generated from kernel/openapi.json (npm run api:types); api:check holds it current.
+      "kernel/web/src/api/schema.ts",
     ],
   },
   js.configs.recommended,

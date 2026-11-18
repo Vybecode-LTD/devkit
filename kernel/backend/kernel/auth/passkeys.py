@@ -52,7 +52,7 @@ from fastapi import APIRouter, Depends, Path, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 from webauthn import generate_authentication_options, generate_registration_options
 from webauthn.helpers import options_to_json_dict
 from webauthn.helpers.structs import (
@@ -64,6 +64,7 @@ from webauthn.helpers.structs import (
 
 from kernel import clock
 from kernel.access import public
+from kernel.answers import answer
 from kernel.auth import (
     accounts,
     audit,
@@ -73,6 +74,13 @@ from kernel.auth import (
     second_factor,
     sessions,
     tokens,
+)
+from kernel.auth.answers import (
+    CreationOptions,
+    Passkeys,
+    PasskeyView,
+    RequestOptions,
+    SignedIn,
 )
 from kernel.auth.ceremonies import AssertionCredential, RegistrationCredential
 from kernel.auth.dependencies import current_user, require_recent_auth, signed_in
@@ -126,8 +134,8 @@ def _party(request: Request) -> ceremonies.RelyingParty:
     return ceremonies.relying_party(_config(request))
 
 
-def _options(options: Any) -> JSONResponse:
-    return JSONResponse(options_to_json_dict(options), headers=_NO_STORE)
+def _options(model: type[CreationOptions | RequestOptions], options: Any) -> Response:
+    return answer(model, options_to_json_dict(options), headers=_NO_STORE)
 
 
 def _invalid() -> Problem:
@@ -198,7 +206,7 @@ async def _owned(db: AsyncSession, user_id: uuid.UUID, passkey_id: uuid.UUID) ->
 # --- registering ----------------------------------------------------------------------
 
 
-@router.post("/passkeys/register/start")
+@router.post("/passkeys/register/start", response_model=CreationOptions)
 async def start_registration(
     body: PasskeyName,
     request: Request,
@@ -241,10 +249,10 @@ async def start_registration(
         db, request, "auth.passkey_registration_started", "success", actor=user.id, subject=user.id
     )
     await db.commit()
-    return _options(options)
+    return _options(CreationOptions, options)
 
 
-@router.post("/passkeys/register/finish", status_code=201)
+@router.post("/passkeys/register/finish", status_code=201, response_model=PasskeyView)
 async def finish_registration(
     body: RegistrationCredential,
     request: Request,
@@ -301,20 +309,20 @@ async def finish_registration(
     shown, to = view(passkey), user.email
     await queue_message(db, to, *_added(_config(request), now, undo))
     await db.commit()
-    return JSONResponse(shown, status_code=201)
+    return answer(PasskeyView, shown, status_code=201)
 
 
 # --- the list, renaming and removing --------------------------------------------------
 
 
-@router.get("/passkeys")
+@router.get("/passkeys", response_model=Passkeys)
 async def list_passkeys(
     user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
 ) -> dict[str, list[dict[str, Any]]]:
     return {"items": [view(passkey) for passkey in await _passkeys_of(db, user.id)]}
 
 
-@router.patch("/passkeys/{id}")
+@router.patch("/passkeys/{id}", response_model=PasskeyView)
 async def rename_passkey(
     passkey_id: Annotated[uuid.UUID, Path(alias="id")],
     body: PasskeyName,
@@ -374,7 +382,9 @@ async def remove_passkey(
 
 
 @router.post(
-    "/passkeys/sign-in/start", dependencies=[Depends(public), Depends(rate_limit("10/1m"))]
+    "/passkeys/sign-in/start",
+    dependencies=[Depends(public), Depends(rate_limit("10/1m"))],
+    response_model=RequestOptions,
 )
 async def start_passkey_sign_in(request: Request, db: AsyncSession = Depends(get_db)) -> Response:
     challenge = ceremonies.new_challenge()
@@ -387,11 +397,13 @@ async def start_passkey_sign_in(request: Request, db: AsyncSession = Depends(get
     )
     await ceremonies.keep(db, ceremonies.SIGN_IN, challenge)
     await db.commit()
-    return _options(options)
+    return _options(RequestOptions, options)
 
 
 @router.post(
-    "/passkeys/sign-in/finish", dependencies=[Depends(public), Depends(rate_limit("10/1m"))]
+    "/passkeys/sign-in/finish",
+    dependencies=[Depends(public), Depends(rate_limit("10/1m"))],
+    response_model=SignedIn,
 )
 async def finish_passkey_sign_in(
     body: AssertionCredential,
@@ -449,7 +461,9 @@ async def _failed_sign_in(
 # --- options for a second factor and for step-up --------------------------------------
 
 
-@router.post("/sign-in/second-factor/passkey", dependencies=[Depends(public)])
+@router.post(
+    "/sign-in/second-factor/passkey", dependencies=[Depends(public)], response_model=RequestOptions
+)
 async def passkey_for_second_factor(
     body: ChallengeOnly, request: Request, db: AsyncSession = Depends(get_db)
 ) -> Response:
@@ -470,17 +484,18 @@ async def passkey_for_second_factor(
         raise Problem("auth.challenge_ended", 401, "This sign-in has ended. Start again.")
     await db.commit()
     return _options(
+        RequestOptions,
         generate_authentication_options(
             rp_id=_party(request).id,
             challenge=challenge,
             timeout=ceremonies.TIMEOUT_MS,
             allow_credentials=ceremonies.descriptors(held),
             user_verification=UserVerificationRequirement.PREFERRED,
-        )
+        ),
     )
 
 
-@router.post("/step-up/passkey")
+@router.post("/step-up/passkey", response_model=RequestOptions)
 async def passkey_for_step_up(
     request: Request,
     user: User = Depends(current_user),
@@ -502,13 +517,14 @@ async def passkey_for_step_up(
     )
     await db.commit()
     return _options(
+        RequestOptions,
         generate_authentication_options(
             rp_id=_party(request).id,
             challenge=challenge,
             timeout=ceremonies.TIMEOUT_MS,
             allow_credentials=ceremonies.descriptors(held),
             user_verification=UserVerificationRequirement.REQUIRED,
-        )
+        ),
     )
 
 

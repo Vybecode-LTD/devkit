@@ -47,12 +47,22 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from kernel import audit as audit_log
 from kernel import clock, moderation
 from kernel.access import public
+from kernel.answers import answer
 from kernel.auth import accounts, audit, ceremonies, mails, second_factor, sessions
+from kernel.auth.answers import (
+    AccountStatus,
+    OwnActivity,
+    SecondFactorNeeded,
+    SessionAnswer,
+    SignedIn,
+    SignInAnswer,
+    SteppedUp,
+)
 from kernel.auth.ceremonies import AssertionCredential
 from kernel.auth.dependencies import (
     current_user,
@@ -147,7 +157,11 @@ async def _wait(limiter: RateLimiter, rules: tuple[str, ...], scope: str, key: s
 # --- signing in ----------------------------------------------------------------
 
 
-@router.post("/sign-in", dependencies=[Depends(public), Depends(rate_limit("10/1m"))])
+@router.post(
+    "/sign-in",
+    dependencies=[Depends(public), Depends(rate_limit("10/1m"))],
+    response_model=SignInAnswer,
+)
 async def sign_in(
     body: SignIn,
     request: Request,
@@ -193,11 +207,14 @@ async def sign_in(
     if methods:
         challenge = await second_factor.open_challenge(db, user)
         await db.commit()
-        return JSONResponse({"status": "second_factor", "challenge": challenge, "methods": methods})
+        return answer(
+            SecondFactorNeeded,
+            {"status": "second_factor", "challenge": challenge, "methods": methods},
+        )
     return await finish_sign_in(request, db, user, second_factor=False)
 
 
-@router.post("/sign-in/second-factor", dependencies=[Depends(public)])
+@router.post("/sign-in/second-factor", dependencies=[Depends(public)], response_model=SignedIn)
 async def finish_with_second_factor(
     body: SecondFactor,
     request: Request,
@@ -261,7 +278,7 @@ async def finish_sign_in(
     *,
     second_factor: bool,
     method: str = "password",
-) -> JSONResponse:
+) -> Response:
     """Start the session, after the first factor (`method`: a password, a
     code or a link) and any second factor. Every caller holds the account's
     row lock already, taken before any token or session row; it is taken
@@ -293,7 +310,7 @@ async def finish_sign_in(
     if not known:
         await queue_message(db, user.email, *new_device_mail(session.device_label, now))
     await db.commit()
-    response = JSONResponse({"status": "signed_in", "user": shown})
+    response = answer(SignedIn, {"status": "signed_in", "user": shown})
     sessions.set_session_cookie(response, token, session)
     sessions.set_device_cookie(response, user)
     return response
@@ -309,14 +326,14 @@ def new_device_mail(device: str, at: datetime) -> mails.Mail:
 # --- the session ---------------------------------------------------------------
 
 
-@router.get("/session")
+@router.get("/session", response_model=SessionAnswer)
 async def session(
     request: Request, user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
     return {"user": await accounts.view(db, user, declared=request.app.state.declared_permissions)}
 
 
-@router.get("/activity")
+@router.get("/activity", response_model=OwnActivity)
 async def activity(
     user: User = Depends(current_user),
     db: AsyncSession = Depends(get_db),
@@ -343,7 +360,7 @@ async def sign_out(request: Request, db: AsyncSession = Depends(get_db)) -> Resp
     return response
 
 
-@router.post("/step-up", dependencies=[Depends(current_user)])
+@router.post("/step-up", dependencies=[Depends(current_user)], response_model=SteppedUp)
 async def step_up(
     body: StepUp,
     request: Request,
@@ -396,7 +413,7 @@ async def step_up(
         details={"method": method},
     )
     await db.commit()
-    response = JSONResponse({"status": "recent"})
+    response = answer(SteppedUp, {"status": "recent"})
     if token is not None:
         supersede(request)
         sessions.set_session_cookie(response, token, row)
@@ -473,7 +490,9 @@ class Suspend(BaseModel):
     reason: str
 
 
-@router.post("/admin/users/{user_id}/suspend", dependencies=_SUSPENDER)
+@router.post(
+    "/admin/users/{user_id}/suspend", dependencies=_SUSPENDER, response_model=AccountStatus
+)
 async def suspend(
     request: Request,
     user_id: uuid.UUID,
@@ -489,7 +508,9 @@ async def suspend(
     return {"status": "suspended"}
 
 
-@router.post("/admin/users/{user_id}/restore", dependencies=_SUSPENDER)
+@router.post(
+    "/admin/users/{user_id}/restore", dependencies=_SUSPENDER, response_model=AccountStatus
+)
 async def restore(
     request: Request,
     user_id: uuid.UUID,

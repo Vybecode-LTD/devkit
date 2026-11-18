@@ -1,0 +1,4 @@
+# Generated files keep LF everywhere, so their --check compares the same bytes on Windows and Linux.
+kernel/openapi.json text eol=lf
+modules/*/openapi.json text eol=lf
+kernel/web/src/api/schema.ts text eol=lf

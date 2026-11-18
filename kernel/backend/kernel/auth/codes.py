@@ -57,11 +57,13 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import exists, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from kernel import clock
 from kernel.access import public
+from kernel.answers import answer
 from kernel.auth import accounts, audit, floor, mails, second_factor, sessions, tokens
+from kernel.auth.answers import CheckEmail, SecondFactorNeeded, SignInAnswer
 from kernel.auth.hashing import keyed_hash, same
 from kernel.auth.models import Token, User
 from kernel.auth.routes import finish_sign_in
@@ -129,6 +131,7 @@ async def _void(db: AsyncSession, user_id: uuid.UUID) -> None:
 @router.post(
     "/code",
     status_code=202,
+    response_model=CheckEmail,
     dependencies=[Depends(public), Depends(rate_limit(ASKS_PER_IP))],
 )
 async def ask_for_code(
@@ -251,7 +254,7 @@ async def _use(db: AsyncSession, token_id: uuid.UUID) -> bool:
     return used is not None
 
 
-@router.post("/code/verify", dependencies=[Depends(public)])
+@router.post("/code/verify", dependencies=[Depends(public)], response_model=SignInAnswer)
 async def verify_code(
     body: VerifyCode,
     request: Request,
@@ -288,7 +291,7 @@ async def _verify_code(body: VerifyCode, request: Request, db: AsyncSession) -> 
     return await _sign_in(request, db, taken.user_id, taken.email_normal, "code", _invalid_code)
 
 
-@router.post("/link/confirm", dependencies=[Depends(public)])
+@router.post("/link/confirm", dependencies=[Depends(public)], response_model=SignInAnswer)
 async def confirm_link(
     body: ConfirmLink,
     request: Request,
@@ -332,5 +335,8 @@ async def _sign_in(
     if methods:
         challenge = await second_factor.open_challenge(db, user, method=method)
         await db.commit()
-        return JSONResponse({"status": "second_factor", "challenge": challenge, "methods": methods})
+        return answer(
+            SecondFactorNeeded,
+            {"status": "second_factor", "challenge": challenge, "methods": methods},
+        )
     return await finish_sign_in(request, db, user, second_factor=False, method=method)

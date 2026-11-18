@@ -52,6 +52,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kernel import clock, events
 from kernel.access import public
 from kernel.auth import accounts, audit, floor, mails, sessions, tokens
+from kernel.auth.answers import CheckEmail, EmailChanged, EmailRestored
 from kernel.auth.dependencies import require_recent_auth
 from kernel.auth.models import Token, User
 from kernel.config import KernelConfig
@@ -167,7 +168,7 @@ async def _void_confirms(db: AsyncSession, user_id: uuid.UUID) -> None:
 # --- asking -------------------------------------------------------------------------
 
 
-@router.post("/email/change", status_code=202)
+@router.post("/email/change", status_code=202, response_model=CheckEmail)
 async def change_email(
     body: EmailChange,
     request: Request,
@@ -234,7 +235,7 @@ async def _waiting(db: AsyncSession, user_id: uuid.UUID) -> bool:
 # --- confirming ---------------------------------------------------------------------
 
 
-@router.post("/email/confirm", dependencies=[Depends(public)])
+@router.post("/email/confirm", dependencies=[Depends(public)], response_model=EmailChanged)
 async def confirm_email_change(
     body: EmailLink,
     request: Request,
@@ -291,7 +292,7 @@ async def confirm_email_change(
 # --- undoing ------------------------------------------------------------------------
 
 
-@router.post("/email/undo", dependencies=[Depends(public)])
+@router.post("/email/undo", dependencies=[Depends(public)], response_model=EmailRestored)
 async def undo_email_change(
     body: EmailLink,
     request: Request,

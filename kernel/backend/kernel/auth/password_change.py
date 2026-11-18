@@ -35,10 +35,12 @@ from typing import cast
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from kernel import clock
+from kernel.answers import answer
 from kernel.auth import accounts, audit, mails, sessions, tokens
+from kernel.auth.answers import PasswordChanged
 from kernel.auth.dependencies import require_recent_auth, signed_in
 from kernel.auth.models import Session, User
 from kernel.auth.passwords import Passwords, refusal, site_context
@@ -68,7 +70,7 @@ def _wrong_password() -> Problem:
     return Problem("auth.invalid_credentials", 401, "That password isn't right.")
 
 
-@router.post("/password/change")
+@router.post("/password/change", response_model=PasswordChanged)
 async def change_password(
     body: PasswordChange,
     request: Request,
@@ -135,7 +137,7 @@ async def _change(
     config = cast(KernelConfig, request.app.state.config)
     await queue_message(db, to, *_notice(config, now))
     await db.commit()
-    response = JSONResponse({"status": "password_changed"})
+    response = answer(PasswordChanged, {"status": "password_changed"})
     sessions.set_device_cookie(response, user)  # signed over the new epoch
     return response
 

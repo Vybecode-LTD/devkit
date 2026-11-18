@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kernel import clock, events
 from kernel.access import public
 from kernel.auth import accounts, audit, floor, mails, sessions, tokens
+from kernel.auth.answers import CheckEmail, PasswordReset
 from kernel.auth.models import Token, User
 from kernel.auth.passwords import Passwords, refusal, site_context
 from kernel.auth.routes import forget_sign_in_failures
@@ -88,6 +89,7 @@ def _token_invalid() -> Problem:
 @router.post(
     "/password/reset-request",
     status_code=202,
+    response_model=CheckEmail,
     dependencies=[Depends(public), Depends(rate_limit(ASKS_PER_IP))],
 )
 async def ask_for_reset(
@@ -143,7 +145,7 @@ def _reset_mail(config: KernelConfig, token: str) -> mails.Mail:
 # --- resetting ----------------------------------------------------------------------
 
 
-@router.post("/password/reset", dependencies=[Depends(public)])
+@router.post("/password/reset", dependencies=[Depends(public)], response_model=PasswordReset)
 async def reset_password(
     body: Reset,
     request: Request,
