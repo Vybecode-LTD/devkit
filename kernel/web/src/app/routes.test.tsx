@@ -290,6 +290,84 @@ describe("moving between pages", () => {
     }
   });
 
+  /** A module whose page's code arrives `late` ms after it's asked for. */
+  function slowPage(late: number) {
+    return defineModule({
+      id: "late",
+      routes: {
+        public: [
+          {
+            path: "/late",
+            lazy: () =>
+              new Promise((resolve) => {
+                setTimeout(() => {
+                  resolve({ default: () => <h1>Very late heading</h1> });
+                }, late);
+              }),
+          },
+        ],
+        member: [],
+        admin: [],
+      },
+    });
+  }
+
+  it("moves the focus on to a heading that comes after the main area was focused (CodeRabbit on #79)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [slowPage(FOCUS_WAIT_MS + 1000)] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/late"));
+      await act(() => vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS + 50));
+      expect(screen.getByRole("main")).toHaveFocus();
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      const heading = await screen.findByRole("heading", { name: "Very late heading" });
+      await waitFor(() => {
+        expect(heading).toHaveFocus();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("leaves the focus where the person put it while the page was still coming", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [slowPage(FOCUS_WAIT_MS + 1000)] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/late"));
+      await act(() => vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS + 50));
+      const signIn = screen.getByRole("link", { name: "Sign in" });
+      act(() => {
+        signIn.focus();
+      });
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      await screen.findByRole("heading", { name: "Very late heading" });
+      await act(() => vi.advanceTimersByTimeAsync(50));
+      expect(signIn).toHaveFocus();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops waiting for a heading once the person has moved to another page", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [slowPage(FOCUS_WAIT_MS + 1000), blog] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/late"));
+      await act(() => router.navigate("/blog"));
+      const blogHeading = await screen.findByRole("heading", { name: "The blog" });
+      await waitFor(() => {
+        expect(blogHeading).toHaveFocus();
+      });
+      await act(() => vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS + 1100));
+      expect(blogHeading).toHaveFocus();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("signs out from the frame and goes home", async () => {
     vi.stubGlobal(
       "fetch",
