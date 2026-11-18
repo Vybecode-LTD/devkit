@@ -16,7 +16,7 @@ Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claud
 - **The repo** is public at github.com/mechframe/mechframe. The `main` ruleset came with it, the old URL redirects, and the local remote points here. Reviewers: Codex, CodeRabbit (it skips a PR over 100 files) and cubic, which reviews every push and found real slips on both PRs.
 - **The Vibrant Mindz owner decisions of 2026-11-17** are in `docs/plans/vibrant-mindz-backend/backend-plan.md` section 4, with the options that lost:
   - one primary-button hover, `#FF9447`; K4's admin shell hovers to the theme's accent-hover;
-  - a Videos page at `/videos` in the site's step 2, with `featured_placement.video_kind`;
+  - a Videos page at `/videos` in the site's step 2, with `featured_placement.video_kind` (kinds confirmed 2026-11-18);
   - cards, Apple Pay and Google Pay on Stripe's hosted Checkout at launch, with no domain step, PayPal later;
   - steps 6 and 7 designed after launch.
 
@@ -41,7 +41,7 @@ Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claud
 - Decisions 0032 to 0039's own calls, each listed in its record: keep them?
 - When to make the R2 test buckets. The desk steps: the `postgres` password, and `Set-ExecutionPolicy` if wanted.
 - Rename the folder `C:\DEV\AI-DevKit`? Claude Code's memory for the project moves with it. Also rename the claude.ai account's `devkit-*` skills (decision 0034).
-- The Videos page's kind names (`music-video`, `rap-battle`, `poetry`) are still to be confirmed.
+- For the site's step 4: how many days links from new community members are held for a moderator (backend plan section 4, owner answers of 2026-11-18).
 - `C:\DEV\knowledge\owner.md` is uncommitted: the owner commits it.
 
 ## Notes

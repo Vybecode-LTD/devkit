@@ -25,7 +25,7 @@ Panel with a 16:9 stage plus a control bar on the left and a 380px playlist on t
 - Current row: `aria-current="true"`, orange ring and tint, animated equalizer while playing (still under reduced motion).
 
 ## The Videos page
-`/videos` (`design/site/Videos.dc.html`, owner, 2026-11-17) uses this same player at the top, playing every video in the list, then shows the whole list as cards with filters by kind (All, Music videos, Rap battles, Poetry; suggested names). Picking a card plays it in the player and scrolls up to it (no smooth scroll under reduced motion); the playing card gets an orange ring and a "Now playing" label. The filters change the cards only, never the player's playlist. The homepage's section header has an "All videos" link here.
+`/videos` (`design/site/Videos.dc.html`, owner, 2026-11-17) uses this same player at the top, playing every video in the list, then shows the whole list as cards with filters by kind (All, Music videos, Rap battles, Poetry; confirmed by the owner, 2026-11-18). Picking a card plays it in the player and scrolls up to it (no smooth scroll under reduced motion); the playing card gets an orange ring and a "Now playing" label. The filters change the cards only, never the player's playlist. The homepage's section header has an "All videos" link here.
 
 ## Canvas note
 claude.ai artifacts block iframes from other sites, so in the canvas the stage shows "Plays right here on the live site" with a Watch on YouTube link instead of the player. The real site has no such check.

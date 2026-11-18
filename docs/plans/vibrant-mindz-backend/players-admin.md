@@ -29,7 +29,7 @@ featured_slot       key PK ('spotlight' | 'releases' | 'videos' on this site), l
 featured_placement  id, slot_key FK, position, kind ('item' | 'link'),
                     ref_module, ref_type, ref_id        -- for an item, such as discography / track / <uuid>
                     url, title, poster_url              -- for a link, such as a YouTube video
-                    video_kind (null)                   -- a video's kind, the Videos page's filters: 'music-video' | 'rap-battle' | 'poetry' (suggested names, the owner to confirm)
+                    video_kind (null)                   -- a video's kind, the Videos page's filters: 'music-video' | 'rap-battle' | 'poetry' (confirmed by the owner, 2026-11-18)
                     starts_at (null), ends_at (null)
                     unique (slot_key, position)
 ```
