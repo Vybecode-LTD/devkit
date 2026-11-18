@@ -474,8 +474,10 @@ class Routes:
         among the modules `on` (every module installed when None): a module
         that's off steps aside, so its pattern never keeps an address from a
         module on whose pattern also takes it. A kernel page is no module's,
-        so the shell, the sitemap and llms.txt all leave it to the kernel."""
-        if path in KERNEL_PAGE_TITLES:
+        so the shell, the sitemap and llms.txt all leave it to the kernel; nor
+        is an address with a trailing slash, which the shell moves to the one
+        without it (cubic on #79)."""
+        if path in KERNEL_PAGE_TITLES or (path != "/" and path.endswith("/")):
             return None
         segments = () if path == "/" else tuple(path[1:].split("/"))
         for pattern in self._patterns:

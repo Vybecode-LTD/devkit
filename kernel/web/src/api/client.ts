@@ -19,13 +19,14 @@
  * module's `api.ts` makes its own with `createApiClient<paths>()` from its
  * own `openapi.json`.
  */
-import type {
-  QueryClient,
-  SkipToken,
-  UseMutationOptions,
-  UseMutationResult,
-  UseQueryOptions,
-  UseQueryResult,
+import {
+  useQueryClient,
+  type QueryClient,
+  type SkipToken,
+  type UseMutationOptions,
+  type UseMutationResult,
+  type UseQueryOptions,
+  type UseQueryResult,
 } from "@tanstack/react-query";
 import createClient, {
   type Client,
@@ -247,10 +248,13 @@ export function createApiClient<Paths extends AnyPaths>(options: ApiClientOption
     path: unknown,
     init?: unknown,
     given?: object,
-    client?: unknown,
+    client?: QueryClient,
   ) => {
     onlyReads(method);
-    return useQuery(method, path, init, { retry: retryUnlessRefused, ...given }, client);
+    // A query cache that sets its own retry rule keeps it (the app's is this
+    // one; the test helpers' never retries: cubic on #79); else this one.
+    const retry = useQueryClient(client).getDefaultOptions().queries?.retry ?? retryUnlessRefused;
+    return useQuery(method, path, init, { retry, ...given }, client);
   }) as UseApiQuery<Paths>;
   const apiQueryOptions = ((method: string, path: unknown, init?: unknown, given?: object) => {
     onlyReads(method);

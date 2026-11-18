@@ -23,6 +23,10 @@ describe("a route that takes a kernel page", () => {
     ["/admin/people", "/admin/people"],
     ["/admin/:section", "/admin/people"],
     ["/account/*", "/account"],
+    ["/account/", "/account"], // the router ignores a trailing slash (CodeRabbit on #79)
+    ["/admin/people/:tab?", "/admin/people"], // an optional part may be left out (cubic on #79)
+    ["/auth/:step?/undo", "/auth/email/undo"],
+    ["/:lang?/sign-in", "/sign-in"],
   ])("%s takes %s", (route, page) => {
     expect(kernelPageTaken(route)?.path).toBe(page);
   });

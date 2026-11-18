@@ -90,6 +90,46 @@ describe("the public pages", () => {
     expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
     expect(document.title).toBe("Sign in · Test Site");
   });
+
+  it("match with case, as the server does (cubic on #79)", async () => {
+    renderApp({ path: "/Sign-In" });
+    expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+  });
+
+  it("say the site can't be reached, with a way to try again, when the modules on can't be read (cubic, CodeRabbit on #79)", async () => {
+    routedFetch({});
+    renderApp({ path: "/blog", modules: [blog], on: "loading" });
+    expect(await screen.findByRole("heading", { name: "The site can't be reached" })).toBeInTheDocument();
+    routedFetch({ "GET /api/kernel/modules": { status: 200, body: { on: ["blog"] } } });
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "The blog" })).toBeInTheDocument();
+  });
+
+  it("say so on the home page when the site's identity can't be read (CodeRabbit on #79)", async () => {
+    routedFetch({});
+    renderApp({ site: "loading" });
+    expect(await screen.findByRole("heading", { name: "The site can't be reached" })).toBeInTheDocument();
+  });
+
+  it("are the 404 page for a module switched off while the app is open, before any sign-in or permission (cubic, CodeRabbit on #79)", async () => {
+    const off = { on: [] };
+    const member = renderApp({ modules: [blog] });
+    await screen.findByRole("heading", { name: "Test Site" });
+    act(() => {
+      member.queryClient.setQueryData(["get", "/api/kernel/modules"], off);
+    });
+    await act(() => member.router.navigate("/blog/drafts"));
+    expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+    expect(at(member.router)).toBe("/blog/drafts");
+    member.unmount();
+    const admin = renderApp({ modules: [blog], session: staff });
+    await screen.findByRole("heading", { name: "Test Site" });
+    act(() => {
+      admin.queryClient.setQueryData(["get", "/api/kernel/modules"], off);
+    });
+    await act(() => admin.router.navigate("/admin/blog"));
+    expect(await screen.findByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+  });
 });
 
 describe("the member pages", () => {
@@ -206,6 +246,30 @@ describe("moving between pages", () => {
     await waitFor(() => {
       expect(heading).toHaveFocus();
     });
+  });
+
+  it("keeps the restored scroll on back and forward, focusing without scrolling (cubic on #79)", async () => {
+    const focused = vi.spyOn(HTMLElement.prototype, "focus");
+    const { router } = renderApp({ modules: [blog] });
+    await screen.findByRole("heading", { name: "Test Site" });
+    await act(() => router.navigate("/blog"));
+    await screen.findByRole("heading", { name: "The blog" });
+    await waitFor(() => {
+      expect(focused).toHaveBeenLastCalledWith({ preventScroll: false });
+    });
+    await act(() => router.navigate(-1));
+    const home = await screen.findByRole("heading", { name: "Test Site" });
+    await waitFor(() => {
+      expect(home).toHaveFocus();
+    });
+    expect(focused).toHaveBeenLastCalledWith({ preventScroll: true });
+  });
+
+  it("leaves the first page's focus alone under StrictMode, which runs effects twice (cubic on #79)", async () => {
+    renderApp({ strict: true, site: { name: "Strict" } });
+    const heading = await screen.findByRole("heading", { name: "Strict" });
+    await new Promise((settle) => setTimeout(settle, 50));
+    expect(heading).not.toHaveFocus();
   });
 
   it("focuses the page's main area when it has no heading after a while", async () => {

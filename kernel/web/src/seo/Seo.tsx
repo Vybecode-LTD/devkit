@@ -5,7 +5,7 @@
  * alone, so it's dropped once the person has gone elsewhere.
  *
  * The tags are the ones `kernel.server_copy.head` writes: title, description,
- * robots, canonical, Open Graph and the Twitter card.
+ * robots, canonical, Open Graph, the Twitter card and an article's times.
  */
 import { useEffect } from "react";
 import { useLocation } from "react-router";
@@ -23,6 +23,9 @@ export type SeoProps = {
   /** Open Graph's type: website, article and the like. */
   type?: string;
   noindex?: boolean;
+  /** An article's times, as ISO 8601; a page without them drops the last page's (cubic on #79). */
+  published?: string;
+  modified?: string;
 };
 
 /** The address the document was first loaded at: its JSON-LD is that page's. */
@@ -41,6 +44,8 @@ const TAGS = {
   ogImage: { tag: "meta", key: "property", id: "og:image", attribute: "content" },
   ogSiteName: { tag: "meta", key: "property", id: "og:site_name", attribute: "content" },
   twitterCard: { tag: "meta", key: "name", id: "twitter:card", attribute: "content" },
+  published: { tag: "meta", key: "property", id: "article:published_time", attribute: "content" },
+  modified: { tag: "meta", key: "property", id: "article:modified_time", attribute: "content" },
 } as const satisfies Record<string, Tag>;
 
 /** Sets the one tag `which` names to `value`, or removes it for `undefined`. */
@@ -61,7 +66,7 @@ function absolute(url: string): string {
   return new URL(url, location.origin).href;
 }
 
-export function Seo({ title, description, path, image, type = "website", noindex = false }: SeoProps) {
+export function Seo({ title, description, path, image, type = "website", noindex = false, published, modified }: SeoProps) {
   const site = useSite();
   const here = useLocation().pathname;
   useEffect(() => {
@@ -79,9 +84,11 @@ export function Seo({ title, description, path, image, type = "website", noindex
     put(TAGS.ogImage, picture === undefined ? undefined : absolute(picture));
     if (site) put(TAGS.ogSiteName, site.name);
     put(TAGS.twitterCard, picture === undefined ? "summary" : "summary_large_image");
+    put(TAGS.published, published || undefined);
+    put(TAGS.modified, modified || undefined);
     if (here !== FIRST) {
       for (const data of document.head.querySelectorAll('script[type="application/ld+json"]')) data.remove();
     }
-  }, [title, description, path, image, type, noindex, site, here]);
+  }, [title, description, path, image, type, noindex, published, modified, site, here]);
   return null;
 }

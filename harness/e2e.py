@@ -81,8 +81,10 @@ def main(root: Path = ROOT) -> int:
     from harness.migrations import upgrade
 
     upgrade(database_url)
-    # Made up, as conftest.py's are, so a local .env's real keys, bucket or
-    # mail server are never used. .test is reserved (RFC 2606), never live.
+    # Made up, as conftest.py's are. The app reads no .env (env_file=False
+    # below), so a local one's keys, bucket or mail server never reach it;
+    # these blanks also cover anything set in the shell. .test is reserved
+    # (RFC 2606), never live.
     os.environ.update(
         {
             "HARNESS_TEST_SUPPORT": "1",
@@ -103,7 +105,13 @@ def main(root: Path = ROOT) -> int:
             "STORAGE_ACCESS_KEY_ID": "",
             "STORAGE_SECRET_ACCESS_KEY": "",
             "STORAGE_BUCKET": "",
+            "STORAGE_PUBLIC_BUCKET": "",
+            "STORAGE_PUBLIC_URL": "",
+            "MAIL_FROM": "",
+            "MAIL_FROM_NAME": "",
             "SMTP_HOST": "",
+            "SMTP_USERNAME": "",
+            "SMTP_PASSWORD": "",
             "RESEND_API_KEY": "",
         }
     )
@@ -111,7 +119,7 @@ def main(root: Path = ROOT) -> int:
 
     from harness.testing import build_test_app
 
-    app = build_test_app(database_url)  # registers the settings sections
+    app = build_test_app(database_url, env_file=False)  # registers the settings sections
     asyncio.run(describe(database_url))
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
     return 0

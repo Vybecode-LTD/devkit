@@ -5,7 +5,7 @@
   "description": "MechFrame's web workspaces: the kernel's web half, each module's web binding and the harness app.",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.12"
   },
   "workspaces": [
     "kernel/web",
@@ -68,6 +68,7 @@
   "//": [
     "overrides.minimatch: eslint 10 and typescript-eslint 8 ask for minimatch 10, which has GHSA-g3hv-75wg-m249 (dev-only, a DoS). 11.0.8 is past it; drop the override when they move to 11.",
     "overrides.openapi-typescript: 7.13 asks for TypeScript ^5 as a peer; the repo is on 6.0.x for typescript-eslint, and the generator runs fine on it (npm run api:check passes). Drop the override when it allows 6.",
+    "engines.node: 22.12 at least, as @axe-core/playwright 4.14 asks (cubic on #79); engine-strict is on (.npmrc).",
     "overrides.@axe-core/playwright: it asks for playwright-core ^1 and would pull a newer one than the runner's; held to @playwright/test's own, so one Chromium build (1248) serves both."
   ]
 }

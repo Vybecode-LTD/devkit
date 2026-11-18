@@ -35,6 +35,14 @@ export type ModuleDefinition = {
 
 const MODULE_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
+/** The ids the kernel keeps for its own API (`/api/auth`, `/api/kernel`), as the backend does. */
+const RESERVED = new Set(["auth", "kernel"]);
+
+/** A path on this site as the browser reads it: dots resolved, no query or fragment. */
+function pathOf(to: string): string {
+  return new URL(to, "https://site.invalid").pathname;
+}
+
 function checkRoutes(definition: ModuleDefinition): void {
   const seen = new Set<string>();
   for (const [level, routes] of Object.entries(definition.routes)) {
@@ -73,7 +81,8 @@ function checkSlots(definition: ModuleDefinition): void {
         if (typeof to !== "string" || safeNext(to) === null) {
           throw new Error(`${definition.id}'s ${name} link must go to a path on this site.`);
         }
-        if (name === "nav.admin" && !(to === "/admin" || to.startsWith("/admin/"))) {
+        const path = pathOf(to);
+        if (name === "nav.admin" && !(path === "/admin" || path.startsWith("/admin/"))) {
           throw new Error(`${definition.id}'s nav.admin link ${to} must go under /admin/.`);
         }
       } else if (typeof entry.lazy !== "function") {
@@ -92,6 +101,9 @@ function checkSlots(definition: ModuleDefinition): void {
 export function defineModule(definition: ModuleDefinition): ModuleDefinition {
   if (!MODULE_ID.test(definition.id)) {
     throw new Error(`"${definition.id}" isn't a module id: lowercase letters, digits and hyphens.`);
+  }
+  if (RESERVED.has(definition.id)) {
+    throw new Error(`"${definition.id}" is the kernel's own id: give the module another (cubic on #79).`);
   }
   checkRoutes(definition);
   checkSlots(definition);

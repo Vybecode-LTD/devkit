@@ -53,9 +53,24 @@ describe("defineModule", () => {
     expect(() => defineModule(blog({ routes }))).toThrow(/takes the kernel's page/);
   });
 
-  it("refuses a public or member route under /admin", () => {
-    const routes = { ...blog().routes, member: [{ path: "/admin/mine", lazy: page }] };
+  it.each(["public", "member"] as const)("refuses a %s route under /admin", (level) => {
+    const routes = { ...blog().routes, [level]: [{ path: "/admin/mine", lazy: page }] };
     expect(() => defineModule(blog({ routes }))).toThrow(/list it as an admin route/);
+  });
+
+  it.each(["auth", "kernel"])("refuses the id %s, which the kernel keeps (cubic on #79)", (id) => {
+    expect(() => defineModule(blog({ id }))).toThrow(/the kernel's own/);
+  });
+
+  it("refuses an admin link that leaves /admin once its dots are read", () => {
+    expect(() => defineModule(blog({ slots: { "nav.admin": [{ label: "Out", to: "/admin/../sign-in" }] } }))).toThrow(
+      /must go under \/admin/,
+    );
+  });
+
+  it("takes an admin link with a query", () => {
+    const definition = blog({ slots: { "nav.admin": [{ label: "People", to: "/admin?tab=people" }] } });
+    expect(defineModule(definition)).toBe(definition);
   });
 
   it("refuses a slot the kernel doesn't have", () => {

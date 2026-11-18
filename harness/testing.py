@@ -182,16 +182,19 @@ def enabled() -> bool:
     return os.environ.get("HARNESS_TEST_SUPPORT") == "1"
 
 
-def build_test_app(database_url: str | None = None) -> FastAPI:
+def build_test_app(database_url: str | None = None, *, env_file: bool = True) -> FastAPI:
     """The harness's app with the test-support routes at /api/_test, on
-    `database_url` when given (else DATABASE_URL)."""
+    `database_url` when given (else DATABASE_URL). With `env_file=False` it
+    reads no .env, only the environment: the end-to-end server's way, so a
+    local .env's settings never reach it (cubic on #79)."""
     if not enabled():
         raise RuntimeError("HARNESS_TEST_SUPPORT=1 is needed to mount the test-support routes.")
-    config = (
-        KernelConfig(database_url=database_url, sign_up_mode="open")
-        if database_url
-        else KernelConfig(sign_up_mode="open")
-    )
+    given: dict[str, Any] = {"sign_up_mode": "open"}
+    if database_url:
+        given["database_url"] = database_url
+    if not env_file:
+        given["_env_file"] = None
+    config = KernelConfig(**given)
     captured = CapturingMailer()
 
     async def fake_range(prefix: str) -> str:

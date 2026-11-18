@@ -18,6 +18,11 @@ function serversHead() {
     '<meta property="og:title" content="A stray second one" />',
     '<meta property="og:type" content="article" />',
     '<meta name="twitter:card" content="summary" />',
+    '<meta name="robots" content="noindex" />',
+    '<meta property="og:description" content="The first post." />',
+    '<meta property="og:image" content="https://site.test/hello.png" />',
+    '<meta property="article:published_time" content="2026-11-01T12:00:00+00:00" />',
+    '<meta property="article:modified_time" content="2026-11-02T12:00:00+00:00" />',
     '<script type="application/ld+json">{"@type":"BlogPosting"}</script>',
   ].join("");
 }
@@ -46,6 +51,8 @@ describe("<Seo>", () => {
 
   it("removes what the page doesn't have, and marks one not to index", () => {
     renderWithKernel(<Seo title="Sign in" noindex />);
+    expect(tag('meta[property="article:published_time"]')).toEqual([]); // the first post's dates (cubic on #79)
+    expect(tag('meta[property="article:modified_time"]')).toEqual([]);
     expect(tag('meta[name="description"]')).toEqual([]);
     expect(tag('meta[property="og:description"]')).toEqual([]);
     expect(tag('meta[property="og:image"]')).toEqual([]);
@@ -58,6 +65,12 @@ describe("<Seo>", () => {
     expect(tag('script[type="application/ld+json"]', "type")).toHaveLength(1);
     await act(() => router.navigate("/elsewhere"));
     expect(tag('script[type="application/ld+json"]', "type")).toHaveLength(0);
+  });
+
+  it("writes an article's dates, and drops the modified one it doesn't have", () => {
+    renderWithKernel(<Seo title="Later" type="article" published="2026-11-10T09:00:00Z" />);
+    expect(tag('meta[property="article:published_time"]')).toEqual(["2026-11-10T09:00:00Z"]);
+    expect(tag('meta[property="article:modified_time"]')).toEqual([]);
   });
 
   it("takes the page's own picture over the site's card", () => {

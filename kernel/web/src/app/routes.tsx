@@ -11,25 +11,35 @@
  *
  * Every module page loads lazily, and a module that's off is the 404 page.
  */
-import { Suspense, type ComponentType } from "react";
+import { Suspense, type ComponentType, type ReactNode } from "react";
 import type { RouteObject } from "react-router";
 
 import { RequireAdmin, RequireAuth, RequirePermission } from "../guards/guards";
 import type { ModuleDefinition, ModuleRoute } from "../modules";
-import { useModuleEnabled, useModulesOn } from "../site/site";
+import { useModulesRead } from "../site/site";
 import { AdminFrame, Root, SiteFrame } from "./frames";
 import { lazyPart } from "./lazy";
 import { KERNEL_PAGES, type KernelPage } from "./pages";
-import { Home, NotFound, Pending } from "./pages/KernelPages";
+import { Home, NotFound, Pending, Unreachable } from "./pages/KernelPages";
 import { RouteError } from "./RouteError";
 
 type Owned = { module: string; page: ComponentType };
 
-/** A module's page: nothing while it's unknown whether the module is on, the 404 page if it's off. */
-export function ModulePage({ module, page: Page }: Owned) {
-  const on = useModuleEnabled(module);
-  if (on === undefined) return null;
-  if (!on) return <NotFound />;
+/**
+ * A module's page waits for its switch, says so if the switch can't be read,
+ * and is the 404 page while it's off: before any sign-in or permission is
+ * asked for, so a module that's off is never more than a missing page
+ * (cubic and CodeRabbit on #79).
+ */
+export function ModuleGate({ module, children }: { module: string; children: ReactNode }) {
+  const found = useModulesRead();
+  if (found.status === "loading") return null;
+  if (found.status === "failed") return <Unreachable problem={found.problem} retry={found.retry} />;
+  if (!found.value.has(module)) return <NotFound />;
+  return children;
+}
+
+function Loaded({ page: Page }: { page: ComponentType }) {
   return (
     <Suspense fallback={null}>
       <Page />
@@ -39,26 +49,40 @@ export function ModulePage({ module, page: Page }: Owned) {
 
 /** `/`: the page of the first module on that declares it, else the kernel's home. */
 function HomeRoute({ owners }: { owners: readonly Owned[] }) {
-  const on = useModulesOn();
+  const found = useModulesRead();
   if (owners.length === 0) return <Home />;
-  if (on === undefined) return null;
-  const owner = owners.find((each) => on.has(each.module));
-  return owner ? <ModulePage module={owner.module} page={owner.page} /> : <Home />;
+  if (found.status === "loading") return null;
+  if (found.status === "failed") return <Unreachable problem={found.problem} retry={found.retry} />;
+  const owner = owners.find((each) => found.value.has(each.module));
+  return owner ? <Loaded page={owner.page} /> : <Home />;
 }
 
 function kernelRoute(page: KernelPage): RouteObject {
   const shown = <Pending page={page} />;
   return {
     path: page.path,
+    caseSensitive: true,
     element: page.permission ? <RequirePermission permission={page.permission}>{shown}</RequirePermission> : shown,
   };
 }
 
-function moduleRoute(module: ModuleDefinition, route: ModuleRoute, permission?: string): RouteObject {
-  const page = <ModulePage module={module.id} page={lazyPart(route.lazy)} />;
+type Access = "public" | "member" | "admin";
+
+/** A module's route: its switch first, then who may see it, then the page. */
+function moduleRoute(module: ModuleDefinition, route: ModuleRoute, access: Access): RouteObject {
+  const page = <Loaded page={lazyPart(route.lazy)} />;
+  const guarded =
+    access === "member" ? (
+      <RequireAuth>{page}</RequireAuth>
+    ) : access === "admin" && route.permission ? (
+      <RequirePermission permission={route.permission}>{page}</RequirePermission>
+    ) : (
+      page
+    );
   return {
     path: route.path,
-    element: permission ? <RequirePermission permission={permission}>{page}</RequirePermission> : page,
+    caseSensitive: true, // as the server matches (cubic on #79)
+    element: <ModuleGate module={module.id}>{guarded}</ModuleGate>,
   };
 }
 
@@ -67,7 +91,7 @@ function moduleRoute(module: ModuleDefinition, route: ModuleRoute, permission?: 
  * unknown). A module that's off has no routes at all, so its pattern never
  * keeps an address from a module on whose pattern also takes it, as the
  * server's `Routes.resolve(path, on)` has it (Codex on #79). A module switched
- * off while the app is open is still the 404 page (`ModulePage`).
+ * off while the app is open is still the 404 page (`ModuleGate`).
  */
 export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet<string>): RouteObject[] {
   const modules = on === undefined ? given : given.filter((module) => on.has(module.id));
@@ -89,20 +113,16 @@ export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet
             { index: true, element: <HomeRoute owners={owners} /> },
             ...kernel("public").map(kernelRoute),
             ...modules.flatMap((module) =>
-              module.routes.public.filter((route) => route.path !== "/").map((route) => moduleRoute(module, route)),
+              module.routes.public.filter((route) => route.path !== "/").map((route) => moduleRoute(module, route, "public")),
             ),
-            {
-              element: <RequireAuth />,
-              children: [
-                ...kernel("member").map(kernelRoute),
-                ...modules.flatMap((module) => module.routes.member.map((route) => moduleRoute(module, route))),
-              ],
-            },
+            ...modules.flatMap((module) => module.routes.member.map((route) => moduleRoute(module, route, "member"))),
+            { element: <RequireAuth />, children: kernel("member").map(kernelRoute) },
             { path: "*", element: <NotFound /> },
           ],
         },
         {
           path: "/admin",
+          caseSensitive: true,
           element: (
             <RequireAdmin
               notFound={
@@ -119,9 +139,7 @@ export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet
             ...kernel("admin")
               .filter((page) => page !== dashboard)
               .map(kernelRoute),
-            ...modules.flatMap((module) =>
-              module.routes.admin.map((route) => moduleRoute(module, route, route.permission)),
-            ),
+            ...modules.flatMap((module) => module.routes.admin.map((route) => moduleRoute(module, route, "admin"))),
             { path: "*", element: <NotFound /> },
           ],
         },

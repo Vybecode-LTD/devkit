@@ -11,6 +11,8 @@ type Props = {
   where: string;
   /** What shows instead; a short line with a way to try again by default. */
   fallback?: (retry: () => void) => ReactNode;
+  /** Called on Try again, before drawing the part again: a parent that made it may make it anew. */
+  onRetry?: () => void;
 };
 
 type State = { failed: boolean };
@@ -27,6 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   retry = (): void => {
+    this.props.onRetry?.();
     this.setState({ failed: false });
   };
 

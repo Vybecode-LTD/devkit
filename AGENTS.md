@@ -77,6 +77,8 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | Audit web dependencies, with the expiring allowlist (`tools/npm_audit_allow.json`, decision 0015) | `python -m tools.npm_audit` |
 | Web install | `npm ci` |
 | Web tests, lint, types, build | `npm test`, `npm run lint`, `npm run typecheck`, `npm run build` |
+| Web coverage (85 % of lines, the contract's floor; CI's Web job runs it) | `npm run test:coverage` |
+| End-to-end tests (Playwright 1.64.1, Chromium build 1248, axe), locally before each push | `npm run build`, then `npm run e2e` with `TEST_DATABASE_URL` set; it starts its own `python -m harness.e2e` on a `mechframe_e2e` database made fresh each run, never one already running, and reads no `.env`. CI runs them on main's pushes, weekly and by hand (`e2e.yml`), never on a PR |
 | Link the project skills for Claude Code | `python -m tools.link_skills` |
 | Progress document and ledger rows, after editing `docs/progress.json` | `python -m tools.progress` (`--check` only reports) |
 | Event payloads as JSON Schema, after declaring or changing one | `python -m tools.event_schemas` (`--check` only reports) |

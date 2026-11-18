@@ -37,12 +37,32 @@ export const KERNEL_PAGES: readonly KernelPage[] = [
   { path: "/admin/settings/system", title: "System", access: "admin", permission: "kernel.settings.manage" },
 ];
 
+/** A path's segments, as the router reads them: no empty ones, so a trailing slash counts for nothing. */
 function segments(path: string): string[] {
-  return path === "/" ? [] : path.slice(1).split("/");
+  return path.split("/").filter(Boolean);
 }
 
 function isName(segment: string): boolean {
   return segment.startsWith(":") || segment === "*";
+}
+
+/** Every path an optional segment (`:tab?`, `edit?`) makes: with it and without it. */
+function variants(parts: readonly string[]): string[][] {
+  const [head, ...rest] = parts;
+  if (head === undefined) return [[]];
+  const after = variants(rest);
+  if (!head.endsWith("?")) return after.map((tail) => [head, ...tail]);
+  const kept = head.slice(0, -1);
+  return [...after.map((tail) => [kept, ...tail]), ...after];
+}
+
+function meets(mine: readonly string[], theirs: readonly string[]): boolean {
+  const star = mine.indexOf("*");
+  if (star >= 0) {
+    const fixed = mine.slice(0, star);
+    return fixed.length <= theirs.length && fixed.every((part, at) => isName(part) || part === theirs[at]);
+  }
+  return mine.length === theirs.length && mine.every((part, at) => isName(part) || part === theirs[at]);
 }
 
 /**
@@ -50,18 +70,16 @@ function isName(segment: string): boolean {
  * the kernel's own first segment (`/sign-in`, `/account/:tab`,
  * `/admin/people`). A route that starts with a `:name` (`/:slug`) may meet
  * them and never gets them: the router ranks the kernel's fixed paths first,
- * as the server does (change 9).
+ * as the server does (change 9). Each path an optional segment makes is
+ * checked, and a trailing slash is read as the router reads it, as nothing
+ * (CodeRabbit and cubic on #79).
  */
 export function kernelPageTaken(path: string): KernelPage | undefined {
-  const mine = segments(path);
-  const first = mine[0];
-  if (first === undefined || isName(first)) return undefined;
-  return KERNEL_PAGES.find((page) => {
-    const theirs = segments(page.path);
-    if (mine.includes("*")) {
-      const fixed = mine.slice(0, mine.indexOf("*"));
-      return fixed.length <= theirs.length && fixed.every((part, at) => isName(part) || part === theirs[at]);
-    }
-    return mine.length === theirs.length && mine.every((part, at) => isName(part) || part === theirs[at]);
-  });
+  for (const mine of variants(segments(path))) {
+    const first = mine[0];
+    if (first === undefined || isName(first)) continue;
+    const taken = KERNEL_PAGES.find((page) => meets(mine, segments(page.path)));
+    if (taken) return taken;
+  }
+  return undefined;
 }

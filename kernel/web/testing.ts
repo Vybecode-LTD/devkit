@@ -10,7 +10,7 @@
  */
 import { QueryClient } from "@tanstack/react-query";
 import { render, type RenderResult } from "@testing-library/react";
-import { createElement, type ReactElement } from "react";
+import { StrictMode, createElement, type ReactElement } from "react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 
 import type { AdminSection } from "./src/app/context";
@@ -27,11 +27,13 @@ export type KernelRenderOptions = {
   session?: SessionUser | null | "loading";
   /** The modules' bindings. */
   modules?: ModuleDefinition[];
-  /** The modules on; every module given by default. */
-  on?: string[];
-  /** The site's identity, over `TEST_SITE`. */
-  site?: Partial<Site>;
+  /** The modules on; every module given by default; `"loading"` for not read yet. */
+  on?: string[] | "loading";
+  /** The site's identity, over `TEST_SITE`; `"loading"` for not read yet. */
+  site?: Partial<Site> | "loading";
   adminSections?: AdminSection[];
+  /** Draw inside React's StrictMode, as `mountApp` does. */
+  strict?: boolean;
 };
 
 export type KernelRender = RenderResult & {
@@ -61,24 +63,38 @@ export function testUser(overrides: Partial<SessionUser> = {}): SessionUser {
   };
 }
 
-/** A query cache that never retries and never reads again on its own. */
+/**
+ * A query cache that never retries and never reads again on its own: not on
+ * focus, on reconnect or on a remount, whatever a query's own `staleTime`
+ * (cubic on #79). What's given is in it; what's `"loading"` is read when asked.
+ */
 export function testQueryClient(options: KernelRenderOptions = {}): QueryClient {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
+    defaultOptions: {
+      queries: {
+        retry: false,
+        staleTime: Infinity,
+        gcTime: Infinity,
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
+        refetchOnMount: false,
+      },
+    },
   });
   if (options.session !== "loading") queryClient.setQueryData(SESSION_KEY, options.session ?? null);
-  queryClient.setQueryData(["get", "/api/kernel/site"], { ...TEST_SITE, ...options.site });
-  const on = options.on ?? (options.modules ?? []).map((module) => module.id);
-  queryClient.setQueryData(["get", "/api/kernel/modules"], { on });
+  if (options.site !== "loading") queryClient.setQueryData(["get", "/api/kernel/site"], { ...TEST_SITE, ...options.site });
+  if (options.on !== "loading") {
+    const on = options.on ?? (options.modules ?? []).map((module) => module.id);
+    queryClient.setQueryData(["get", "/api/kernel/modules"], { on });
+  }
   return queryClient;
 }
 
 function drawn(router: ReturnType<typeof createMemoryRouter>, options: KernelRenderOptions): KernelRender {
   const queryClient = testQueryClient(options);
   const setup = { modules: options.modules ?? [], adminSections: options.adminSections ?? [] };
-  const result = render(
-    createElement(KernelProviders, { queryClient, setup, children: createElement(RouterProvider, { router }) }),
-  );
+  const app = createElement(KernelProviders, { queryClient, setup, children: createElement(RouterProvider, { router }) });
+  const result = render(options.strict ? createElement(StrictMode, null, app) : app);
   return { ...result, queryClient, router };
 }
 
@@ -91,7 +107,8 @@ export function renderWithKernel(ui: ReactElement, options: KernelRenderOptions 
 /** The whole app, the kernel's routes and the modules', at `options.path`. */
 export function renderApp(options: KernelRenderOptions = {}): KernelRender {
   const modules = options.modules ?? [];
-  const on = new Set(options.on ?? modules.map((module) => module.id));
+  // As mountApp: the modules on's routes, or every module's while it's not read.
+  const on = options.on === "loading" ? undefined : new Set(options.on ?? modules.map((module) => module.id));
   const router = createMemoryRouter(buildRoutes(modules, on), { initialEntries: [options.path ?? "/"] });
   return drawn(router, options);
 }

@@ -28,6 +28,7 @@
   .mf-site-header a,
   .mf-site-header button,
   .mf-site-footer a,
+  .mf-site-footer button,
   .mf-admin-nav a {
     display: inline-flex;
     align-items: center;

@@ -175,8 +175,8 @@ jobs:
       - name: The API types match kernel/openapi.json (npm run api:types)
         run: npm run api:check
 
-      - name: Tests (Vitest)
-        run: npm test
+      - name: Tests (Vitest), with the 85% floor on lines (K4 contract §7)
+        run: npm run test:coverage
 
       - name: Build the harness
         run: npm run build

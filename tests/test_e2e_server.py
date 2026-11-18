@@ -34,6 +34,24 @@ def test_it_refuses_to_start_without_a_built_app(
     assert e2e.main(root=tmp_path) == 2
 
 
+def test_its_app_never_reads_a_local_env_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A .env with half a storage or mail setup in it would stop the server
+    starting, whatever the launcher blanks (cubic on #79), so it reads none."""
+    from harness.testing import build_test_app
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env").write_text(
+        "STORAGE_PUBLIC_BUCKET=public\nMAIL_FROM=site@mechframe.test\n", "utf-8"
+    )
+    monkeypatch.setenv("HARNESS_TEST_SUPPORT", "1")
+    url = "postgresql://nobody@localhost:1/none"
+    with pytest.raises(RuntimeError, match="Refusing to start"):
+        build_test_app(url)
+    assert build_test_app(url, env_file=False) is not None
+
+
 async def test_its_database_is_made_fresh_with_the_sites_description(server_url: str) -> None:
     settings.register(server_copy.SECTION, server_copy.SiteSettings)  # as the server's app does
     name = f"mechframe_e2e_test_{uuid.uuid4().hex[:8]}"

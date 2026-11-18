@@ -33,7 +33,14 @@ function Failed({ heading, words }: { heading: string; words: string }) {
 
 export function RouteError() {
   const error = useRouteError();
-  if (isRouteErrorResponse(error) && error.status === 404) return <NotFound />;
+  if (isRouteErrorResponse(error) && error.status === 404) {
+    // The root's error page stands in for the frames, so it brings its own main (cubic on #79).
+    return (
+      <main id="main">
+        <NotFound />
+      </main>
+    );
+  }
   if (isMissingCode(error)) {
     return <Failed heading="This page has changed" words="A newer version of the site is out. Reload to get it." />;
   }

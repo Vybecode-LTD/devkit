@@ -334,6 +334,20 @@ describe("the hooks", () => {
     expect(signedOut).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps to a query cache's own retry rule when it sets one, as the test helpers' does (cubic on #79)", async () => {
+    const { fetch, sent } = fakeFetch(problem(503, "kernel.busy"), problem(503, "kernel.busy"));
+    const { useApiQuery } = createApiClient<paths>({ fetch });
+    const never = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    function noRetries({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={never}>{children}</QueryClientProvider>;
+    }
+    const { result } = renderHook(() => useApiQuery("get", "/api/kernel/modules"), { wrapper: noRetries });
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    expect(sent).toHaveLength(1);
+  });
+
   it("takes its status from HTTP, not from what the body says", async () => {
     const lying = (http: number, said: number) =>
       new Response(JSON.stringify(problem(said, "upstream.trouble").body), {

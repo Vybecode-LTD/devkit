@@ -16,9 +16,10 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${String(port)}`, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `${python} -m harness.e2e`,
+    command: `"${python}" -m harness.e2e`, // quoted: an interpreter's path may hold spaces (cubic on #79)
     url: `http://localhost:${String(port)}/api/kernel/health`,
-    reuseExistingServer: !process.env.CI,
+    // Never a server already running: each run starts its own on a fresh database (cubic on #79).
+    reuseExistingServer: false,
     timeout: 120_000,
     env: { E2E_PORT: String(port) },
   },

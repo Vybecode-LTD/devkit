@@ -3,7 +3,7 @@
  * modules that are on and that the person may see; `SlotOutlet` shows a
  * slot, each part that loads in its own error boundary.
  */
-import { Suspense } from "react";
+import { Suspense, useCallback, useState } from "react";
 import { NavLink } from "react-router";
 
 import { ErrorBoundary } from "../app/ErrorBoundary";
@@ -13,8 +13,13 @@ import { useSession } from "../session/session";
 import { useModulesOn } from "../site/site";
 import { LINK_SLOTS, type Lazy, type LinkSlotName, type SlotEntryOf, type SlotName } from "./types";
 
-/** An entry with the module it came from. */
-export type Placed<Name extends SlotName> = SlotEntryOf<Name> & { module: string };
+/**
+ * An entry with the module it came from, and its `key`: the module, the slot
+ * and its place in that module's own list, fixed before anything is filtered
+ * out, so a part keeps its own error boundary and state whatever is hidden
+ * around it (cubic and CodeRabbit on #79).
+ */
+export type Placed<Name extends SlotName> = SlotEntryOf<Name> & { module: string; key: string };
 
 /** The entries of `name` the person may see, in the modules' order. */
 export function useSlot<Name extends SlotName>(name: Name): Placed<Name>[] {
@@ -28,10 +33,10 @@ export function useSlot<Name extends SlotName>(name: Name): Placed<Name>[] {
   for (const definition of modules) {
     if (!on.has(definition.id)) continue;
     const entries = (definition.slots?.[name] ?? []) as SlotEntryOf<Name>[];
-    for (const entry of entries) {
+    entries.forEach((entry, at) => {
       const permission = "permission" in entry ? entry.permission : undefined;
-      if (may(permission)) found.push({ ...entry, module: definition.id });
-    }
+      if (may(permission)) found.push({ ...entry, module: definition.id, key: `${definition.id}:${name}:${String(at)}` });
+    });
   }
   return found;
 }
@@ -46,12 +51,18 @@ function isLinkSlot(name: SlotName): name is LinkSlotName {
  */
 export function SlotOutlet({ name, label }: { name: SlotName; label?: string }) {
   const entries = useSlot(name);
+  // Bumped by Try again, so the parts are made again here: one whose code
+  // didn't arrive gets a fresh load (lazyPart forgot the failed one).
+  const [, setTries] = useState(0);
+  const again = useCallback(() => {
+    setTries((tries) => tries + 1);
+  }, []);
   if (entries.length === 0) return null;
   if (isLinkSlot(name)) {
     return (
       <ul className="mf-slot-links" aria-label={label}>
         {(entries as Placed<LinkSlotName>[]).map((entry) => (
-          <li key={`${entry.module}:${entry.to}`}>
+          <li key={entry.key}>
             <NavLink to={entry.to}>{entry.label}</NavLink>
           </li>
         ))}
@@ -60,10 +71,10 @@ export function SlotOutlet({ name, label }: { name: SlotName; label?: string }) 
   }
   return (
     <>
-      {(entries as (Placed<SlotName> & { lazy: Lazy })[]).map((entry, at) => {
+      {(entries as (Placed<SlotName> & { lazy: Lazy })[]).map((entry) => {
         const Part = lazyPart(entry.lazy);
         return (
-          <ErrorBoundary key={`${entry.module}:${String(at)}`} where={`${entry.module}'s part of ${name}`}>
+          <ErrorBoundary key={entry.key} where={`${entry.module}'s part of ${name}`} onRetry={again}>
             <Suspense fallback={null}>
               <Part />
             </Suspense>

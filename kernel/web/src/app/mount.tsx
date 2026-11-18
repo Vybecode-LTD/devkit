@@ -9,7 +9,7 @@ import "./frames.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, type Root } from "react-dom/client";
 import { RouterProvider, createBrowserRouter } from "react-router";
 
 import { apiQueryOptions, retryUnlessRefused } from "../api/client";
@@ -79,9 +79,10 @@ async function modulesOn(queryClient: QueryClient): Promise<ReadonlySet<string> 
 
 /**
  * Mounts the app. The page and the modules are checked at once (a mistake
- * throws here); the app draws once it knows which modules are on.
+ * throws here); the app draws once it knows which modules are on. Gives the
+ * React root, for a host page or a test to unmount (cubic on #79).
  */
-export function mountApp(options: AppOptions): Promise<void> {
+export function mountApp(options: AppOptions): Promise<Root> {
   const root = options.root ?? document.getElementById("root");
   if (!root) throw new Error("The page has no #root to mount the app in.");
   checkModules(options.modules);
@@ -89,12 +90,14 @@ export function mountApp(options: AppOptions): Promise<void> {
   const queryClient = kernelQueryClient();
   return modulesOn(queryClient).then((on) => {
     const router = createBrowserRouter(buildRoutes(setup.modules, on));
-    createRoot(root).render(
+    const app = createRoot(root);
+    app.render(
       <StrictMode>
         <KernelProviders queryClient={queryClient} setup={setup}>
           <RouterProvider router={router} />
         </KernelProviders>
       </StrictMode>,
     );
+    return app;
   });
 }

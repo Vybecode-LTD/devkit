@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import { safeNext, signInFor } from "./next";
 
 describe("where a sign-in may send the person back to", () => {
-  it.each(["/", "/account", "/blog/hello?page=2#top", "/a/b-c"])("keeps a path on this site: %s", (next) => {
+  it.each([
+    "/",
+    "/account",
+    "/blog/hello?page=2#top",
+    "/a/b-c",
+    "/account?url=https://example.com", // a // in the query is data (cubic on #79)
+    "/search#a//b",
+  ])("keeps a path on this site: %s", (next) => {
     expect(safeNext(next)).toBe(next);
   });
 

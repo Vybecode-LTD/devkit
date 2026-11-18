@@ -288,9 +288,20 @@ def test_a_pattern_beside_the_kernels_pages_is_allowed() -> None:
     assert routes.resolve("/sign-in") is None  # the kernel's, whatever /:slug takes
 
 
+def test_an_address_with_a_trailing_slash_is_no_modules() -> None:
+    """The shell answers it with a 301 to the address without it, so no module
+    answers it, and a sitemap never lists one (cubic on #79)."""
+    routes = server_copy.build([public_module("pages", public=["/:a/:b"], pages=FakePages())])
+    assert routes.resolve("/sign-in/") is None
+    assert routes.resolve("/about/more/") is None
+    assert getattr(routes.resolve("/about/more"), "module", None) == "pages"
+
+
 async def test_the_sitemap_never_lists_a_kernel_page() -> None:
-    pages = FakePages(entries=[Entry("/about"), Entry("/sign-in"), Entry("/account")])
-    routes = server_copy.build([public_module("pages", public=["/:slug"], pages=pages)])
+    pages = FakePages(
+        entries=[Entry("/about"), Entry("/sign-in"), Entry("/account"), Entry("/sign-in/")]
+    )
+    routes = server_copy.build([public_module("pages", public=["/:slug", "/:a/:b"], pages=pages)])
     found = await server_copy.entries(None, routes, frozenset({"pages"}))  # type: ignore[arg-type]
     assert [entry.path for _module, entry in found] == ["/", "/about"]
 

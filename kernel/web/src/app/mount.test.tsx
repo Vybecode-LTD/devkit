@@ -1,13 +1,25 @@
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
+import type { Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { retryUnlessRefused } from "../api/client";
 import { defineModule, type ModuleDefinition } from "../modules";
 import { problem, routedFetch } from "../test-fetch";
 import { checkModules, kernelQueryClient, mountApp } from "./mount";
 
 const site = { name: "Mounted", description: "Words from the API.", kind: "Organization", logo: "", card_image: "", same_as: [] };
 
+/** The roots the tests mount, unmounted after each (cubic on #79). */
+const mounted: Root[] = [];
+
+async function mount(options: Parameters<typeof mountApp>[0]): Promise<void> {
+  mounted.push(await mountApp(options));
+}
+
 afterEach(() => {
+  for (const root of mounted.splice(0)) act(() => {
+    root.unmount();
+  });
   document.body.innerHTML = "";
 });
 
@@ -19,7 +31,7 @@ describe("mountApp", () => {
       "GET /api/auth/session": problem(401, "kernel.not_signed_in"),
     });
     document.body.innerHTML = '<div id="root"><div data-server-copy><h1>The server\'s words</h1></div></div>';
-    await mountApp({ modules: [] });
+    await mount({ modules: [] });
     expect(await screen.findByRole("heading", { name: "Mounted" })).toBeInTheDocument();
     expect(document.querySelector("[data-server-copy]")).toBeNull();
     expect(screen.getByText("Words from the API.")).toBeInTheDocument();
@@ -42,7 +54,7 @@ describe("mountApp", () => {
     history.pushState(null, "", "/blog/hello");
     document.body.innerHTML = '<div id="root"></div>';
     try {
-      await mountApp({ modules: [posts, pages] });
+      await mount({ modules: [posts, pages] });
       expect(await screen.findByRole("heading", { name: "A page" })).toBeInTheDocument();
     } finally {
       history.pushState(null, "", "/");
@@ -58,7 +70,7 @@ describe("mountApp", () => {
     history.pushState(null, "", "/blog/hello");
     document.body.innerHTML = '<div id="root"></div>';
     try {
-      await mountApp({ modules: [posts] });
+      await mount({ modules: [posts] });
       // Its page waits for the switch it can't read: nothing, rather than a 404 that may be wrong.
       expect(await screen.findByRole("navigation", { name: "Site" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "Page not found" })).toBeNull();
@@ -70,7 +82,7 @@ describe("mountApp", () => {
   it("mounts where it's told", async () => {
     routedFetch({ "GET /api/kernel/site": { status: 200, body: site } });
     const root = document.body.appendChild(document.createElement("section"));
-    await mountApp({ modules: [], root });
+    await mount({ modules: [], root });
     expect(await screen.findByRole("heading", { name: "Mounted" })).toBeInTheDocument();
     expect(root).not.toBeEmptyDOMElement();
   });
@@ -101,7 +113,6 @@ describe("the modules given", () => {
 
 describe("the app's query cache", () => {
   it("never asks a refusal again", () => {
-    const retry = kernelQueryClient().getDefaultOptions().queries?.retry;
-    expect(typeof retry).toBe("function");
+    expect(kernelQueryClient().getDefaultOptions().queries?.retry).toBe(retryUnlessRefused);
   });
 });

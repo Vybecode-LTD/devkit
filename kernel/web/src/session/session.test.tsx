@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { api } from "../api/client";
 import { KernelProviders } from "../app/mount";
@@ -81,8 +81,12 @@ describe("useSession", () => {
   });
 
   it("is signed out when any call finds the session gone, and forgets what was the person's", async () => {
+    let reads = 0;
     routedFetch({
-      "GET /api/auth/session": { status: 200, body: { user: member } },
+      "GET /api/auth/session": () => {
+        reads += 1;
+        return reads === 1 ? { status: 200, body: { user: member } } : problem(401, "kernel.not_signed_in");
+      },
       "GET /api/kernel/notifications": problem(401, "kernel.not_signed_in"),
     });
     const { queryClient, wrapper } = setUp();
@@ -100,6 +104,53 @@ describe("useSession", () => {
     expect(queryClient.getQueryData(["get", "/api/kernel/site"])).toEqual({ name: "Kept" });
   });
 
+  it("stays signed in when a 401 came from a call older than the session, which still holds (cubic on #79)", async () => {
+    routedFetch({
+      "GET /api/auth/session": { status: 200, body: { user: member } },
+      "GET /api/kernel/notifications": problem(401, "kernel.not_signed_in"),
+    });
+    const { queryClient, wrapper } = setUp();
+    queryClient.setQueryData(["get", "/api/kernel/notifications"], { items: [], next_cursor: null, unread: 3 });
+    const { result } = renderHook(() => useSession(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.status).toBe("signed-in");
+    });
+    await expect(api.GET("/api/kernel/notifications")).rejects.toMatchObject({ status: 401 });
+    await waitFor(() => {
+      expect(queryClient.isFetching({ queryKey: SESSION_KEY })).toBe(0);
+    });
+    expect(result.current.status).toBe("signed-in");
+    expect(queryClient.getQueryData(["get", "/api/kernel/notifications"])).toBeDefined();
+  });
+
+  it("keeps a sign-in's answer over a read already on its way (CodeRabbit on #79)", async () => {
+    let answer: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            answer = resolve;
+          }),
+      ),
+    );
+    const { queryClient, wrapper } = setUp();
+    const { result } = renderHook(() => useSession(), { wrapper });
+    expect(result.current.status).toBe("loading");
+    await act(() => setSessionUser(queryClient, member));
+    answer(
+      new Response(JSON.stringify(problem(401, "kernel.not_signed_in").body), {
+        status: 401,
+        headers: { "content-type": "application/problem+json" },
+      }),
+    );
+    await waitFor(() => {
+      expect(result.current.status).toBe("signed-in");
+    });
+    await new Promise((settle) => setTimeout(settle, 20));
+    expect(result.current.status).toBe("signed-in");
+  });
+
   it("takes a sign-in's answer directly", async () => {
     routedFetch({ "GET /api/auth/session": problem(401, "kernel.not_signed_in") });
     const { queryClient, wrapper } = setUp();
@@ -107,9 +158,7 @@ describe("useSession", () => {
     await waitFor(() => {
       expect(result.current.status).toBe("signed-out");
     });
-    act(() => {
-      setSessionUser(queryClient, member);
-    });
+    await act(() => setSessionUser(queryClient, member));
     await waitFor(() => {
       expect(result.current.status).toBe("signed-in");
     });

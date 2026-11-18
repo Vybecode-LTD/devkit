@@ -2,9 +2,13 @@
  * Who is signed in (K4 contract §2): `useSession` and `useSignOut`.
  *
  * The session is `GET /api/auth/session`, read once and kept in the query
- * cache under its own key. A 401 there, or on any call (the client's
- * `setApiHandlers`), shows the person signed out; a sign-in's answer sets it
- * directly (`setSessionUser`). `staff` is any role but `member`.
+ * cache under its own key. A 401 there shows the person signed out. A 401 on
+ * any other call (the client's `setApiHandlers`) reads the session again and
+ * forgets what was the person's only if it's gone: the call may have been
+ * sent before a sign-in (cubic on #79). A sign-in's answer sets it directly
+ * (`setSessionUser`), after stopping any read already on its way, whose older
+ * answer would otherwise land on top (CodeRabbit on #79). `staff` is any role
+ * but `member`.
  */
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, type ReactNode } from "react";
@@ -37,8 +41,12 @@ async function readSession(): Promise<SessionUser | null> {
   }
 }
 
+/** How the session is read and kept. */
+const SESSION = { queryKey: SESSION_KEY, queryFn: readSession, staleTime: 60_000 };
+
 /** Shows `user` signed in (a sign-in's answer), or signed out with `null`. */
-export function setSessionUser(queryClient: QueryClient, user: SessionUser | null): void {
+export async function setSessionUser(queryClient: QueryClient, user: SessionUser | null): Promise<void> {
+  await queryClient.cancelQueries({ queryKey: SESSION_KEY });
   queryClient.setQueryData(SESSION_KEY, user);
 }
 
@@ -47,7 +55,22 @@ function forget(queryClient: QueryClient): void {
   queryClient.removeQueries({
     predicate: (query) => !KEPT.has(query.queryKey.slice(0, 2).map(String).join(":")),
   });
-  setSessionUser(queryClient, null);
+  queryClient.setQueryData(SESSION_KEY, null);
+}
+
+/**
+ * A call found no session: read it again, joining a read already on its way
+ * (so the session read's own 401 asks nothing more), and forget only if it's
+ * gone. If it can't be read, nothing changes.
+ */
+async function recheck(queryClient: QueryClient): Promise<void> {
+  let user: SessionUser | null;
+  try {
+    user = await queryClient.query({ ...SESSION, staleTime: 0, retry: false });
+  } catch {
+    return;
+  }
+  if (user === null) forget(queryClient);
 }
 
 /** Tells the client what to do when a call finds the session gone. */
@@ -56,7 +79,7 @@ export function SessionHandlers({ children }: { children: ReactNode }) {
   useEffect(() => {
     setApiHandlers({
       signedOut: () => {
-        forget(queryClient);
+        void recheck(queryClient);
       },
     });
     return () => {
@@ -78,11 +101,7 @@ function signedIn(user: SessionUser): Session {
 
 /** Who is signed in, if anyone. */
 export function useSession(): Session {
-  const query = useQuery<SessionUser | null, ApiProblem>({
-    queryKey: SESSION_KEY,
-    queryFn: readSession,
-    staleTime: 60_000,
-  });
+  const query = useQuery<SessionUser | null, ApiProblem>(SESSION);
   const { refetch } = query;
   const retry = useCallback(() => void refetch(), [refetch]);
   if (query.data !== undefined) return query.data === null ? { status: "signed-out" } : signedIn(query.data);
@@ -100,6 +119,7 @@ export function useSignOut(): () => Promise<void> {
       // Already signed out is signed out; anything else is still signed in.
       if (!(error instanceof ApiProblem && error.status === 401)) throw error;
     }
+    await queryClient.cancelQueries({ queryKey: SESSION_KEY });
     forget(queryClient);
   }, [queryClient]);
 }

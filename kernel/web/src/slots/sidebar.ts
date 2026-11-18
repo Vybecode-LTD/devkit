@@ -46,7 +46,8 @@ export function adminSidebar(
     if (entry.section === undefined) continue;
     named.set(entry.section, [...(named.get(entry.section) ?? []), item(entry)]);
   }
-  const listed = sections.map((section) => section.label);
+  // Each section once, at its first place and with its first icon (cubic on #79).
+  const listed = [...new Set(sections.map((section) => section.label))];
   const order = [...listed.filter((label) => named.has(label)), ...[...named.keys()].filter((label) => !listed.includes(label))];
   const modules = order.map((label): SidebarGroup => {
     const icon = sections.find((section) => section.label === label)?.icon;

@@ -11,7 +11,7 @@ import { Link } from "react-router";
 
 import type { ApiProblem } from "../../api/problem";
 import { Seo } from "../../seo/Seo";
-import { useSite } from "../../site/site";
+import { useSite, useSiteRead } from "../../site/site";
 import type { KernelPage } from "../pages";
 
 /** "{title} · {name}", as the server titles a page it doesn't index. */
@@ -21,8 +21,10 @@ export function useTitle(title: string): string {
 }
 
 export function Home() {
-  const site = useSite();
-  if (!site) return null;
+  const found = useSiteRead();
+  if (found.status === "failed") return <Unreachable problem={found.problem} retry={found.retry} />;
+  if (found.status === "loading") return null;
+  const site = found.value;
   return (
     <>
       <Seo title={site.name} description={site.description} path="/" type="website" />
