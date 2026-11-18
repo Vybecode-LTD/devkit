@@ -125,7 +125,7 @@ mechframe/
 
 Code written for one site goes in `site/` folders. Copied folders MAY be edited, but `mechframe check` reports every edit against the lock file (section 12).
 
-MechFrame itself lives at `C:\DEV\AI-DevKit`, in the GitHub repo `mechframe/mechframe`: public for now, the code still proprietary (decision 0011).
+MechFrame itself lives at `C:\DEV\AI-DevKit`, in the GitHub repo `mechframe/mechframe` (decision 0034): public for now, the code still proprietary (decision 0011).
 
 ## 5. Module manifest (module.json)
 
@@ -810,7 +810,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 | Q5 | SMS codes | Not in v1 |
 | Q6 | Session limits | Members 14 days idle and 30 days total; staff 8 hours and 7 days |
 | Q7 | Password minimum | 12 characters for every account (the owner's call) |
-| Q8 | Repo | `C:\DEV\AI-DevKit`, GitHub repo `mechframe/mechframe` (public for now, decision 0011) |
+| Q8 | Repo | `C:\DEV\AI-DevKit`, GitHub repo `mechframe/mechframe` (decision 0034; public for now, decision 0011) |
 | Q9 | License | Proprietary, with MIT allowed for selected modules |
 | Q10 | First real site | The new Vibrant Mindz site |
 | Q11 | Admin shell | Built to the Vibrant Mindz canvas Admin design, styled by tokens, with VybeSite's behavior (decision 0040, amending 0008) |

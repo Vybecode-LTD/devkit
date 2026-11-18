@@ -34,7 +34,7 @@ MechFrame is a library of reusable website modules that any AI agent copies into
 
 1. `git init` on `main`, then commit the scaffold as it is: `chore: scaffold from spec v0.1`.
 2. Link the project skills so Claude Code loads them: for each folder in `skills\`, make a directory junction at `.claude\skills\<name>` (PowerShell: `New-Item -ItemType Junction -Path .claude\skills\<name> -Target skills\<name>`), the same pattern as `C:\DEV\knowledge\skills\link_skills.py`. Commit `skills\`, not the junctions.
-3. The repo `mechframe/mechframe` exists and is public (decision 0011): nothing private is ever committed.
+3. The repo `mechframe/mechframe` (decision 0034; it began as `Vybecode-LTD/devkit`) exists and is public (decision 0011): nothing private is ever committed.
 4. **Python.** A root `pyproject.toml` for the dev environment. `requirements.in` compiled to a hash-pinned `requirements.txt` with `uv pip compile --generate-hashes`, following VybeSite's `backend/requirements.in` (floors above known vulnerabilities, a comment per package). Dev tools: ruff, Black, mypy (strict for `kernel/`), pytest, pytest-asyncio, httpx, jsonschema.
 5. **The harness.** `harness/` is a small FastAPI app that mounts the kernel and any modules in this repo. Tests and local runs use it, and K5 turns it into `templates/site/`.
 6. **Postgres for tests.** A `compose.yaml` with Postgres 16, and a pytest fixture that gives each test run a throwaway database.

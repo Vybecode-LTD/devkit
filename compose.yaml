@@ -16,6 +16,10 @@ services:
       timeout: 3s
       retries: 20
     volumes:
+      # A new volume since the rename (2026-11-18, decision 0034): Postgres makes its
+      # role only when it sets a volume up, so the old devkit-db has no mechframe
+      # role. It held only throwaway test databases: remove it with
+      #   docker volume ls -q -f name=devkit-db | xargs docker volume rm
       - mechframe-db:/var/lib/postgresql/data
 
 volumes:

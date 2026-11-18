@@ -4,7 +4,7 @@
 
 2026-11-15. The backend is built as MechFrame modules on the MechFrame kernel. Vibrant Mindz is the first site that installs them.
 
-**Already settled; this plan doesn't repeat it:** `AI-MechFrame/docs/plans/vibrant-mindz-module-plan.md` covers the 17 modules, how they fit, and the owner's answers Q1–Q6 (2026-11-13). This file adds what the homepage design changed, the admin map, and the build order that follows.
+**Already settled; this plan doesn't repeat it:** `docs/plans/vibrant-mindz-module-plan.md` covers the 17 modules, how they fit, and the owner's answers Q1–Q6 (2026-11-13). This file adds what the homepage design changed, the admin map, and the build order that follows.
 
 ## 1. Scope of the first build (owner, 2026-11-15)
 
