@@ -18,14 +18,16 @@ import types
 from pathlib import Path
 from typing import Annotated, Any, Union, get_args, get_origin
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from jsonschema import Draft202012Validator
+from pydantic import ValidationError
 
 import kernel
 from harness.layout import backend_dirs
 from kernel import openapi as documents
-from kernel.answers import Answer
+from kernel.answers import Answer, answer
 from tools import openapi
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -118,10 +120,55 @@ def test_the_json_guard_reads_a_module_s_backend_too(tmp_path: Path) -> None:
         "from starlette.responses import JSONResponse", encoding="utf-8"
     )
     (module_dir / "blog").mkdir(parents=True)
-    (module_dir / "blog" / "router.py").write_text(
-        "from fastapi.responses import JSONResponse", encoding="utf-8"
-    )
+    (module_dir / "blog" / "router.py").write_text(MODULE_ROUTE_OUTSIDE_ANSWER, encoding="utf-8")
     assert _raw_json([kernel_dir, module_dir]) == ["blog/router.py"]
+
+
+#: A module's route as the guard must catch it: a declared model, and an
+#: answer built by hand with a key the model doesn't name (CodeRabbit on #78).
+MODULE_ROUTE_OUTSIDE_ANSWER = """from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
+from kernel import Answer
+
+router = APIRouter()
+
+
+class Posts(Answer):
+    items: list[str]
+
+
+@router.get("/posts", response_model=Posts)
+async def posts() -> JSONResponse:
+    return JSONResponse({"items": [], "drafts": ["unpublished"]})
+"""
+
+
+async def test_a_route_that_builds_its_own_json_escapes_its_model_and_answer_stops_it() -> None:
+    """Why the guard exists: FastAPI never checks a response a route builds,
+    so the undeclared key goes out; built with `answer`, it can't."""
+    namespace: dict[str, Any] = {}
+    exec(compile(MODULE_ROUTE_OUTSIDE_ANSWER, "router.py", "exec"), namespace)  # noqa: S102
+    app = FastAPI()
+    app.include_router(namespace["router"], prefix="/api/blog")
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://mechframe.test"
+    ) as client:
+        leaked = (await client.get("/api/blog/posts")).json()
+    assert leaked == {"items": [], "drafts": ["unpublished"]}
+
+    posts = namespace["Posts"]
+    checked = FastAPI()
+
+    @checked.get("/api/blog/posts", response_model=posts)
+    async def through_answer() -> Any:
+        return answer(posts, {"items": [], "drafts": ["unpublished"]})
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=checked), base_url="https://mechframe.test"
+    ) as client:
+        with pytest.raises(ValidationError, match="drafts"):
+            await client.get("/api/blog/posts")
 
 
 @pytest.mark.parametrize(
