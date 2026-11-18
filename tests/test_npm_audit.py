@@ -30,7 +30,7 @@ def _report(*advisories: tuple[str, str]) -> dict[str, Any]:
 def _allowed(
     until: str = "2026-12-17", ident: str = PICO, why: str = "No fix yet."
 ) -> list[dict[str, str]]:
-    return [{"id": ident, "package": "picomatch", "until": until, "why": why}]
+    return [{"id": ident, "package": "picomatch", "until": until, "why": why, "latest": "4.0.7"}]
 
 
 def test_an_allowed_advisory_passes() -> None:
@@ -81,6 +81,37 @@ def test_an_entry_needs_its_id_reason_and_date(entry: dict[str, str]) -> None:
     assert len(problems) == (1 if "id" in entry else 2)
 
 
+def test_a_newer_release_of_the_package_fails_until_someone_looks() -> None:
+    # npm's own fixAvailable can't say a fix shipped: for picomatch it names a
+    # downgrade of vite. A release newer than the one the allowance saw might.
+    report = _report(("picomatch", PICO))
+    assert npm_audit.check(report, _allowed(), TODAY, newest={"picomatch": "4.0.7"}) == []
+    assert npm_audit.check(report, _allowed(), TODAY, newest={"picomatch": "4.0.8"}) == [
+        f"picomatch 4.0.8 is out since {PICO} was allowed at 4.0.7: if it fixes the advisory, "
+        "upgrade and remove the entry; if not, set `latest` to 4.0.8."
+    ]
+
+
+def test_an_entry_needs_its_package_and_latest_version() -> None:
+    report = _report(("picomatch", PICO))
+    [entry] = _allowed()
+    del entry["latest"]
+    assert npm_audit.check(report, [entry], TODAY, newest={"picomatch": "4.0.7"}) == [
+        f"{PICO} needs `latest`, the newest picomatch when it was allowed."
+    ]
+    del entry["package"]
+    assert npm_audit.check(report, [entry], TODAY) == [f"{PICO} needs its `package`."]
+
+
+def test_an_allowed_advisory_reaching_production_fails() -> None:
+    report = _report(("picomatch", PICO))
+    assert npm_audit.check(report, _allowed(), TODAY, production=_report()) == []
+    assert npm_audit.check(report, _allowed(), TODAY, production=report) == [
+        f"{PICO} reaches the production dependencies (picomatch): an allowance covers "
+        "the build and test tools only."
+    ]
+
+
 @pytest.mark.parametrize("report", [{"error": {"code": "ENOLOCK"}}, {}, {"vulnerabilities": []}])
 def test_a_report_npm_didnt_make_is_an_error(report: dict[str, Any]) -> None:
     with pytest.raises(ValueError, match="didn't report"):
@@ -90,35 +121,69 @@ def test_a_report_npm_didnt_make_is_an_error(report: dict[str, Any]) -> None:
 def test_the_projects_list_is_well_formed() -> None:
     listed = json.loads(npm_audit.ALLOW.read_text("utf-8"))["allow"]
     for entry in listed:
-        assert set(entry) == {"id", "package", "until", "why"}
+        assert set(entry) == {"id", "package", "until", "why", "latest"}
         assert entry["id"].startswith("GHSA-")
         date.fromisoformat(entry["until"])
 
 
 class _Ran:
-    def __init__(self, stdout: str) -> None:
+    def __init__(self, stdout: str, returncode: int = 0) -> None:
         self.stdout = stdout
+        self.returncode = returncode
+
+
+def _npm(
+    full: dict[str, Any], production: dict[str, Any] | None = None, newest: str = "4.0.7\n"
+) -> Any:
+    """A stand-in for subprocess.run answering the three npm commands main runs."""
+
+    def run(command: list[str], **kwargs: Any) -> _Ran:
+        if command[1] == "view":
+            return _Ran(newest, 0 if newest else 1)
+        if "--omit=dev" in command:
+            return _Ran(json.dumps(_report() if production is None else production))
+        return _Ran(json.dumps(full))
+
+    return run
 
 
 def test_main_runs_npm_and_says_what_it_found(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     ran: list[list[str]] = []
+    answer = _npm(_report(("picomatch", PICO)))
 
     def run(command: list[str], **kwargs: Any) -> _Ran:
         ran.append(command)
-        return _Ran(json.dumps(_report(("picomatch", PICO))))
+        return answer(command)  # type: ignore[no-any-return]
 
     monkeypatch.setattr(npm_audit.shutil, "which", lambda name: "/usr/bin/npm")
     monkeypatch.setattr(subprocess, "run", run)
     monkeypatch.setattr(npm_audit, "ALLOW", _allow_file(_allowed()))
     assert npm_audit.main([], today=TODAY) == 0
-    assert ran == [["/usr/bin/npm", "audit", "--json"]]
+    assert ran == [
+        ["/usr/bin/npm", "audit", "--json"],
+        ["/usr/bin/npm", "audit", "--json", "--omit=dev"],
+        ["/usr/bin/npm", "view", "picomatch", "version"],
+    ]
     assert PICO in capsys.readouterr().out
 
-    monkeypatch.setattr(subprocess, "run", lambda command, **kwargs: _Ran(json.dumps(_report())))
+    monkeypatch.setattr(subprocess, "run", _npm(_report()))
     assert npm_audit.main([], today=TODAY) == 1
     assert "no longer reports" in capsys.readouterr().err
+
+    monkeypatch.setattr(subprocess, "run", _npm(_report(("picomatch", PICO)), newest="4.1.0\n"))
+    assert npm_audit.main([], today=TODAY) == 1
+    assert "picomatch 4.1.0 is out" in capsys.readouterr().err
+
+    production = _report(("picomatch", PICO))
+    monkeypatch.setattr(subprocess, "run", _npm(production, production=production))
+    assert npm_audit.main([], today=TODAY) == 1
+    assert "reaches the production dependencies" in capsys.readouterr().err
+
+    monkeypatch.setattr(subprocess, "run", _npm(_report(("picomatch", PICO)), newest=""))
+    assert npm_audit.main([], today=TODAY) == 2
+    assert "npm view picomatch" in capsys.readouterr().err
 
     monkeypatch.setattr(subprocess, "run", lambda command, **kwargs: _Ran("not json"))
     assert npm_audit.main([], today=TODAY) == 2
