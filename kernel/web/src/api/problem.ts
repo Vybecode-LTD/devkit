@@ -67,7 +67,9 @@ export class ApiProblem extends Error {
     this.extra = Object.fromEntries(Object.entries(body).filter(([key]) => !MEMBERS.has(key)));
   }
 
-  /** The problem a response carries; one that carries none becomes `kernel.unexpected_answer`. */
+  /** The problem a response carries; one that carries none becomes
+   * `kernel.unexpected_answer`. Its status is the HTTP one: RFC 9457 makes the
+   * body's advisory, and a proxy can send a body that says another (CodeRabbit on #78). */
   static async from(response: Response): Promise<ApiProblem> {
     let body: unknown;
     try {
@@ -78,6 +80,7 @@ export class ApiProblem extends Error {
     if (isProblem(body)) {
       return new ApiProblem({
         ...body,
+        status: response.status,
         type: typeof body.type === "string" ? body.type : TYPE_PREFIX + body.code,
         detail: typeof body.detail === "string" ? body.detail : "",
         errors: fieldErrors(body.errors),

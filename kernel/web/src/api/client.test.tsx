@@ -231,6 +231,19 @@ describe("the client", () => {
     expect(calls).toBe(2);
   });
 
+  it("still resends after a step-up when another middleware replaced the request", async () => {
+    setApiHandlers({ stepUp: () => Promise.resolve(true) });
+    const { fetch, sent } = fakeFetch(problem(403, "auth.step_up_required"), {
+      status: 200,
+      body: { recovery_codes: ["a"] },
+    });
+    const { api } = createApiClient<paths>({ fetch });
+    api.use({ onRequest: ({ request }) => new Request(request) });
+    const { data } = await api.POST("/api/auth/recovery-codes");
+    expect(data).toEqual({ recovery_codes: ["a"] });
+    expect(sent).toHaveLength(2);
+  });
+
   it("never asks for a step-up on a read", async () => {
     const stepUp = vi.fn(() => Promise.resolve(true));
     setApiHandlers({ stepUp });
@@ -299,6 +312,20 @@ describe("the hooks", () => {
     });
     expect(sent).toHaveLength(1);
     expect(signedOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes its status from HTTP, not from what the body says", async () => {
+    const lying = (http: number, said: number) =>
+      new Response(JSON.stringify(problem(said, "upstream.trouble").body), {
+        status: http,
+        headers: { "content-type": "application/problem+json" },
+      });
+    const refused = await ApiProblem.from(lying(401, 503));
+    expect(refused.status).toBe(401);
+    expect(retryUnlessRefused(0, refused)).toBe(false);
+    const failed = await ApiProblem.from(lying(503, 401));
+    expect(failed.status).toBe(503);
+    expect(retryUnlessRefused(0, failed)).toBe(true);
   });
 
   it("retries what may pass on a second try, never a refusal", () => {

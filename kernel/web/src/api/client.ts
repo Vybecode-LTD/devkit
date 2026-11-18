@@ -71,17 +71,20 @@ type Fetch = (input: Request) => Promise<Response>;
 
 function problems(): Middleware {
   // A copy of each write, made before it's sent (sending uses its body up),
-  // so a write refused for a step-up can be sent again.
-  const copies = new WeakMap<Request, Request>();
+  // so a write refused for a step-up can be sent again. Kept by the call's id,
+  // not its Request, which a later middleware may replace (CodeRabbit on #78),
+  // and dropped once the call is answered.
+  const copies = new Map<string, Request>();
   return {
-    onRequest({ request }) {
-      if (!READS.has(request.method)) copies.set(request, request.clone());
+    onRequest({ request, id }) {
+      if (!READS.has(request.method)) copies.set(id, request.clone());
       return undefined;
     },
-    async onResponse({ request, response, options }) {
+    async onResponse({ response, options, id }) {
+      const copy = copies.get(id);
+      copies.delete(id);
       if (response.ok) return undefined;
       let answer = response;
-      const copy = copies.get(request);
       if (response.status === 403 && copy) {
         const refused = await ApiProblem.from(response.clone());
         if (refused.code === "auth.step_up_required" && (await handlers.stepUp())) {
@@ -101,7 +104,8 @@ function problems(): Middleware {
       if (answer.status === 401 && problem.code === "kernel.not_signed_in") handlers.signedOut();
       throw problem;
     },
-    onError({ error }) {
+    onError({ error, id }) {
+      copies.delete(id);
       return error instanceof ApiProblem ? error : ApiProblem.unreachable();
     },
   };
