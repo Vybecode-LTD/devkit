@@ -15,7 +15,7 @@ MechFrame: website modules around a FastAPI + Postgres kernel (`CLAUDE.md`, `SPE
 ## 3. State (end of 2026-11-18)
 
 - `main` is at `a240ae8`.
-- **#78 is open**, branch `k4-typed-client`. Its head is the handoff commit, after `1c206a1`. Every thread was resolved at close. CI passed on `1acb8f0`; the head's run had just started.
+- **#78 is open**, branch `k4-typed-client`. Its head is the commit fixing cubic's review of the handoff, after `25400be` (the handoff) and `1c206a1`. Every thread was resolved at close. CI passed on `1acb8f0`; the head's run had just started.
 - The last full run: 1,728 passed, 98.53 %. The npm audit allowlist is empty: picomatch's advisory was withdrawn.
 - `C:\DEV\knowledge\owner.md` is uncommitted: the owner's.
 
@@ -23,7 +23,7 @@ MechFrame: website modules around a FastAPI + Postgres kernel (`CLAUDE.md`, `SPE
 
 1. **Land #78.** Read `mcp__ccd_pr__get_status` and the bots' reviews of the head; fix any new finding with a failing test first. Then `git merge-base --is-ancestor origin/main <sha>` and `git push origin <sha>:refs/heads/main`. Delete the branch, and republish the ledger (`dev plans/progress-ledger/README.md`).
 2. **K4.2, the app shell** (contract §2, and §4 item 2), on a new branch.
-   - **Backend:** the kernel's pages go in `kernel.json` and its schema. `shell.py` and the router each keep the list in code, held to the manifest by tests, as `KERNEL_PERMISSIONS` is; never read at runtime, since a site doesn't copy it. Refuse a module pattern that matches one. Add `GET /api/kernel/site`.
+   - **Backend:** the kernel's pages go in `kernel.json` and its schema. `shell.py` and the router each keep the list in code, held to the manifest by tests (contract change 8; a site doesn't copy `kernel.json`). Refuse a module pattern that matches one. Add `GET /api/kernel/site`.
    - **Web:**
      - `mountApp` (data router); `useSession` wired to `setApiHandlers`; the guards.
      - Typed slots, `useSlot`, `SlotOutlet`; `useModuleEnabled`, `useSite`, `<Seo>`, RouteFocus, ErrorBoundary.
@@ -55,6 +55,6 @@ MechFrame: website modules around a FastAPI + Postgres kernel (`CLAUDE.md`, `SPE
 
 1. `extra="forbid"` answer models as `response_model` catch drift; a hand-built JSONResponse escapes them unless it goes through a checked helper, and a syntax-tree guard catches the aliases.
 2. In openapi-fetch, a resend from `onResponse` skips `onError`: use `options.fetch`, catch failures, and key state by `id`.
-3. A TypeScript interface satisfies `Record<string, X>` only when X is `any`.
+3. An interface without its own index signature (as openapi-typescript's `paths`) satisfies `Record<string, X>` only when X is `any`.
 4. Grep a subagent's claims, such as "tests exist", before writing them into docs.
 5. A withdrawn advisory vanishes from npm audit; an allowlist that fails on stale entries catches it the same day.

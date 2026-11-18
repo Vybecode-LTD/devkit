@@ -8,9 +8,9 @@ Overwritten every session. This one: 2026-11-18, afternoon Eastern (Claude Code,
 - **K4's contract is approved**: `dev plans/contracts/k4-web-kernel.md` and decision 0042. It covers eight PRs: typed client, app shell, themes, UI kit, auth and account screens, admin shell, people and roles, settings and System.
   - **The owner's answers (2026-11-18):** the admin includes role editing, New role and Settings › System; the server's words are hidden by `@media (scripting: enabled)` with a 3 s reveal; Playwright runs locally before each push and in CI on main's pushes, weekly and by hand; Depth waits.
   - **My calls in it:** only custom roles can be edited; fields on the Site board with no settings home are left off.
-  - **Contract changes:** seven so far, in its list.
+  - **Contract changes:** eight so far, in its list. `Contract change: the kernel's pages are listed in kernel.json and kept in code by shell.py and the router, held equal by tests` (change 8: a site never receives `kernel.json`).
 - **#78 is open: K4.1, the typed client.** Every fix is pushed. CI was green on `1acb8f0` and runs again on the head, which carries cubic's last fix and this page.
-  - Every API route declares an `Answer` model that refuses unnamed keys, checked on the way out. A route that sets a cookie or header builds its JSON through `answer()`, and a syntax-tree guard refuses any other `JSONResponse`.
+  - Every API route's JSON answer is an `Answer` model that refuses unnamed keys, checked on the way out; a 204 has no body. A route that sets a cookie or header builds its JSON through `answer()`, and a syntax-tree guard refuses any other `JSONResponse`.
   - `kernel/openapi.json` is committed, made by `python -m tools.openapi`, with errors documented as problems. The module ids `auth` and `kernel` are reserved.
   - `kernel/web/src/api/` holds the client:
     - openapi-fetch, plus openapi-react-query's hooks, with their types restated so the error is an `ApiProblem` and a query reads only;
