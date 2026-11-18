@@ -30,7 +30,7 @@ MechFrame (AI DevKit until 2026-11-18, decision 0034): website modules around a 
 - K4's contract questions, when it's written.
 - Decisions 0032 to 0039's own calls: keep them? The R2 test buckets; the desk steps (the `postgres` password; `Set-ExecutionPolicy`).
 - Rename the folder `C:\DEV\AI-DevKit` (memory moves with it) and the account's `devkit-*` skills?
-- The Videos page's kind names (`music-video`, `rap-battle`, `poetry`); and whether the Apple Pay domain step stays on the payments checklist (Stripe says hosted Checkout needs none: backend plan section 4).
+- The Videos page's kind names (`music-video`, `rap-battle`, `poetry`).
 
 ## 6. Environment and traps
 

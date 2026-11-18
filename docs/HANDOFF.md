@@ -17,7 +17,7 @@ Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claud
 - **The Vibrant Mindz owner decisions of 2026-11-17** are in `docs/plans/vibrant-mindz-backend/backend-plan.md` section 4, with the options that lost:
   - one primary-button hover, `#FF9447`; K4's admin shell hovers to the theme's accent-hover;
   - a Videos page at `/videos` in the site's step 2, with `featured_placement.video_kind`;
-  - cards, Apple Pay and Google Pay on Stripe Checkout at launch, PayPal later;
+  - cards, Apple Pay and Google Pay on Stripe's hosted Checkout at launch, with no domain step, PayPal later;
   - steps 6 and 7 designed after launch.
 
   The same section says how the site's theme moves in at K4.
@@ -42,7 +42,6 @@ Overwritten every session. 2026-11-17 night to 2026-11-18 morning Eastern (Claud
 - When to make the R2 test buckets. The desk steps: the `postgres` password, and `Set-ExecutionPolicy` if wanted.
 - Rename the folder `C:\DEV\AI-DevKit`? Claude Code's memory for the project moves with it. Also rename the claude.ai account's `devkit-*` skills (decision 0034).
 - The Videos page's kind names (`music-video`, `rap-battle`, `poetry`) are still to be confirmed.
-- **Apple Pay's domain step:** Stripe's docs say Apple Pay on its hosted Checkout needs no domain registration (that's for embedded Checkout and Elements). Keep the step on Admin › Marketplace › Payments' checklist, or drop it? (backend plan section 4.)
 - `C:\DEV\knowledge\owner.md` is uncommitted: the owner commits it.
 
 ## Notes
