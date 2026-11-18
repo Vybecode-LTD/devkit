@@ -2,15 +2,15 @@
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
-Updated 2026-11-17, `main` at `e009a13`. Progress counts steps, not effort: each row below is one step, whatever its size.
+Updated 2026-11-17, `main` at `def8a06`. Progress counts steps, not effort: each row below is one step, whatever its size.
 
 ## Overall
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 26 | 0 | 0 | 24 | 4 | 2 | ████░░░░░░ 46% (26 of 56) |
+| MechFrame v1.0 | 27 | 0 | 0 | 24 | 3 | 2 | ████░░░░░░ 48% (27 of 56) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 26 | 0 | 0 | 109 | 4 | 5 | █░░░░░░░░░ 18% (26 of 144) |
+| Everything | 27 | 0 | 0 | 109 | 3 | 5 | █░░░░░░░░░ 18% (27 of 144) |
 
 ## MechFrame v1.0
 
@@ -84,14 +84,14 @@ Gate: Tests for each service; an event delivered once to a handler safe to run t
 | Retention | Later |  |  | Outside K3's gate (the owner, 2026-11-17); its tests come with it |
 | The AI client | Later |  |  | Outside K3's gate (the owner, 2026-11-17); its tests come with it |
 
-### Rename to MechFrame · 1 of 2 done
+### Rename to MechFrame · 2 of 2 done
 
 AI DevKit became MechFrame once K3 was done (decision 0034).
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
 | One PR: prose, packages, cookies, variables, skills and links say MechFrame | Done | [#76](https://github.com/mechframe/mechframe/pull/76) | [0034](decisions/0034-rename-to-mechframe.md) |  |
-| The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there | Waiting |  | [0034](decisions/0034-rename-to-mechframe.md) | With the rename PR |
+| The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there | Done |  | [0034](decisions/0034-rename-to-mechframe.md) | 2026-11-18: transferred; Codex, CodeRabbit and cubic review there |
 
 ### K4: web kernel · 0 of 5 done · gate not passed yet
 

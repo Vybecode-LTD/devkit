@@ -428,11 +428,11 @@
    "gate": "",
    "step_order": 2,
    "step": "The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there",
-   "status": "waiting",
-   "status_label": "Waiting",
+   "status": "done",
+   "status_label": "Done",
    "prs": "",
    "decisions": "0034",
-   "note": "With the rename PR"
+   "note": "2026-11-18: transferred; Codex, CodeRabbit and cubic review there"
   },
   {
    "milestone": "MechFrame v1.0",
@@ -2034,7 +2034,7 @@
   },
   {
    "label": "main",
-   "value": "e009a13"
+   "value": "def8a06"
   }
  ]
 }

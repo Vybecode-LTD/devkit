@@ -1,6 +1,6 @@
 {
   "updated": "2026-11-17",
-  "main": "e009a13",
+  "main": "def8a06",
   "ledger_url": "https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm",
   "milestones": [
     {
@@ -99,7 +99,7 @@
       "goal": "AI DevKit became MechFrame once K3 was done (decision 0034).",
       "items": [
         {"name": "One PR: prose, packages, cookies, variables, skills and links say MechFrame", "status": "done", "prs": [76], "decisions": ["0034"]},
-        {"name": "The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there", "status": "waiting", "decisions": ["0034"], "note": "With the rename PR"}
+        {"name": "The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there", "status": "done", "decisions": ["0034"], "note": "2026-11-18: transferred; Codex, CodeRabbit and cubic review there"}
       ]
     },
     {

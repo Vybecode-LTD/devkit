@@ -11,12 +11,17 @@ one. This runs `npm audit --json` and fails on:
 - any advisory not listed in `tools/npm_audit_allow.json`;
 - a listed one whose `until` date has passed, or lies more than 90 days
   ahead (an allowance is renewed on purpose, never left standing);
-- a listed one npm no longer reports, so the list can't outlive its reasons.
+- a listed one npm no longer reports, so the list can't outlive its reasons;
+- a listed one that reaches the production dependencies (`npm audit --omit=dev`);
+- a listed package with a release newer than the entry's `latest`, which may
+  carry the fix. npm's own `fixAvailable` can't say: it may name a downgrade of
+  a parent (for picomatch, vite 6.2.7). Upgrade if the release fixes it, or set
+  `latest` to it on purpose.
 
-Each entry names the advisory (its GHSA id), the package, why it's accepted
-and until when. Accept only an advisory with no fixed version that reaches
-nothing a visitor can drive (the build and test tools, say), and say so in
-the pull request.
+Each entry names the advisory (its GHSA id), the package, why it's accepted,
+until when, and the package's newest version when it was accepted. Accept
+only an advisory with no fixed version that reaches nothing a visitor can
+drive (the build and test tools, say), and say so in the pull request.
 """
 
 from __future__ import annotations
@@ -56,12 +61,20 @@ def advisories(report: Mapping[str, Any]) -> dict[str, set[str]]:
 
 
 def check(
-    report: Mapping[str, Any], allowed: Sequence[Mapping[str, Any]], today: date
+    report: Mapping[str, Any],
+    allowed: Sequence[Mapping[str, Any]],
+    today: date,
+    *,
+    production: Mapping[str, Any] | None = None,
+    newest: Mapping[str, str] | None = None,
 ) -> list[str]:
     """What's wrong, if anything: an advisory not allowed, an allowance
-    ended, too long or not needed any more, or an entry missing its reason."""
+    ended, too long or not needed any more, an entry missing its reason, and,
+    when given, an allowed advisory in the `production` report (`npm audit
+    --omit=dev`) or a package whose `newest` release is past the entry's."""
     problems = []
     found = advisories(report)
+    shipped = advisories(production) if production is not None else {}
     allow: dict[str, Mapping[str, Any]] = {}
     for entry in allowed:
         ident = str(entry.get("id", ""))
@@ -72,6 +85,8 @@ def check(
             continue
         if not ident or not str(entry.get("why", "")).strip():
             problems.append(f"{ident or 'An entry'} needs an `id` and a `why`.")
+        elif not str(entry.get("package", "")):
+            problems.append(f"{ident} needs its `package`.")
         elif until < today:
             problems.append(
                 f"{ident}'s allowance ended on {until}: upgrade, or renew it on purpose."
@@ -80,6 +95,7 @@ def check(
             problems.append(f"{ident}'s allowance runs past {today + LONGEST}: 90 days at most.")
         else:
             allow[ident] = entry
+            problems += _still_dev_only_and_unfixed(ident, entry, shipped, newest)
     for ident in sorted(found):
         if ident not in allow and ident not in {str(entry.get("id")) for entry in allowed}:
             packages = ", ".join(sorted(found[ident]))
@@ -94,18 +110,71 @@ def check(
     return problems
 
 
+def _still_dev_only_and_unfixed(
+    ident: str,
+    entry: Mapping[str, Any],
+    shipped: Mapping[str, set[str]],
+    newest: Mapping[str, str] | None,
+) -> list[str]:
+    problems = []
+    package = str(entry["package"])
+    if ident in shipped:
+        packages = ", ".join(sorted(shipped[ident]))
+        problems.append(
+            f"{ident} reaches the production dependencies ({packages}): an allowance covers "
+            "the build and test tools only."
+        )
+    if newest is not None:
+        latest = str(entry.get("latest", ""))
+        if not latest:
+            problems.append(f"{ident} needs `latest`, the newest {package} when it was allowed.")
+        elif newest.get(package) != latest:
+            release = newest.get(package)
+            problems.append(
+                f"{package} {release} is out since {ident} was allowed at {latest}: if it "
+                f"fixes the advisory, upgrade and remove the entry; if not, set `latest` to "
+                f"{release}."
+            )
+    return problems
+
+
+def _newest(npm: str, packages: set[str]) -> dict[str, str]:
+    """Each package's newest release on the registry. Raises ValueError when
+    npm doesn't answer."""
+    found = {}
+    for package in sorted(packages):
+        result = subprocess.run(  # noqa: S603  (npm itself, the package from our own list)
+            [npm, "view", package, "version"], capture_output=True, text=True, cwd=ROOT, check=False
+        )
+        version = (result.stdout or "").strip()
+        if result.returncode != 0 or not version:
+            raise ValueError(f"npm view {package} version didn't answer")
+        found[package] = version
+    return found
+
+
 def main(argv: Sequence[str] | None = None, *, today: date | None = None) -> int:
     npm = shutil.which("npm")
     if npm is None:
         print("npm isn't on PATH.", file=sys.stderr)
         return 2
-    result = subprocess.run(  # noqa: S603  (npm itself, a fixed command)
-        [npm, "audit", "--json"], capture_output=True, text=True, cwd=ROOT, check=False
-    )
+    reports = [
+        subprocess.run(  # noqa: S603  (npm itself, a fixed command)
+            [npm, "audit", "--json", *extra], capture_output=True, text=True, cwd=ROOT, check=False
+        ).stdout
+        for extra in ([], ["--omit=dev"])
+    ]
     try:
-        report = json.loads(result.stdout)
+        report, production = (json.loads(text) for text in reports)
         allowed = json.loads(ALLOW.read_text("utf-8"))["allow"]
-        problems = check(report, allowed, today or date.today())
+        packages = {str(entry.get("package", "")) for entry in allowed} - {""}
+        problems = check(
+            report,
+            allowed,
+            today or date.today(),
+            production=production,
+            newest=_newest(npm, packages),
+        )
     except (ValueError, KeyError) as error:
         print(f"Couldn't check npm audit: {error}", file=sys.stderr)
         return 2
