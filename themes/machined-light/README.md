@@ -31,4 +31,4 @@ The kernel's default theme: light, warm graphite with an Ember accent, from `C:\
 
 `color.border-strong` is a control's edge as Machined Light draws it, far under 3:1 on its grounds, since its controls also take their edge from a well and a shadow. A control's boundary as a whole must reach 3:1 (WCAG 1.4.11): the UI kit's controls are checked for that when they're built (K4.4), not this token alone. Vibrant Mindz's boards draw theirs the same way.
 
-The owner may want other shades for these (the handoff asks). The contrast tests in `tests/test_themes.py` hold whatever is chosen to AA.
+The owner kept these shades (2026-11-18, evening Eastern). The contrast tests in `tests/test_themes.py` hold any change to them to AA.
