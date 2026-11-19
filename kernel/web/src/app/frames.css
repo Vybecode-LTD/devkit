@@ -9,12 +9,14 @@
   html {
     background: var(--mf-color-canvas);
     color: var(--mf-color-text-strong);
-    font: var(--mf-type-body);
-    letter-spacing: var(--mf-type-body-tracking);
   }
 
+  /* On body, never html: a body size of its own on the root would resize
+     every rem token with it (Codex on #80). */
   body {
     margin: 0;
+    font: var(--mf-type-body);
+    letter-spacing: var(--mf-type-body-tracking);
   }
 
   h1 {

@@ -79,6 +79,9 @@ for (const [theme, canvas] of Object.entries(THEMES)) {
       }, theme);
       const background = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
       expect(background).toBe(canvas);
+      // The theme's type leaves the root's size alone, so every rem token is the size it says (Codex on #80).
+      const root = await page.evaluate(() => getComputedStyle(document.documentElement).fontSize);
+      expect(root).toBe("16px");
       const { violations } = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
         .analyze();
