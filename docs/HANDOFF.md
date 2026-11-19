@@ -1,11 +1,11 @@
 # Handoff
 
-Overwritten every session. This one: 2026-11-19, evening Eastern (Claude Code, the owner's machine). #84 had landed at `5f7f987`. K4.7, people and roles, is #85, this page in it.
+Overwritten every session. This one: 2026-11-19, evening Eastern (Claude Code, the owner's machine). #84 had landed at `5f7f987`. K4.7, people and roles, landed as #85 by fast-forward (`41c2879`).
 
 ## State
 
 - **K0 to K3 are done.** K2 steps 9 to 11 wait (decision 0029).
-- **K4** (contract `dev plans/contracts/k4-web-kernel.md`, decision 0042): seven of its eight PRs are in or open: #78, #79, #80, #82, #83, #84 and #85.
+- **K4** (contract `dev plans/contracts/k4-web-kernel.md`, decision 0042): seven of its eight PRs are in: #78, #79, #80, #82, #83, #84 and #85.
 - **#85, K4.7** (contract change 18, decision 0045):
   - **Backend, contract tests first** (`kernel/tests/contract/test_people_roles_contract.py`, 27 tests, all seen failing as `NotBuilt`; the eight admin tests marked not built since K2 now run): `GET /api/auth/admin/users`, `PUT .../roles`, `GET /api/auth/admin/roles`, and role editing (`POST`, `PUT`, `DELETE /api/auth/admin/roles…`) in `kernel/auth/roles.py`. Every refusal has a test, and a holder's next request carries a new token. `auth.role.manage` with migration `kernel_0012` (admin). Written down in `docs/contracts/auth-api.md`.
   - **Rules:** only the roles a change adds or removes are judged; `member` is no rank; a role edit is judged on every permission it has or would have; 404 `auth.role_not_found` (a `kernel.not_found` reads as not built in the suite).
@@ -13,13 +13,13 @@ Overwritten every session. This one: 2026-11-19, evening Eastern (Claude Code, t
   - **Screens:** `kernel/web/src/admin/People.tsx` (search, roles by name, second factor, last seen, standing, Open to switch roles) and `Roles.tsx` (cards with counts, the permissions matrix in groups, New role and Edit for the site's own roles); `roleAccess.ts` names roles and says ahead what the server will refuse. The person card names roles from the roles read.
   - **Left off, not faked:** invites, Export, the role chips, reminders, suspending from People, names, the board's "own".
   - **By eye:** `dev plans/2026-11-19-k47-people-roles/`.
-  - **Tests on the last head:** see #85's body.
-- **v1.0:** 56 % (34 of 60 steps).
+  - **Review:** Codex's one finding (the session read again after a role change, through `refreshSession`) and three of CodeRabbit's (no dismissal while a write is on its way, the roles read's failure shown on People, every server field error shown) fixed with failing-first tests; its fourth (mark `kernel_0012` destructive) declined, and CodeRabbit withdrew it.
+  - **Tests on the last head:** Vitest 454, Playwright 68, CI green (Python 7m48s); the whole Python suite 2,087 passed at 98.48 % locally on the first head.
+- **v1.0:** 56 % (34 of 60 steps). The ledger's `steps` dataset points at `main` `41c2879`'s rows; the replaced asset `cd100445…` is unused and could not be deleted from here (the classifier refused).
 
 ## Next
 
-1. **Land #85** once "CI result" is green and the bots are clear; then republish the ledger.
-2. **K4.8, settings and System** (additions 6 to 8). `kernel.jobs.manage` is already in; the dead-jobs list, retry and discard use it.
+1. **K4.8, settings and System** (additions 6 to 8). `kernel.jobs.manage` is already in; the dead-jobs list, retry and discard use it.
 
 ## Open questions for the owner
 
