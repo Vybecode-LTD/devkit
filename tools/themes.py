@@ -49,6 +49,7 @@ REQUIRED: tuple[str, ...] = (
     "color.text-subtle",
     "color.border",
     "color.border-strong",
+    "color.border-control",
     "color.accent",
     "color.accent-hover",
     "color.on-accent",
@@ -58,6 +59,10 @@ REQUIRED: tuple[str, ...] = (
     "color.success",
     "color.warning",
     "color.danger",
+    "color.success-tint",
+    "color.warning-tint",
+    "color.danger-tint",
+    "color.neutral-tint",
     "font.display",
     "font.text",
     "font.mono",
@@ -72,6 +77,11 @@ REQUIRED: tuple[str, ...] = (
     "layout.sidebar",
     "motion.fast",
     "motion.base",
+    "shadow.focus-ring",
+    "shadow.focus-ring-gap",
+    "shadow.focus-ring-inset",
+    "shadow.nav-current-focus",
+    "shadow.tab-current-focus",
 )
 
 ALIAS = re.compile(r"^\{([^{}]+)\}$")

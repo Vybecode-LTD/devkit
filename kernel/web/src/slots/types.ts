@@ -5,11 +5,10 @@
  */
 import type { ComponentType } from "react";
 
-/**
- * An icon's name. Any string until the UI kit (K4.4) brings its icon set and
- * narrows this to the set's names.
- */
-export type IconName = string;
+import type { IconName } from "../ui/icons";
+
+/** An icon's name: one of the UI kit's set (`ICON_NAMES`; contract change 10). */
+export type { IconName };
 
 /** Loads a part, so each module's parts are their own chunk. */
 export type Lazy = () => Promise<{ default: ComponentType }>;

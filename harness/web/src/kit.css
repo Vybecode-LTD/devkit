@@ -1,0 +1,42 @@
+/* The kit page's own layout (kit.tsx): only space between the parts, on the theme's tokens. */
+@layer mf.base, mf.kit, harness;
+
+@layer harness {
+  .kit {
+    box-sizing: border-box;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 2rem 1rem 4rem;
+  }
+
+  .kit-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+
+  .kit-section h2,
+  .kit-section h3 {
+    margin: 1rem 0 0;
+  }
+
+  .kit-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .kit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem;
+  }
+
+  .kit-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+}

@@ -8,22 +8,24 @@
  * within `FOCUS_WAIT_MS` has its main area focused meanwhile, and its heading
  * still gets the focus when it comes; the watch ends after `FOCUS_GIVE_UP_MS`.
  * The moment the person moves the focus themselves, or goes to another
- * page, all of it stops: theirs is never taken back (CodeRabbit on #79). On back and
- * forward the focus moves without scrolling, so the place ScrollRestoration
- * gives back stays (cubic on #79). The page is compared with the last one
- * focused for, so StrictMode's second run of the effect does nothing.
+ * page, all of it stops: theirs is never taken back (CodeRabbit on #79). The
+ * focus never scrolls: `ScrollMemory` places the page, at its top, at the
+ * place Back gives back (cubic on #79), or at the place its address names,
+ * which then takes the focus itself (`landOn`), so a page reached with a
+ * `#place` is left to it. The page is compared with the last one focused for,
+ * so StrictMode's second run of the effect does nothing.
  */
 import { useEffect, useRef } from "react";
-import { NavigationType, useLocation, useNavigationType } from "react-router";
+import { useLocation } from "react-router";
 
 /** How long a page may take to show its heading before the focus goes to its main area. */
 export const FOCUS_WAIT_MS = 3000;
 /** How long a page's heading is watched for at all. */
 export const FOCUS_GIVE_UP_MS = 30_000;
 
-function focus(target: HTMLElement, keepScroll: boolean): void {
+function focus(target: HTMLElement): void {
   if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
-  target.focus({ preventScroll: keepScroll });
+  target.focus({ preventScroll: true });
 }
 
 function heading(): HTMLElement | null {
@@ -31,19 +33,19 @@ function heading(): HTMLElement | null {
 }
 
 export function RouteFocus() {
-  const { pathname } = useLocation();
-  const keepScroll = useNavigationType() === NavigationType.Pop;
+  const { pathname, hash } = useLocation();
   const last = useRef(pathname);
   useEffect(() => {
     if (last.current === pathname) return;
     last.current = pathname;
+    if (hash) return;
     // Set while this effect moves the focus itself, so only the person's own
     // moves stop it.
     let ours = false;
     const move = (target: HTMLElement) => {
       ours = true;
       try {
-        focus(target, keepScroll);
+        focus(target);
       } finally {
         ours = false;
       }
@@ -83,6 +85,6 @@ export function RouteFocus() {
     }
     document.addEventListener("focusin", theirs, true);
     return stop;
-  }, [pathname, keepScroll]);
+  }, [pathname, hash]);
   return null;
 }

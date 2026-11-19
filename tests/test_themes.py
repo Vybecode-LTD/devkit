@@ -92,8 +92,56 @@ PAIRS = (
         for bg in ["color.canvas", "color.surface", "color.surface-raised"]
     ]
     + [("color.focus", bg, 3.0) for bg in [*GROUNDS, "color.well"]]
+    + [("color.border-control", bg, 3.0) for bg in GROUNDS]
     + [("color.accent", bg, 3.0) for bg in GROUNDS]
 )
+
+
+#: A pill's words on its tint (K4.4): (words, tint).
+PILLS = [
+    ("color.success", "color.success-tint"),
+    ("color.warning", "color.warning-tint"),
+    ("color.danger", "color.danger-tint"),
+    ("color.text-muted", "color.neutral-tint"),
+]
+
+
+def laid_over(theme: themes.Theme, name: str, ground: str) -> str:
+    """The token's colour laid over an opaque ground: itself if it's opaque, else blended."""
+    value = themes.literal(theme.by_path[name], theme.by_path)
+    if re.fullmatch(r"#[0-9A-Fa-f]{6}", value):
+        return value
+    found = re.fullmatch(r"rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)", value)
+    assert found, f"{theme.name}: {name} is {value!r}, neither a hex nor an rgba()"
+    alpha = float(found.group(4))
+    under = [int(ground[at : at + 2], 16) for at in (1, 3, 5)]
+    over = [int(found.group(at)) for at in (1, 2, 3)]
+    return "#" + "".join(
+        f"{round(o * alpha + u * (1 - alpha)):02X}" for o, u in zip(over, under, strict=True)
+    )
+
+
+def test_a_tint_is_laid_over_its_ground() -> None:
+    theme = next(each for each in THEMES if each.name == "vibrant-mindz")
+    assert laid_over(theme, "color.success-tint", "#000000") == "#0B1912"
+    assert laid_over(theme, "color.success", "#000000") == opaque(theme, "color.success")
+
+
+@pytest.mark.parametrize(
+    ("theme", "pill", "ground"),
+    [(theme, pill, ground) for theme in THEMES for pill in PILLS for ground in GROUNDS[:3]],
+    ids=[
+        f"{theme.name}:{words}|{ground}"
+        for theme in THEMES
+        for words, _ in PILLS
+        for ground in GROUNDS[:3]
+    ],
+)
+def test_a_pill_reads_on_its_tint(theme: themes.Theme, pill: tuple[str, str], ground: str) -> None:
+    words, tint = pill
+    under = opaque(theme, ground)
+    got = ratio(opaque(theme, words), laid_over(theme, tint, under))
+    assert got >= 4.5, f"{theme.name}: {words} on {tint} over {ground} is {got:.2f}:1, needs 4.5:1"
 
 
 def test_the_contrast_ratio_matches_known_values() -> None:

@@ -5,7 +5,7 @@
  * "@/kernel/testing"). Everything else under kernel/web is private and may
  * change in any release. Built so far: the typed API client, `defineModule`
  * and the app shell (`mountApp`, the session, the guards, the slots, the
- * site, `<Seo>`); K4 goes on with the themes, the UI kit and the screens.
+ * site, `<Seo>`) and the UI kit (`src/ui/`); K4 goes on with the screens.
  */
 export { KERNEL_WEB_VERSION } from "./src/version";
 export {
@@ -24,8 +24,6 @@ export type { AdminLinkEntry, IconName, Lazy, LinkEntry, SlotName, Slots } from 
 export { mountApp } from "./src/app/mount";
 export type { AppOptions } from "./src/app/mount";
 export type { AdminSection } from "./src/app/context";
-export { ErrorBoundary } from "./src/app/ErrorBoundary";
-export { RouteFocus } from "./src/app/RouteFocus";
 
 export { useSession, useSignOut } from "./src/session/session";
 export type { Session, SessionUser } from "./src/session/session";
@@ -35,3 +33,6 @@ export { useModuleEnabled, useSite } from "./src/site/site";
 export type { Site } from "./src/site/site";
 export { Seo } from "./src/seo/Seo";
 export type { SeoProps } from "./src/seo/Seo";
+
+// The UI kit (K4 contract §4 item 4; src/ui/README.md).
+export * from "./src/ui";

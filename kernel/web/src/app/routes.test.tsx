@@ -6,7 +6,7 @@ import { renderApp, testUser } from "../../testing";
 import { defineModule, type ModuleDefinition } from "../modules";
 import { routedFetch } from "../test-fetch";
 import { isMissingCode } from "./RouteError";
-import { FOCUS_WAIT_MS } from "./RouteFocus";
+import { FOCUS_WAIT_MS } from "../ui/RouteFocus";
 
 function pageSaying(words: string) {
   return () => Promise.resolve({ default: () => <h1>{words}</h1> });
@@ -220,6 +220,16 @@ describe("moving between pages", () => {
     });
   });
 
+  it("leaves a page reached at a #place to the landing, which focuses the place itself", async () => {
+    const { router } = renderApp({ modules: [blog] });
+    const home = await screen.findByRole("heading", { name: "Test Site" });
+    home.focus();
+    await act(() => router.navigate("/blog#comments"));
+    const heading = await screen.findByRole("heading", { name: "The blog" });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(heading).not.toHaveFocus();
+  });
+
   it("waits for a page whose code comes later than a frame, then focuses its heading (Codex on #79)", async () => {
     const slow = defineModule({
       id: "slow",
@@ -248,14 +258,14 @@ describe("moving between pages", () => {
     });
   });
 
-  it("keeps the restored scroll on back and forward, focusing without scrolling (cubic on #79)", async () => {
+  it("focuses without scrolling, so the place ScrollMemory gives each page stays (cubic on #79)", async () => {
     const focused = vi.spyOn(HTMLElement.prototype, "focus");
     const { router } = renderApp({ modules: [blog] });
     await screen.findByRole("heading", { name: "Test Site" });
     await act(() => router.navigate("/blog"));
     await screen.findByRole("heading", { name: "The blog" });
     await waitFor(() => {
-      expect(focused).toHaveBeenLastCalledWith({ preventScroll: false });
+      expect(focused).toHaveBeenLastCalledWith({ preventScroll: true });
     });
     await act(() => router.navigate(-1));
     const home = await screen.findByRole("heading", { name: "Test Site" });
@@ -423,6 +433,38 @@ describe("moving between pages", () => {
       expect(at(router)).toBe("/");
     });
     expect(await screen.findByRole("link", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("goes home on signing out from a member page, even when home's code is slow to come", async () => {
+    // The race behind a flaky run: signed out, the member page's guard sends
+    // the person to sign in, and that overtook the move home still loading.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
+    );
+    const slowHome = defineModule({
+      id: "landing",
+      routes: {
+        public: [
+          {
+            path: "/",
+            lazy: () =>
+              new Promise((resolve) => {
+                setTimeout(() => {
+                  resolve({ default: () => <h1>The landing page</h1> });
+                }, 150);
+              }),
+          },
+        ],
+        member: [],
+        admin: [],
+      },
+    });
+    const { router } = renderApp({ path: "/account", session: testUser(), modules: [slowHome] });
+    await userEvent.click(await screen.findByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("heading", { name: "The landing page" }, { timeout: 2000 })).toBeInTheDocument();
+    expect(at(router)).toBe("/");
+    expect(screen.getByRole("link", { name: "Sign in" })).toBeInTheDocument();
   });
 });
 

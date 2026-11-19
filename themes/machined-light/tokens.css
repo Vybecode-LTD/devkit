@@ -47,6 +47,11 @@
   --mf-color-text-subtle: var(--mf-color-palette-neutral-600);
   --mf-color-border: var(--mf-color-palette-neutral-200);
   --mf-color-border-strong: var(--mf-color-palette-neutral-300);
+  --mf-color-success-tint: var(--mf-color-palette-success-50);
+  --mf-color-warning-tint: var(--mf-color-palette-warning-50);
+  --mf-color-danger-tint: var(--mf-color-palette-danger-50);
+  --mf-color-neutral-tint: var(--mf-color-palette-neutral-150);
+  --mf-color-border-control: var(--mf-color-palette-neutral-500);
   --mf-color-accent: var(--mf-color-palette-ember-600);
   --mf-color-accent-hover: var(--mf-color-palette-ember-700);
   --mf-color-on-accent: var(--mf-color-palette-neutral-0);
@@ -100,6 +105,11 @@
   --mf-shadow-inset-1: inset 0 1px 2px rgba(24,22,20,0.10), inset 0 1px 3px rgba(24,22,20,0.06);
   --mf-shadow-inset-2: inset 0 2px 4px rgba(24,22,20,0.13), inset 0 1px 6px rgba(24,22,20,0.08);
   --mf-shadow-focus: 0 0 0 1px var(--mf-color-focus), 0 0 0 4px rgba(232,68,10,0.28);
+  --mf-shadow-focus-ring: var(--mf-shadow-focus);
+  --mf-shadow-focus-ring-gap: 0 0 0 2px var(--mf-color-canvas), 0 0 0 3px var(--mf-color-focus), 0 0 0 6px rgba(232,68,10,0.28);
+  --mf-shadow-focus-ring-inset: inset 0 0 0 1px var(--mf-color-focus), inset 0 0 0 4px rgba(232,68,10,0.28);
+  --mf-shadow-nav-current-focus: inset 2px 0 0 var(--mf-color-accent), 0 0 0 1px var(--mf-color-focus), 0 0 0 4px rgba(232,68,10,0.28);
+  --mf-shadow-tab-current-focus: inset 0 -2px 0 var(--mf-color-accent), 0 0 0 1px var(--mf-color-focus), 0 0 0 4px rgba(232,68,10,0.28);
   --mf-shadow-accent-glow: 0 2px 6px rgba(232,68,10,0.20), 0 6px 20px rgba(232,68,10,0.28);
   --mf-motion-fast: 150ms;
   --mf-motion-base: 220ms;

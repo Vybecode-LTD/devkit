@@ -8,6 +8,11 @@ Copied on 2026-11-18, at K4, from VM Website `design/theme/vibrant-mindz/tokens.
 - `radius.control` (10px), `radius.card` (16px) and `radius.pill` (full).
 - `motion.fast` and `motion.base`.
 
+K4.4 (the UI kit) added three things, so VM Website's copy is now behind this one (contract change 15):
+- **One new value**, `color.palette.line-3` `#5C6584`: `line-2` taken 41% of the way to `muted`, the darkest step of that blend at 3:1 on the canvas, panels and rail. It's `color.border-control`, the edge of a field, a select and a switch's track, which the boards draw in `line-2` at 1.5:1 (WCAG 1.4.11 asks 3:1).
+- **Aliases of existing values:** `color.success-tint`, `warning-tint`, `danger-tint` and `neutral-tint` are the boards' 12% pill tints (`color.alpha.mint.12` and the rest).
+- **The admin's focus shadows** (`shadow.focus-ring` and its forms) were already here; they're now required of every theme.
+
 The generator moved to `tools/themes.py`. Its prefix is now `--mf-` (it was `--dk-`), and the tokens sit on `[data-theme="vibrant-mindz"]` alone. The theme's own checks moved to `tests/test_theme_vibrant_mindz.py`: its 65 contrast pairs, aliases, alphas and shadows.
 
 | File | What |

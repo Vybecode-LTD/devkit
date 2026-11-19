@@ -237,7 +237,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `useModuleEnabled(id)` | Whether a module is switched on |
 | `useSettings(id)` | The module's settings, read-only on public pages |
 | `defineModule({...})` | Registers routes and slots (section 8) |
-| UI kit | Accordion, Dialog, form fields, Table, Toast, EmptyState, LoadError, SaveConflict, UnsavedDialog, Seo, mostly lifted from VybeSite |
+| UI kit | Button and LinkButton, Field with Input, TextArea, Select and Switch, Card, Pill and Chip, Attention, Accordion, Tabs, Table, Dialog, UnsavedDialog with `useUnsavedGuard` and `useLeaveGuard`, SaveBar, SaveConflict, SectionHistory, Toast (`useToast`), EmptyState, LoadError, ErrorBoundary, RouteFocus, ScrollMemory and Icon (`kernel/web/src/ui/README.md`); the behavior ported from VybeSite, the look drawn from the Vibrant Mindz admin boards on the theme's tokens |
 
 ```mermaid
 flowchart TB
@@ -829,6 +829,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-18 | K4's UI kit (decision 0042, contract change 15): the parts in section 6's table, in `kernel/web/src/ui/` and exported from `@/kernel`; `IconName` is the kit's set; the required tokens gain `color.border-control`, the four pill tints and the admin's five focus shadows (`themes/README.md`); `ScrollMemory` takes over from React Router's scroll restoration (6, 16) |
 | 2026-11-18 | K4's themes (decision 0042): `themes/machined-light` and `themes/vibrant-mindz` on the kernel's required tokens (`themes/README.md`), made by `python -m tools.themes`; tokens are `--mf-*` on `[data-theme="<name>"]` alone; the colour rule is ESLint's for TypeScript and a test for CSS, in place of Stylelint (8, 16) |
 | 2026-11-18 | K4's app shell (decision 0042): `mountApp` with a data router, `useSession`, the guards, typed slots with `useSlot` and `SlotOutlet`, `useSite`, `useModuleEnabled` and `<Seo>`; the kernel's own pages listed in `kernel.json` and kept in code by the router and the server, each the shell with noindex, and a module route that takes one under its first segment refused; `GET /api/kernel/site`; the server's words hidden by `@media (scripting: enabled)` until React replaces them, shown after 3 s regardless; the parity test in Playwright (8, 9) |
 | 2026-11-18 | K4 starts (decision 0042): every route declares its answer as an `Answer` model that refuses unnamed keys, checked on the way out; `kernel/openapi.json` is committed with each module's, its errors documented as problems; the web kernel's client (`api`, `useApiQuery`, `useApiMutation`, `createApiClient`, `ApiProblem`) is typed by the types generated from it (4, 6, 7, 18) |

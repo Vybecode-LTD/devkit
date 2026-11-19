@@ -8,21 +8,22 @@
  * are the only ones the parity test compares with the server's copy.
  */
 import type { ReactNode } from "react";
-import { Link, NavLink, Outlet, ScrollRestoration, useNavigate } from "react-router";
+import { Link, NavLink, Outlet, useNavigate } from "react-router";
 
 import { useSession, useSignOut } from "../session/session";
 import { adminSidebar } from "../slots/sidebar";
 import { SlotOutlet, useSlot } from "../slots/slots";
 import { useSite } from "../site/site";
 import { useKernelSetup } from "./context";
-import { RouteFocus } from "./RouteFocus";
+import { RouteFocus } from "../ui/RouteFocus";
+import { ScrollMemory } from "../ui/ScrollMemory";
 
-/** Every page: focus moved to its heading, scroll kept per page. */
+/** Every page: focus moved to its heading, scroll kept per page and landed on its place (`ScrollMemory`). */
 export function Root() {
   return (
     <>
       <RouteFocus />
-      <ScrollRestoration />
+      <ScrollMemory />
       <Outlet />
     </>
   );
@@ -42,13 +43,14 @@ function AccountLinks() {
   const navigate = useNavigate();
   if (session.status === "signed-out") return <Link to="/sign-in">Sign in</Link>;
   if (session.status !== "signed-in") return null;
+  // Home first, then out: signed out on a member page, its guard sends the
+  // person to sign in, which overtook a move home whose code was still coming.
   const leave = () => {
-    signOut().then(
-      () => void navigate("/"),
-      (error: unknown) => {
+    Promise.resolve(navigate("/"))
+      .then(signOut)
+      .catch((error: unknown) => {
         console.error("Signing out failed.", error);
-      },
-    );
+      });
   };
   return (
     <>
@@ -95,7 +97,7 @@ export function AdminFrame() {
   const can = session.status === "signed-in" ? session.can : () => false;
   const groups = adminSidebar(entries, adminSections, can);
   return (
-    <div className="mf-admin">
+    <div className="mf-admin mf-admin-look">
       <Skip />
       <nav aria-label="Admin" className="mf-admin-nav">
         {groups.map((group) => (

@@ -31,7 +31,8 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 | `color.text-muted` | Labels, hints, table heads, inactive nav |
 | `color.text-subtle` | Placeholders, the quietest text that's still text (AA on every ground) |
 | `color.border` | The edges of cards, dividers, table rows, the sidebar and the top bar |
-| `color.border-strong` | The edges of controls: buttons, inputs, badges, chips, the save bar |
+| `color.border-strong` | The edges of controls named by their words: buttons, badges, chips, the save bar |
+| `color.border-control` | The edge of a field, a select and a switch's track, which nothing else outlines: at least 3:1 on every ground (WCAG 1.4.11) |
 | `color.accent` | The primary action and the admin's focus ring |
 | `color.accent-hover` | The primary action, hovered |
 | `color.on-accent` | Text and icons on the accent |
@@ -41,6 +42,10 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 | `color.success` | A success, as text or a tone |
 | `color.warning` | A warning, as text or a tone |
 | `color.danger` | A danger or an error, as text or a tone |
+| `color.success-tint` | A success pill's tint, behind its words in `color.success` |
+| `color.warning-tint` | A warning pill's tint |
+| `color.danger-tint` | A danger pill's tint |
+| `color.neutral-tint` | A neutral pill's tint, behind its words in `color.text-muted` |
 | `font.display` | The display face: big headings, the wordmark |
 | `font.text` | The text face: everything else |
 | `font.mono` | The code face (contract change 5) |
@@ -55,6 +60,11 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 | `layout.sidebar` | The admin sidebar's width |
 | `motion.fast` | A quick change: colour, border, background |
 | `motion.base` | An ordinary change: a transform, a panel |
+| `shadow.focus-ring` | The admin's keyboard focus: a 1px accent line and a 4px glow of it |
+| `shadow.focus-ring-gap` | The admin's focus on a filled or pressed control (the primary button, a switch that's on, a pressed chip): a 2px gap of the page colour first |
+| `shadow.focus-ring-inset` | The admin's focus drawn just inside: a row in a clipped list, a table's sideways scroller |
+| `shadow.nav-current-focus` | The current nav item with focus: its 2px edge under the ring |
+| `shadow.tab-current-focus` | The selected tab with focus: its 2px underline under the ring |
 
 **Contrast**, which `tests/test_themes.py` checks token against token:
 - Every text role is at least 4.5:1 on the canvas, surface, raised surface and rail, and the two strongest are 4.5:1 on a well.
@@ -64,7 +74,10 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 
 Rendered contrast is checked by axe, in Playwright (`kernel/tests/e2e/parity.spec.ts`), in both themes. It checks the default rendering of every page a visitor reaches signed out: the home page, a 404 and each of the kernel's public pages. The member and admin pages join once sign-in and their screens are built (K4.5, K4.6). Text over photos or glows, and the hover and focus states, are checked by eye beside the boards as each screen is built (contract §7).
 
-`color.border-strong` isn't held to 3:1: in both themes a control also takes its edge from a fill or a shadow. A control's boundary as a whole must reach 3:1 (WCAG 1.4.11), which the UI kit's controls are checked for when they're built (K4.4).
+- The control edge (`color.border-control`) is at least 3:1 on the canvas, surface, raised surface and rail.
+- A pill's words are 4.5:1 on its tint, laid over the canvas, surface and raised surface: each theme tints its own way (Vibrant Mindz mixes the tone at 12%, Machined Light has a light tint per signal).
+
+`color.border-strong` isn't held to 3:1: it outlines controls whose words name them (a button, a chip), which WCAG 1.4.11 doesn't ask to be outlined. A field, a select and a switch's track have no words of their own, so their edge is `color.border-control`. Playwright measures each kit control as drawn, in both themes, on the kit page (`kernel/tests/e2e/kit.spec.ts`): a field's or a switch's boundary, and a pressed chip's or a filled button's, reach 3:1 against what's behind them.
 
 ## Adding a theme
 

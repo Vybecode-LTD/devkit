@@ -174,16 +174,16 @@ describe("the admin sidebar's order", () => {
     const groups = adminSidebar(
       [entry("posts", "Content"), entry("orders", "Shop"), entry("loose"), entry("pages", "Content"), entry("odd", "Other")],
       [
-        { label: "Shop", icon: "cart" },
-        { label: "Content", icon: "pen" },
-        { label: "Unused", icon: "x" },
+        { label: "Shop", icon: "shop" },
+        { label: "Content", icon: "document" },
+        { label: "Unused", icon: "close" },
       ],
       () => true,
     );
     expect(groups.map((group) => [group.label, group.icon, group.items.map((item) => item.label)])).toEqual([
       [undefined, undefined, ["Dashboard", "loose"]],
-      ["Shop", "cart", ["orders"]],
-      ["Content", "pen", ["posts", "pages"]],
+      ["Shop", "shop", ["orders"]],
+      ["Content", "document", ["posts", "pages"]],
       ["Other", undefined, ["odd"]],
       ["People and access", undefined, ["People", "Roles", "Activity"]],
       ["Settings", undefined, ["Site", "Features", "System"]],
@@ -199,19 +199,19 @@ describe("the admin sidebar's order", () => {
     const groups = adminSidebar(
       [entry("posts", "Content")],
       [
-        { label: "Content", icon: "pen" },
-        { label: "Content", icon: "other" },
+        { label: "Content", icon: "document" },
+        { label: "Content", icon: "people" },
       ],
       () => false,
     );
     expect(groups.map((group) => [group.label, group.icon, group.items.length])).toEqual([
       [undefined, undefined, 1],
-      ["Content", "pen", 1],
+      ["Content", "document", 1],
     ]);
   });
 
   it("keeps an entry's icon", () => {
-    const [top] = adminSidebar([{ label: "x", to: "/admin/x", icon: "star", module: "m", key: "m:0" }], [], () => false);
-    expect(top?.items[1]).toEqual({ label: "x", to: "/admin/x", icon: "star" });
+    const [top] = adminSidebar([{ label: "x", to: "/admin/x", icon: "bell", module: "m", key: "m:0" }], [], () => false);
+    expect(top?.items[1]).toEqual({ label: "x", to: "/admin/x", icon: "bell" });
   });
 });

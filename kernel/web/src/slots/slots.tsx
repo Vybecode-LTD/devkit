@@ -6,7 +6,7 @@
 import { Suspense, useCallback, useState } from "react";
 import { NavLink } from "react-router";
 
-import { ErrorBoundary } from "../app/ErrorBoundary";
+import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { useKernelSetup } from "../app/context";
 import { lazyPart } from "../app/lazy";
 import { useSession } from "../session/session";

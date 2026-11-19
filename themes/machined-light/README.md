@@ -17,6 +17,9 @@ The kernel's default theme: light, warm graphite with an Ember accent, from `C:\
 | `color.text-subtle` | neutral-600 `#5F5E58`, 5.5:1 | `--color-text-subtle` is neutral-400 | neutral-400 is under 3:1 |
 | `color.border` | neutral-200 `#D8D8D4` | (none) | Its cards take their edge from a shadow; this is for dividers and rows |
 | `color.border-strong` | neutral-300 `#C4C4BF` | `--color-border` | The control border (contract change 5) |
+| `color.border-control` | neutral-500 `#807F79`, 3.2:1 and up | (none: its fields take their edge from `--color-border` and an inset shadow) | A field's and a switch track's edge must reach 3:1 on its own (WCAG 1.4.11; contract change 15) |
+| `color.success-tint` … `neutral-tint` | success-50, warning-50, danger-50, neutral-150 | its badges' tints | Its own light tints, which keep the signals' words at 4.5:1; a 12% mix of the tone doesn't (3.7 to 4.2:1) |
+| `shadow.focus-ring` and its gap, inset, nav and tab forms | `--shadow-focus` (ember-500), with a canvas gap, inset, or over the accent's 2px edge | `--shadow-focus` | The admin's ring is drawn the way Machined Light's focus is (the owner, 2026-11-18) |
 | `color.accent` | ember-600 `#C93A0C` | `--accent` is ember-500 | White on ember-500 is 4.0:1, under 4.5:1; on ember-600 it's 5.1:1 |
 | `color.accent-hover` | ember-700 `#A2320F` | ember-600 | One step darker, as before |
 | `color.link`, `color.link-hover` | ember-700, ember-900 | ember-700 is "accent on light text" | |

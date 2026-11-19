@@ -109,6 +109,11 @@
   --color-text-subtle: var(--mf-color-text-subtle);
   --color-border: var(--mf-color-border);
   --color-border-strong: var(--mf-color-border-strong);
+  --color-success-tint: var(--mf-color-success-tint);
+  --color-warning-tint: var(--mf-color-warning-tint);
+  --color-danger-tint: var(--mf-color-danger-tint);
+  --color-neutral-tint: var(--mf-color-neutral-tint);
+  --color-border-control: var(--mf-color-border-control);
   --color-hairline: var(--mf-color-hairline);
   --color-wash: var(--mf-color-wash);
   --color-accent: var(--mf-color-accent);

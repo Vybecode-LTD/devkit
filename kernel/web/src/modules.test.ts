@@ -98,7 +98,7 @@ describe("defineModule", () => {
       slots: {
         "nav.public": [{ label: "Blog", to: "/blog" }],
         "nav.member": [{ label: "Drafts", to: "/blog/drafts" }],
-        "nav.admin": [{ label: "Posts", to: "/admin/blog", section: "Content", icon: "pen" }],
+        "nav.admin": [{ label: "Posts", to: "/admin/blog", section: "Content", icon: "document" }],
         "admin.dashboard.widget": [{ lazy: page }],
         "admin.settings.section": [{ id: "blog", title: "Blog", lazy: page }],
         "account.section": [{ id: "blog", title: "Your posts", lazy: page }],

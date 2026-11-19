@@ -14,6 +14,11 @@
   --color-text-subtle: var(--mf-color-text-subtle);
   --color-border: var(--mf-color-border);
   --color-border-strong: var(--mf-color-border-strong);
+  --color-success-tint: var(--mf-color-success-tint);
+  --color-warning-tint: var(--mf-color-warning-tint);
+  --color-danger-tint: var(--mf-color-danger-tint);
+  --color-neutral-tint: var(--mf-color-neutral-tint);
+  --color-border-control: var(--mf-color-border-control);
   --color-accent: var(--mf-color-accent);
   --color-accent-hover: var(--mf-color-accent-hover);
   --color-on-accent: var(--mf-color-on-accent);
@@ -44,6 +49,11 @@
   --shadow-inset-1: var(--mf-shadow-inset-1);
   --shadow-inset-2: var(--mf-shadow-inset-2);
   --shadow-focus: var(--mf-shadow-focus);
+  --shadow-focus-ring: var(--mf-shadow-focus-ring);
+  --shadow-focus-ring-gap: var(--mf-shadow-focus-ring-gap);
+  --shadow-focus-ring-inset: var(--mf-shadow-focus-ring-inset);
+  --shadow-nav-current-focus: var(--mf-shadow-nav-current-focus);
+  --shadow-tab-current-focus: var(--mf-shadow-tab-current-focus);
   --shadow-accent-glow: var(--mf-shadow-accent-glow);
   --ease-out: var(--mf-motion-easing-out);
   --ease-in-out: var(--mf-motion-easing-in-out);

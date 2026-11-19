@@ -8,6 +8,7 @@
   --mf-color-palette-well: #04060D;
   --mf-color-palette-line: #1D2542;
   --mf-color-palette-line-2: #2A3457;
+  --mf-color-palette-line-3: #5C6584;
   --mf-color-palette-led-off: #3A4263;
   --mf-color-palette-fire: #FF7A1F;
   --mf-color-palette-fire-hover: #FF9447;
@@ -150,6 +151,11 @@
   --mf-color-text-subtle: var(--mf-color-palette-subtle);
   --mf-color-border: var(--mf-color-palette-line);
   --mf-color-border-strong: var(--mf-color-palette-line-2);
+  --mf-color-success-tint: var(--mf-color-alpha-mint-12);
+  --mf-color-warning-tint: var(--mf-color-alpha-amber-12);
+  --mf-color-danger-tint: var(--mf-color-alpha-coral-12);
+  --mf-color-neutral-tint: var(--mf-color-alpha-muted-12);
+  --mf-color-border-control: var(--mf-color-palette-line-3);
   --mf-color-hairline: var(--mf-color-alpha-bone-12);
   --mf-color-wash: var(--mf-color-alpha-bone-6);
   --mf-color-accent: var(--mf-color-palette-fire);

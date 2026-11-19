@@ -37,6 +37,7 @@ export default defineConfig({
         "**/*.test.{ts,tsx}",
         "kernel/web/src/api/schema.ts", // generated types: no code
         "harness/web/src/main.tsx", // the harness's two lines of wiring, run by Playwright
+        "harness/web/src/kit.tsx", // the UI kit's page, checked by Playwright (kit.spec.ts)
         "modules/_*/**",
       ],
       thresholds: { lines: 85 },

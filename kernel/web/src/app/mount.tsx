@@ -6,6 +6,7 @@
  */
 import "./server-copy.css";
 import "./frames.css";
+import "../ui/kit.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode, type ReactNode } from "react";
@@ -15,6 +16,7 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 import { apiQueryOptions, retryUnlessRefused } from "../api/client";
 import { defineModule, type ModuleDefinition } from "../modules";
 import { SessionHandlers } from "../session/session";
+import { ToastProvider } from "../ui/Toast";
 import { KernelContext, type AdminSection, type KernelSetup } from "./context";
 import { buildRoutes } from "./routes";
 
@@ -27,7 +29,7 @@ export type AppOptions = {
   root?: HTMLElement;
 };
 
-/** What every page shares: the query cache, the setup the slots read, the session's handlers. */
+/** What every page shares: the query cache, the setup the slots read, the session's handlers, the toasts. */
 export function KernelProviders({
   queryClient,
   setup,
@@ -40,7 +42,9 @@ export function KernelProviders({
   return (
     <QueryClientProvider client={queryClient}>
       <KernelContext.Provider value={setup}>
-        <SessionHandlers>{children}</SessionHandlers>
+        <SessionHandlers>
+          <ToastProvider>{children}</ToastProvider>
+        </SessionHandlers>
       </KernelContext.Provider>
     </QueryClientProvider>
   );

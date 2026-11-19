@@ -484,10 +484,10 @@
    "gate": "not passed",
    "step_order": 4,
    "step": "UI kit, moved to React 19 and tokens",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#82",
+   "decisions": "0042",
    "note": ""
   },
   {
