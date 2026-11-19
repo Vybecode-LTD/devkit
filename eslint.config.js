@@ -28,8 +28,30 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "@typescript-eslint/consistent-type-imports": "error",
-      // Hard-coded colors are refused by the token rules (SPEC.md section 16), added in K4.
+      // No colour written in code: a part takes its colours from the theme's
+      // tokens (SPEC.md section 16, themes/README.md). tests/test_themes.py
+      // checks the CSS the same way.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: String.raw`Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]`,
+          message: "A colour comes from the theme: use a var(--mf-color-*) token.",
+        },
+        {
+          selector: String.raw`Literal[value=/\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch)\(/]`,
+          message: "A colour comes from the theme: use a var(--mf-color-*) token.",
+        },
+        {
+          selector: String.raw`TemplateElement[value.raw=/#[0-9a-fA-F]{6}\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch)\(/]`,
+          message: "A colour comes from the theme: use a var(--mf-color-*) token.",
+        },
+      ],
     },
+  },
+  {
+    // A test may compare a colour as the browser computes it.
+    files: ["**/*.test.{ts,tsx}", "kernel/tests/e2e/**"],
+    rules: { "no-restricted-syntax": "off" },
   },
   {
     files: ["eslint.config.js"],

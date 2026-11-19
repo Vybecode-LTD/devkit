@@ -344,7 +344,7 @@ The slots are typed (`Slots`): links take `{label, to, permission?}`, with `sect
 
 **Rules**
 
-- Styling comes only from tokens (`var(--dk-*)`). Hard-coded colors fail lint. Tailwind v4's theme maps to the same tokens.
+- Styling comes only from tokens (`var(--mf-*)`; `themes/README.md` lists the kernel's required ones). A site names its theme on `<html data-theme="...">`. Hard-coded colors fail lint. Tailwind v4's theme maps to the same tokens.
 - Use the kernel UI kit before writing a new component. The admin shell is built to the Vibrant Mindz canvas Admin design, styled by theme tokens, for every site, with VybeSite's behavior (accordions, unsaved changes, save conflicts, section history) and not its looks; only its generic parts are the kernel's (decision 0040).
 - Data comes only through the generated client and TanStack Query; no `fetch` inside components.
 - Every route is lazy-loaded, so a module that is switched off costs nothing in the bundle a visitor downloads.
@@ -722,7 +722,7 @@ A module is `stable` only when it passes every row below in CI. `mechframe check
 | Accessibility | No serious or critical violations on any page | axe via Playwright |
 | Public pages | Server-copy test passes (section 9); title, description, one `h1`, canonical, JSON-LD | Playwright, the SEO gate |
 | Security | Auth contract tests (14.13) when auth is touched; gitleaks and pip-audit clean; npm audit clean but for advisories with no fix that reach only the build and test tools, nothing a visitor can drive, on the expiring allowlist (`tools/npm_audit_allow.json`, 90 days at most) |  |
-| Tokens | No hard-coded colors | Stylelint and ESLint rules |
+| Tokens | No hard-coded colors; every theme defines the required tokens, meets their contrast pairs and stops motion under reduced motion | ESLint's rule for TypeScript, `tests/test_themes.py` for CSS and the themes |
 | Docs | `module.json` validates; `MODULE.md` has every required section | `mechframe check` |
 
 ## 17. The AI-facing layer
@@ -829,6 +829,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-18 | K4's themes (decision 0042): `themes/machined-light` and `themes/vibrant-mindz` on the kernel's required tokens (`themes/README.md`), made by `python -m tools.themes`; tokens are `--mf-*` on `[data-theme="<name>"]` alone; the colour rule is ESLint's for TypeScript and a test for CSS, in place of Stylelint (8, 16) |
 | 2026-11-18 | K4's app shell (decision 0042): `mountApp` with a data router, `useSession`, the guards, typed slots with `useSlot` and `SlotOutlet`, `useSite`, `useModuleEnabled` and `<Seo>`; the kernel's own pages listed in `kernel.json` and kept in code by the router and the server, each the shell with noindex, and a module route that takes one under its first segment refused; `GET /api/kernel/site`; the server's words hidden by `@media (scripting: enabled)` until React replaces them, shown after 3 s regardless; the parity test in Playwright (8, 9) |
 | 2026-11-18 | K4 starts (decision 0042): every route declares its answer as an `Answer` model that refuses unnamed keys, checked on the way out; `kernel/openapi.json` is committed with each module's, its errors documented as problems; the web kernel's client (`api`, `useApiQuery`, `useApiMutation`, `createApiClient`, `ApiProblem`) is typed by the types generated from it (4, 6, 7, 18) |
 | 2026-11-18 | AI DevKit is renamed MechFrame throughout: prose, the planned CLI (`mechframe`, also `mf`), the lock file `mechframe.lock.json`, the npm names (`@mechframe/kernel`, `@mechframe/harness-web`), the cookies `__Host-mf_session` and `__Host-mf_device`, the API key prefix `mf_live_` / `mf_test_`, problem types `urn:mechframe:problem:`, the `MECHFRAME_*` variables, the skills `mechframe-*` and the repo `mechframe/mechframe`; the Python import stays `kernel`, and earlier change-log lines keep the old name (every section; decision 0034) |

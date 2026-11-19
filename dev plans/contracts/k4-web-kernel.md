@@ -189,3 +189,10 @@ Made while building #78 (decision 0042 records them):
     - `testing.ts` takes `on: "loading"`, `site: "loading"` and `strict`.
     - Node is 22.12 at least. CI's Web job enforces the 85 % floor.
     - The end-to-end server reads no `.env` and never reuses a running server.
+14. **The themes (#80).**
+    - A theme's tokens sit on `[data-theme="<name>"]` alone, never `:root`: a site names its theme on `<html data-theme>` in its `index.html`. The harness imports both themes and names Machined Light, and Playwright switches the attribute to run axe in each.
+    - A `type.*` token is a W3C typography composite. It writes a `font` shorthand (`--mf-type-body`) and its tracking (`--mf-type-body-tracking`).
+    - The required list is §2's, unchanged. The admin's focus-ring shadows stay in the Vibrant Mindz theme and join the list when the kit needs them.
+    - **Machined Light's roles:** where the system's own role fails AA as text, the kernel's takes the next shade that passes (accent and focus ember-600, text-muted neutral-700, text-subtle neutral-600), and the three signals gain a text shade derived on their own hue. `themes/machined-light/README.md` lists each. These are my calls, for the owner to confirm.
+    - **Vibrant Mindz** is VM Website's `tokens.json` with the kernel's `font`, `type`, `radius` and `motion` names added as aliases, so no value changed. Pointing its census at the copy is VM Website's work.
+    - The colour rule is ESLint's `no-restricted-syntax` for TypeScript and `tests/test_themes.py` for CSS; SPEC 16 named Stylelint, which isn't added. The frames' base styles now use the tokens.

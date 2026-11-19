@@ -456,8 +456,8 @@
    "gate": "not passed",
    "step_order": 2,
    "step": "The app shell: router, useSession, guards, slots, the kernel's pages, server copy, Playwright",
-   "status": "review",
-   "status_label": "In review",
+   "status": "done",
+   "status_label": "Done",
    "prs": "#79",
    "decisions": "0042",
    "note": ""
@@ -470,10 +470,10 @@
    "gate": "not passed",
    "step_order": 3,
    "step": "Themes: Machined Light and Vibrant Mindz on the kernel's tokens",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "review",
+   "status_label": "In review",
+   "prs": "#80",
+   "decisions": "0042",
    "note": ""
   },
   {

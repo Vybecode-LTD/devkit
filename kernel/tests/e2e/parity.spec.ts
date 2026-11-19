@@ -3,7 +3,7 @@
 // page. Every visible h1 to h3 and p React draws on `/` is in the server's
 // copy. The copy is hidden while the app loads, shown at once without
 // scripts, and shown after 3 s when the app never arrives. And axe finds no
-// serious or critical problem on the pages the shell has so far.
+// serious or critical problem on the pages the shell has so far, in both themes.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
@@ -63,14 +63,27 @@ test("a signed-out person asking for their account is sent to sign in, and back 
   await expect(page).toHaveURL(/\/sign-in\?next=%2Faccount$/);
 });
 
-for (const path of ["/", "/nowhere", "/sign-in"]) {
-  test(`axe finds no serious or critical problem on ${path}`, async ({ page }) => {
-    await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    const { violations } = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-      .analyze();
-    const serious = violations.filter((each) => each.impact === "serious" || each.impact === "critical");
-    expect(serious.map((each) => `${each.id}: ${each.help}`)).toEqual([]);
-  });
+/** Each theme, and its canvas as the browser computes it, to check it applied. */
+const THEMES = {
+  "machined-light": "rgb(236, 236, 234)",
+  "vibrant-mindz": "rgb(7, 10, 22)",
+} as const;
+
+for (const [theme, canvas] of Object.entries(THEMES)) {
+  for (const path of ["/", "/nowhere", "/sign-in"]) {
+    test(`axe finds no serious or critical problem on ${path} in ${theme}`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await page.evaluate((name) => {
+        document.documentElement.dataset.theme = name;
+      }, theme);
+      const background = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+      expect(background).toBe(canvas);
+      const { violations } = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+        .analyze();
+      const serious = violations.filter((each) => each.impact === "serious" || each.impact === "critical");
+      expect(serious.map((each) => `${each.id}: ${each.help}`)).toEqual([]);
+    });
+  }
 }

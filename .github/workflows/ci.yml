@@ -64,14 +64,15 @@ jobs:
           any() { grep -Eq "$1" changed.txt && echo true || echo false; }
           everything=$(any '^\.github/workflows/')
           pins=$(any '^requirements')
-          # The Python job also validates every manifest, so schemas and recipes count.
+          # The Python job also validates every manifest, so schemas and recipes count, and
+          # checks the themes (tests/test_themes.py, tools.themes --check).
           # tests/test_link_skills.py reads skills/; tests/test_openapi.py the committed specs.
-          python=$(any '^(kernel/(backend|migrations|tests)/|kernel/(kernel|openapi)\.json$|modules/[^/]+/openapi\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|tools/|tests/|skills/|schema/|recipes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
+          python=$(any '^(kernel/(backend|migrations|tests)/|kernel/(kernel|openapi)\.json$|modules/[^/]+/openapi\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|tools/|tests/|skills/|schema/|recipes/|themes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
           # The web tests read kernel/kernel.json for the version. The Web job runs
           # npm audit's allowlist (tools/npm_audit*) against the real lockfile, and
           # checks the API types against kernel/openapi.json. Its lint and types cover the
           # Playwright files too, which run in e2e.yml.
-          web=$(any '^(kernel/web/|kernel/(kernel|openapi)\.json$|kernel/tests/e2e/|harness/web/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|playwright\.config\.ts$|\.npmrc$|tools/npm_audit(\.py|_allow\.json)$)')
+          web=$(any '^(kernel/web/|kernel/(kernel|openapi)\.json$|kernel/tests/e2e/|harness/web/|themes/|modules/[^/]+/(web|tests/web)/|package(-lock)?\.json$|tsconfig[^/]*\.json$|eslint\.config\.js$|vitest\.[^/]+$|playwright\.config\.ts$|\.npmrc$|tools/npm_audit(\.py|_allow\.json)$)')
           if [ "$everything" = true ]; then python=true; pins=true; web=true; fi
           # 3.12 is the floor (SPEC.md section 2). 3.13 runs too when the pins change.
           if [ "$pins" = true ]; then pythons='["3.12", "3.13"]'; else pythons='["3.12"]'; fi

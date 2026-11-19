@@ -7,8 +7,8 @@
  * it, a file fails to load), they show anyway after 3 seconds: a delayed
  * animation, so no script and no timer, and no change to the CSP.
  *
- * Their type and colour come from the theme (K4.3); until then, the
- * browser's own, kept readable.
+ * Their type and colour come from the theme, through the page's own
+ * (frames.css): its canvas, its text and its headings.
  */
 @layer mf.base {
   @keyframes mf-server-copy-reveal {

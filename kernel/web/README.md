@@ -10,4 +10,6 @@ Built:
 - **The session** (`src/session/`): `useSession`, `useSignOut`. **The guards** (`src/guards/`): `RequireAuth`, `RequirePermission`, `RequireAdmin`, and `safeNext` for a sign-in's way back.
 - **The slots** (`src/slots/`): `useSlot`, `SlotOutlet`, and the admin sidebar's order. **The site** (`src/site/`): `useSite`, `useModuleEnabled`. **`<Seo>`** (`src/seo/`).
 
-Planned (the rest of K4, `dev plans/contracts/k4-web-kernel.md`): the themes, the UI kit lifted from VybeSite (Accordion, Dialog, form fields, Table, Toast, EmptyState, LoadError, SaveConflict, UnsavedDialog, SignedInDevices), `useSettings`, and the auth, account and admin screens.
+- **The look** comes from the site's theme (`themes/`, `<html data-theme>`): `frames.css` puts the page, text, type, links and focus on its `--mf-*` tokens and holds no colour of its own.
+
+Planned (the rest of K4, `dev plans/contracts/k4-web-kernel.md`): the UI kit lifted from VybeSite (Accordion, Dialog, form fields, Table, Toast, EmptyState, LoadError, SaveConflict, UnsavedDialog, SignedInDevices), `useSettings`, and the auth, account and admin screens.

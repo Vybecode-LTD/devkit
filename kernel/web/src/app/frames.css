@@ -1,10 +1,47 @@
 /*
- * The frames' structure, before any theme (K4.3 brings type, colour and
- * spacing on tokens). What's here is what every theme keeps: menus in a row
- * that wraps, and every link and button in a frame at least 24px each way,
- * WCAG 2.2's target size (2.5.8), which axe checks in the end-to-end tests.
+ * The page and the frames, on the theme's tokens (themes/README.md): its
+ * canvas, its text and type, its links and its focus outline. Every link and
+ * button in a frame is at least 24px each way, WCAG 2.2's target size
+ * (2.5.8), which axe checks in the end-to-end tests. The UI kit (K4.4) brings
+ * the rest; nothing here holds a colour of its own.
  */
 @layer mf.base {
+  html {
+    background: var(--mf-color-canvas);
+    color: var(--mf-color-text-strong);
+    font: var(--mf-type-body);
+    letter-spacing: var(--mf-type-body-tracking);
+  }
+
+  body {
+    margin: 0;
+  }
+
+  h1 {
+    font: var(--mf-type-page-title);
+    letter-spacing: var(--mf-type-page-title-tracking);
+  }
+
+  h2,
+  h3 {
+    font: var(--mf-type-section-title);
+    letter-spacing: var(--mf-type-section-title-tracking);
+  }
+
+  a {
+    color: var(--mf-color-link);
+    transition: color var(--mf-motion-fast);
+  }
+
+  a:hover {
+    color: var(--mf-color-link-hover);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--mf-color-focus);
+    outline-offset: 3px;
+  }
+
   .mf-site-header,
   .mf-site-footer {
     display: flex;
@@ -12,6 +49,12 @@
     align-items: center;
     gap: 0.5rem 1.5rem;
     padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--mf-color-border);
+  }
+
+  .mf-site-footer {
+    border-top: 1px solid var(--mf-color-border);
+    border-bottom: 0;
   }
 
   .mf-site-header nav,
@@ -44,11 +87,27 @@
   .mf-admin {
     display: flex;
     flex-wrap: wrap;
+    min-height: 100vh;
+  }
+
+  .mf-admin-nav {
+    width: var(--mf-layout-sidebar);
+    padding: 1rem;
+    background: var(--mf-color-rail);
+    border-right: 1px solid var(--mf-color-border);
   }
 
   .mf-admin-nav ul {
     margin: 0 0 1rem;
     padding: 0;
     list-style: none;
+  }
+
+  .mf-admin-nav a {
+    color: var(--mf-color-text-muted);
+  }
+
+  .mf-admin-nav a[aria-current="page"] {
+    color: var(--mf-color-text-strong);
   }
 }

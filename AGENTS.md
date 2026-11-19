@@ -81,6 +81,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | End-to-end tests (Playwright 1.64.1, Chromium build 1248, axe), locally before each push | once on a new machine, `npx playwright install chromium` (`npm ci` doesn't fetch the browser); then `npm run build`, and `npm run e2e` with `TEST_DATABASE_URL` set; it starts its own `python -m harness.e2e` on a `mechframe_e2e` database made fresh each run, never one already running, and reads no `.env`. CI runs them on main's pushes, weekly and by hand (`e2e.yml`), never on a PR |
 | Link the project skills for Claude Code | `python -m tools.link_skills` |
 | Progress document and ledger rows, after editing `docs/progress.json` | `python -m tools.progress` (`--check` only reports) |
+| Each theme's `tokens.css` and `tailwind.css`, after editing a `tokens.json` | `python -m tools.themes` (`--check` only reports) |
 | Event payloads as JSON Schema, after declaring or changing one | `python -m tools.event_schemas` (`--check` only reports) |
 | The committed OpenAPI specs and the web's API types, after changing a route or its answer | `python -m tools.openapi`, then `npm run api:types` (`--check` and `npm run api:check` only report; decision 0042) |
 | Brand check, before any PR that lifts code | `python -I "C:\DEV\VybeSite\vybesite\scripts\brand_check.py" "C:\DEV\AI-DevKit"` |
@@ -121,7 +122,7 @@ From the repo root, in PowerShell. Python commands use the `python -m` form.
 | `kernel/` | The always-installed core: `backend/kernel/` (Python), `migrations/`, `tests/`, `web/`, and `openapi.json` (generated) |
 | `modules/` | One folder per module; `modules/_template/` is the starting point, and the Vibrant Mindz scaffolds wait as `modules/_<id>/` until built |
 | `recipes/` | Preset module bundles per kind of site |
-| `themes/` | Token sets; Machined Light and Depth arrive in K4 (only the README so far) |
+| `themes/` | Token sets, one folder each: `machined-light` (the default) and `vibrant-mindz`; `README.md` lists the kernel's required tokens |
 | `templates/site/` | The empty site every project starts from (built in K5) |
 | `cli/` | The `mechframe` CLI (built in K5) |
 | `harness/` | Dev app that mounts the kernel and modules for tests and local runs; `harness/alembic/` is the one Alembic environment, `harness/migrations.py` drives it |
