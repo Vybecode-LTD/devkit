@@ -1,77 +1,52 @@
 # Handoff
 
-Overwritten every session. This one: 2026-11-18, late afternoon to night Eastern (Claude Code, the owner's machine). K4.1 to K4.3 landed: #78 (the typed client), #79 (the app shell) and #80 (the themes). This page rides in #81.
+Overwritten every session. This one: 2026-11-18, night, to 2026-11-19, early morning Eastern (Claude Code, the owner's machine). #81 had already landed. K4.4, the UI kit, is #82, and this page rides in it.
 
 ## State
 
-- **K0 to K3 are done.** K3's gate passed (#75), and K2 steps 9 to 11 wait (decision 0029). The device list's three routes (K2 step 4) were never built and have no contract tests. K4.5 writes those tests first.
-- **K4:** contract `dev plans/contracts/k4-web-kernel.md`, decision 0042. Three of its eight PRs have landed:
-  - **#78, the typed client** (92fd8fb): `Answer` models, `kernel/openapi.json`, `kernel/web/src/api/`.
-  - **#79, the app shell** (0a6fd1b):
-    - The kernel's pages: listed in `kernel.json` and held in code by `server_copy.KERNEL_PAGES` and `kernel/web/src/app/pages.ts`. Each shows its heading and "This page isn't ready yet." until its screen is built.
-    - `GET /api/kernel/site`.
-    - `mountApp`, which returns a promise and builds its routes from the modules that are on.
-    - `useSession`, which re-reads the session on a 401 and forgets it only if it's gone.
-    - The guards, the slots, `<Seo>`, `RouteFocus` and `ErrorBoundary` (in `app/`), and `testing.ts`.
-    - Playwright with axe: `npm run e2e` against `python -m harness.e2e`, and `.github/workflows/e2e.yml`.
-  - **#80, the themes** (a123043):
-    - `themes/README.md` lists the 34 required tokens and the contrast rules.
-    - Two themes: `machined-light` (its role shades kept by the owner) and `vibrant-mindz`.
-    - `tools/themes.py`, plus the colour lint: ESLint for TypeScript, `tests/test_themes.py` for CSS.
-    - axe runs on every public page in both themes.
-- **Contract changes 9 to 14** were added this session; they're listed in the contract. Change 14 covers the themes.
-- **Tests:** CI on a123043 passed.
-  - Python: 1,961 passed, 5 skipped, 27 xfailed, coverage 98.14 %.
-  - Vitest: 159 tests in 9 files, 98.37 % of lines.
-  - Playwright runs on main's pushes.
-- **Other:**
-  - The npm audit allowlist is empty.
-  - v1.0 is at 50 % (30 of 60 steps).
+- **K0 to K3 are done.** K2 steps 9 to 11 wait (decision 0029). The device list's three routes (K2 step 4) were never built and have no contract tests yet: K4.5 writes those tests first.
+- **K4** (contract `dev plans/contracts/k4-web-kernel.md`, decision 0042): four of its eight PRs are in.
+  - #78, the typed client. #79, the app shell. #80, the themes.
+  - **#82, the UI kit** (contract change 15):
+    - **The parts:** `kernel/web/src/ui/`, exported from `@/kernel`, listed in its `README.md`. `RouteFocus` and `ErrorBoundary` moved there from `app/`. `ScrollMemory` replaces `<ScrollRestoration>`. `IconName` is the kit's 26 icons.
+    - **Focus, two ways:** the admin's ring inside `.mf-admin-look`, which the admin frame carries. The site, sign-in and account screens keep the outline.
+    - **New required tokens:** `color.border-control` (fields, selects and switch tracks at 3:1), four pill tints, and five focus shadows. Vibrant Mindz gained one value, `line-3` `#5C6584`.
+    - **The owner chose** the 3:1 field edge and the dark knob on an on switch (2026-11-19, 02:15 Eastern).
+    - **The kit's page:** the harness builds `/kit.html`. `kernel/tests/e2e/kit.spec.ts` checks it in both themes: axe, each control's boundary as drawn, the focus rings with real Tab presses, the Table's `focusin` scroll at 390px, and the SaveBar's room.
+    - **Fixed on the way:** a Sign out race in the frame. A failing test came first.
+    - **Review:** Codex's first round found two slips, both fixed with failing-first tests: a new `#place` on the same page, and a toast held by the pointer and the keyboard apart.
+- **Tests on e033438, locally:**
+  - Python: 1,994 passed, coverage 98.53 %.
+  - Vitest: 249 passed, 98.22 % of lines.
+  - Playwright: 38 passed.
+- **v1.0:** 52 % (31 of 60 steps) once #82 lands.
 
 ## Next
 
-1. **Land #81** (this page) if it's still open, then republish the ledger.
-2. **K4.4, the UI kit** (contract §4 item 4), in `kernel/web/src/ui/`.
-   - **What to build:** port the parts from VybeSite and VM Website's `design/generators/admin_kit.py` to React 19 and the tokens. Run the brand check before the PR.
-   - **What exists already:** `RouteFocus` and `ErrorBoundary` are in `app/`. Move them; don't copy them.
-   - **Icons:** `IconName` becomes the kit's icon set (change 10).
-   - **Control edges:** each control's whole boundary must reach 3:1 in both themes (WCAG 1.4.11; change 14). axe doesn't check this, so the kit's tests do.
-   - **Admin focus** (the owner, 2026-11-18):
-     - An accent ring: 1px `#FF7A1F` with a 4px glow of it at 28%.
-     - A 2px page-colour gap comes before the ring on a filled control (the primary button, a switch that's on) and on a pressed chip or tile. These carry `aria-pressed`.
-     - Rows in a clipped list, and the sideways table scroller, draw the ring inset. The current nav item and tab keep their 2px edge under the ring.
-     - The sign-in and account screens keep the site's 2px `#36B4FF` outline, 3px off.
-     - The tokens (`shadow.focus-ring`, `-gap`, `-inset`, `nav-current-focus`, `tab-current-focus`) join `REQUIRED` with the kit.
-   - **The Table:**
-     - Give the scroller `scroll-padding-inline: 10px`.
-     - Add a `focusin` handler that calls `scrollIntoView({block: 'nearest', inline: 'nearest'})`, because Chrome leaves a control cut off when 20px of it already shows.
-     - Test the handler with real Tab presses in Playwright, not only in jsdom.
-   - **The SaveBar:** sets `scroll-padding-bottom` to its height while it shows (WCAG 2.4.11).
-   - **Sources in VM Website:**
-     - `design/specs/admin-look.md`, "Keyboard focus";
-     - `design/theme/vibrant-mindz/shell-slots.md`, finding 9 and the `.a-scroll` rules;
-     - the HELMET CSS in `admin_kit.py`.
-3. **K4.5 to K4.8.** The member and admin pages join the axe run as they're built.
-4. **After K4:** K5, the ten hooks, and the site's steps 1 to 7.
+1. **Land #82** if it's still open. Answer the bots' threads, with a failing test first where a fix touches code. Land by fast-forward once "CI result" is green and no thread is open. Then republish the ledger (`dev plans/progress-ledger/README.md`).
+2. **K4.5, the auth and account screens** (contract §4 item 5), built to `Auth.dc.html` and `Account.dc.html` in VM Website `design/site/`.
+   - **Order:** write the device routes' contract tests first and see them fail (`docs/contracts/auth-api.md`'s `GET /api/auth/sessions`, `DELETE /api/auth/sessions/{id}` and `POST /api/auth/sessions/sign-out-others`), then build the routes, then the screens.
+   - **The step-up dialog** is the kit's `Dialog`. `api` already retries a write once after a step-up; it needs the dialog's hook.
+   - **Site-look sizes:** buttons and fields are 54px, buttons fully round, fields at a 14px radius (shell-slots.md, finding 3 and "Sign-in"). Add them as `Button` and `Field` sizes; don't build a second kit.
+   - **Tests:** `kernel/tests/e2e/sign-in.spec.ts`, covering every sign-in method, sign-up and verify, reset, and the account's factors and devices. The sign-in and account pages join the axe run.
+3. **Then K4.6 to K4.8.**
 
 ## Open questions for the owner
 
-- Decisions 0032 to 0039's own calls, each listed in its record: keep them?
-- When to make the R2 test buckets. Also the desk steps: the `postgres` password, and `Set-ExecutionPolicy` if wanted.
-- Rename `C:\DEV\AI-DevKit` (Claude Code's memory moves with it) and the account's `devkit-*` skills?
+- Decisions 0032 to 0039's own calls: keep them?
+- When to make the R2 test buckets. The desk steps: the `postgres` password, and `Set-ExecutionPolicy` if wanted.
+- Rename `C:\DEV\AI-DevKit` and the account's `devkit-*` skills?
+- Carry `line-3` and the four tint aliases back to VM Website's `tokens.json` (that project's session)?
 - `C:\DEV\knowledge\owner.md` is uncommitted; the owner commits it.
 
 ## Notes
 
-- **Review volume:** #79 drew 49 review threads and #80 drew 21. All were fixed, with a failing test first wherever the fix touched code, or answered with reasons. Expect three or four rounds per PR.
-- **cubic resolves its own thread when it sees the fix,** sometimes before the reply is posted. Post the reply anyway.
-- **Put a theme's body type on `body`, never `html`,** so the root stays 16px and every rem token keeps its size (Codex on #80). Playwright checks this.
-- **Theme CSS line endings:** a Windows checkout wrote the generated theme CSS as CRLF, so `tools.themes --check` failed locally while CI on Linux passed. `.gitattributes` now keeps those files LF, as it already did `openapi.json`, and a test checks it (#81).
-- **Pointing VM Website's census at the copy in this repo is VM Website's work.**
+- **Measure a control's boundary as drawn,** composited over what's behind it. A token pair can't see a fill over a fill. Mutants are how `kit.spec.ts`'s Table and SaveBar tests were shown to catch what they guard.
+- **jsdom** has no `showModal`, `scrollIntoView` or `scrollTo`. `vitest.setup.ts` gives the first two as browsers behave and makes `scrollTo` do nothing.
 - **Traps:**
-  - `npx.cmd playwright test -g "..."` with spaces breaks its quoting: pick the test by `file:line` instead.
-  - Give a subprocess that reads output `encoding="utf-8"`, or Windows decodes it as cp1252.
-  - GitHub can answer 502 on `gh pr edit`: check whether the edit happened, then retry.
+  - `npx.cmd playwright test -g "..."` with a space breaks its quoting. Pick the test by `file:line`.
+  - A pinned count in `tests/test_theme_vibrant_mindz.py` moves with every alias or role added.
+  - cubic resolves its own threads: post the reply anyway.
 
 ## Warnings
 

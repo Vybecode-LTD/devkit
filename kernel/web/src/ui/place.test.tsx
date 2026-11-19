@@ -153,6 +153,24 @@ describe("ScrollMemory", () => {
     place.remove();
   });
 
+  it("lands on a new #place on the same page, opening its sections, and leaves the scroll alone otherwise (Codex on #82)", async () => {
+    const { router } = renderWithKernel(<ScrollMemory />, { path: "/account" });
+    const section = document.createElement("details");
+    const place = document.createElement("h2");
+    place.id = "passkeys";
+    section.append(place);
+    document.body.append(section);
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    scrollTo.mockClear();
+    await act(() => router.navigate("/account#passkeys"));
+    expect(scrolled.mock.contexts).toContain(place);
+    expect(section.open).toBe(true);
+    await act(() => router.navigate("/account?tab=two#passkeys"));
+    await act(() => router.navigate("/account"));
+    expect(scrollTo).not.toHaveBeenCalled();
+    section.remove();
+  });
+
   it("keeps the positions when the page is hidden, and gives the browser its restoration back", () => {
     const before = window.history.scrollRestoration;
     const { unmount } = renderWithKernel(<ScrollMemory />, { path: "/one" });

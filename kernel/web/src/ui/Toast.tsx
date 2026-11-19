@@ -31,7 +31,11 @@ export function useToast(): (note: ToastNote) => void {
 const noToast = (): void => undefined;
 
 function Note({ note, onClose }: { note: Shown; onClose: (id: number) => void }) {
-  const [held, setHeld] = useState(false);
+  // The pointer and the keyboard each hold it, apart: one leaving never lets
+  // it go while the other is still in it (Codex on #82).
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const held = hovered || focused;
   useEffect(() => {
     if (held) return;
     const timer = setTimeout(() => {
@@ -45,16 +49,16 @@ function Note({ note, onClose }: { note: Shown; onClose: (id: number) => void })
     <div
       className={`mf-toast mf-toast--${note.tone ?? "neutral"}`}
       onPointerEnter={() => {
-        setHeld(true);
+        setHovered(true);
       }}
       onPointerLeave={() => {
-        setHeld(false);
+        setHovered(false);
       }}
       onFocus={() => {
-        setHeld(true);
+        setFocused(true);
       }}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setHeld(false);
+        if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false);
       }}
     >
       <span className="mf-toast-text">{note.text}</span>

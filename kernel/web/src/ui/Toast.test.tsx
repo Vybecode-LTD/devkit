@@ -69,6 +69,36 @@ describe("toasts", () => {
     expect(screen.queryByText("Saved")).toBeNull();
   });
 
+  it("stays while the keyboard is in it after the pointer leaves, and while the pointer is on it after the keyboard leaves (Codex on #82)", () => {
+    vi.useFakeTimers();
+    render(
+      <ToastProvider>
+        <Sender note={{ text: "Saved" }} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    const note = screen.getByText("Saved").closest(".mf-toast") as HTMLElement;
+    const close = screen.getByRole("button", { name: "Close" });
+    fireEvent.focus(close);
+    fireEvent.pointerEnter(note);
+    fireEvent.pointerLeave(note);
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS * 2);
+    });
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+    fireEvent.pointerEnter(note);
+    fireEvent.blur(close);
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS * 2);
+    });
+    expect(screen.getByText("Saved")).toBeInTheDocument();
+    fireEvent.pointerLeave(note);
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS);
+    });
+    expect(screen.queryByText("Saved")).toBeNull();
+  });
+
   it("closes with its own button", () => {
     render(
       <ToastProvider>
