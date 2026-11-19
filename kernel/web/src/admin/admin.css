@@ -590,6 +590,149 @@
     font-size: 0.8125rem;
   }
 
+  /* --- People (K4.7) ---------------------------------------------------- */
+
+  .mf-people-search {
+    max-width: 24rem;
+    margin: 0 0 1rem;
+  }
+
+  /* An address breaks only where it must, so on a phone the table slides
+     sideways in its card, as the board's does, and never a letter a line. */
+  .mf-people-who {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 14rem;
+  }
+
+  .mf-people-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .mf-people-pills {
+    min-width: 6rem;
+  }
+
+  .mf-people-email {
+    color: var(--mf-color-text-muted);
+    font-size: 0.8125rem;
+  }
+
+  .mf-people-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .mf-people-off {
+    color: var(--mf-color-text-muted);
+  }
+
+  .mf-people-dialog-lead {
+    margin: 0 0 1rem;
+    color: var(--mf-color-text-muted);
+  }
+
+  .mf-people-roles,
+  .mf-role-permissions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    margin: 0 0 1.25rem;
+    padding: 0;
+    border: 0;
+  }
+
+  .mf-people-roles legend,
+  .mf-role-permissions legend {
+    margin: 0 0 0.75rem;
+    padding: 0;
+    font: var(--mf-type-small);
+    font-weight: 600;
+    color: var(--mf-color-text-muted);
+  }
+
+  /* --- Roles (K4.7) ----------------------------------------------------- */
+
+  .mf-role-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.875rem;
+    margin: 0 0 1.25rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mf-role-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .mf-role-card > .mf-button {
+    align-self: flex-start;
+  }
+
+  .mf-role-matrix .mf-table-caption {
+    padding: 1rem 1rem 0.25rem;
+    text-align: start;
+  }
+
+  .mf-role-matrix .mf-table td:not(:first-child),
+  .mf-role-matrix .mf-table th:not(:first-child) {
+    width: 5.5rem;
+    text-align: center;
+  }
+
+  .mf-role-permission {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mf-role-key {
+    color: var(--mf-color-text-muted);
+    font: var(--mf-type-meta);
+    font-family: var(--mf-font-mono);
+  }
+
+  .mf-role-check {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1px solid var(--mf-color-border-control);
+    border-radius: 0.3125rem;
+    vertical-align: middle;
+  }
+
+  .mf-role-check--on {
+    border-color: var(--mf-color-success);
+    background: var(--mf-color-success-tint);
+    color: var(--mf-color-success);
+  }
+
+  .mf-role-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .mf-role-delete {
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--mf-color-border);
+  }
+
+  .mf-role-delete-note {
+    margin: 0 0 0.75rem;
+    color: var(--mf-color-text-muted);
+  }
+
   /* --- Under 960px: the sidebar behind Menu ----------------------------- */
 
   @media (max-width: 960px) {

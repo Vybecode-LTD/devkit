@@ -30,6 +30,7 @@ import { Icon } from "../ui/Icon";
 import { CrumbContext } from "./AdminPage";
 import { JumpTo } from "./JumpTo";
 import { Notices } from "./Notices";
+import { roleWords, useRoles } from "./roleAccess";
 
 /** Whether `pathname` is `to` or a page under it. */
 function within(pathname: string, to: string): boolean {
@@ -125,15 +126,10 @@ export function initials(email: string): string {
     .join("");
 }
 
-/** The roles as words, a member's role left out beside any other: "Owner", "Admin, Editor". */
-export function roleWords(roles: readonly string[]): string {
-  const shown = roles.filter((role) => role !== "member");
-  const named = (shown.length > 0 ? shown : ["member"]).map((role) => role.charAt(0).toUpperCase() + role.slice(1));
-  return named.join(", ");
-}
-
+/** The signed-in person's card: their roles by name once the roles read is in (K4.7), by id before it or without it. */
 function Person() {
   const session = useSession();
+  const named = useRoles();
   if (session.status !== "signed-in") return null;
   const { email, roles } = session.user;
   return (
@@ -143,7 +139,7 @@ function Person() {
       </span>
       <span className="mf-admin-person-words">
         <span className="mf-admin-person-name">{email}</span>
-        <span className="mf-admin-person-role">{roleWords(roles)}</span>
+        <span className="mf-admin-person-role">{roleWords(roles, named.data?.roles)}</span>
       </span>
       <Link to="/" className="mf-admin-person-site" aria-label="View site" title="View site">
         <Icon name="external" />

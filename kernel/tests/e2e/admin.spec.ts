@@ -1,4 +1,5 @@
-// The admin's frame, Dashboard and Activity, as Chromium draws them (K4 contract §7, K4.6):
+// The admin's frame, Dashboard, Activity, People and Roles, as Chromium draws them (K4 contract §7,
+// K4.6 and K4.7):
 // staff with a second factor land on the Dashboard with what needs them, Ctrl K jumps to a
 // page, the activity log shows the sign-in that brought them, the notices open and shut, the
 // phone's Menu opens the sidebar; each admin page answers (a smoke test); nothing scrolls
@@ -10,7 +11,7 @@ import { PASSWORD, THEMES, axe, makeUser, signInTo, theme } from "./support";
 const ADMIN_PAGES = [
   ["/admin", /^Good (morning|afternoon|evening)$/],
   ["/admin/people", "People"],
-  ["/admin/roles", "Roles"],
+  ["/admin/roles", "Roles and permissions"],
   ["/admin/activity", "Activity log"],
   ["/admin/settings", "Settings"],
   ["/admin/settings/features", "Features"],
@@ -117,7 +118,7 @@ for (const [name, canvas] of Object.entries(THEMES)) {
   test(`nothing in the admin scrolls sideways at 390 px in ${name}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signedInAdmin(page);
-    for (const path of ["/admin", "/admin/activity"]) {
+    for (const path of ["/admin", "/admin/activity", "/admin/people", "/admin/roles"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.waitForLoadState("networkidle");
@@ -130,13 +131,24 @@ for (const [name, canvas] of Object.entries(THEMES)) {
 
   test(`axe finds no serious or critical problem in the admin in ${name}, Jump to and the notices open too`, async ({ page }) => {
     await signedInAdmin(page);
-    for (const path of ["/admin", "/admin/activity"]) {
+    for (const path of ["/admin", "/admin/activity", "/admin/people", "/admin/roles"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.waitForLoadState("networkidle");
       await theme(page, name, canvas);
       expect(await axe(page), path).toEqual([]);
     }
+    await page.getByRole("button", { name: "New role" }).click();
+    await expect(page.getByRole("dialog", { name: "New role" })).toBeVisible();
+    await theme(page, name, canvas);
+    expect(await axe(page), "New role").toEqual([]);
+    await page.keyboard.press("Escape");
+    await page.goto("/admin/people");
+    await page.getByRole("button", { name: /^Open / }).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await theme(page, name, canvas);
+    expect(await axe(page), "a person's roles").toEqual([]);
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /^Notices/ }).click();
     await expect(page.getByRole("region", { name: "Notices" })).toBeVisible();
     await theme(page, name, canvas);
@@ -148,3 +160,35 @@ for (const [name, canvas] of Object.entries(THEMES)) {
     expect(await axe(page), "Jump to").toEqual([]);
   });
 }
+
+test("an admin makes a role, gives it to someone, and Roles counts them", async ({ page, request }) => {
+  test.slow(); // three sign-ins' worth of password hashing beside the other tests
+  await signedInAdmin(page, "/admin/roles");
+  const member = await makeUser(request, "member");
+  const name = `Crew ${String(Date.now()).slice(-6)}`;
+  await page.getByRole("button", { name: "New role" }).click();
+  const editor = page.getByRole("dialog", { name: "New role" });
+  await editor.getByRole("textbox", { name: "Name" }).fill(name);
+  await editor.getByRole("switch", { name: /^Read the audit log/ }).click();
+  await editor.getByRole("button", { name: "Make role" }).click();
+  await expect(editor).toBeHidden();
+  const card = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name, level: 2 }) });
+  await expect(card.getByText("0", { exact: true })).toBeVisible();
+
+  await page.goto("/admin/people");
+  await page.getByRole("searchbox", { name: "Search by email" }).fill(member.email);
+  await page.getByRole("button", { name: `Open ${member.email}` }).click();
+  const dialog = page.getByRole("dialog", { name: member.email });
+  await dialog.getByRole("switch", { name: new RegExp(`^${name}`) }).click();
+  await dialog.getByRole("button", { name: "Save roles" }).click();
+  await expect(dialog).toBeHidden();
+  const row = page.getByRole("row").filter({ hasText: member.email });
+  await expect(row.getByText(name)).toBeVisible();
+  await expect(row.getByText("Not set up")).toBeVisible(); // staff now, with no second factor
+
+  await page.goto("/admin/roles");
+  await expect(card.getByText("1", { exact: true })).toBeVisible();
+  await card.getByRole("button", { name: `Edit ${name}` }).click();
+  await expect(page.getByText("One person holds this role.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete role" })).toHaveCount(0);
+});

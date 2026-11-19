@@ -542,7 +542,11 @@
 
   /* --- Table ------------------------------------------------------------ */
 
+  /* Positioned, so a visually hidden header (People's "Actions") is placed
+     inside the scroller: placed by the page, it sat past the table's right
+     edge and made the whole page scroll sideways on a phone (K4.7). */
   .mf-table-scroll {
+    position: relative;
     overflow-x: auto;
     scroll-padding-inline: 10px;
     border-radius: inherit;
