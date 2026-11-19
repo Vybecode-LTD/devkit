@@ -328,6 +328,15 @@ def _kernel_calls() -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
     for path in sorted(KERNEL_SOURCE.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
+        # Auth's own `audit` (`kernel.auth.audit`) takes the request before
+        # the action; a file that imports the kernel's (`from kernel import
+        # audit`) calls it the kernel's way, whichever folder it's in.
+        kernels = any(
+            isinstance(node, ast.ImportFrom)
+            and node.module == "kernel"
+            and any(alias.name == "audit" and alias.asname is None for alias in node.names)
+            for node in ast.walk(tree)
+        )
         bound: dict[str, set[str]] = {}
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant):
@@ -342,7 +351,9 @@ def _kernel_calls() -> dict[str, list[str]]:
                 continue
             if func_.attr not in ("record", "record_by_kernel"):
                 continue
-            auth_style = path.parent.name == "auth" or func_.attr == "record_by_kernel"
+            auth_style = (path.parent.name == "auth" and not kernels) or (
+                func_.attr == "record_by_kernel"
+            )
             index = (2 if func_.attr == "record" else 1) if auth_style else 1
             argument = node.args[index]
             if isinstance(argument, ast.Constant):

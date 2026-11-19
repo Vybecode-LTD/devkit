@@ -110,6 +110,11 @@ KERNEL_ACTIONS = frozenset(
         "kernel.moderation.time_out_lifted",
         "auth.user.suspended",
         "auth.user.restored",
+        # People and roles in the admin (K4.7).
+        "auth.user.roles_changed",
+        "auth.role.created",
+        "auth.role.changed",
+        "auth.role.deleted",
     }
 )
 

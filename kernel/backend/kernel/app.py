@@ -93,8 +93,9 @@ from kernel.auth.mails import TEMPLATES as KERNEL_MAILS
 from kernel.auth.passkeys import router as passkeys_router
 from kernel.auth.password_change import router as password_change_router
 from kernel.auth.passwords import Passwords, RangeLookup, ask_range
-from kernel.auth.permissions import KERNEL_PERMISSIONS
+from kernel.auth.permissions import KERNEL_PERMISSION_WORDS
 from kernel.auth.resets import router as resets_router
+from kernel.auth.roles import router as roles_router
 from kernel.auth.routes import router as auth_router
 from kernel.auth.sign_up import router as sign_up_router
 from kernel.auth.summary import router as summary_router
@@ -128,6 +129,33 @@ KERNEL_JOBS: tuple[jobs.Job, ...] = (
     notifications.PRUNE,
     moderation.PRUNE,
 )
+
+
+def _permissions_listed(installed: Iterable[InstalledModule]) -> tuple[dict[str, str], ...]:
+    """The kernel's permissions, then each installed module's, in their
+    manifests' order: `{key, description, owner}`, the owner being `kernel`
+    or the module's id. A key already listed isn't listed again."""
+    listed = [
+        {"key": key, "description": words, "owner": "kernel"}
+        for key, words in KERNEL_PERMISSION_WORDS.items()
+    ]
+    seen = set(KERNEL_PERMISSION_WORDS)
+    for module in installed:
+        for permission in module.manifest.raw.get("permissions", []):
+            if not isinstance(permission, dict) or not isinstance(permission.get("key"), str):
+                continue
+            if permission["key"] in seen:
+                continue
+            seen.add(permission["key"])
+            words = permission.get("description")
+            listed.append(
+                {
+                    "key": permission["key"],
+                    "description": words if isinstance(words, str) else "",
+                    "owner": module.id,
+                }
+            )
+    return tuple(listed)
 
 
 @dataclass(frozen=True)
@@ -310,14 +338,11 @@ def create_app(
     app.state.worker = worker
     app.state.passwords = Passwords.from_config(config)
     app.state.breach_lookup = breach_lookup if breach_lookup is not None else ask_range
-    #: Every permission the kernel or an installed module declares: an owner
-    #: holds them all (14.8).
-    app.state.declared_permissions = KERNEL_PERMISSIONS | frozenset(
-        permission["key"]
-        for module in installed
-        for permission in module.manifest.raw.get("permissions", [])
-        if isinstance(permission, dict) and isinstance(permission.get("key"), str)
-    )
+    #: Every permission the kernel or an installed module declares, with what
+    #: it lets someone do and who declares it, in the manifests' order: the
+    #: admin's Roles page lists them (K4.7), and an owner holds them all (14.8).
+    app.state.permissions_listed = _permissions_listed(installed)
+    app.state.declared_permissions = frozenset(item["key"] for item in app.state.permissions_listed)
     install_handlers(app)
     openapi.install(app)
 
@@ -333,6 +358,7 @@ def create_app(
     app.include_router(devices_router, prefix="/api/auth")
     app.include_router(summary_router, prefix="/api/auth")
     app.include_router(factor_undo_router, prefix="/api/auth")
+    app.include_router(roles_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:
             app.include_router(

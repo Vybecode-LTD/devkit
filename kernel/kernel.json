@@ -44,6 +44,13 @@
       ]
     },
     {
+      "key": "auth.role.manage",
+      "description": "Create, edit and delete roles, within the permissions you hold",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
       "key": "auth.audit.read",
       "description": "Read the audit log",
       "default_roles": [

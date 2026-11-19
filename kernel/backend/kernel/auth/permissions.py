@@ -24,20 +24,22 @@ from kernel.auth.models import PermissionOverride, RolePermission, UserRole
 
 OWNER = "owner"
 
-#: The kernel's own permissions, kept equal to `kernel/kernel.json`'s (a test
-#: holds it), so an owner holds them whether or not a role still grants them.
-KERNEL_PERMISSIONS = frozenset(
-    {
-        "auth.user.manage",
-        "auth.user.suspend",
-        "auth.role.assign",
-        "auth.audit.read",
-        "kernel.module.manage",
-        "kernel.settings.manage",
-        "kernel.jobs.manage",
-        "kernel.moderation.act",
-    }
-)
+#: The kernel's own permissions and what each lets someone do, in
+#: `kernel/kernel.json`'s order and words (a test holds them equal; a site
+#: never receives the manifest). An owner holds them whether or not a role
+#: still grants them, and the admin's Roles page says what each is.
+KERNEL_PERMISSION_WORDS: dict[str, str] = {
+    "auth.user.manage": "See and edit people's accounts",
+    "auth.user.suspend": "Suspend and restore accounts",
+    "auth.role.assign": "Grant and remove roles, within the permissions you hold",
+    "auth.role.manage": "Create, edit and delete roles, within the permissions you hold",
+    "auth.audit.read": "Read the audit log",
+    "kernel.module.manage": "Switch modules on and off",
+    "kernel.settings.manage": "Change any module's settings",
+    "kernel.jobs.manage": "Retry and discard failed background jobs",
+    "kernel.moderation.act": "Act on moderation reports: hide, delete, time out and ban",
+}
+KERNEL_PERMISSIONS = frozenset(KERNEL_PERMISSION_WORDS)
 
 #: `(resource_type, resource_id)`, such as `("community.category", "42")`.
 Resource = tuple[str, str]

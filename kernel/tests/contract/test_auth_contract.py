@@ -338,7 +338,6 @@ def _filled(path: str) -> str:
     return re.sub(r"\{[^}]+\}", ZERO_ID, path)
 
 
-@not_built
 async def test_staff_without_a_second_factor_reach_no_admin_route(api: Api) -> None:
     admin = await api.make_user(roles=["admin"])
     await api.signed_in_as(admin)
@@ -350,7 +349,6 @@ async def test_staff_without_a_second_factor_reach_no_admin_route(api: Api) -> N
         ), f"{method} {path}"
 
 
-@not_built
 async def test_members_and_strangers_reach_no_admin_route(api: Api) -> None:
     routes = await _admin_routes(api)
     for method, path in routes:
@@ -362,14 +360,12 @@ async def test_members_and_strangers_reach_no_admin_route(api: Api) -> None:
         assert (response.status_code, response.json()["code"]) == (403, "kernel.forbidden")
 
 
-@not_built
 async def test_staff_with_a_second_factor_reach_the_admin(api: Api) -> None:
     admin = await api.make_user(roles=["admin"], totp=True)
     await api.signed_in_as(admin)
     assert (await api.http.get("/api/auth/admin/users")).status_code == 200
 
 
-@not_built
 async def test_an_unconfirmed_totp_is_no_second_factor(api: Api) -> None:
     admin = await api.make_user(roles=["admin"])
     await api.signed_in_as(admin)
@@ -440,7 +436,12 @@ async def test_every_step_up_action_is_marked(api: Api) -> None:
     listed = set((await api.test_routes()).get("step_up", []))
     built = {_route(p) for p in STEP_UP if not p.marks}  # type: ignore[attr-defined]
     assert built <= listed
-    expected = {_route(p) for p in STEP_UP} | {"PUT /api/auth/admin/users/{id}/roles"}
+    expected = {_route(p) for p in STEP_UP} | {
+        "PUT /api/auth/admin/users/{id}/roles",
+        "POST /api/auth/admin/roles",
+        "PUT /api/auth/admin/roles/{id}",
+        "DELETE /api/auth/admin/roles/{id}",
+    }
     if not expected <= listed:
         raise NotBuilt(f"not built yet: {sorted(expected - listed)}")
 
@@ -455,7 +456,6 @@ async def test_step_up_counts_from_signing_in_not_from_activity(api: Api) -> Non
     assert (response.status_code, response.json()["code"]) == (403, "auth.step_up_required")
 
 
-@not_built
 async def test_changing_roles_demands_a_recent_sign_in(api: Api) -> None:
     owner = await api.make_user(roles=["owner"], totp=True)
     member = await api.make_user()
@@ -718,7 +718,6 @@ async def test_the_token_changes_at_sign_in(api: Api) -> None:
     assert api.session_cookie != first
 
 
-@not_built
 async def test_the_token_changes_on_a_role_change(api: Api) -> None:
     owner = await api.make_user(roles=["owner"], totp=True)
     member = await api.make_user()
@@ -741,7 +740,6 @@ async def test_the_token_changes_on_a_role_change(api: Api) -> None:
 # Who can grant what (14.1, decision 0013)
 
 
-@not_built
 async def test_an_admin_cant_grant_owner_or_suspend_one(api: Api) -> None:
     owner = await api.make_user(roles=["owner"], totp=True)
     admin = await api.make_user(roles=["admin"], totp=True)
@@ -754,7 +752,6 @@ async def test_an_admin_cant_grant_owner_or_suspend_one(api: Api) -> None:
     assert (suspend.status_code, suspend.json()["code"]) == (403, "auth.role_not_yours")
 
 
-@not_built
 async def test_the_last_owner_stays(api: Api) -> None:
     await api.forget_every_account()  # earlier tests made owners of their own
     owner = await api.make_user(roles=["owner"], totp=True)

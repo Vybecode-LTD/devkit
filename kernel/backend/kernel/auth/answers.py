@@ -94,6 +94,47 @@ class AccountStatus(Answer):
     status: Literal["suspended", "active"]
 
 
+class Person(Answer):
+    """One account in the admin's People list (K4.7)."""
+
+    id: Id
+    email: str
+    name: str | None
+    roles: list[str]
+    verified: bool
+    second_factor: bool
+    status: Literal["active", "suspended", "deleting"]
+    created_at: When
+    last_seen_at: When | None
+
+
+class People(Answer):
+    items: list[Person]
+    next_cursor: str | None
+
+
+class RoleView(Answer):
+    """A role on the admin's Roles page (K4.7)."""
+
+    id: str
+    name: str
+    description: str
+    permissions: list[str]
+    people: int
+    builtin: bool
+
+
+class PermissionView(Answer):
+    key: str
+    description: str
+    owner: str
+
+
+class Roles(Answer):
+    roles: list[RoleView]
+    permissions: list[PermissionView]
+
+
 class TotpSetup(Answer):
     secret: str
     otpauth_uri: str

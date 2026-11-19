@@ -196,10 +196,15 @@ async def test_a_body_over_the_limit_is_refused(app_factory: AppFactory) -> None
 
 
 def test_the_kernels_permissions_match_its_manifest() -> None:
-    from kernel.auth.permissions import KERNEL_PERMISSIONS
+    """Keys, words and order: the Roles page lists them as the manifest has
+    them, and a site never receives the manifest (K4.7)."""
+    from kernel.auth.permissions import KERNEL_PERMISSION_WORDS, KERNEL_PERMISSIONS
 
     manifest = json.loads((KERNEL / "kernel.json").read_text("utf-8"))
     assert {permission["key"] for permission in manifest["permissions"]} == KERNEL_PERMISSIONS
+    assert [(p["key"], p["description"]) for p in manifest["permissions"]] == list(
+        KERNEL_PERMISSION_WORDS.items()
+    )
 
 
 def test_the_kernels_pages_match_its_manifest() -> None:
