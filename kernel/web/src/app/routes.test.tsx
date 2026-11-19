@@ -254,6 +254,27 @@ describe("moving between pages", () => {
     expect(screen.getByRole("heading", { name: "The post" })).not.toHaveFocus();
   });
 
+  it("leaves the focus on a #place that took it at once, after the heading's wait too (CodeRabbit on #82)", async () => {
+    const place = document.createElement("h2");
+    place.id = "early";
+    document.body.append(place);
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [blog] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/blog#early"));
+      await screen.findByRole("heading", { name: "The blog" });
+      expect(place).toHaveFocus();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS);
+      });
+      expect(place).toHaveFocus();
+    } finally {
+      vi.useRealTimers();
+      place.remove();
+    }
+  });
+
   it("focuses the page's heading after a while when its #place never comes (cubic on #82)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { router } = renderApp({ modules: [blog] });

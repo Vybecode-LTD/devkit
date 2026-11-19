@@ -174,6 +174,22 @@ describe("ScrollMemory", () => {
     section.remove();
   });
 
+  it("stops the last landing when the entry changes with the same place, and doesn't land again (CodeRabbit on #82)", async () => {
+    const { router } = renderWithKernel(<ScrollMemory />, { path: "/one" });
+    const place = document.createElement("h2");
+    place.id = "billing";
+    document.body.append(place);
+    await act(() => router.navigate("/one#billing"));
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    await act(() => router.navigate("/one?tab=two#billing"));
+    await act(async () => {
+      document.body.append(document.createElement("p"));
+      await Promise.resolve();
+    });
+    expect(scrolled).not.toHaveBeenCalled();
+    place.remove();
+  });
+
   it("keeps the positions when the page is hidden, and gives the browser its restoration back", () => {
     const before = window.history.scrollRestoration;
     const { unmount } = renderWithKernel(<ScrollMemory />, { path: "/one" });

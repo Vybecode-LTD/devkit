@@ -20,7 +20,7 @@ import { NavigationType, useLocation, useNavigationType } from "react-router";
 
 import { entryKey, holdScroll, landOn, readPositions, savePositions } from "./place";
 
-type Shown = { pathname: string; hash: string };
+type Shown = { pathname: string; hash: string; key: string };
 
 /** The id an address's `#…` names; a malformed escape is taken as written. */
 export function placeNamed(hash: string): string {
@@ -84,19 +84,25 @@ export function ScrollMemory() {
   // reader never sees it scroll. Within the page, only a new place moves it:
   // the router's own move to `#passkeys` doesn't scroll as a plain link would
   // (Codex on #82), and a new query or a place dropped leaves it where it is.
-  // The address before this one changes only when the address does, so
-  // StrictMode's second run of the effect decides as the first did.
+  // A new entry with the same page and place (a query changed, or Back to
+  // one) stops the last landing and starts none, so the scroll stays where
+  // it is or where Back put it (CodeRabbit on #82). The entry before this
+  // one changes only when the entry does, so StrictMode's second run of the
+  // effect decides as the first did.
   const seen = useRef<{ before: Shown | null; now: Shown | null }>({ before: null, now: null });
   useLayoutEffect(() => {
-    if (seen.current.now?.pathname !== pathname || seen.current.now.hash !== hash) {
-      seen.current = { before: seen.current.now, now: { pathname, hash } };
+    const now = seen.current.now;
+    if (now?.pathname !== pathname || now.hash !== hash || now.key !== key) {
+      seen.current = { before: now, now: { pathname, hash, key } };
     }
+    const { before } = seen.current;
     const id = placeNamed(hash);
-    if (seen.current.before?.pathname === pathname) return id ? landOn(id, { scroll: !restoring.current }) : undefined;
+    if (before?.pathname === pathname && before.hash === hash) return undefined;
+    if (before?.pathname === pathname) return id ? landOn(id, { scroll: !restoring.current }) : undefined;
     if (restoring.current) return id ? landOn(id, { scroll: false }) : undefined;
     if (!id || !document.getElementById(id)) window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     return id ? landOn(id) : undefined;
-  }, [pathname, hash]);
+  }, [pathname, hash, key]);
 
   return null;
 }

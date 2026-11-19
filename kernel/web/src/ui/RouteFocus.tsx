@@ -74,6 +74,15 @@ export function RouteFocus() {
     });
     const wait = setTimeout(() => {
       const found = heading();
+      if (hash) {
+        // Only if nothing took it: the place may have, before this effect
+        // began to listen (CodeRabbit on #82).
+        const at = document.activeElement;
+        if (at && at !== document.body && at.isConnected) {
+          stop();
+          return;
+        }
+      }
       if (hash && found) {
         stop();
         move(found);
