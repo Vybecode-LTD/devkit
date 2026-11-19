@@ -86,6 +86,7 @@ from kernel import (
 )
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
+from kernel.auth.devices import router as devices_router
 from kernel.auth.email_change import router as email_change_router
 from kernel.auth.factor_undo import router as factor_undo_router
 from kernel.auth.mails import TEMPLATES as KERNEL_MAILS
@@ -328,6 +329,7 @@ def create_app(
     app.include_router(password_change_router, prefix="/api/auth")
     app.include_router(totp_router, prefix="/api/auth")
     app.include_router(passkeys_router, prefix="/api/auth")
+    app.include_router(devices_router, prefix="/api/auth")
     app.include_router(factor_undo_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:

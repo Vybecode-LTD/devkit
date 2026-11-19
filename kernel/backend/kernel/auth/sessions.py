@@ -484,9 +484,10 @@ async def end_by_token(db: AsyncSession, token: str | None) -> uuid.UUID | None:
     return ended
 
 
-async def end_others(db: AsyncSession, user: User, keep: uuid.UUID) -> None:
-    """End every session the account has but `keep` ("sign out everywhere else")."""
-    await _delete(db, Session.user_id == user.id, Session.id != keep)
+async def end_others(db: AsyncSession, user: User, keep: uuid.UUID) -> int:
+    """End every session the account has but `keep` ("sign out everywhere
+    else"), and say how many rows went."""
+    return await _delete(db, Session.user_id == user.id, Session.id != keep)
 
 
 async def _raise_epoch(db: AsyncSession, user: User) -> int:

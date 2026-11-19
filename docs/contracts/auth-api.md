@@ -82,9 +82,9 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 | `GET /api/auth/passkeys` | | 200 `{"items": [{"id", "name", "created_at", "last_used_at"}]}`, oldest first |
 | `PATCH /api/auth/passkeys/{id}` | `{name}` | **step-up.** 200 the passkey, renamed; 404 `auth.passkey_not_found` for an id that isn't one of the account's; 422 `kernel.invalid_request` as at registration |
 | `DELETE /api/auth/passkeys/{id}` | | **step-up.** 204. Every other session ends (a second-factor reset, 14.5); this one stays, with a fresh device cookie. Live sign-in codes and links, reset links and second-factor challenges stop working, and the account is mailed. 404 `auth.passkey_not_found` for an id that isn't one of the account's |
-| `GET /api/auth/sessions` | | 200 `{"items": [...]}` with `current` marked |
-| `DELETE /api/auth/sessions/{id}` | | 204 |
-| `POST /api/auth/sessions/sign-out-others` | | 204 |
+| `GET /api/auth/sessions` | | 200 `{"items": [{"id", "device_label", "location", "started_at", "last_seen_at", "current"}]}`: the account's sessions that still count, the most recently seen first, this one `current`. `device_label` names the browser and system ("Chrome on Android"); `location` is null when the site doesn't know it |
+| `DELETE /api/auth/sessions/{id}` | | 204: that session ends at once. Ending this one is signing out, the cookie cleared. 404 `auth.session_not_found` for an id that isn't one of the account's sessions still counting |
+| `POST /api/auth/sessions/sign-out-others` | | 204: every other session of the account ends; this one stays |
 | `POST /api/auth/api-keys` | `{name, scopes, expires_in_days?}` | **step-up.** 201 `{"key": "mf_live_…"}`, shown once |
 | `GET /api/auth/api-keys` / `DELETE /api/auth/api-keys/{id}` | | 200 / 204 |
 | `POST /api/auth/account/delete` | | **step-up.** 202 `{"status": "deletion_scheduled", "at": "..."}`; signing in cancels it |

@@ -1879,3 +1879,105 @@ async def test_a_second_factor_undo_link_lasts_7_days(api: Api) -> None:
     await api.advance(7 * DAY + MINUTE)
     gone = await api.http.post(UNDO, json={"token": late})
     assert _code(gone) == (400, "auth.token_invalid")
+
+
+# Signed-in devices (14.5; K4.5)
+
+SESSIONS = "/api/auth/sessions"
+SIGN_OUT_OTHERS = "/api/auth/sessions/sign-out-others"
+CHROME_ON_ANDROID = (
+    "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"
+)
+SESSION_FIELDS = {"id", "device_label", "location", "started_at", "last_seen_at", "current"}
+
+
+async def _devices(browser: Api) -> list[dict[str, Any]]:
+    response = await browser.http.get(SESSIONS)
+    assert response.status_code == 200, response.text
+    items: list[dict[str, Any]] = response.json()["items"]
+    return items
+
+
+async def _two_browsers(api: Api) -> tuple[User, Api]:
+    """One account signed in here and in a second browser, the phone."""
+    user = await api.make_user()
+    phone = api.another_browser()
+    phone.http.headers["User-Agent"] = CHROME_ON_ANDROID
+    await phone.signed_in_as(user)
+    await api.signed_in_as(user)
+    return user, phone
+
+
+async def test_the_device_list_shows_each_browser_signed_in(api: Api) -> None:
+    _, phone = await _two_browsers(api)
+    here, there = await _devices(api), await _devices(phone)
+    assert [set(item) for item in here] == [SESSION_FIELDS] * 2
+    assert [item["current"] for item in here] == [True, False]  # the latest seen first
+    assert {item["id"] for item in here} == {item["id"] for item in there}
+    (mine,) = [item for item in here if item["current"]]
+    (phones,) = [item for item in there if item["current"]]
+    assert mine["id"] != phones["id"]
+    assert phones["device_label"] == "Chrome on Android"
+    assert all(isinstance(item["device_label"], str) and item["device_label"] for item in here)
+    assert all(item["location"] is None or isinstance(item["location"], str) for item in here)
+
+
+async def test_the_device_list_is_the_accounts_own_and_leaves_out_ended_ones(api: Api) -> None:
+    _, phone = await _two_browsers(api)
+    await api.another_browser().signed_in_as(await api.make_user())  # someone else
+    assert len(await _devices(api)) == 2  # the control: both of this account's
+    assert (await phone.http.post("/api/auth/sign-out")).status_code == 204
+    assert [item["current"] for item in await _devices(api)] == [True]
+
+
+async def test_signing_out_a_device_ends_its_session(api: Api) -> None:
+    _, phone = await _two_browsers(api)
+    (theirs,) = [item for item in await _devices(api) if not item["current"]]
+    ended = await api.http.delete(f"{SESSIONS}/{theirs['id']}")
+    assert ended.status_code == 204
+    assert (await phone.session()).status_code == 401
+    assert (await api.session()).status_code == 200  # this one stays
+    assert [item["current"] for item in await _devices(api)] == [True]
+
+
+async def test_another_accounts_session_cant_be_signed_out(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    stranger = api.another_browser()
+    await stranger.signed_in_as(await api.make_user())
+    (theirs,) = await _devices(stranger)
+    for session_id in (theirs["id"], ZERO_ID):
+        refused = await api.http.delete(f"{SESSIONS}/{session_id}")
+        assert _code(refused) == (404, "auth.session_not_found")
+    assert (await stranger.session()).status_code == 200
+
+
+async def test_signing_out_this_device_signs_out(api: Api) -> None:
+    _, phone = await _two_browsers(api)
+    (mine,) = [item for item in await _devices(api) if item["current"]]
+    ended = await api.http.delete(f"{SESSIONS}/{mine['id']}")
+    assert ended.status_code == 204
+    assert api.session_cookie is None  # the cookie cleared, as sign-out clears it
+    assert (await api.session()).status_code == 401
+    assert (await phone.session()).status_code == 200
+
+
+async def test_sign_out_everywhere_else_keeps_only_this_one(api: Api) -> None:
+    user, phone = await _two_browsers(api)
+    laptop = api.another_browser()
+    await laptop.signed_in_as(user)
+    assert len(await _devices(api)) == 3
+    ended = await api.http.post(SIGN_OUT_OTHERS)
+    assert ended.status_code == 204
+    assert [(await browser.session()).status_code for browser in (phone, laptop)] == [401, 401]
+    assert (await api.session()).status_code == 200
+    assert [item["current"] for item in await _devices(api)] == [True]
+
+
+async def test_the_device_routes_need_a_session(api: Api) -> None:
+    for method, path in (
+        ("GET", SESSIONS),
+        ("DELETE", f"{SESSIONS}/{ZERO_ID}"),
+        ("POST", SIGN_OUT_OTHERS),
+    ):
+        assert _code(await api.http.request(method, path)) == (401, "kernel.not_signed_in")

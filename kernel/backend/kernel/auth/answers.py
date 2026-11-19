@@ -114,6 +114,22 @@ class Passkeys(Answer):
     items: list[PasskeyView]
 
 
+class Device(Answer):
+    """A signed-in browser, as the account page lists it (14.5)."""
+
+    id: Id
+    device_label: str
+    #: Null when the site doesn't know it.
+    location: str | None
+    started_at: When
+    last_seen_at: When
+    current: bool
+
+
+class Devices(Answer):
+    items: list[Device]
+
+
 # --- WebAuthn's options, as py_webauthn's options_to_json_dict writes them ---------------
 
 
