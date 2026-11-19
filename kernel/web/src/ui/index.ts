@@ -28,6 +28,8 @@ export type { LoadErrorProps } from "./LoadError";
 export { Chip, Pill } from "./Pill";
 export type { ChipProps, Tone } from "./Pill";
 export { landOn, reveal } from "./place";
+export { QrCode } from "./QrCode";
+export type { QrCodeProps } from "./QrCode";
 export { RouteFocus } from "./RouteFocus";
 export { SaveBar } from "./SaveBar";
 export type { SaveBarProps } from "./SaveBar";

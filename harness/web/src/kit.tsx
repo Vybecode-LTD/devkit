@@ -26,6 +26,7 @@ import {
   LinkButton,
   LoadError,
   Pill,
+  QrCode,
   SaveBar,
   ScrollMemory,
   SaveConflict,
@@ -294,6 +295,8 @@ function SiteLook() {
           Email me a code instead
         </Button>
       </div>
+      <h3>A QR code</h3>
+      <QrCode value="otpauth://totp/UI%20kit:ann.example%40mechframe.test?secret=JBSWY3DPEHPK3PXP&issuer=UI%20kit" label="A sample QR code" size={160} />
       <h3>The account's cards</h3>
       <Card title="Signed-in devices" description="Anywhere your account is open right now." actions={<Button>Sign out everywhere else</Button>}>
         <p>

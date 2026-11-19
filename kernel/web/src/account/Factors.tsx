@@ -17,6 +17,7 @@ import { Dialog } from "../ui/Dialog";
 import { Field, Input } from "../ui/Field";
 import { LoadError } from "../ui/LoadError";
 import { Pill } from "../ui/Pill";
+import { QrCode } from "../ui/QrCode";
 import { Day, Row, Rows, useAction } from "./AccountPage";
 
 type Passkey = components["schemas"]["PasskeyView"];
@@ -352,9 +353,10 @@ function SetUp({ onClose }: { onClose: () => void }) {
         </>
       ) : (
         <form className="mf-dialog-form" noValidate onSubmit={confirm}>
-          <p className="mf-dialog-lead">In your authenticator app, add an account with this key, or open the link on the phone the app is on.</p>
+          <p className="mf-dialog-lead">Scan the code with your authenticator app, or add an account in it with the key below.</p>
           {setup ? (
             <>
+              <QrCode value={setup.otpauth_uri} label="A QR code for your authenticator app" />
               <p className="mf-secret" aria-label="Your key">
                 {grouped(setup.secret)}
               </p>

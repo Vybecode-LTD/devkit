@@ -581,6 +581,22 @@
     align-self: flex-start;
   }
 
+  /* --- QR code ---------------------------------------------------------- */
+
+  /* Dark modules on a light ground in every theme, as a camera reads them: the
+     system's own canvas and text colours in the light scheme, never a theme's
+     (QrCode.tsx). Forced colours leave it as it is. */
+  .mf-qr {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    background: Canvas;
+    color: CanvasText;
+    color-scheme: light;
+    forced-color-adjust: none;
+  }
+
   /* --- Text link -------------------------------------------------------- */
 
   /* A link, or a button that moves the page on, drawn as underlined words (the sign-in board's). */

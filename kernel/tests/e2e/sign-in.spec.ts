@@ -7,6 +7,7 @@
 // themes; the sign-in pages are in parity.spec.ts's run.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import jsQR from "jsqr";
 import { createHmac, randomBytes } from "node:crypto";
 
 const PASSWORD = "quiet orbit lantern 4471 marsh";
@@ -68,6 +69,32 @@ function totp(secret: string, when = Date.now()): string {
   const mac = createHmac("sha1", base32(secret)).update(step).digest();
   const offset = (mac[mac.length - 1] ?? 0) & 0xf;
   return String((mac.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0");
+}
+
+/**
+ * What a phone's camera reads from the QR code as Chromium draws it: its path filled with its
+ * computed colours on its computed ground, 4 px a module, read back from a canvas and decoded
+ * dark-on-light only, as many authenticator apps' scanners need it.
+ */
+async function scanQr(page: Page): Promise<string | undefined> {
+  const drawn = await page.getByRole("img", { name: "A QR code for your authenticator app" }).evaluate((svg) => {
+    const style = getComputedStyle(svg);
+    const modules = Number((svg.getAttribute("viewBox") ?? "").split(" ")[2]);
+    const scale = 4;
+    const size = modules * scale;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No 2D canvas.");
+    context.fillStyle = style.backgroundColor;
+    context.fillRect(0, 0, size, size);
+    context.scale(scale, scale);
+    context.fillStyle = style.color;
+    context.fill(new Path2D(svg.querySelector("path")?.getAttribute("d") ?? ""));
+    return { size, pixels: Array.from(context.getImageData(0, 0, size, size).data) };
+  });
+  return jsQR(Uint8ClampedArray.from(drawn.pixels), drawn.size, drawn.size, { inversionAttempts: "dontInvert" })?.data;
 }
 
 async function signInWithPassword(page: Page, email: string, password = PASSWORD, path = "/sign-in?next=%2Faccount"): Promise<void> {
@@ -280,6 +307,12 @@ test.describe("the account", () => {
     await app.getByRole("button", { name: "Set up" }).click();
     const setting = page.getByRole("dialog", { name: "Set up an authenticator app" });
     const key = (await setting.getByLabel("Your key").innerText()).replace(/\s/g, "");
+    for (const [name, canvas] of Object.entries(THEMES)) {
+      await theme(page, name, canvas);
+      const read = await scanQr(page); // dark on light in either theme, holding this key
+      expect(read, name).toMatch(/^otpauth:\/\/totp\//);
+      expect(new URL(read ?? "").searchParams.get("secret"), name).toBe(key);
+    }
     await setting.getByLabel("Code from your app").fill(totp(key));
     await setting.getByRole("button", { name: "Turn it on" }).click();
     await expect(page.getByRole("list", { name: "Your recovery codes" }).getByRole("listitem")).toHaveCount(10);

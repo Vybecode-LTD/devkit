@@ -25,6 +25,7 @@ The behavior is ported from VybeSite; the look is drawn from the Vibrant Mindz a
 | `ErrorBoundary` | A part that fails to draw, kept from taking the page with it |
 | `RouteFocus`, `ScrollMemory`, `landOn`, `reveal` | Focus and scroll on a move between pages, and landing on a `#place` |
 | `Icon`, `ICON_NAMES` | The kit's icon set; `IconName` is one of its names |
+| `QrCode` | A value as a QR code for a phone's camera (uqr's grid, one SVG path): dark on light in every theme, named by its `label`, with what it holds shown beside it as words |
 
 ## The site's look
 
