@@ -28,7 +28,6 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 
 ## 5. Ask the owner
 
-- A QR code for the authenticator app's key (a new dependency)?
 - A way for a site to reword the kernel's screens (the board's "Join the vibe")?
 - Decisions 0032 to 0039's own calls; the R2 test buckets; the desk steps.
 - Rename `C:\DEV\AI-DevKit` and the `devkit-*` skills? Carry `line-3` and the tint aliases back to VM Website (that project's session)?

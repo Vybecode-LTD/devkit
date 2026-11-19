@@ -218,6 +218,7 @@ Made while building #78 (decision 0042 records them):
     - **Backend addition 3, written down** (auth-api.md): `location` is null until the site can place a browser; ending this device's session signs out (the cookie cleared, a role change's new token too); another id answers 404 `auth.session_not_found`; no step-up. Its seven contract tests came first.
     - **New:** `GET /api/auth/security` → `{password, totp: {since} | null, recovery_codes_left}`, for the account's authenticator card. Its three contract tests came first.
     - **The step-up dialog** answers every write refused together once; closed, each fails quietly (`refusedQuietly`).
-    - **Left off, not faked:** sign-up's name and news box, the password's "Last changed", "Delete account" (K2 step 11), the board's site-specific words, and a QR code for the app's key (the owner's call).
+    - **Left off, not faked:** sign-up's name and news box, the password's "Last changed", "Delete account" (K2 step 11), and the board's site-specific words.
+    - **A QR code for the app's key** (the owner, 2026-11-19): the kit's `QrCode`, uqr's grid as one SVG path, dark on light in every theme (the system's `Canvas` and `CanvasText`); jsQR reads it back in the tests.
     - **The e2e server** is at `http://localhost:<port>` with DEBUG on and rate limits off, so the page's writes and passkeys pass the origin checks.
     - **Fixed on the way:** a hovered primary button drew its words in `text-strong` (`.mf-button:hover:not(:disabled)` outranked `.mf-button--primary:hover`), 1.9:1 in Vibrant Mindz. `kit.spec.ts` failed on it first. The kit's and parity's axe runs now wait for a theme's transitions before measuring.

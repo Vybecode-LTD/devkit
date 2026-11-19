@@ -9,6 +9,7 @@ Overwritten every session. This one: 2026-11-19, morning Eastern (Claude Code, t
 - **#83, K4.5** (contract change 16, decision 0043):
   - **Backend, contract tests first:** the device routes (`kernel/auth/devices.py`; seven tests, seen failing as `NotBuilt`) and the new `GET /api/auth/security` (`kernel/auth/summary.py`; three tests). Both are written down in `docs/contracts/auth-api.md`.
   - **Screens:** `kernel/web/src/auth/` (sign-in with every method and the second step, sign-up, forgot password, the seven landings, the step-up dialog, the sign-in frame) and `kernel/web/src/account/` (the security page's five cards and `account.section`, Notifications, Activity). Each kernel screen loads lazily (`app/screens.ts`).
+  - **A QR code for the authenticator app's key** (the owner's yes): the kit's `QrCode` on uqr, dark on light in every theme; jsQR reads it back in Vitest and in Playwright.
   - **The kit** gains the site's look (`.mf-site-look`), `Button` `large` and `strong`, `Field` `large` and `aside`, `Card` `description`, the `key` and `mail` icons, `.mf-text-link`.
   - **Two bugs found, each failing first:** a hovered primary button drew `text-strong` words (from #82; `kit.spec.ts`); the frame's Sign out went home without signing out, because React Router draws a move in a transition (`sign-in.spec.ts`; the router now takes `flushSync`, `drawNow` in `mount.tsx`).
   - **The e2e server** is at `http://localhost:<port>` with DEBUG on and rate limits off, so writes and passkeys pass the origin checks.
@@ -23,7 +24,6 @@ Overwritten every session. This one: 2026-11-19, morning Eastern (Claude Code, t
 
 ## Open questions for the owner
 
-- **A QR code for the authenticator app's key?** It needs a small library (a new dependency). Today the account shows the key and an `otpauth:` link.
 - **The sign-in screens' words:** the board's "Join the vibe" and "Vibrify ya mind" are VM's. A way for a site to reword kernel screens (as mails already can) is unplanned.
 - Decisions 0032 to 0039's own calls; the R2 test buckets; the desk steps (the `postgres` password, `Set-ExecutionPolicy`).
 - Rename `C:\DEV\AI-DevKit` and the account's `devkit-*` skills?
