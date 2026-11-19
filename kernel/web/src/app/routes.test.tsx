@@ -275,6 +275,25 @@ describe("moving between pages", () => {
     }
   });
 
+  it("moves the focus to the heading when a link kept it across a move to a #place that never comes (CodeRabbit on #82)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [blog] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      const link = screen.getByRole("link", { name: "Sign in" });
+      link.focus();
+      await act(() => router.navigate("/blog#missing"));
+      const heading = await screen.findByRole("heading", { name: "The blog" });
+      expect(link).toHaveFocus();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS);
+      });
+      expect(heading).toHaveFocus();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("focuses the page's heading after a while when its #place never comes (cubic on #82)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const { router } = renderApp({ modules: [blog] });

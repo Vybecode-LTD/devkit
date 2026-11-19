@@ -19,6 +19,8 @@
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router";
 
+import { placeNamed } from "./ScrollMemory";
+
 /** How long a page may take to show its heading before the focus goes to its main area. */
 export const FOCUS_WAIT_MS = 3000;
 /** How long a page's heading is watched for at all. */
@@ -75,10 +77,13 @@ export function RouteFocus() {
     const wait = setTimeout(() => {
       const found = heading();
       if (hash) {
-        // Only if nothing took it: the place may have, before this effect
-        // began to listen (CodeRabbit on #82).
+        // Not if the place has it: it may have taken it before this effect
+        // began to listen. Anything else holding it is what had it before the
+        // move (a link in the frame), so the fallback goes ahead; the person
+        // moving it themselves since has stopped all this (CodeRabbit on #82).
+        const place = document.getElementById(placeNamed(hash));
         const at = document.activeElement;
-        if (at && at !== document.body && at.isConnected) {
+        if (place && at && (place === at || place.contains(at))) {
           stop();
           return;
         }
