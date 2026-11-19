@@ -196,6 +196,25 @@ describe("a landing whose session check fails", () => {
     expect(router.state.location.pathname).toBe("/sign-in");
   });
 
+  it("checks again on Try again without sending the confirmation again (CodeRabbit on #83)", async () => {
+    let reads = 0;
+    const { sent } = routedFetch({
+      "POST /api/auth/verify-email": { status: 200, body: { status: "verified" } },
+      "GET /api/auth/session": () => {
+        reads += 1;
+        return reads === 1 ? problem(503, "kernel.busy") : { status: 200, body: { user: testUser({ verified: true }) } };
+      },
+    });
+    const { queryClient } = renderApp({ path: "/auth/verify?token=t", session: testUser({ verified: false }) });
+    await userEvent.click(await screen.findByRole("button", { name: "Confirm my email" }));
+    expect(await screen.findByText("This browser's sign-in couldn't be checked just now.")).toBeInTheDocument();
+    expect(queryClient.getQueryData<SessionUser>(SESSION_KEY)?.verified).toBe(false);
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("link", { name: "Go to your account" })).toBeInTheDocument();
+    expect(queryClient.getQueryData<SessionUser>(SESSION_KEY)?.verified).toBe(true);
+    expect(sent.filter((request) => request.method === "POST")).toHaveLength(1);
+  });
+
   it("keeps an account still signed in here when the check finds it", async () => {
     routedFetch({
       "POST /api/auth/email/undo": { status: 200, body: { status: "email_restored" } },
