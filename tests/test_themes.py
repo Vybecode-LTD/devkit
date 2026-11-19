@@ -10,6 +10,7 @@ TypeScript)."""
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -139,12 +140,37 @@ def test_git_keeps_the_generated_files_lf(name: str) -> None:
     found = subprocess.run(  # noqa: S603  (git itself, our own paths)
         ["git", "check-attr", "eol", "--", *files],  # noqa: S607
         cwd=ROOT,
+        env=_git_env(),
         capture_output=True,
         text=True,
         encoding="utf-8",
         check=True,
     ).stdout.splitlines()
     assert found == [f"{path}: eol: lf" for path in files]
+
+
+def _git_env() -> dict[str, str]:
+    """The environment without the variables that point git at another repository (CodeRabbit on #81)."""
+    return {key: value for key, value in os.environ.items() if key not in _GIT_LOCATION}
+
+
+_GIT_LOCATION = {
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_COMMON_DIR",
+    "GIT_OBJECT_DIRECTORY",
+}
+
+
+def test_the_lf_check_reads_this_checkout_whatever_git_dir_says(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    other = tmp_path / "other"
+    subprocess.run(["git", "init", "-q", str(other)], check=True)  # noqa: S603, S607
+    monkeypatch.setenv("GIT_DIR", str(other / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(other))
+    test_git_keeps_the_generated_files_lf("tokens.css")
 
 
 def test_a_stale_file_is_found(tmp_path: Path) -> None:
