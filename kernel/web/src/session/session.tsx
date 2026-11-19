@@ -59,11 +59,12 @@ function forget(queryClient: QueryClient): void {
 }
 
 /**
- * A call found no session: read it again, joining a read already on its way
- * (so the session read's own 401 asks nothing more), and forget only if it's
+ * A call found no session, or one that answered success ended it (a reset,
+ * an undo from mail): read it again, joining a read already on its way (so
+ * the session read's own 401 asks nothing more), and forget only if it's
  * gone. If it can't be read, nothing changes.
  */
-async function recheck(queryClient: QueryClient): Promise<void> {
+export async function recheckSession(queryClient: QueryClient): Promise<void> {
   let user: SessionUser | null;
   try {
     user = await queryClient.query({ ...SESSION, staleTime: 0, retry: false });
@@ -79,7 +80,7 @@ export function SessionHandlers({ children }: { children: ReactNode }) {
   useEffect(() => {
     setApiHandlers({
       signedOut: () => {
-        void recheck(queryClient);
+        void recheckSession(queryClient);
       },
     });
     return () => {

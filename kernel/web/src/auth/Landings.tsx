@@ -7,13 +7,14 @@
  * scanners open links (auth-api.md). None of them signs anybody in but the
  * sign-in link, whose answer may still ask for the second step.
  */
+import { useQueryClient } from "@tanstack/react-query";
 import { useState, type SubmitEvent, type ReactNode } from "react";
 import { Link, Navigate } from "react-router";
 
 import { ApiProblem, api, useApiQuery } from "../api/client";
 import { useTitle } from "../app/pages/KernelPages";
 import { Seo } from "../seo/Seo";
-import { useSession, type SessionUser } from "../session/session";
+import { recheckSession, useSession, type SessionUser } from "../session/session";
 import { Button } from "../ui/Button";
 import { Field, Input } from "../ui/Field";
 import { AuthPanel, FormError } from "./AuthFrame";
@@ -36,11 +37,14 @@ type LandingProps = {
   done: { title: string; lead: ReactNode; next?: ReactNode };
   /** The page's own words for its refusals. */
   refused: Readonly<Record<string, string>>;
+  /** Whether success ends every session, this browser's among them: the page then shows it signed out too. */
+  endsSessions?: boolean;
   note?: ReactNode;
 };
 
-function Landing({ page, title, lead, action, run, done, refused, note }: LandingProps) {
+function Landing({ page, title, lead, action, run, done, refused, endsSessions = false, note }: LandingProps) {
   const token = useAddressToken();
+  const queryClient = useQueryClient();
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -56,6 +60,8 @@ function Landing({ page, title, lead, action, run, done, refused, note }: Landin
     void (async () => {
       try {
         await run(token);
+        // The server answered success and ended this session too: no 401 will say so (Codex on #83).
+        if (endsSessions) await recheckSession(queryClient);
         setFinished(true);
       } catch (caught) {
         if (!(caught instanceof ApiProblem)) throw caught;
@@ -136,6 +142,7 @@ export function ResetPassword() {
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState(false);
   const heading = useTitle("Choose a new password");
+  const queryClient = useQueryClient();
 
   const save = (event: SubmitEvent) => {
     event.preventDefault();
@@ -147,6 +154,8 @@ export function ResetPassword() {
     void (async () => {
       try {
         await api.POST("/api/auth/password/reset", { body: { token, password } });
+        // Every session ended, this one too, and the answer was a success (Codex on #83).
+        await recheckSession(queryClient);
         setFinished(true);
       } catch (caught) {
         if (!(caught instanceof ApiProblem)) throw caught;
@@ -221,6 +230,7 @@ export function UndoEmailChange() {
       lead={`Your account's email was changed. If it wasn't you, put your old address back. ${SIGNED_OUT_EVERYWHERE.replace("is signed out", "will be signed out")}`}
       action="Put my old email back"
       run={(token) => api.POST("/api/auth/email/undo", { body: { token } })}
+      endsSessions
       done={{
         title: "Old email back",
         lead: `${SIGNED_OUT_EVERYWHERE} Sign in, then change your password if someone else may know it.`,
@@ -239,6 +249,7 @@ export function UndoSecondFactor() {
       lead="A passkey or an authenticator app was added to your account. If you didn't add it, remove it here. Every device signed in to your account will be signed out."
       action="Remove it"
       run={(token) => api.POST("/api/auth/second-factor/undo", { body: { token } })}
+      endsSessions
       done={{
         title: "Removed",
         lead: `${SIGNED_OUT_EVERYWHERE} Sign in, then change your password if someone else may know it.`,

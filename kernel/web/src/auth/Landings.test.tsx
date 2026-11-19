@@ -92,6 +92,27 @@ describe("choosing a new password", () => {
   });
 });
 
+describe("a landing that ends every session", () => {
+  for (const landing of [
+    { path: "/auth/reset?token=t", api: "/api/auth/password/reset", fill: true, button: "Save password" },
+    { path: "/auth/email/undo?token=t", api: "/api/auth/email/undo", fill: false, button: "Put my old email back" },
+    { path: "/auth/second-factor/undo?token=t", api: "/api/auth/second-factor/undo", fill: false, button: "Remove it" },
+  ]) {
+    it(`${landing.path.split("?")[0] ?? ""} shows this browser signed out too, so Sign in opens the form (Codex on #83)`, async () => {
+      routedFetch({
+        [`POST ${landing.api}`]: { status: 200, body: { status: "done" } },
+        "GET /api/auth/session": problem(401, "kernel.not_signed_in"),
+      });
+      const { router } = renderApp({ path: landing.path, session: testUser() });
+      if (landing.fill) await userEvent.type(await screen.findByLabelText("New password"), "copper heron valley");
+      await userEvent.click(await screen.findByRole("button", { name: landing.button }));
+      await userEvent.click(await screen.findByRole("link", { name: "Sign in" }));
+      expect(await screen.findByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe("/sign-in");
+    });
+  }
+});
+
 describe("signing in by link", () => {
   it("signs in on the press and goes home", async () => {
     const { fetch } = routedFetch({ "POST /api/auth/link/confirm": { status: 200, body: { status: "signed_in", user: testUser() } } });
