@@ -79,6 +79,28 @@ describe("the account page", () => {
   });
 });
 
+describe("a card whose read failed", () => {
+  it("says so with a way to try again, never an empty or switched-off state", async () => {
+    page({
+      "GET /api/auth/passkeys": problem(500, "kernel.unexpected"),
+      "GET /api/auth/security": problem(500, "kernel.unexpected"),
+      "GET /api/auth/sessions": problem(500, "kernel.unexpected"),
+    });
+    renderApp({ path: "/account", session: me });
+    for (const [name, what] of [
+      ["Passkeys", "Your passkeys couldn't be loaded."],
+      ["Authenticator app", "Your authenticator app couldn't be loaded."],
+      ["Signed-in devices", "Your signed-in devices couldn't be loaded."],
+    ] as const) {
+      const shown = within(await card(name));
+      expect(await shown.findByText(what)).toBeInTheDocument();
+      expect(shown.getByRole("button", { name: "Try again" })).toBeInTheDocument();
+    }
+    expect(screen.queryByText("No passkeys yet")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Set up" })).toBeNull();
+  });
+});
+
 describe("passkeys", () => {
   it("lists them with when they were added and used", async () => {
     page({ "GET /api/auth/passkeys": passkeys("Laptop", "Phone") });

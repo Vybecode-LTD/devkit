@@ -15,6 +15,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Dialog } from "../ui/Dialog";
 import { Field, Input } from "../ui/Field";
+import { LoadError } from "../ui/LoadError";
 import { Pill } from "../ui/Pill";
 import { Day, Row, Rows, useAction } from "./AccountPage";
 
@@ -176,8 +177,9 @@ export function Passkeys({ suggested }: { suggested: string }) {
         ) : null
       }
     >
+      {list.error ? <LoadError what="Your passkeys" error={list.error} onRetry={() => void list.refetch()} inline /> : null}
       <Rows label="Your passkeys">
-        {list.isPending ? null : items.length === 0 ? (
+        {list.isPending || list.error ? null : items.length === 0 ? (
           <Row name="No passkeys yet" meta={passkeysWork() ? "Add one to sign in without your password." : "This browser can't make one."} />
         ) : (
           items.map((passkey) => (
@@ -409,8 +411,11 @@ export function Authenticator() {
 
   return (
     <Card title="Authenticator app" description="A 6-digit code from an app on your phone, asked for after your password.">
+      {security.error ? (
+        <LoadError what="Your authenticator app" error={security.error} onRetry={() => void security.refetch()} inline />
+      ) : null}
       <Rows label="Your authenticator app">
-        {security.isPending ? null : totp ? (
+        {security.isPending || security.error ? null : totp ? (
           <>
             <Row
               name={<Pill tone="success">On</Pill>}

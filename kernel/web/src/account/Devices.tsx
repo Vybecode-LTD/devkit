@@ -8,6 +8,7 @@
 import { api, useApiQuery } from "../api/client";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { LoadError } from "../ui/LoadError";
 import { Pill } from "../ui/Pill";
 import { Day, Row, Rows, useAction } from "./AccountPage";
 
@@ -37,6 +38,7 @@ export function Devices() {
         ) : null
       }
     >
+      {list.error ? <LoadError what="Your signed-in devices" error={list.error} onRetry={() => void list.refetch()} inline /> : null}
       <Rows label="Your signed-in devices">
         {mine ? (
           <Row
