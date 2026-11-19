@@ -16,7 +16,7 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 
 ## 3. State (2026-11-19, evening Eastern; check, don't trust)
 
-- **main** is `41c2879`, #85's head (K4.7, people and roles), landed by fast-forward; its branch deleted here and on GitHub. Check: `git log -1 origin/main`. No PR open. The handoff commit after it is docs only.
+- **main** is `41c2879`, #85's head (K4.7, people and roles), landed by fast-forward; its branch deleted here and on GitHub. Check: `git log -1 origin/main`. The handoff after it is #86, docs only; check it landed (`gh pr view 86`).
 - **K4.7 gave:** `kernel/auth/roles.py` (the People list, granting roles, the roles read, role editing), `auth.role.manage` (`kernel_0012`), `kernel/web/src/admin/People.tsx`, `Roles.tsx`, `roleAccess.ts`, decision 0045, contract change 18. `docs/HANDOFF.md` has the rest.
 - **Tests on #85's last head:** Vitest 454, Playwright 68, CI green. The ledger's `steps` dataset points at `41c2879`'s rows.
 
@@ -45,7 +45,7 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 
 ## 7. Evidence and next IDs
 
-`docs/HANDOFF.md`, the contract's change 18, decision 0045, #85's body, `dev plans/2026-11-19-k47-people-roles/`. Next free: decision 0046, PR #86, migration `kernel_0013`, contract change 19.
+`docs/HANDOFF.md`, the contract's change 18, decision 0045, #85's body, `dev plans/2026-11-19-k47-people-roles/`. Next free: decision 0046, PR #87 (#86 is this handoff), migration `kernel_0013`, contract change 19.
 
 ## 8. Candidates for `knowledge/`
 
