@@ -154,6 +154,7 @@
   --mf-color-success-tint: var(--mf-color-alpha-mint-12);
   --mf-color-warning-tint: var(--mf-color-alpha-amber-12);
   --mf-color-danger-tint: var(--mf-color-alpha-coral-12);
+  --mf-color-info-tint: var(--mf-color-alpha-volt-12);
   --mf-color-neutral-tint: var(--mf-color-alpha-muted-12);
   --mf-color-border-control: var(--mf-color-palette-line-3);
   --mf-color-hairline: var(--mf-color-alpha-bone-12);
@@ -170,6 +171,7 @@
   --mf-color-success: var(--mf-color-palette-mint);
   --mf-color-warning: var(--mf-color-palette-amber);
   --mf-color-danger: var(--mf-color-palette-coral);
+  --mf-color-info: var(--mf-color-palette-volt);
   --mf-font-display: var(--mf-typography-font-family-display);
   --mf-font-text: var(--mf-typography-font-family-text);
   --mf-font-mono: var(--mf-typography-font-family-code);

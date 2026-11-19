@@ -24,6 +24,7 @@ The kernel's default theme: light, warm graphite with an Ember accent, from `C:\
 | `color.accent-hover` | ember-700 `#A2320F` | ember-600 | One step darker, as before |
 | `color.link`, `color.link-hover` | ember-700, ember-900 | ember-700 is "accent on light text" | |
 | `color.success`, `warning`, `danger` | success-700 `#007948`, warning-700 `#9A5900`, danger-700 `#BF3536` | the 500s, under 4.5:1 as text (2.9, 2.9 and 4.0:1) | Derived on each signal's own hue in OKLCH (L 0.500, 0.525, 0.540), the lightest that's 4.5:1 on the canvas |
+| `color.info` (K4.6) | info-700 `#2864B8` | info-500, 3.6:1 as text on the canvas and 3.5:1 on info-50 | Derived on its own hue in OKLCH (L 0.510), the lightest that's 4.5:1 on the canvas and on its tint, `color.info-tint` (info-50) |
 | `color.rail` | neutral-50, the card surface | (none) | Machined Light has no sidebar |
 | `font.display` | the sans | (none) | It has one sans face |
 | `type.page-title` … `type.meta` | h3, h4, base, sm, xs | | Its own scale |

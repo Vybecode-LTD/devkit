@@ -42,9 +42,11 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 | `color.success` | A success, as text or a tone |
 | `color.warning` | A warning, as text or a tone |
 | `color.danger` | A danger or an error, as text or a tone |
+| `color.info` | Worth knowing, nothing wrong: an info item on the dashboard, an info pill (K4.6) |
 | `color.success-tint` | A success pill's tint, behind its words in `color.success` |
 | `color.warning-tint` | A warning pill's tint |
 | `color.danger-tint` | A danger pill's tint |
+| `color.info-tint` | An info pill's tint |
 | `color.neutral-tint` | A neutral pill's tint, behind its words in `color.text-muted` |
 | `font.display` | The display face: big headings, the wordmark |
 | `font.text` | The text face: everything else |

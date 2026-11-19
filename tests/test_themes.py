@@ -73,7 +73,7 @@ def opaque(theme: themes.Theme, name: str) -> str:
 
 GROUNDS = ["color.canvas", "color.surface", "color.surface-raised", "color.rail"]
 TEXT = ["color.text-strong", "color.text", "color.text-muted", "color.text-subtle"]
-SIGNALS = ["color.success", "color.warning", "color.danger"]
+SIGNALS = ["color.success", "color.warning", "color.danger", "color.info"]
 
 #: (foreground, background, minimum): 4.5 for text, 3 for focus and the accent's
 #: line against what it sits on (WCAG 2.2, 1.4.3 and 1.4.11).
@@ -102,6 +102,7 @@ PILLS = [
     ("color.success", "color.success-tint"),
     ("color.warning", "color.warning-tint"),
     ("color.danger", "color.danger-tint"),
+    ("color.info", "color.info-tint"),
     ("color.text-muted", "color.neutral-tint"),
 ]
 

@@ -17,6 +17,7 @@
   --color-success-tint: var(--mf-color-success-tint);
   --color-warning-tint: var(--mf-color-warning-tint);
   --color-danger-tint: var(--mf-color-danger-tint);
+  --color-info-tint: var(--mf-color-info-tint);
   --color-neutral-tint: var(--mf-color-neutral-tint);
   --color-border-control: var(--mf-color-border-control);
   --color-accent: var(--mf-color-accent);
@@ -28,6 +29,7 @@
   --color-success: var(--mf-color-success);
   --color-warning: var(--mf-color-warning);
   --color-danger: var(--mf-color-danger);
+  --color-info: var(--mf-color-info);
   --font-display: var(--mf-font-display);
   --font-text: var(--mf-font-text);
   --font-mono: var(--mf-font-mono);
