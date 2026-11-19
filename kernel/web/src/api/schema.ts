@@ -925,6 +925,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/security": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Security */
+        get: operations["security_api_auth_security_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/second-factor/undo": {
         parameters: {
             query?: never;
@@ -1660,6 +1677,17 @@ export interface components {
              */
             status: "second_factor_undone";
         };
+        /**
+         * Security
+         * @description What the account page shows of the account's ways in.
+         */
+        Security: {
+            /** Password */
+            password: boolean;
+            totp: components["schemas"]["TotpOn"] | null;
+            /** Recovery Codes Left */
+            recovery_codes_left: number;
+        };
         /** SessionAnswer */
         SessionAnswer: {
             user: components["schemas"]["UserView"];
@@ -1767,6 +1795,14 @@ export interface components {
         TotpCode: {
             /** Code */
             code: string;
+        };
+        /** TotpOn */
+        TotpOn: {
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
         };
         /** TotpSetup */
         TotpSetup: {
@@ -3870,6 +3906,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    security_api_auth_security_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Security"];
+                };
             };
             /** @description A problem (RFC 9457) */
             default: {

@@ -68,6 +68,7 @@ Rows marked **step-up** answer 403 `auth.step_up_required` unless the session si
 
 | Method and path | Body | Answer |
 | --- | --- | --- |
+| `GET /api/auth/security` | | 200 `{"password": bool, "totp": {"since"} or null, "recovery_codes_left"}`: whether the account has a password, its confirmed TOTP and since when, and how many recovery codes are unused, for the account page. A TOTP set up but not confirmed is null |
 | `POST /api/auth/verify-email/resend` | | 202 `{"status": "check_email"}`: a new 24-hour link to the address the account has now, the last one void. 409 `auth.already_verified` once it is verified |
 | `POST /api/auth/step-up` | `{password}`, `{totp}` or `{passkey}` | 200 `{"status": "recent"}`; the session token is replaced. 401 `auth.invalid_credentials` for a wrong password, `auth.invalid_second_factor` for a wrong code or `auth.invalid_passkey` for a wrong passkey, the session kept; the fifth failure answers 401 `kernel.not_signed_in` and ends it. A passkey answers the options `step-up/passkey` gave this session |
 | `POST /api/auth/step-up/passkey` | | 200 WebAuthn request options for the account's passkeys, user verification required; 409 `auth.no_passkey` for an account with none |

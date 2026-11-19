@@ -1,6 +1,8 @@
-"""Signed-in devices (SPEC.md 14.5; docs/contracts/auth-api.md; K4.5): what the
+"""The account page's routes (docs/contracts/auth-api.md; K4.5): signed-in
+devices (SPEC.md 14.5) and the summary of the account's ways in. What the
 contract suite can't see from outside, such as the audit, a place the site
-knows, a session past its idle limit, and a token replaced on the way out."""
+knows, a session past its idle limit, a token replaced on the way out, and
+an account with no password."""
 
 from __future__ import annotations
 
@@ -182,3 +184,13 @@ async def test_signing_out_this_device_after_a_role_change_sets_no_new_token(sit
     (cleared,) = set_cookies  # the clearing alone, never the replaced token
     assert cleared.startswith(f'{SESSION_COOKIE}="";')
     assert (await laptop.get("/api/auth/session")).status_code == 401
+
+
+async def test_the_security_summary_says_when_there_is_no_password(site: Site) -> None:
+    user_id, email = await _person(site)
+    laptop = await _signed_in(site, email)
+    async with site.db() as db:
+        await db.execute(update(User).where(User.id == user_id).values(password_hash=None))
+        await db.commit()
+    summary = (await laptop.get("/api/auth/security")).json()
+    assert summary == {"password": False, "totp": None, "recovery_codes_left": 0}

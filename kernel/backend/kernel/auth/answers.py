@@ -114,6 +114,18 @@ class Passkeys(Answer):
     items: list[PasskeyView]
 
 
+class TotpOn(Answer):
+    since: When
+
+
+class Security(Answer):
+    """What the account page shows of the account's ways in."""
+
+    password: bool
+    totp: TotpOn | None
+    recovery_codes_left: int
+
+
 class Device(Answer):
     """A signed-in browser, as the account page lists it (14.5)."""
 

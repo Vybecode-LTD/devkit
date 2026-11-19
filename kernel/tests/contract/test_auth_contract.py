@@ -1981,3 +1981,38 @@ async def test_the_device_routes_need_a_session(api: Api) -> None:
         ("POST", SIGN_OUT_OTHERS),
     ):
         assert _code(await api.http.request(method, path)) == (401, "kernel.not_signed_in")
+
+
+# What the account page shows of its ways in (K4.5)
+
+SECURITY = "/api/auth/security"
+
+
+async def test_the_security_summary_of_a_new_account(api: Api) -> None:
+    await api.signed_in_as(await api.make_user())
+    response = await api.http.get(SECURITY)
+    assert _shape(response) == (200, {"password": True, "totp": None, "recovery_codes_left": 0})
+
+
+async def test_the_security_summary_counts_only_a_confirmed_totp(api: Api) -> None:
+    user = await api.make_user()
+    await api.signed_in_as(user)
+    secret = await _set_up_totp(api)
+    pending = (await api.http.get(SECURITY)).json()
+    assert (pending["totp"], pending["recovery_codes_left"]) == (None, 0)  # set up, not confirmed
+    codes = (await _confirm_totp(api, pyotp.TOTP(secret).now())).json()["recovery_codes"]
+    confirmed = (await api.http.get(SECURITY)).json()
+    assert isinstance(confirmed["totp"]["since"], str)
+    assert confirmed["recovery_codes_left"] == 10
+    browser = api.another_browser()
+    first = (await browser.sign_in(user)).json()
+    used = await browser.http.post(
+        "/api/auth/sign-in/second-factor",
+        json={"challenge": first["challenge"], "recovery_code": codes[0]},
+    )
+    assert used.status_code == 200, used.text
+    assert (await api.http.get(SECURITY)).json()["recovery_codes_left"] == 9
+
+
+async def test_the_security_summary_needs_a_session(api: Api) -> None:
+    assert _code(await api.http.get(SECURITY)) == (401, "kernel.not_signed_in")

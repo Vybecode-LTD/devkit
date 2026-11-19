@@ -97,6 +97,7 @@ from kernel.auth.permissions import KERNEL_PERMISSIONS
 from kernel.auth.resets import router as resets_router
 from kernel.auth.routes import router as auth_router
 from kernel.auth.sign_up import router as sign_up_router
+from kernel.auth.summary import router as summary_router
 from kernel.auth.totp import router as totp_router
 from kernel.auth.unverified import REMOVE as REMOVE_UNVERIFIED
 from kernel.config import KernelConfig, get_config, modules_allowed, refuse_unsafe
@@ -330,6 +331,7 @@ def create_app(
     app.include_router(totp_router, prefix="/api/auth")
     app.include_router(passkeys_router, prefix="/api/auth")
     app.include_router(devices_router, prefix="/api/auth")
+    app.include_router(summary_router, prefix="/api/auth")
     app.include_router(factor_undo_router, prefix="/api/auth")
     for module in installed:
         if module.router is not None:
