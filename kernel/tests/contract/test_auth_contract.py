@@ -1974,6 +1974,16 @@ async def test_sign_out_everywhere_else_keeps_only_this_one(api: Api) -> None:
     assert [item["current"] for item in await _devices(api)] == [True]
 
 
+async def test_signing_devices_out_from_another_site_is_refused(api: Api) -> None:
+    _, phone = await _two_browsers(api)
+    (theirs,) = [item for item in await _devices(api) if not item["current"]]
+    forged = {"Origin": "https://evil.test", "Sec-Fetch-Site": "cross-site"}
+    for method, path in (("DELETE", f"{SESSIONS}/{theirs['id']}"), ("POST", SIGN_OUT_OTHERS)):
+        refused = await api.http.request(method, path, headers=forged)
+        assert _code(refused) == (403, "kernel.cross_site_write")
+    assert (await phone.session()).status_code == 200  # still signed in there
+
+
 async def test_the_device_routes_need_a_session(api: Api) -> None:
     for method, path in (
         ("GET", SESSIONS),
