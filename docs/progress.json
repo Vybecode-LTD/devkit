@@ -115,7 +115,7 @@
         {"name": "Themes: Machined Light and Vibrant Mindz on the kernel's tokens", "status": "done", "prs": [80], "decisions": ["0042"]},
         {"name": "UI kit, moved to React 19 and tokens", "status": "done", "prs": [82], "decisions": ["0042"]},
         {"name": "Auth and account screens, with the device routes", "status": "done", "prs": [83], "decisions": ["0042", "0043"]},
-        {"name": "Admin shell: sidebar, top bar, Dashboard and Activity", "status": "todo"},
+        {"name": "Admin shell: sidebar, top bar, Dashboard and Activity", "status": "done", "prs": [84], "decisions": ["0042", "0044"]},
         {"name": "Admin people and roles, with role editing", "status": "todo"},
         {"name": "Admin settings: Site, Features and System", "status": "todo"},
         {"name": "Depth theme", "status": "later", "note": "The owner, 2026-11-18: when a site wants it"}

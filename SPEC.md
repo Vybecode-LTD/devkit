@@ -237,7 +237,8 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `useModuleEnabled(id)` | Whether a module is switched on |
 | `useSettings(id)` | The module's settings, read-only on public pages |
 | `defineModule({...})` | Registers routes and slots (section 8) |
-| UI kit | Button and LinkButton, Field with Input, TextArea and Select, Switch, Card, Pill and Chip, Attention, Accordion, Tabs, Table, Dialog, UnsavedDialog with `useUnsavedGuard` and `useLeaveGuard`, SaveBar, SaveConflict, SectionHistory, Toast (`useToast`), EmptyState, LoadError, ErrorBoundary, RouteFocus, ScrollMemory and Icon (`kernel/web/src/ui/README.md`); the behavior ported from VybeSite, the look drawn from the Vibrant Mindz admin boards on the theme's tokens |
+| `AdminPage` | An admin page's header, a module's too: its title, one line, its actions, the head's title and the breadcrumb's last part (decision 0044) |
+| UI kit | Button and LinkButton, Field with Input, TextArea and Select, Switch, Card, Pill and Chip, Attention, StatCard, Accordion, Tabs, Table, Dialog, UnsavedDialog with `useUnsavedGuard` and `useLeaveGuard`, SaveBar, SaveConflict, SectionHistory, Toast (`useToast`), EmptyState, LoadError, ErrorBoundary, RouteFocus, ScrollMemory and Icon (`kernel/web/src/ui/README.md`); the behavior ported from VybeSite, the look drawn from the Vibrant Mindz admin boards on the theme's tokens |
 
 ```mermaid
 flowchart TB
@@ -351,6 +352,7 @@ The slots are typed (`Slots`): links take `{label, to, permission?}`, with `sect
 - Forms guard unsaved changes and send a `version` for optimistic concurrency (VybeSite's SaveConflict).
 - Accessibility: WCAG 2.2 AA, full keyboard use, focus moved on route change (VybeSite's RouteFocus).
 - Admin screens follow the owner's lens: say what's wrong, why it matters and what to do; detail one click deeper in an accordion; a dashboard you can scan at a glance.
+- **The admin's frame** (decision 0044): the sidebar's sections, each one link to its first page the person may open, its pages under it while one is open; the top bar's breadcrumb, Search or jump to (Ctrl K or ⌘ K, the pages the person can see), the person's notices and View site; under 960px the sidebar behind Menu. The Dashboard lists "Needs you" from `GET /api/kernel/admin/attention`, each item only for those who can act on it, the worst first, then the modules' `admin.dashboard.widget` cards (a `StatCard` each, most often).
 
 ## 9. Public rendering, SEO and AI crawlers
 
@@ -639,7 +641,7 @@ Both limits are site settings (Q6).
 
 - `kernel_audit_event` is the one audit log, auth's and every module's, written through `audit.record` (section 6, decision 0037). It is append-only: Postgres refuses to change an entry, to empty the table, and to delete an entry but in the nightly pruning. Auth records sign-ins and failures, second-factor and passkey changes, password and email changes, provider links, role changes, ended sessions, API keys, suspensions and deletions; modules record what they act on.
 - Each row holds the time, actor, subject, action, result, target, IP, user agent and details. Rows are kept 1 year by default (`AUDIT_KEEP_DAYS`, at least 30), then `kernel.prune_audit` removes them.
-- Staff holding `auth.audit.read` see all of it (`GET /api/kernel/admin/audit`, behind the admin gate), filtered by person, action, target and time. Each person sees their own security activity on the account page (`GET /api/auth/activity`), told whether they did it but never which staff member did. Moderators holding `kernel.moderation.act` see a narrower slice, moderation and suspensions only, with no IP or browser (`GET /api/kernel/admin/moderation/log`, decision 0039).
+- Staff holding `auth.audit.read` see all of it (`GET /api/kernel/admin/audit`, behind the admin gate), filtered by person, action (several at once), target and time, each page naming the people its entries do and saying how long entries are kept; the admin's Activity page reads it (decision 0044). Each person sees their own security activity on the account page (`GET /api/auth/activity`), told whether they did it but never which staff member did. Moderators holding `kernel.moderation.act` see a narrower slice, moderation and suspensions only, with no IP or browser (`GET /api/kernel/admin/moderation/log`, decision 0039).
 
 ### 14.11 Tables
 
@@ -829,6 +831,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-19 | K4's admin shell (decision 0044, contract change 17): the admin's frame and its Dashboard; `GET /api/kernel/admin/attention`; the staff's log names its people and its keep and takes several actions; `kernel.jobs.manage` (admin by default); `AdminPage`, `StatCard` and an info tone, with the required tokens `color.info` and `color.info-tint` (6, 8, 14.10) |
 | 2026-11-19 | K4's sign-in and account screens (decision 0043, contract change 16): the kernel's sign-in pages and landings sit in a frame of their own; one step-up dialog answers every write refused together; the device list's answers and `GET /api/auth/security` are written down in `docs/contracts/auth-api.md` (8, 14.5) |
 | 2026-11-18 | K4's UI kit (decision 0042, contract change 15): the parts in section 6's table, in `kernel/web/src/ui/` and exported from `@/kernel`; `IconName` is the kit's set; the required tokens gain `color.border-control`, the four pill tints and the admin's five focus shadows (`themes/README.md`); `ScrollMemory` takes over from React Router's scroll restoration (6, 16) |
 | 2026-11-18 | K4's themes (decision 0042): `themes/machined-light` and `themes/vibrant-mindz` on the kernel's required tokens (`themes/README.md`), made by `python -m tools.themes`; tokens are `--mf-*` on `[data-theme="<name>"]` alone; the colour rule is ESLint's for TypeScript and a test for CSS, in place of Stylelint (8, 16) |

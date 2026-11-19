@@ -8,6 +8,8 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 
 `2026-11-19-k45-screens/` holds the sign-in and account screens beside their boards, at 1440 and 390 px in both themes, with what differs and why (#83).
 
+`2026-11-19-k46-admin/` holds the admin's Dashboard and Activity beside their boards (and the boards as drawn), at 1440 and 390 px in both themes, with what differs and why (#84).
+
 `contracts/` holds the one-page contract each feature that touches a seam gets before its code (`C:\DEV\knowledge\decisions\0008-feature-contracts.md`):
 
 | File | What |

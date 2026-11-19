@@ -512,10 +512,10 @@
    "gate": "not passed",
    "step_order": 6,
    "step": "Admin shell: sidebar, top bar, Dashboard and Activity",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#84",
+   "decisions": "0042 0044",
    "note": ""
   },
   {
