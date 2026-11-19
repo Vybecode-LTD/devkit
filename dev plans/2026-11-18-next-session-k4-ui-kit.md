@@ -45,7 +45,7 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 
 ## 6. Environment and traps
 
-- **Python tests:** `TEST_DATABASE_URL="postgresql://devkit:devkit@localhost:55432/postgres" MECHFRAME_REQUIRE_DB=1 .venv/Scripts/python.exe -m pytest --cov=kernel`. Run it in the background; it takes about 11 minutes.
+- **Python tests**, in Git Bash (the Bash tool): `TEST_DATABASE_URL="postgresql://devkit:devkit@localhost:55432/postgres" MECHFRAME_REQUIRE_DB=1 .venv/Scripts/python.exe -m pytest --cov=kernel`. In PowerShell, set both with `$env:NAME = "..."` first. Run it in the background; it takes about 11 minutes.
 - **Web:** `npm.cmd run test:coverage`, `lint`, `typecheck`, `build`. Then `npm.cmd run e2e` with `TEST_DATABASE_URL` set.
 - **Themes:** after editing a `tokens.json`, run `python -m tools.themes`.
 - **Picking one test:** `npx.cmd playwright test -g "..."` with spaces breaks its quoting, so use `file:line`.
