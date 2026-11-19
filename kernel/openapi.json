@@ -117,7 +117,7 @@
           "kernel"
         ],
         "summary": "Audit Log",
-        "description": "Every module's entries, newest first, in pages: by who did it\n(`actor`), whom it concerns (`subject`), the action (a name, or a prefix\nending in a dot such as `blog.`), the target, and from `since` up to\n`until`.",
+        "description": "Every module's entries, newest first, in pages: by who did it\n(`actor`), whom it concerns (`subject`), the action (a name, or a prefix\nending in a dot such as `blog.`; given more than once, any of them), the\ntarget, and from `since` up to `until`. The page names the people its\nentries do (`people`) and says how long entries are kept.",
         "operationId": "audit_log_api_kernel_admin_audit_get",
         "parameters": [
           {
@@ -161,7 +161,10 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 {
                   "type": "null"
@@ -282,6 +285,38 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "A problem (RFC 9457)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/kernel/admin/attention": {
+      "get": {
+        "tags": [
+          "kernel"
+        ],
+        "summary": "Needs You",
+        "description": "What needs the signed-in staff member, the worst first, each item only\nif they can act on it (K4 contract §2, addition 9). On an admin path,\n`current_user` lets only staff with a second factor through.",
+        "operationId": "needs_you_api_kernel_admin_attention_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionList"
                 }
               }
             }
@@ -2948,6 +2983,81 @@
         ],
         "title": "AssertionResponse"
       },
+      "AttentionAction": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "to": {
+            "type": "string",
+            "title": "To"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "to"
+        ],
+        "title": "AttentionAction"
+      },
+      "AttentionItem": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "danger"
+            ],
+            "title": "Tone"
+          },
+          "what": {
+            "type": "string",
+            "title": "What"
+          },
+          "why": {
+            "type": "string",
+            "title": "Why"
+          },
+          "action": {
+            "$ref": "#/components/schemas/AttentionAction"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "tone",
+          "what",
+          "why",
+          "action"
+        ],
+        "title": "AttentionItem",
+        "description": "One thing that needs the person: what's wrong, why it matters, and\nthe page that fixes it."
+      },
+      "AttentionList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AttentionList"
+      },
       "AttestationResponse": {
         "properties": {
           "clientDataJSON": {
@@ -3087,15 +3197,82 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "people": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AuditPerson"
+            },
+            "type": "object",
+            "title": "People"
+          },
+          "kept_days": {
+            "type": "integer",
+            "title": "Kept Days"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "items",
-          "next_cursor"
+          "next_cursor",
+          "people",
+          "kept_days"
         ],
         "title": "AuditPage"
+      },
+      "AuditPerson": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/AuditRole"
+            },
+            "type": "array",
+            "title": "Roles"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "roles"
+        ],
+        "title": "AuditPerson",
+        "description": "Someone an entry on the page names, as the Activity page shows them:\ntheir name if they gave one, else their email, and their roles."
+      },
+      "AuditRole": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AuditRole"
       },
       "AuthenticatorSelection": {
         "properties": {

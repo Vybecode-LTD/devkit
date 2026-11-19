@@ -1,7 +1,8 @@
 """The kernel's own routes, at /api/kernel: the health check, the modules on,
-the staff's audit log (decision 0037), each person's notices (decision 0038),
-and moderation: reports, the queue, actions, time-outs and the moderators'
-log (decision 0039)."""
+the staff's audit log (decision 0037), the dashboard's "Needs you" list (K4
+contract §2, addition 9), each person's notices (decision 0038), and
+moderation: reports, the queue, actions, time-outs and the moderators' log
+(decision 0039)."""
 
 from __future__ import annotations
 
@@ -20,16 +21,16 @@ from pydantic import (
     StrictBool,
     field_validator,
 )
-from sqlalchemy import ColumnElement, text
+from sqlalchemy import ColumnElement, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import audit, moderation, notifications, server_copy
+from kernel import attention, audit, moderation, notifications, server_copy
 from kernel.access import public
 from kernel.answers import Answer, AuditEntry, Id, TargetRef, When, answer
 from kernel.auth import sessions
 from kernel.auth.dependencies import current_user, require_permission, signed_in
-from kernel.auth.models import User
+from kernel.auth.models import Role, User, UserRole
 from kernel.db import get_db
 from kernel.errors import Problem
 from kernel.models import AuditEvent
@@ -65,9 +66,47 @@ class Site(Answer):
     same_as: list[str]
 
 
+class AuditRole(Answer):
+    id: str
+    name: str
+
+
+class AuditPerson(Answer):
+    """Someone an entry on the page names, as the Activity page shows them:
+    their name if they gave one, else their email, and their roles."""
+
+    name: str | None
+    email: str
+    roles: list[AuditRole]
+
+
 class AuditPage(Answer):
     items: list[AuditEntry]
     next_cursor: str | None
+    #: Each actor and subject on the page who still has an account, by id.
+    people: dict[str, AuditPerson]
+    #: How long an entry is kept before it leaves the log on its own.
+    kept_days: int
+
+
+class AttentionAction(Answer):
+    label: str
+    to: str
+
+
+class AttentionItem(Answer):
+    """One thing that needs the person: what's wrong, why it matters, and
+    the page that fixes it."""
+
+    key: str
+    tone: Literal["info", "warning", "danger"]
+    what: str
+    why: str
+    action: AttentionAction
+
+
+class AttentionList(Answer):
+    items: list[AttentionItem]
 
 
 class Notice(Answer):
@@ -235,6 +274,40 @@ def _named(value: str) -> bool:
     return len(value) <= audit.MAX_NAME and audit.NAME.fullmatch(value) is not None
 
 
+#: How many actions and prefixes one read of the log may ask for.
+MAX_ACTIONS = 50
+
+
+def _action(value: str) -> ColumnElement[bool]:
+    """An action's name, or a prefix ending in a dot (`blog.`), as a condition."""
+    if len(value) <= audit.MAX_NAME and audit.PREFIX.fullmatch(value):
+        return AuditEvent.action.startswith(value, autoescape=True)
+    if _named(value):
+        return AuditEvent.action == value
+    raise _invalid("action", "An action's name, or a prefix ending in a dot.")
+
+
+async def _people(db: AsyncSession, ids: set[uuid.UUID]) -> dict[str, dict[str, Any]]:
+    """The accounts among `ids`, by id: name, email and roles by name."""
+    if not ids:
+        return {}
+    people: dict[str, dict[str, Any]] = {
+        str(user.id): {"name": user.display_name, "email": user.email, "roles": []}
+        for user in await db.scalars(select(User).where(User.id.in_(ids)))
+    }
+    held = await db.execute(
+        select(UserRole.user_id, Role.id, Role.name)
+        .join(Role, Role.id == UserRole.role_id)
+        .where(UserRole.user_id.in_(ids))
+        .order_by(Role.name, Role.id)
+    )
+    for user_id, role_id, role_name in held:
+        person = people.get(str(user_id))
+        if person is not None:
+            person["roles"].append({"id": role_id, "name": role_name})
+    return people
+
+
 @router.get(
     "/admin/audit",
     dependencies=[Depends(require_permission("auth.audit.read"))],
@@ -244,7 +317,7 @@ async def audit_log(
     db: AsyncSession = Depends(get_db),
     actor: uuid.UUID | None = None,
     subject: uuid.UUID | None = None,
-    action: str | None = None,
+    action: list[str] | None = Query(default=None),
     target_type: str | None = None,
     target_id: str | None = None,
     since: datetime | None = None,
@@ -254,20 +327,18 @@ async def audit_log(
 ) -> dict[str, Any]:
     """Every module's entries, newest first, in pages: by who did it
     (`actor`), whom it concerns (`subject`), the action (a name, or a prefix
-    ending in a dot such as `blog.`), the target, and from `since` up to
-    `until`."""
+    ending in a dot such as `blog.`; given more than once, any of them), the
+    target, and from `since` up to `until`. The page names the people its
+    entries do (`people`) and says how long entries are kept."""
     where: list[ColumnElement[bool]] = []
     if actor is not None:
         where.append(AuditEvent.actor_id == actor)
     if subject is not None:
         where.append(AuditEvent.subject_id == subject)
-    if action is not None:
-        if len(action) <= audit.MAX_NAME and audit.PREFIX.fullmatch(action):
-            where.append(AuditEvent.action.startswith(action, autoescape=True))
-        elif _named(action):
-            where.append(AuditEvent.action == action)
-        else:
-            raise _invalid("action", "An action's name, or a prefix ending in a dot.")
+    if action:
+        if len(action) > MAX_ACTIONS:
+            raise _invalid("action", f"At most {MAX_ACTIONS} actions and prefixes.")
+        where.append(or_(*(_action(each) for each in dict.fromkeys(action))))
     if target_type is not None:
         if not _named(target_type):
             raise _invalid("target_type", "A target's kind: <owner>.<entity>, lowercase.")
@@ -281,7 +352,31 @@ async def audit_log(
     if until is not None:
         where.append(AuditEvent.at < _utc(until))
     page = await audit.read(db, where=where, cursor=cursor, limit=limit)
-    return {"items": [audit.item(entry) for entry in page.entries], "next_cursor": page.next}
+    named = {
+        person
+        for entry in page.entries
+        for person in (entry.actor_id, entry.subject_id)
+        if person is not None
+    }
+    return {
+        "items": [audit.item(entry) for entry in page.entries],
+        "next_cursor": page.next,
+        "people": await _people(db, named),
+        "kept_days": audit.keep().days,
+    }
+
+
+# --- the dashboard's "Needs you" list (kernel.attention) ---------------------------------
+
+
+@router.get("/admin/attention", response_model=AttentionList)
+async def needs_you(
+    user: User = Depends(current_user), db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """What needs the signed-in staff member, the worst first, each item only
+    if they can act on it (K4 contract §2, addition 9). On an admin path,
+    `current_user` lets only staff with a second factor through."""
+    return {"items": [item.as_answer() for item in await attention.for_person(db, user.id)]}
 
 
 # --- each person's notices (kernel.notifications, decision 0038) ------------------------

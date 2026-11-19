@@ -78,10 +78,33 @@ export interface paths {
          * Audit Log
          * @description Every module's entries, newest first, in pages: by who did it
          *     (`actor`), whom it concerns (`subject`), the action (a name, or a prefix
-         *     ending in a dot such as `blog.`), the target, and from `since` up to
-         *     `until`.
+         *     ending in a dot such as `blog.`; given more than once, any of them), the
+         *     target, and from `since` up to `until`. The page names the people its
+         *     entries do (`people`) and says how long entries are kept.
          */
         get: operations["audit_log_api_kernel_admin_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Needs You
+         * @description What needs the signed-in staff member, the worst first, each item only
+         *     if they can act on it (K4 contract §2, addition 9). On an admin path,
+         *     `current_user` lets only staff with a second factor through.
+         */
+        get: operations["needs_you_api_kernel_admin_attention_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1023,6 +1046,37 @@ export interface components {
             /** Userhandle */
             userHandle?: string | null;
         };
+        /** AttentionAction */
+        AttentionAction: {
+            /** Label */
+            label: string;
+            /** To */
+            to: string;
+        };
+        /**
+         * AttentionItem
+         * @description One thing that needs the person: what's wrong, why it matters, and
+         *     the page that fixes it.
+         */
+        AttentionItem: {
+            /** Key */
+            key: string;
+            /**
+             * Tone
+             * @enum {string}
+             */
+            tone: "info" | "warning" | "danger";
+            /** What */
+            what: string;
+            /** Why */
+            why: string;
+            action: components["schemas"]["AttentionAction"];
+        };
+        /** AttentionList */
+        AttentionList: {
+            /** Items */
+            items: components["schemas"]["AttentionItem"][];
+        };
         /** AttestationResponse */
         AttestationResponse: {
             /** Clientdatajson */
@@ -1068,6 +1122,32 @@ export interface components {
             items: components["schemas"]["AuditEntry"][];
             /** Next Cursor */
             next_cursor: string | null;
+            /** People */
+            people: {
+                [key: string]: components["schemas"]["AuditPerson"];
+            };
+            /** Kept Days */
+            kept_days: number;
+        };
+        /**
+         * AuditPerson
+         * @description Someone an entry on the page names, as the Activity page shows them:
+         *     their name if they gave one, else their email, and their roles.
+         */
+        AuditPerson: {
+            /** Name */
+            name: string | null;
+            /** Email */
+            email: string;
+            /** Roles */
+            roles: components["schemas"]["AuditRole"][];
+        };
+        /** AuditRole */
+        AuditRole: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** AuthenticatorSelection */
         AuthenticatorSelection: {
@@ -1995,7 +2075,7 @@ export interface operations {
             query?: {
                 actor?: string | null;
                 subject?: string | null;
-                action?: string | null;
+                action?: string[] | null;
                 target_type?: string | null;
                 target_id?: string | null;
                 since?: string | null;
@@ -2025,6 +2105,35 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    needs_you_api_kernel_admin_attention_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttentionList"];
                 };
             };
             /** @description A problem (RFC 9457) */

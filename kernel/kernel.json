@@ -65,6 +65,13 @@
       ]
     },
     {
+      "key": "kernel.jobs.manage",
+      "description": "Retry and discard failed background jobs",
+      "default_roles": [
+        "admin"
+      ]
+    },
+    {
       "key": "kernel.moderation.act",
       "description": "Act on moderation reports: hide, delete, time out and ban",
       "default_roles": [

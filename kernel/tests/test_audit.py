@@ -662,6 +662,8 @@ async def test_an_item_on_the_staff_s_log_has_every_field(
             }
         ],
         "next_cursor": None,
+        "people": {},  # neither has an account here
+        "kept_days": 365,
     }
 
 
@@ -702,6 +704,84 @@ async def test_the_staff_s_log_filters_by_person_action_target_and_time(
         assert await ids(since=middle.isoformat()) == ["d", "e"]
         assert await ids(until=middle.isoformat()) == ["a", "b", "c"]
         assert await ids(since=start.isoformat(), until=middle.isoformat(), actor=str(ben)) == ["c"]
+
+
+async def test_the_staff_s_log_names_the_people_on_its_page(
+    db: AsyncSession, app_factory: AppFactory
+) -> None:
+    """Activity says who did it and to whom (K4.6): each actor and subject
+    on the page with an account, by name or else email, with their roles. One
+    whose account is gone is left out; the page shows them as removed."""
+    admin = await _user(db, "admin", second_factor=True)
+    ana = await _user(db, "admin")
+    ana.display_name = "Ana Example"
+    ben = await _user(db, "editor", "member")
+    await db.commit()
+    gone, kind = uuid.uuid4(), _kind()
+    audit.record(db, "auth.user.suspended", actor=ana.id, subject=ben.id, target=(kind, "a"))
+    audit.record(db, "auth.sign_in", actor=gone, subject=gone, target=(kind, "b"))
+    await db.commit()
+    async with Client(app_factory()) as client:
+        response = await client.get(
+            STAFF_LOG, params={"target_type": kind}, headers=await _as(db, admin)
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["people"] == {
+        str(ana.id): {
+            "name": "Ana Example",
+            "email": ana.email,
+            "roles": [{"id": "admin", "name": "Admin"}],
+        },
+        str(ben.id): {
+            "name": None,
+            "email": ben.email,
+            "roles": [{"id": "editor", "name": "Editor"}, {"id": "member", "name": "Member"}],
+        },
+    }
+
+
+async def test_the_staff_s_log_says_how_long_it_keeps_entries(
+    db: AsyncSession, app_factory: AppFactory
+) -> None:
+    admin = await _user(db, "admin", second_factor=True)
+    async with Client(app_factory(audit_keep_days=90)) as client:
+        response = await client.get(
+            STAFF_LOG, params={"target_type": _kind()}, headers=await _as(db, admin)
+        )
+    assert response.json()["kept_days"] == 90
+
+
+async def test_the_staff_s_log_takes_several_actions_at_once(
+    db: AsyncSession, app_factory: AppFactory
+) -> None:
+    """A kind on the Activity page is several actions and prefixes (K4.6)."""
+    admin = await _user(db, "admin", second_factor=True)
+    kind = _kind()
+    audit.record(db, "auth.sign_in", actor=None, target=(kind, "a"))
+    audit.record(db, "auth.passkey_added", actor=None, target=(kind, "b"))
+    audit.record(db, "auth.user.suspended", actor=None, target=(kind, "c"))
+    audit.record(db, "kernel.settings_saved", actor=None, target=(kind, "d"))
+    await db.commit()
+    async with Client(app_factory()) as client:
+        headers = await _as(db, admin)
+
+        async def ids(*actions: str) -> list[str]:
+            response = await client.get(
+                STAFF_LOG,
+                params=[("target_type", kind), *(("action", action) for action in actions)],
+                headers=headers,
+            )
+            assert response.status_code == 200, response.text
+            return sorted(item["target"]["id"] for item in response.json()["items"])
+
+        assert await ids("auth.sign_in", "auth.passkey_added") == ["a", "b"]
+        assert await ids("auth.user.", "kernel.") == ["c", "d"]
+        assert await ids("auth.sign_in", "auth.sign_in") == ["a"]
+        too_many = [("action", f"auth.a{n}") for n in range(51)]
+        response = await client.get(
+            STAFF_LOG, params=[("target_type", kind), *too_many], headers=headers
+        )
+        assert (response.status_code, _code(response)) == (422, "kernel.invalid_request")
 
 
 @pytest.mark.parametrize(
