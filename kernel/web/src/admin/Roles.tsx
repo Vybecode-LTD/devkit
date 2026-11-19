@@ -16,7 +16,7 @@ import { useId, useState } from "react";
 import { ApiProblem, api, useApiQuery } from "../api/client";
 import { refusedQuietly } from "../auth/StepUp";
 import { said } from "../auth/words";
-import { useSession } from "../session/session";
+import { refreshSession, useSession } from "../session/session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Dialog } from "../ui/Dialog";
@@ -120,7 +120,8 @@ function RoleEditor({
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ["get", "/api/auth/admin/roles"] }),
-      queryClient.invalidateQueries({ queryKey: ["get", "/api/auth/session"] }),
+      // The person may hold the role: their session is read again.
+      refreshSession(queryClient),
     ]);
 
   const failed = (caught: unknown) => {

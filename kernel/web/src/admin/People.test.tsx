@@ -144,6 +144,24 @@ describe("a person's roles", () => {
     expect(await screen.findByText("Saved b2@site.test's roles.")).toBeInTheDocument();
   });
 
+  it("reads the session again after you change your own roles (Codex on #85)", async () => {
+    const me = person("01", { email: admin.email, roles: ["admin", "member"], second_factor: true });
+    const { sent } = routedFetch({
+      ...BASE,
+      "GET /api/auth/admin/users": page([{ ...me, id: admin.id }]),
+      [`PUT /api/auth/admin/users/${admin.id}/roles`]: { status: 200, body: { ...me, id: admin.id, roles: ["admin", "editor", "member"] } },
+      "GET /api/auth/session": { status: 200, body: { user: { ...admin, roles: ["admin", "editor", "member"] } } },
+    });
+    const table = await opened();
+    await userEvent.click(await table.findByRole("button", { name: `Open ${admin.email}` }));
+    const dialog = within(await screen.findByRole("dialog", { name: admin.email }));
+    await userEvent.click(dialog.getByRole("switch", { name: /^Editor/ }));
+    await userEvent.click(dialog.getByRole("button", { name: "Save roles" }));
+    await waitFor(() => {
+      expect(sent.some((request) => request.method === "GET" && request.url.endsWith("/api/auth/session"))).toBe(true);
+    });
+  });
+
   it("says why the server refused, and stays open", async () => {
     routedFetch({
       ...BASE,

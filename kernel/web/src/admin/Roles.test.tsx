@@ -123,7 +123,11 @@ describe("a new role", () => {
 
 describe("the site's own role", () => {
   it("is changed", async () => {
-    const { sent } = routedFetch({ ...BASE, "PUT /api/auth/admin/roles/crew": { status: 200, body: { ...CREW, name: "Mods" } } });
+    const { sent } = routedFetch({
+      ...BASE,
+      "PUT /api/auth/admin/roles/crew": { status: 200, body: { ...CREW, name: "Mods" } },
+      "GET /api/auth/session": { status: 200, body: { user: admin } },
+    });
     const cards = within(await opened());
     await userEvent.click(cards.getByRole("button", { name: "Edit Crew" }));
     const dialog = within(await screen.findByRole("dialog", { name: "Edit Crew" }));
@@ -137,6 +141,10 @@ describe("the site's own role", () => {
     });
     const put = sent.find((request) => request.method === "PUT");
     expect(await put?.json()).toEqual({ name: "Mods", description: "Moderates", permissions: ["kernel.moderation.act"] });
+    // The editor may hold the role: their session is read again (Codex on #85).
+    await waitFor(() => {
+      expect(sent.some((request) => request.method === "GET" && request.url.endsWith("/api/auth/session"))).toBe(true);
+    });
   });
 
   it("is deleted once confirmed, while no one holds it", async () => {

@@ -17,7 +17,7 @@ import { ApiProblem, api } from "../api/client";
 import type { components } from "../api/schema";
 import { refusedQuietly } from "../auth/StepUp";
 import { said } from "../auth/words";
-import { useSession } from "../session/session";
+import { refreshSession, useSession } from "../session/session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Dialog } from "../ui/Dialog";
@@ -100,9 +100,8 @@ function PersonRoles({ person, roles, onClose }: { person: Person; roles: readon
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["get", "/api/auth/admin/users"] }),
         queryClient.invalidateQueries({ queryKey: ["get", "/api/auth/admin/roles"] }),
-        session.status === "signed-in" && session.user.id === person.id
-          ? queryClient.invalidateQueries({ queryKey: ["get", "/api/auth/session"] })
-          : Promise.resolve(),
+        // Your own roles: the session is read again, a read begun before stopped.
+        session.status === "signed-in" && session.user.id === person.id ? refreshSession(queryClient) : Promise.resolve(),
       ]);
       toast({ tone: "success", text: `Saved ${person.name ?? person.email}'s roles.` });
       onClose();
