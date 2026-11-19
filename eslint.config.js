@@ -30,19 +30,17 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "error",
       // No colour written in code: a part takes its colours from the theme's
       // tokens (SPEC.md section 16, themes/README.md). tests/test_themes.py
-      // checks the CSS the same way.
+      // checks the CSS the same way. A hex of 3, 4, 6 or 8 digits anywhere in
+      // a string or a template (a shadow's "0 0 2px #123456" too), or a colour
+      // function, color() among them (cubic and CodeRabbit on #80).
       "no-restricted-syntax": [
         "error",
         {
-          selector: String.raw`Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]`,
+          selector: String.raw`Literal[value=/(?:^|[\s(,:])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![\w-])|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\(/]`,
           message: "A colour comes from the theme: use a var(--mf-color-*) token.",
         },
         {
-          selector: String.raw`Literal[value=/\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch)\(/]`,
-          message: "A colour comes from the theme: use a var(--mf-color-*) token.",
-        },
-        {
-          selector: String.raw`TemplateElement[value.raw=/#[0-9a-fA-F]{6}\b|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch)\(/]`,
+          selector: String.raw`TemplateElement[value.raw=/(?:^|[\s(,:])#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![\w-])|\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\(/]`,
           message: "A colour comes from the theme: use a var(--mf-color-*) token.",
         },
       ],

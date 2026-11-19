@@ -22,7 +22,8 @@ THEMES = themes.discover()
 
 
 def test_both_themes_are_built() -> None:
-    assert sorted(theme.name for theme in THEMES) == ["machined-light", "vibrant-mindz"]
+    # A theme added later is checked like these two (CodeRabbit on #80).
+    assert {"machined-light", "vibrant-mindz"} <= {theme.name for theme in THEMES}
 
 
 def test_the_readme_lists_the_required_tokens_with_their_meaning() -> None:
@@ -187,6 +188,24 @@ def test_a_font_stack_keeps_generic_families_unquoted() -> None:
     )
 
 
+def test_a_type_alias_brings_its_tracking_too() -> None:
+    """A type role that's another's alias writes both of its variables (CodeRabbit on #80)."""
+    tokens = [
+        _token("font.text", ["Geist"], "fontFamily"),
+        _token(
+            "type.base",
+            {"fontFamily": "{font.text}", "fontSize": "1rem", "fontWeight": 400, "lineHeight": 1.5},
+            "typography",
+        ),
+        _token("type.body", "{type.base}", "typography"),
+    ]
+    by_path = themes.index(tokens)
+    assert themes.declarations(tokens[2], by_path) == [
+        ("--mf-type-body", "var(--mf-type-base)"),
+        ("--mf-type-body-tracking", "var(--mf-type-base-tracking)"),
+    ]
+
+
 def test_a_type_role_is_a_font_shorthand_and_its_tracking() -> None:
     tokens = [
         _token("font.text", ["Geist", "sans-serif"], "fontFamily"),
@@ -209,13 +228,39 @@ def test_a_type_role_is_a_font_shorthand_and_its_tracking() -> None:
     ]
 
 
-#: A colour written as a value: a hex, a colour function, or a named colour.
-#: `transparent`, `currentColor` and `color-mix()` of var()s are fine.
+#: CSS's named colours (CSS Color 4), which a declaration may not use either.
+_NAMES = (
+    "aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet "
+    "brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue "
+    "darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange "
+    "darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise "
+    "darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia "
+    "gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo "
+    "ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan "
+    "lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue "
+    "lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon "
+    "mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue "
+    "mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin "
+    "navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen "
+    "paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red "
+    "rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue "
+    "slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white "
+    "whitesmoke yellow yellowgreen"
+)
+NAMED = _NAMES.split()
+
+_NAMED = re.compile(r"\b(" + "|".join(NAMED) + r")\b", re.IGNORECASE)
+
+
+#: A colour written as a value: a hex, a colour function, or a named colour
+#: (cubic on #80). `transparent`, `currentColor` and `color-mix()` of var()s are fine.
 def colour_literals(css: str) -> list[str]:
     no_comments = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     found = re.findall(r"#[0-9A-Fa-f]{3,8}(?![\w-])", no_comments)
     found += re.findall(r"\b(?:rgba?|hsla?|hwb|oklch|oklab|lab|lch|color)\(", no_comments)
-    found += re.findall(r":\s*[^;{}]*\b(white|black)\b", no_comments)
+    for value in re.findall(r":\s*([^;{}]*)[;}]", no_comments):
+        # A token's name is never a colour: var(--mf-color-palette-gold-400).
+        found += _NAMED.findall(re.sub(r"--[\w-]+", "", value))
     return found
 
 
@@ -223,6 +268,9 @@ def test_the_colour_check_finds_a_colour() -> None:
     assert colour_literals("a { color: #FF7A1F; }") == ["#FF7A1F"]
     assert colour_literals("a { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2); }") == ["rgba("]
     assert colour_literals("a { color: white; }") == ["white"]
+    assert colour_literals("a { color: red; }") == ["red"]
+    assert colour_literals("a { border: 1px solid RebeccaPurple; }") == ["RebeccaPurple"]
+    assert colour_literals("a { color: var(--mf-color-palette-gold-400); }") == []
     assert colour_literals("a { color: var(--mf-color-text); } /* #FFF */") == []
     assert colour_literals("#main { color: currentColor; }") == []
 

@@ -50,13 +50,12 @@
   --mf-color-accent: var(--mf-color-palette-ember-600);
   --mf-color-accent-hover: var(--mf-color-palette-ember-700);
   --mf-color-on-accent: var(--mf-color-palette-neutral-0);
-  --mf-color-focus: var(--mf-color-palette-ember-600);
+  --mf-color-focus: var(--mf-color-palette-ember-500);
   --mf-color-link: var(--mf-color-palette-ember-700);
   --mf-color-link-hover: var(--mf-color-palette-ember-900);
   --mf-color-success: var(--mf-color-palette-success-700);
   --mf-color-warning: var(--mf-color-palette-warning-700);
   --mf-color-danger: var(--mf-color-palette-danger-700);
-  --mf-color-info: var(--mf-color-palette-info-500);
   --mf-font-display: 'Geist', 'Geist Sans', ui-sans-serif, system-ui, '-apple-system', 'Segoe UI', 'Roboto', sans-serif;
   --mf-font-text: 'Geist', 'Geist Sans', ui-sans-serif, system-ui, '-apple-system', 'Segoe UI', 'Roboto', sans-serif;
   --mf-font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
@@ -100,8 +99,8 @@
   --mf-shadow-e4: 0 4px 8px rgba(24,22,20,0.06), 0 16px 32px rgba(24,22,20,0.10), 0 32px 64px rgba(24,22,20,0.12);
   --mf-shadow-inset-1: inset 0 1px 2px rgba(24,22,20,0.10), inset 0 1px 3px rgba(24,22,20,0.06);
   --mf-shadow-inset-2: inset 0 2px 4px rgba(24,22,20,0.13), inset 0 1px 6px rgba(24,22,20,0.08);
-  --mf-shadow-focus: 0 0 0 1px var(--mf-color-focus), 0 0 0 4px rgba(201,58,12,0.28);
-  --mf-shadow-accent-glow: 0 2px 6px rgba(201,58,12,0.20), 0 6px 20px rgba(201,58,12,0.28);
+  --mf-shadow-focus: 0 0 0 1px var(--mf-color-focus), 0 0 0 4px rgba(232,68,10,0.28);
+  --mf-shadow-accent-glow: 0 2px 6px rgba(232,68,10,0.20), 0 6px 20px rgba(232,68,10,0.28);
   --mf-motion-fast: 150ms;
   --mf-motion-base: 220ms;
   --mf-motion-slow: 360ms;

@@ -6,7 +6,7 @@ Every token is `--mf-<path>` in kebab case: `color.text-strong` becomes `--mf-co
 
 The tokens sit on `[data-theme="<name>"]` alone, so a site names its theme on `<html data-theme="...">` in its `index.html`. Under `prefers-reduced-motion` every duration is 0s.
 
-The kernel and the modules style themselves only with these tokens. A colour written anywhere outside `themes/` fails: a test reads the CSS, and ESLint reads the TypeScript.
+The kernel and the modules style themselves only with these tokens. A colour written as a hex, a colour function or one of CSS's named colours fails two checks. `tests/test_themes.py` reads the CSS in `kernel/web`, `harness/web` and `modules/`, and ESLint reads the TypeScript, tests aside.
 
 | Theme | Source | Notes |
 | --- | --- | --- |
@@ -62,7 +62,9 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 - The signals are 4.5:1 on the canvas, surface and raised surface.
 - The focus colour and the accent are at least 3:1 on what they sit on.
 
-Rendered contrast, such as text over photos or glows and the hover and focus states, is checked on real pages: axe in both themes, in Playwright.
+Rendered contrast is checked by axe, in Playwright, on each page's default rendering in both themes. Text over photos or glows, and the hover and focus states, are checked by eye beside the boards as each screen is built (contract §7).
+
+`color.border-strong` isn't held to 3:1: in both themes a control also takes its edge from a fill or a shadow. A control's boundary as a whole must reach 3:1 (WCAG 1.4.11), which the UI kit's controls are checked for when they're built (K4.4).
 
 ## Adding a theme
 

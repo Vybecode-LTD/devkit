@@ -243,6 +243,13 @@ def declarations(token: Token, by_path: dict[str, Token]) -> list[tuple[str, str
     if token.type == "typography" and isinstance(token.value, dict):
         tracking = token.value.get("letterSpacing", "normal")
         found.append((f"{token.var}-tracking", _part(token, tracking, by_path, (), to="var")))
+    elif (
+        token.type == "typography"
+        and isinstance(token.value, str)
+        and (match := ALIAS.match(token.value))
+    ):
+        # An alias of another type role takes its tracking too (CodeRabbit on #80).
+        found.append((f"{token.var}-tracking", f"var({by_path[match.group(1)].var}-tracking)"))
     return found
 
 

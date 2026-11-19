@@ -154,6 +154,7 @@ def test_each_alpha_colour_is_its_palette_colour() -> None:
         assert (
             tuple(int(m.group(i)) for i in (1, 2, 3)) == rgb
         ), f"{t.dotted} isn't color.palette.{t.path[2]}"
+        assert 0 <= float(m.group(4)) <= 1, f"{t.dotted}'s alpha is out of range"  # cubic on #80
         assert (
             t.path[3].replace("_", ".") == f"{float(m.group(4)) * 100:g}"
         ), f"{t.dotted}'s name doesn't match its alpha"
@@ -170,11 +171,15 @@ def test_reduced_motion_stops_every_duration_and_pauses_the_ambient_loops() -> N
 
 
 def test_every_token_is_written_once_and_again_only_under_reduced_motion() -> None:
-    names = re.findall(r"^\s*(--mf-[^:\s]+):", themes.render_css(THEME), re.M)
-    roles = [t for t in TOKENS if t.type == "typography"]
-    assert len(roles) == 5
-    # Each token once, a type role's tracking too; then 11 durations and the ambient state.
-    assert len(names) == len(TOKENS) + len(roles) + 12
+    main, reduced = themes.render_css(THEME).split("@media (prefers-reduced-motion: reduce)", 1)
+    written = re.findall(r"^\s*(--mf-[^:\s]+):", main, re.M)
+    expected = [name for token in TOKENS for name, _value in themes.declarations(token, BY_PATH)]
+    # Each token once, a type role's tracking too, and no name twice (cubic on #80).
+    assert written == expected
+    assert len(set(written)) == len(written)
+    again = re.findall(r"^\s*(--mf-[^:\s]+):", reduced, re.M)
+    assert len(again) == 12  # 11 durations and the ambient state
+    assert set(again) <= set(written)
 
 
 def test_generic_font_keywords_stay_unquoted() -> None:

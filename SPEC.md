@@ -344,7 +344,7 @@ The slots are typed (`Slots`): links take `{label, to, permission?}`, with `sect
 
 **Rules**
 
-- Styling comes only from tokens (`var(--mf-*)`; `themes/README.md` lists the kernel's required ones). A site names its theme on `<html data-theme="...">`. Hard-coded colors fail lint. Tailwind v4's theme maps to the same tokens.
+- Styling comes only from tokens (`var(--mf-*)`; `themes/README.md` lists the kernel's required ones). A site names its theme on `<html data-theme="...">`. Hard-coded colors fail the checks (ESLint for TypeScript, `tests/test_themes.py` for CSS). Tailwind v4's theme maps to the same tokens.
 - Use the kernel UI kit before writing a new component. The admin shell is built to the Vibrant Mindz canvas Admin design, styled by theme tokens, for every site, with VybeSite's behavior (accordions, unsaved changes, save conflicts, section history) and not its looks; only its generic parts are the kernel's (decision 0040).
 - Data comes only through the generated client and TanStack Query; no `fetch` inside components.
 - Every route is lazy-loaded, so a module that is switched off costs nothing in the bundle a visitor downloads.

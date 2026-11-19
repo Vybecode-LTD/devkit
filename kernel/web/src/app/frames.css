@@ -93,6 +93,7 @@
   }
 
   .mf-admin-nav {
+    box-sizing: border-box; /* the token is the rail's whole width, padding and edge in it (cubic on #80) */
     width: var(--mf-layout-sidebar);
     padding: 1rem;
     background: var(--mf-color-rail);
@@ -109,6 +110,7 @@
     color: var(--mf-color-text-muted);
   }
 
+  .mf-admin-nav a:hover,
   .mf-admin-nav a[aria-current="page"] {
     color: var(--mf-color-text-strong);
   }
