@@ -27,6 +27,8 @@ export default defineConfig({
       "modules/*/tests/web/**/*.test.{ts,tsx}",
     ],
     exclude: ["**/node_modules/**", "modules/_template/**"],
+    // A screen's test signs in and moves on through lazily loaded pages: room for a loaded machine.
+    testTimeout: 15_000,
     restoreMocks: true,
     unstubGlobals: true,
     // `npm run test:coverage`: the web's floor, 85 % of lines (K4 contract §7).

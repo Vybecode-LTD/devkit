@@ -2,9 +2,11 @@
  * The router's routes (K4 contract §2): a data router, which the
  * unsaved-changes guard needs.
  *
+ * - The sign-in frame holds the kernel's public pages: signing in and up,
+ *   and the landings from mail (VM Website `Auth.dc.html`).
  * - The site frame holds `/` (a module's page if one on owns it, else the
- *   kernel's home), the kernel's public pages, the modules' public pages,
- *   and, behind `RequireAuth`, the kernel's and the modules' member pages.
+ *   kernel's home), the modules' public pages, and, behind `RequireAuth`,
+ *   the kernel's and the modules' member pages.
  * - The admin frame, behind `RequireAdmin`, holds the kernel's admin pages
  *   and the modules', each behind its permission.
  * - Anything else is the 404 page, in its frame.
@@ -17,11 +19,13 @@ import type { RouteObject } from "react-router";
 import { RequireAdmin, RequireAuth, RequirePermission } from "../guards/guards";
 import type { ModuleDefinition, ModuleRoute } from "../modules";
 import { useModulesRead } from "../site/site";
+import { AuthFrame } from "../auth/AuthFrame";
 import { AdminFrame, Root, SiteFrame } from "./frames";
 import { lazyPart } from "./lazy";
 import { KERNEL_PAGES, type KernelPage } from "./pages";
 import { Home, NotFound, Pending, Unreachable } from "./pages/KernelPages";
 import { RouteError } from "./RouteError";
+import { SCREENS } from "./screens";
 
 type Owned = { module: string; page: ComponentType };
 
@@ -58,7 +62,8 @@ function HomeRoute({ owners }: { owners: readonly Owned[] }) {
 }
 
 function kernelRoute(page: KernelPage): RouteObject {
-  const shown = <Pending page={page} />;
+  const screen = SCREENS[page.path];
+  const shown = screen ? <Loaded page={lazyPart(screen)} /> : <Pending page={page} />;
   return {
     path: page.path,
     caseSensitive: true,
@@ -107,11 +112,11 @@ export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet
       element: <Root />,
       errorElement: <RouteError />,
       children: [
+        { element: <AuthFrame />, children: kernel("public").map(kernelRoute) },
         {
           element: <SiteFrame />,
           children: [
             { index: true, element: <HomeRoute owners={owners} /> },
-            ...kernel("public").map(kernelRoute),
             ...modules.flatMap((module) =>
               module.routes.public.filter((route) => route.path !== "/").map((route) => moduleRoute(module, route, "public")),
             ),

@@ -1,6 +1,6 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderApp, testUser } from "../../testing";
 import { defineModule, type ModuleDefinition } from "../modules";
@@ -9,6 +9,11 @@ import { isMissingCode } from "./RouteError";
 import { FOCUS_WAIT_MS } from "../ui/RouteFocus";
 import { UnsavedDialog } from "../ui/UnsavedDialog";
 import { useUnsavedGuard } from "../ui/unsaved";
+
+// The account page loads lazily; import it once before the tests, so none waits on a first import.
+beforeAll(async () => {
+  await import("../account/Account");
+});
 
 function pageSaying(words: string) {
   return () => Promise.resolve({ default: () => <h1>{words}</h1> });
@@ -144,7 +149,7 @@ describe("the member pages", () => {
 
   it("show a signed-in person the page", async () => {
     renderApp({ path: "/account", session: testUser() });
-    expect(await screen.findByRole("heading", { name: "Your account" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign-in and security" })).toBeInTheDocument();
   });
 
   it("wait quietly while the session is read", () => {
@@ -160,7 +165,7 @@ describe("the member pages", () => {
     expect(screen.getByText("Check your connection, then try again.")).toBeInTheDocument();
     routedFetch({ "GET /api/auth/session": { status: 200, body: { user: testUser() } } });
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("heading", { name: "Your account" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign-in and security" })).toBeInTheDocument();
   });
 });
 

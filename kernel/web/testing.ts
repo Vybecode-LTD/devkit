@@ -14,7 +14,7 @@ import { StrictMode, createElement, type ReactElement } from "react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 
 import type { AdminSection } from "./src/app/context";
-import { KernelProviders } from "./src/app/mount";
+import { KernelProviders, drawNow } from "./src/app/mount";
 import { buildRoutes } from "./src/app/routes";
 import type { ModuleDefinition } from "./src/modules";
 import { SESSION_KEY, type SessionUser } from "./src/session/session";
@@ -93,7 +93,7 @@ export function testQueryClient(options: KernelRenderOptions = {}): QueryClient 
 function drawn(router: ReturnType<typeof createMemoryRouter>, options: KernelRenderOptions): KernelRender {
   const queryClient = testQueryClient(options);
   const setup = { modules: options.modules ?? [], adminSections: options.adminSections ?? [] };
-  const app = createElement(KernelProviders, { queryClient, setup, children: createElement(RouterProvider, { router }) });
+  const app = createElement(KernelProviders, { queryClient, setup, children: createElement(RouterProvider, { router, flushSync: drawNow }) });
   const result = render(options.strict ? createElement(StrictMode, null, app) : app);
   return { ...result, queryClient, router };
 }

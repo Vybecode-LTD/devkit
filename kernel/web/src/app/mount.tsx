@@ -11,10 +11,12 @@ import "../ui/kit.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { flushSync } from "react-dom";
 import { RouterProvider, createBrowserRouter } from "react-router";
 
 import { apiQueryOptions, retryUnlessRefused } from "../api/client";
 import { defineModule, type ModuleDefinition } from "../modules";
+import { StepUpProvider } from "../auth/StepUp";
 import { SessionHandlers } from "../session/session";
 import { ToastProvider } from "../ui/Toast";
 import { KernelContext, type AdminSection, type KernelSetup } from "./context";
@@ -29,7 +31,7 @@ export type AppOptions = {
   root?: HTMLElement;
 };
 
-/** What every page shares: the query cache, the setup the slots read, the session's handlers, the toasts. */
+/** What every page shares: the query cache, the setup the slots read, the session's handlers, the step-up dialog, the toasts. */
 export function KernelProviders({
   queryClient,
   setup,
@@ -43,11 +45,24 @@ export function KernelProviders({
     <QueryClientProvider client={queryClient}>
       <KernelContext.Provider value={setup}>
         <SessionHandlers>
-          <ToastProvider>{children}</ToastProvider>
+          <StepUpProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </StepUpProvider>
         </SessionHandlers>
       </KernelContext.Provider>
     </QueryClientProvider>
   );
+}
+
+/**
+ * React Router's `flushSync` prop: ReactDOM's, as `react-router/dom`'s provider
+ * passes it, so a move that asks (`navigate(to, {flushSync: true})`) is drawn at
+ * once rather than in a transition. Given here, the app and the tests use one
+ * build of React Router, not its DOM entry's second copy under Node.
+ */
+export function drawNow(update: () => unknown): undefined {
+  flushSync(update);
+  return undefined;
 }
 
 /** The modules, checked again (a binding may skip defineModule), each once. */
@@ -98,7 +113,8 @@ export function mountApp(options: AppOptions): Promise<Root> {
     app.render(
       <StrictMode>
         <KernelProviders queryClient={queryClient} setup={setup}>
-          <RouterProvider router={router} />
+          {/* flushSync: a move that asks for it is drawn at once, not in a transition (the frame's Sign out). */}
+          <RouterProvider router={router} flushSync={drawNow} />
         </KernelProviders>
       </StrictMode>,
     );

@@ -1,0 +1,180 @@
+/*
+ * The account's pages (VM Website design/site/Account.dc.html), on the
+ * theme's tokens, in the site's look (kit.css). Sizes are the board's: the
+ * page 1360px wide, the display title from 52px to 92px, cards two to a row
+ * from 540px each, rows split by the card edge.
+ */
+@layer mf.base, mf.kit, mf.screens;
+
+@layer mf.screens {
+  .mf-account {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 85rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 6.5rem;
+  }
+
+  .mf-account-head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .mf-account-who {
+    margin: 0;
+    color: var(--mf-color-text-muted);
+    font-size: 0.9375rem;
+    overflow-wrap: anywhere;
+  }
+
+  .mf-account-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mf-account-nav a {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0 1.125rem;
+    border: 1px solid var(--mf-color-border-strong);
+    border-radius: var(--mf-radius-pill);
+    color: var(--mf-color-text);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .mf-account-nav a:hover {
+    border-color: var(--mf-color-text-muted);
+    color: var(--mf-color-text-strong);
+  }
+
+  .mf-account-nav a[aria-current="page"] {
+    border-color: var(--mf-color-text-strong);
+    background: var(--mf-color-text-strong);
+    color: var(--mf-color-canvas);
+  }
+
+  .mf-account-title {
+    margin: 0;
+    padding-bottom: 0.06em;
+    color: var(--mf-color-text-strong);
+    font-family: var(--mf-font-display);
+    font-size: clamp(3.25rem, 6vw, 5.75rem);
+    font-weight: 900;
+    line-height: 0.88;
+    letter-spacing: normal;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+
+  .mf-account-lead {
+    max-width: 60ch;
+    margin: 0;
+    color: var(--mf-color-text);
+    font-size: 1.25rem;
+  }
+
+  .mf-account-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(33.75rem, 100%), 1fr));
+    align-items: start;
+    gap: 1.25rem;
+  }
+
+  .mf-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mf-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.875rem 0;
+    border-top: 1px solid var(--mf-color-border);
+  }
+
+  .mf-row-words {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .mf-row-name {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .mf-row-meta {
+    color: var(--mf-color-text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .mf-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+
+  /* An authenticator app's key and a set of recovery codes, to copy down. */
+  .mf-secret,
+  .mf-codes {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0.875rem 1.125rem;
+    border: 1px solid var(--mf-color-border-strong);
+    border-radius: 0.875rem;
+    background: var(--mf-color-well);
+    color: var(--mf-color-text-strong);
+    font-family: var(--mf-font-mono);
+    font-size: 1.0625rem;
+  }
+
+  .mf-secret {
+    letter-spacing: 0.08em;
+    overflow-wrap: anywhere;
+  }
+
+  .mf-codes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 1.5rem;
+    list-style: none;
+  }
+
+  .mf-dialog-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .mf-activity time {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 37.5rem) {
+    .mf-account {
+      padding: 1.5rem 0.25rem 4rem;
+    }
+
+    .mf-site-look .mf-account .mf-card {
+      padding: 1.375rem;
+    }
+  }
+}

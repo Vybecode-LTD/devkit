@@ -29,7 +29,8 @@ export function Root() {
   );
 }
 
-function Skip() {
+/** The skip link every frame starts with. */
+export function Skip() {
   return (
     <a className="mf-skip" href="#main">
       Skip to the content
@@ -52,9 +53,12 @@ function AccountLinks() {
   // Home first, then out: signed out on a member page, its guard sends the
   // person to sign in, which overtook a move home whose code was still coming.
   // Out only once home: a question about unsaved changes can keep them where
-  // they are, and choosing to stay keeps them signed in (cubic on #82).
+  // they are, and choosing to stay keeps them signed in (cubic on #82). The
+  // move is drawn at once (`flushSync`), not in a transition, so `at` says
+  // where the page is when navigate() settles: drawn later, it still said the
+  // old page, and Sign out went home without signing out (K4.5).
   const leave = () => {
-    Promise.resolve(navigate("/"))
+    Promise.resolve(navigate("/", { flushSync: true }))
       .then(() => (at.current === "/" ? signOut() : undefined))
       .catch((error: unknown) => {
         console.error("Signing out failed.", error);
@@ -65,7 +69,7 @@ function AccountLinks() {
       <SlotOutlet name="nav.member" label="Your pages" />
       <Link to="/account">Your account</Link>
       {session.staff ? <Link to="/admin">Admin</Link> : null}
-      <button type="button" onClick={leave}>
+      <button type="button" className="mf-text-link" onClick={leave}>
         Sign out
       </button>
     </>
@@ -75,7 +79,7 @@ function AccountLinks() {
 export function SiteFrame({ children }: { children?: ReactNode }) {
   const site = useSite();
   return (
-    <div className="mf-site">
+    <div className="mf-site mf-site-look">
       <Skip />
       <header className="mf-site-header">
         {site ? (

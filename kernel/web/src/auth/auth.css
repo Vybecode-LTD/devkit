@@ -1,0 +1,227 @@
+/*
+ * The sign-in screens' frame (VM Website design/site/Auth.dc.html), on the
+ * theme's tokens. Its sizes are the board's, fixed here as the kit's are
+ * (shell-slots.md, finding 4): the bar 1360px wide, the form 460px, the
+ * display title from 48px to 72px. The buttons and fields are the kit's
+ * `large` ones, in the site's look.
+ */
+@layer mf.base, mf.kit, mf.screens;
+
+@layer mf.screens {
+  .mf-auth {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .mf-auth-header {
+    border-bottom: 1px solid var(--mf-color-border);
+  }
+
+  .mf-auth-footer {
+    border-top: 1px solid var(--mf-color-border);
+  }
+
+  .mf-auth-bar {
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    max-width: 85rem;
+    margin: 0 auto;
+    padding: 1rem 2.5rem;
+  }
+
+  .mf-auth-footer .mf-auth-bar {
+    padding-top: 1.75rem;
+    padding-bottom: 2.25rem;
+    font-size: 0.9375rem;
+    color: var(--mf-color-text-muted);
+  }
+
+  .mf-auth-name {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--mf-color-text-strong);
+    font-family: var(--mf-font-display);
+    font-size: 1.6875rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-decoration: none;
+  }
+
+  .mf-auth-name img {
+    width: 2.25rem;
+    height: 2.25rem;
+    object-fit: contain;
+  }
+
+  .mf-auth-back {
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .mf-auth-main {
+    box-sizing: border-box;
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 4.5rem;
+    width: 100%;
+    max-width: 85rem;
+    margin: 0 auto;
+    padding: 4.5rem 2.5rem 6rem;
+  }
+
+  .mf-auth-main--alone {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mf-auth-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.375rem;
+    width: 100%;
+    max-width: 28.75rem;
+  }
+
+  .mf-auth-panel .mf-button--large {
+    width: 100%;
+  }
+
+  .mf-auth-title {
+    margin: 0;
+    padding-bottom: 0.04em;
+    color: var(--mf-color-text-strong);
+    font-family: var(--mf-font-display);
+    font-size: clamp(3rem, 5vw, 4.5rem);
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: normal;
+    text-transform: uppercase;
+  }
+
+  .mf-auth-lead {
+    margin: 0;
+    color: var(--mf-color-text);
+    font-size: 1.125rem;
+  }
+
+  .mf-auth-note {
+    margin: 0;
+    color: var(--mf-color-text-muted);
+  }
+
+  .mf-auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.125rem;
+  }
+
+  .mf-form-error {
+    margin: 0;
+    color: var(--mf-color-danger);
+    font-weight: 600;
+  }
+
+  .mf-or {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    color: var(--mf-color-text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .mf-or::before,
+  .mf-or::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--mf-color-border-strong);
+  }
+
+  .mf-auth-more {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--mf-color-border);
+  }
+
+  .mf-auth-more > summary {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: var(--mf-color-text);
+    font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+  }
+
+  .mf-auth-more > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .mf-auth-more-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding-top: 0.5rem;
+  }
+
+  .mf-auth-art {
+    display: flex;
+    justify-content: center;
+  }
+
+  .mf-auth-art-frame {
+    position: relative;
+    width: 100%;
+    max-width: 32.5rem;
+    aspect-ratio: 1 / 1;
+  }
+
+  .mf-auth-art-frame::before {
+    content: "";
+    position: absolute;
+    inset: -12%;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--mf-color-focus) 22%, transparent), transparent);
+  }
+
+  .mf-auth-art img {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  @media (max-width: 61.25rem) {
+    .mf-auth-art {
+      display: none;
+    }
+
+    .mf-auth-main {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 37.5rem) {
+    .mf-auth-bar,
+    .mf-auth-main {
+      padding-right: 1.25rem;
+      padding-left: 1.25rem;
+    }
+
+    .mf-auth-main {
+      padding-top: 3rem;
+      padding-bottom: 4rem;
+    }
+
+    .mf-auth-name {
+      font-size: 1.375rem;
+    }
+  }
+}

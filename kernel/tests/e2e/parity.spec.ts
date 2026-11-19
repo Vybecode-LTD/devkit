@@ -80,8 +80,11 @@ for (const [theme, canvas] of Object.entries(THEMES)) {
     test(`axe finds no serious or critical problem on ${path} in ${theme}`, async ({ page }) => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-      await page.evaluate((name) => {
+      // The new theme's colours fade in where a part has a transition: check once they've landed.
+      await page.evaluate(async (name) => {
         document.documentElement.dataset.theme = name;
+        document.body.getBoundingClientRect();
+        await Promise.all(document.getAnimations().map((animation) => animation.finished));
       }, theme);
       const background = await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
       expect(background).toBe(canvas);
