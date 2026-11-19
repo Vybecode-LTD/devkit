@@ -417,6 +417,24 @@ describe("moving between pages", () => {
     }
   });
 
+  it("moves the focus on to a late heading at a #place that never comes, too (CodeRabbit on #82)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { router } = renderApp({ modules: [slowPage(FOCUS_WAIT_MS + 1000)] });
+      await screen.findByRole("heading", { name: "Test Site" });
+      await act(() => router.navigate("/late#missing"));
+      await act(() => vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS + 50));
+      expect(screen.getByRole("main")).toHaveFocus();
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      const heading = await screen.findByRole("heading", { name: "Very late heading" });
+      await waitFor(() => {
+        expect(heading).toHaveFocus();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("leaves the focus where the person put it while the page was still coming", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {

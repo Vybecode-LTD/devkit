@@ -52,7 +52,18 @@ export function RouteFocus() {
         ours = false;
       }
     };
+    // Whether the page's place holds the focus: it took it, as `landOn` does.
+    const placeHasIt = (): boolean => {
+      if (!hash) return false;
+      const place = document.getElementById(placeNamed(hash));
+      const at = document.activeElement;
+      return Boolean(place && at && (place === at || place.contains(at)));
+    };
     const observer = new MutationObserver(() => {
+      if (placeHasIt()) {
+        stop();
+        return;
+      }
       const found = heading();
       if (found) {
         stop();
@@ -75,26 +86,25 @@ export function RouteFocus() {
       } else observer.observe(document.body, { childList: true, subtree: true });
     });
     const wait = setTimeout(() => {
-      const found = heading();
-      if (hash) {
-        // Not if the place has it: it may have taken it before this effect
-        // began to listen. Anything else holding it is what had it before the
-        // move (a link in the frame), so the fallback goes ahead; the person
-        // moving it themselves since has stopped all this (CodeRabbit on #82).
-        const place = document.getElementById(placeNamed(hash));
-        const at = document.activeElement;
-        if (place && at && (place === at || place.contains(at))) {
-          stop();
-          return;
-        }
+      // Not if the place has it: it may have taken it before this effect
+      // began to listen. Anything else holding it is what had it before the
+      // move (a link in the frame), so the fallback goes ahead; the person
+      // moving it themselves since has stopped all this (CodeRabbit on #82).
+      if (placeHasIt()) {
+        stop();
+        return;
       }
+      const found = heading();
       if (hash && found) {
         stop();
         move(found);
         return;
       }
       const main = document.querySelector<HTMLElement>("main");
-      if (!found && main) move(main); // and keep watching for the heading
+      if (!found && main) move(main);
+      // And keep watching for the heading: at a #place too, whose watch the
+      // frame above never began (CodeRabbit on #82).
+      if (!found && hash) observer.observe(document.body, { childList: true, subtree: true });
     }, FOCUS_WAIT_MS);
     const giveUp = setTimeout(() => {
       stop();
