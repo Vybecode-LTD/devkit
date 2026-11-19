@@ -57,12 +57,12 @@ describe("toasts", () => {
     });
     expect(screen.getByText("Saved")).toBeInTheDocument();
     fireEvent.pointerLeave(note);
-    fireEvent.focus(screen.getByRole("button", { name: "Close" }));
+    fireEvent.focus(screen.getByRole("button", { name: "Close: Saved" }));
     act(() => {
       vi.advanceTimersByTime(TOAST_MS * 2);
     });
     expect(screen.getByText("Saved")).toBeInTheDocument();
-    fireEvent.blur(screen.getByRole("button", { name: "Close" }));
+    fireEvent.blur(screen.getByRole("button", { name: "Close: Saved" }));
     act(() => {
       vi.advanceTimersByTime(TOAST_MS);
     });
@@ -78,7 +78,7 @@ describe("toasts", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     const note = screen.getByText("Saved").closest(".mf-toast") as HTMLElement;
-    const close = screen.getByRole("button", { name: "Close" });
+    const close = screen.getByRole("button", { name: "Close: Saved" });
     fireEvent.focus(close);
     fireEvent.pointerEnter(note);
     fireEvent.pointerLeave(note);
@@ -106,7 +106,7 @@ describe("toasts", () => {
       </ToastProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close: Saved" }));
     expect(screen.queryByText("Saved")).toBeNull();
   });
 
@@ -115,5 +115,31 @@ describe("toasts", () => {
     expect(() => {
       result.current({ text: "Nowhere" });
     }).not.toThrow();
+  });
+});
+
+describe("cubic on #82", () => {
+  it("names each note's Close by its words, so two notes are told apart", () => {
+    render(
+      <ToastProvider>
+        <Sender note={{ text: "Role saved" }} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(screen.getByRole("button", { name: "Close: Role saved" })).toBeInTheDocument();
+  });
+
+  it("keeps a failure until it's closed, so it's never gone mid-read", () => {
+    vi.useFakeTimers();
+    render(
+      <ToastProvider>
+        <Sender note={{ tone: "danger", text: "It couldn't be saved" }} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS * 3);
+    });
+    expect(screen.getByText("It couldn't be saved")).toBeInTheDocument();
   });
 });

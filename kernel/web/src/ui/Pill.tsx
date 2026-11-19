@@ -38,7 +38,8 @@ export function Chip({ pressed, onPressedChange, onClick, className, children, .
       aria-pressed={pressed}
       onClick={(event) => {
         onClick?.(event);
-        onPressedChange(!pressed);
+        // Its own onClick may call the press off (CodeRabbit on #82).
+        if (!event.defaultPrevented) onPressedChange(!pressed);
       }}
     >
       {pressed ? <Icon name="check" /> : null}

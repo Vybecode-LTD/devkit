@@ -107,3 +107,18 @@ describe("Switch", () => {
     expect(changed).not.toHaveBeenCalled();
   });
 });
+
+describe("cubic on #82", () => {
+  it("shows a hint of 0, in a field and beside a switch", () => {
+    render(
+      <>
+        <Field label="Limit" hint={0}>
+          <Input />
+        </Field>
+        <Switch label="Zero" hint={0} checked={false} onChange={vi.fn()} />
+      </>,
+    );
+    expect(screen.getByRole("textbox", { name: "Limit" })).toHaveAccessibleDescription("0");
+    expect(screen.getByRole("switch", { name: "Zero" })).toHaveAccessibleDescription("0");
+  });
+});

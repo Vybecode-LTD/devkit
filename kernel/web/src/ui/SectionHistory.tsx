@@ -115,7 +115,8 @@ export function SectionHistory({ version, labels, load, names = {} }: SectionHis
                     {who}, {how(each.via)}, <time dateTime={each.saved_at}>{when(each.saved_at)}</time>.
                     {changed.length > 0 ? ` Changed ${and(changed)}.` : ""}
                   </p>
-                  {each.number === newest ? <p className="mf-history-quiet">What's saved now.</p> : null}
+                  {/* Never a version the form has moved past, while the next read is on its way (CodeRabbit and cubic on #82). */}
+                  {each.number === newest && each.number >= version ? <p className="mf-history-quiet">What's saved now.</p> : null}
                 </li>
               );
             })}

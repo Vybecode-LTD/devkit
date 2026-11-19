@@ -77,3 +77,15 @@ describe("Tabs", () => {
     expect(screen.getByRole("tab", { name: "Site" })).toHaveAttribute("aria-selected", "true");
   });
 });
+
+describe("CodeRabbit on #82", () => {
+  it("moves on from the focused tab when its page keeps the choice and hasn't caught up", async () => {
+    render(<Tabs label="Settings" tabs={TABS} selected="site" onSelect={vi.fn()} />);
+    const [site, features, system] = screen.getAllByRole("tab") as [HTMLElement, HTMLElement, HTMLElement];
+    site.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(features).toHaveFocus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(system).toHaveFocus();
+  });
+});

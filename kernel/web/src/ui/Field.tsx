@@ -13,6 +13,8 @@
  */
 import { createContext, use, useId, type AriaAttributes, type ComponentPropsWithRef, type ReactNode } from "react";
 
+import { shows } from "./words";
+
 type FieldWiring = { id: string; describedBy: string | undefined; invalid: boolean };
 
 const FieldContext = createContext<FieldWiring | null>(null);
@@ -36,7 +38,8 @@ export function Field({ label, hint, error, id, className, children }: FieldProp
   const made = useId();
   const control = id ?? `${made}-control`;
   const said = words(error);
-  const hintId = hint ? `${made}-hint` : undefined;
+  const hinted = shows(hint);
+  const hintId = hinted ? `${made}-hint` : undefined;
   const errorId = said ? `${made}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
   return (
@@ -44,7 +47,7 @@ export function Field({ label, hint, error, id, className, children }: FieldProp
       <label className="mf-field-label" htmlFor={control}>
         {label}
       </label>
-      {hint ? (
+      {hinted ? (
         <p id={hintId} className="mf-field-hint">
           {hint}
         </p>
@@ -102,13 +105,14 @@ export type SwitchProps = {
 
 export function Switch({ label, hint, checked, onChange, disabled, className }: SwitchProps) {
   const id = useId();
+  const hinted = shows(hint);
   return (
     <div className={className ? `mf-switch-row ${className}` : "mf-switch-row"}>
       <span className="mf-switch-words">
         <span id={`${id}-label`} className="mf-switch-label">
           {label}
         </span>
-        {hint ? (
+        {hinted ? (
           <span id={`${id}-hint`} className="mf-field-hint">
             {hint}
           </span>
@@ -120,7 +124,7 @@ export function Switch({ label, hint, checked, onChange, disabled, className }: 
         className="mf-switch"
         aria-checked={checked}
         aria-labelledby={`${id}-label`}
-        aria-describedby={hint ? `${id}-hint` : undefined}
+        aria-describedby={hinted ? `${id}-hint` : undefined}
         disabled={disabled}
         onClick={() => {
           onChange(!checked);

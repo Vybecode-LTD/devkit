@@ -122,3 +122,27 @@ describe("Dialog", () => {
     expect(screen.getByRole("heading", { name: "Delete this role?" })).toHaveFocus();
   });
 });
+
+describe("CodeRabbit on #82", () => {
+  it("closes only the inner of two dialogs on Escape or a cancel", async () => {
+    const outer = vi.fn();
+    const inner = vi.fn();
+    render(
+      <Dialog title="Outer" onClose={outer}>
+        <Dialog title="Inner" onClose={inner}>
+          <p>Body</p>
+        </Dialog>
+      </Dialog>,
+    );
+    screen.getByRole("heading", { name: "Inner" }).focus();
+    await userEvent.keyboard("{Escape}");
+    expect(inner).toHaveBeenCalledOnce();
+    expect(outer).not.toHaveBeenCalled();
+    await act(async () => {
+      screen.getByRole("dialog", { name: "Inner" }).dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+    expect(inner).toHaveBeenCalledTimes(2);
+    expect(outer).not.toHaveBeenCalled();
+  });
+});

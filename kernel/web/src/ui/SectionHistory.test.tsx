@@ -82,3 +82,19 @@ describe("SectionHistory", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("The history couldn't be loaded.");
   });
 });
+
+describe("CodeRabbit and cubic on #82", () => {
+  it("doesn't call a version what's saved now once the form has moved past it", async () => {
+    const answers: ((versions: HistoryVersion[]) => void)[] = [];
+    const load = vi.fn(() => new Promise<HistoryVersion[]>((resolve) => answers.push(resolve)));
+    const { rerender } = render(<SectionHistory version={1} labels={LABELS} load={load} />);
+    await userEvent.click(screen.getByRole("heading", { name: "History · 1 save" }));
+    await act(async () => {
+      answers[0]?.([VERSIONS[1] as HistoryVersion]);
+      await Promise.resolve();
+    });
+    expect(screen.getByText("What's saved now.")).toBeInTheDocument();
+    rerender(<SectionHistory version={2} labels={LABELS} load={load} />);
+    expect(screen.queryByText("What's saved now.")).toBeNull();
+  });
+});

@@ -12,15 +12,15 @@ The behavior is ported from VybeSite; the look is drawn from the Vibrant Mindz a
 | `Card` | A panel with an optional heading row and actions; `flush` for a table that fills it |
 | `Pill`, `Chip` | A state in words over its tint; a filter that's pressed or not, with a check while pressed |
 | `Attention` | One "Needs you" item: what's wrong, why, and the action that fixes it |
-| `Accordion` | A collapsible section on `<details>`, remembering the reader's own choice, opening for a problem |
+| `Accordion` | A collapsible section on `<details>`, remembering the reader's own choice, opening by itself when its first state is a problem (a later one keeps to its pill) |
 | `Tabs` | WAI-ARIA tabs: one tab stop, arrows, Home and End; every panel stays drawn |
 | `Table` | Records in a sideways scroller that keeps the focused control in view, a tab stop named by its caption while it slides; empty, its caption over the empty state |
 | `Dialog` | A modal `<dialog>` named by its heading, focus in and back |
-| `UnsavedDialog`, `useUnsavedGuard`, `useLeaveGuard` | Asking before a move away loses changes |
+| `UnsavedDialog`, `useUnsavedGuard`, `useLeaveGuard` | Asking before a move away loses changes: `useUnsavedGuard` with `UnsavedDialog`; `useLeaveGuard` is the blocker alone, for an editor that draws its own question, or the move is held with nothing said |
 | `SaveBar` | A form's Save while it has changes, with room kept below what scrolls |
 | `SaveConflict`, `settingsConflict`, `resolveConflict` | A settings save someone else got to first (`kernel.settings_conflict`) |
 | `SectionHistory` | A settings section's saved versions, one click deeper |
-| `ToastProvider`, `useToast` | Short notes after an action, in live regions (the provider is in every page's tree) |
+| `ToastProvider`, `useToast` | Short notes after an action, in live regions (the provider is in every page's tree); a failure stays until it's closed |
 | `EmptyState`, `LoadError` | Nothing there yet; a load that failed, said as a failure |
 | `ErrorBoundary` | A part that fails to draw, kept from taking the page with it |
 | `RouteFocus`, `ScrollMemory`, `landOn`, `reveal` | Focus and scroll on a move between pages, and landing on a `#place` |

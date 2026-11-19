@@ -129,12 +129,12 @@ def test_a_tint_is_laid_over_its_ground() -> None:
 
 @pytest.mark.parametrize(
     ("theme", "pill", "ground"),
-    [(theme, pill, ground) for theme in THEMES for pill in PILLS for ground in GROUNDS[:3]],
+    [(theme, pill, ground) for theme in THEMES for pill in PILLS for ground in GROUNDS],
     ids=[
         f"{theme.name}:{words}|{ground}"
         for theme in THEMES
         for words, _ in PILLS
-        for ground in GROUNDS[:3]
+        for ground in GROUNDS
     ],
 )
 def test_a_pill_reads_on_its_tint(theme: themes.Theme, pill: tuple[str, str], ground: str) -> None:

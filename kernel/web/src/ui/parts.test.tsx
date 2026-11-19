@@ -197,3 +197,22 @@ describe("cubic on #82", () => {
     expect(screen.getByText("0", { selector: ".mf-empty-line" })).toBeInTheDocument();
   });
 });
+
+describe("CodeRabbit on #82", () => {
+  it("lets a chip's own onClick call the press off", async () => {
+    const changed = vi.fn();
+    render(
+      <Chip
+        pressed={false}
+        onPressedChange={changed}
+        onClick={(event) => {
+          event.preventDefault();
+        }}
+      >
+        Drafts
+      </Chip>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Drafts" }));
+    expect(changed).not.toHaveBeenCalled();
+  });
+});

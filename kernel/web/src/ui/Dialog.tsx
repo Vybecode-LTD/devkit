@@ -55,14 +55,18 @@ export function Dialog({ title, onClose, returnTo, heading, wide = false, childr
       className={wide ? "mf-dialog mf-dialog--wide" : "mf-dialog"}
       aria-labelledby={`${id}-title`}
       // Escape: a browser cancels and closes it; jsdom doesn't, so it's met here too.
+      // Each dismissal is this dialog's alone: one inside another closes only
+      // itself (CodeRabbit on #82).
       onCancel={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         close.current();
       }}
       onKeyDown={(event) => {
         // An Escape a child already took (a picker closing) is the child's (cubic on #82).
         if (event.key === "Escape" && !event.defaultPrevented) {
           event.preventDefault();
+          event.stopPropagation();
           close.current();
         }
       }}

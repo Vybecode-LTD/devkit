@@ -26,6 +26,7 @@ import {
   LoadError,
   Pill,
   SaveBar,
+  ScrollMemory,
   SaveConflict,
   SectionHistory,
   Select,
@@ -290,7 +291,17 @@ function KitPage() {
   );
 }
 
-const router = createBrowserRouter([{ path: "*", element: <KitPage /> }]);
+const router = createBrowserRouter([
+  {
+    path: "*",
+    element: (
+      <>
+        <ScrollMemory />
+        <KitPage />
+      </>
+    ),
+  },
+]);
 const root = document.getElementById("root");
 if (!root) throw new Error("The kit page has no #root.");
 createRoot(root).render(

@@ -2,8 +2,10 @@
  * Short notes after an action ("Role saved"), in the top corner of the
  * window. Two live regions are on the page from the start, so a screen reader
  * hears each note as it arrives: a polite one, and an assertive one for a
- * failure (`aria-live` alone, so a page's own status lines keep their role). A note goes after `TOAST_MS`, but stays while the pointer is over
- * it or the keyboard is in it (WCAG 2.2.1), and has its own Close.
+ * failure (`aria-live` alone, so a page's own status lines keep their role).
+ * A note goes after `TOAST_MS`, but stays while the pointer is over it or the
+ * keyboard is in it (WCAG 2.2.1); a failure stays until it's closed. Each has
+ * its own Close, named by its words.
  *
  * `useToast()` gives `toast({tone, text})`; the provider is in every page's
  * tree (`KernelProviders`), and draws the notes at the end of the body. A note is for news only: anything the person must
@@ -35,7 +37,9 @@ function Note({ note, onClose }: { note: Shown; onClose: (id: number) => void })
   // it go while the other is still in it (Codex on #82).
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const held = hovered || focused;
+  // A failure stays until it's closed, so it's never gone mid-read, even by
+  // a screen reader's browse cursor, which no focus event follows (cubic on #82).
+  const held = hovered || focused || note.tone === "danger";
   useEffect(() => {
     if (held) return;
     const timer = setTimeout(() => {
@@ -65,7 +69,7 @@ function Note({ note, onClose }: { note: Shown; onClose: (id: number) => void })
       <button
         type="button"
         className="mf-toast-close"
-        aria-label="Close"
+        aria-label={`Close: ${note.text}`}
         onClick={() => {
           onClose(note.id);
         }}

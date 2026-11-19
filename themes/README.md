@@ -75,7 +75,7 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 Rendered contrast is checked by axe, in Playwright (`kernel/tests/e2e/parity.spec.ts`), in both themes. It checks the default rendering of every page a visitor reaches signed out: the home page, a 404 and each of the kernel's public pages. The member and admin pages join once sign-in and their screens are built (K4.5, K4.6). Text over photos or glows, and the hover and focus states, are checked by eye beside the boards as each screen is built (contract §7).
 
 - The control edge (`color.border-control`) is at least 3:1 on the canvas, surface, raised surface and rail.
-- A pill's words are 4.5:1 on its tint, laid over the canvas, surface and raised surface: each theme tints its own way (Vibrant Mindz mixes the tone at 12%, Machined Light has a light tint per signal).
+- A pill's words are 4.5:1 on its tint, laid over the canvas, surface, raised surface and rail: each theme tints its own way (Vibrant Mindz mixes the tone at 12%, Machined Light has a light tint per signal).
 
 `color.border-strong` isn't held to 3:1: it outlines controls whose words name them (a button, a chip), which WCAG 1.4.11 doesn't ask to be outlined. A field, a select and a switch's track have no words of their own, so their edge is `color.border-control`. Playwright measures each kit control as drawn, in both themes, on the kit page (`kernel/tests/e2e/kit.spec.ts`): a field's or a switch's boundary, and a pressed chip's or a filled button's, reach 3:1 against what's behind them.
 

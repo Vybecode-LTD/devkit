@@ -32,7 +32,9 @@ export function Tabs({ label, tabs, selected, onSelect }: TabsProps) {
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const at = tabs.findIndex((tab) => tab.id === current);
+    // From the tab with the focus: a page keeping the choice may not have caught up yet (CodeRabbit on #82).
+    const focused = tabs.findIndex((tab) => buttons.current.get(tab.id) === document.activeElement);
+    const at = focused >= 0 ? focused : tabs.findIndex((tab) => tab.id === current);
     const last = tabs.length - 1;
     const to =
       event.key === "ArrowRight"

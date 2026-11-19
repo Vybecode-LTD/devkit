@@ -205,3 +205,15 @@ describe("cubic on #82", () => {
     expect(screen.getByRole("button", { name: "Save with these choices" })).toBeDisabled();
   });
 });
+
+describe("cubic on #82, again", () => {
+  it("keeps the save off while a save is on its way, every field chosen", async () => {
+    render(<SaveConflict conflict={CONFLICT} labels={LABELS} saving onResolve={vi.fn()} onCancel={vi.fn()} />);
+    const [theirs] = screen.getAllByRole("radio", { name: "Use theirs" });
+    const [, mine] = screen.getAllByRole("radio", { name: "Keep mine" });
+    await userEvent.click(theirs as HTMLElement);
+    await userEvent.click(mine as HTMLElement);
+    expect(screen.queryByText("Choose theirs or yours for each field to save.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  });
+});
