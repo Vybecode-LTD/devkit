@@ -73,45 +73,14 @@
   .mf-site-header a,
   .mf-site-header button,
   .mf-site-footer a,
-  .mf-site-footer button,
-  .mf-admin-nav a {
+  .mf-site-footer button {
     display: inline-flex;
     align-items: center;
     min-width: 1.5rem;
     min-height: 1.5rem;
   }
 
-  .mf-site main,
-  .mf-admin main {
+  .mf-site main {
     padding: 1rem;
-  }
-
-  .mf-admin {
-    display: flex;
-    flex-wrap: wrap;
-    min-height: 100vh;
-  }
-
-  .mf-admin-nav {
-    box-sizing: border-box; /* the token is the rail's whole width, padding and edge in it (cubic on #80) */
-    width: var(--mf-layout-sidebar);
-    padding: 1rem;
-    background: var(--mf-color-rail);
-    border-right: 1px solid var(--mf-color-border);
-  }
-
-  .mf-admin-nav ul {
-    margin: 0 0 1rem;
-    padding: 0;
-    list-style: none;
-  }
-
-  .mf-admin-nav a {
-    color: var(--mf-color-text-muted);
-  }
-
-  .mf-admin-nav a:hover,
-  .mf-admin-nav a[aria-current="page"] {
-    color: var(--mf-color-text-strong);
   }
 }

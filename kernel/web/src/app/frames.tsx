@@ -1,20 +1,17 @@
 /**
- * The frames pages sit in (K4 contract §2): the site's, around public, kernel
- * and member pages, with `nav.public`, `nav.member` and `site.footer`; and the
- * admin's, with the sidebar in its order. The admin's look comes with K4.6;
- * this is its structure.
+ * The site's frame (K4 contract §2), around public and member pages, with
+ * `nav.public`, `nav.member` and `site.footer`. The admin's is
+ * `admin/AdminFrame.tsx` (K4.6); the sign-in pages' `auth/AuthFrame.tsx`.
  *
  * The site frame holds no heading or paragraph of its own, so a page's words
  * are the only ones the parity test compares with the server's copy.
  */
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 
 import { useSession, useSignOut } from "../session/session";
-import { adminSidebar } from "../slots/sidebar";
-import { SlotOutlet, useSlot } from "../slots/slots";
+import { SlotOutlet } from "../slots/slots";
 import { useSite } from "../site/site";
-import { useKernelSetup } from "./context";
 import { RouteFocus } from "../ui/RouteFocus";
 import { ScrollMemory } from "../ui/ScrollMemory";
 import { onStay } from "../ui/unsaved";
@@ -119,36 +116,6 @@ export function SiteFrame({ children }: { children?: ReactNode }) {
       <footer className="mf-site-footer">
         <SlotOutlet name="site.footer" />
       </footer>
-    </div>
-  );
-}
-
-export function AdminFrame() {
-  const { adminSections } = useKernelSetup();
-  const entries = useSlot("nav.admin");
-  const session = useSession();
-  const can = session.status === "signed-in" ? session.can : () => false;
-  const groups = adminSidebar(entries, adminSections, can);
-  return (
-    <div className="mf-admin mf-admin-look">
-      <Skip />
-      <nav aria-label="Admin" className="mf-admin-nav">
-        {groups.map((group) => (
-          <ul key={group.label ?? ""} aria-label={group.label}>
-            {group.items.map((item) => (
-              <li key={item.to}>
-                <NavLink to={item.to} end={item.to === "/admin"}>
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        ))}
-        <Link to="/">View site</Link>
-      </nav>
-      <main id="main">
-        <Outlet />
-      </main>
     </div>
   );
 }

@@ -185,8 +185,8 @@ describe("the admin sidebar's order", () => {
       ["Shop", "shop", ["orders"]],
       ["Content", "document", ["posts", "pages"]],
       ["Other", undefined, ["odd"]],
-      ["People and access", undefined, ["People", "Roles", "Activity"]],
-      ["Settings", undefined, ["Site", "Features", "System"]],
+      ["People and access", "lock", ["People", "Roles", "Activity"]],
+      ["Settings", "settings", ["Site", "Features", "System"]],
     ]);
   });
 

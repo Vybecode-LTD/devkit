@@ -19,8 +19,9 @@ import type { RouteObject } from "react-router";
 import { RequireAdmin, RequireAuth, RequirePermission } from "../guards/guards";
 import type { ModuleDefinition, ModuleRoute } from "../modules";
 import { useModulesRead } from "../site/site";
+import { AdminFrame } from "../admin/AdminFrame";
 import { AuthFrame } from "../auth/AuthFrame";
-import { AdminFrame, Root, SiteFrame } from "./frames";
+import { Root, SiteFrame } from "./frames";
 import { lazyPart } from "./lazy";
 import { KERNEL_PAGES, type KernelPage } from "./pages";
 import { Home, NotFound, Pending, Unreachable } from "./pages/KernelPages";
@@ -140,7 +141,7 @@ export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet
             </RequireAdmin>
           ),
           children: [
-            ...(dashboard ? [{ index: true, element: <Pending page={dashboard} /> }] : []),
+            ...(dashboard ? [{ index: true, element: kernelRoute(dashboard).element }] : []),
             ...kernel("admin")
               .filter((page) => page !== dashboard)
               .map(kernelRoute),

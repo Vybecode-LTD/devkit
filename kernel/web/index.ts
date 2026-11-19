@@ -5,7 +5,8 @@
  * "@/kernel/testing"). Everything else under kernel/web is private and may
  * change in any release. Built so far: the typed API client, `defineModule`
  * and the app shell (`mountApp`, the session, the guards, the slots, the
- * site, `<Seo>`) and the UI kit (`src/ui/`); K4 goes on with the screens.
+ * site, `<Seo>`), the UI kit (`src/ui/`) and the admin's `AdminPage`; K4
+ * goes on with the screens.
  */
 export { KERNEL_WEB_VERSION } from "./src/version";
 export {
@@ -33,6 +34,10 @@ export { useModuleEnabled, useSite } from "./src/site/site";
 export type { Site } from "./src/site/site";
 export { Seo } from "./src/seo/Seo";
 export type { SeoProps } from "./src/seo/Seo";
+
+// The admin's page header, for a module's admin pages too (K4.6, decision 0044).
+export { AdminPage } from "./src/admin/AdminPage";
+export type { AdminPageProps } from "./src/admin/AdminPage";
 
 // The UI kit (K4 contract §4 item 4; src/ui/README.md).
 export * from "./src/ui";

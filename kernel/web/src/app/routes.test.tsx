@@ -209,10 +209,15 @@ describe("the admin", () => {
 
   it("shows staff the dashboard and the sidebar in its order", async () => {
     renderApp({ path: "/admin", session: { ...staff, permissions: ["auth.user.manage", "blog.post.write"] }, modules: [blog] });
-    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)$/ })).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Admin" });
-    const links = [...nav.querySelectorAll("a")].map((link) => link.textContent);
-    expect(links).toEqual(["Dashboard", "Posts", "People", "Roles", "View site"]);
+    // Each section by its name, its pages under it only while one is open (K4.6).
+    const links = [...nav.querySelectorAll("a")].map((link) => [link.textContent, link.getAttribute("href")]);
+    expect(links).toEqual([
+      ["Dashboard", "/admin"],
+      ["Content", "/admin/blog"],
+      ["People and access", "/admin/people"],
+    ]);
   });
 
   it("shows the no-access page, at the same address, without the permission", async () => {

@@ -36,6 +36,8 @@ export type { SaveBarProps } from "./SaveBar";
 export { SaveConflict, resolveConflict, settingsConflict } from "./SaveConflict";
 export type { Choices, FieldConflict, SaveConflictProps, SettingsConflict } from "./SaveConflict";
 export { ScrollMemory } from "./ScrollMemory";
+export { StatCard } from "./StatCard";
+export type { StatCardProps } from "./StatCard";
 export { SectionHistory } from "./SectionHistory";
 export type { HistoryVersion, SectionHistoryProps } from "./SectionHistory";
 export { Table } from "./Table";

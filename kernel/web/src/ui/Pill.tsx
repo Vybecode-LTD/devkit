@@ -12,8 +12,8 @@ import type { ComponentPropsWithRef, ReactNode } from "react";
 
 import { Icon } from "./Icon";
 
-/** A state's tone. Each has its words' colour and a tint behind them, from the theme. */
-export type Tone = "neutral" | "success" | "warning" | "danger";
+/** A state's tone. Each has its words' colour and a tint behind them, from the theme; `info` is worth knowing, nothing wrong (K4.6). */
+export type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
 export function Pill({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   return (

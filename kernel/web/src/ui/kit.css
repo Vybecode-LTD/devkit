@@ -278,6 +278,11 @@
     --mf-tint: var(--mf-color-danger-tint);
   }
 
+  .mf-pill--info {
+    --mf-tone: var(--mf-color-info);
+    --mf-tint: var(--mf-color-info-tint);
+  }
+
   .mf-pill-dot {
     width: 6px;
     height: 6px;
@@ -340,6 +345,10 @@
     --mf-tone: var(--mf-color-danger);
   }
 
+  .mf-attention--info {
+    --mf-tone: var(--mf-color-info);
+  }
+
   .mf-attention-icon {
     margin-top: 1px;
     color: var(--mf-tone);
@@ -361,6 +370,67 @@
   .mf-attention-why {
     font: var(--mf-type-small);
     color: var(--mf-color-text-muted);
+  }
+
+  /* --- Stat card (the dashboard's cards; shell-slots.md, Stat card) ----- */
+
+  .mf-stat {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    height: 100%;
+    padding: 1.25rem;
+    border: 1px solid var(--mf-color-border);
+    border-radius: var(--mf-radius-card);
+    background: var(--mf-color-surface);
+  }
+
+  .mf-stat-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .mf-stat-label {
+    margin: 0;
+    font: var(--mf-type-small);
+    letter-spacing: var(--mf-type-small-tracking);
+    color: var(--mf-color-text-muted);
+  }
+
+  .mf-stat-value {
+    margin: 0;
+    font-size: 1.625rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--mf-color-text-strong);
+    overflow-wrap: anywhere;
+  }
+
+  .mf-stat-line {
+    margin: 0;
+    font: var(--mf-type-small);
+    color: var(--mf-color-text);
+  }
+
+  .mf-stat-link {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 0.25rem;
+    min-height: 1.5rem;
+    margin-top: auto;
+    font: var(--mf-type-small);
+    color: var(--mf-color-info);
+    text-decoration: none;
+  }
+
+  .mf-stat-link:hover {
+    text-decoration: underline;
   }
 
   /* --- Accordion and history -------------------------------------------- */

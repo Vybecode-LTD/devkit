@@ -1,4 +1,4 @@
-// The kit's small parts: Card, Pill, Chip, Attention, EmptyState, LoadError and the words.
+// The kit's small parts: Card, Pill, Chip, Attention, StatCard, EmptyState, LoadError and the words.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -10,7 +10,15 @@ import { Card } from "./Card";
 import { EmptyState } from "./EmptyState";
 import { LoadError, failureWords } from "./LoadError";
 import { Chip, Pill } from "./Pill";
+import { StatCard } from "./StatCard";
 import { and, quoted, when } from "./words";
+
+describe("Pill", () => {
+  it("draws info in its own tone (K4.6)", () => {
+    render(<Pill tone="info">Scheduled</Pill>);
+    expect(screen.getByText("Scheduled")).toHaveClass("mf-pill", "mf-pill--info");
+  });
+});
 
 describe("Card", () => {
   it("is a section named by its heading, with its actions beside it", () => {
@@ -98,6 +106,38 @@ describe("Attention", () => {
     render(<Attention tone="warning" what="No description" why="Search shows the first words instead." />);
     expect(screen.getByRole("img", { name: "Warning" })).toBeInTheDocument();
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("says what's only worth knowing as a note, in the info tone (K4.6)", () => {
+    const { container } = render(<Attention tone="info" what="The single ends in 2 days" why="The bar hides after Nov 17." />);
+    expect(screen.getByRole("img", { name: "Note" })).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveClass("mf-attention--info");
+  });
+});
+
+describe("StatCard", () => {
+  it("is a section named by what it counts, with its state, figure, line and link", () => {
+    renderWithKernel(
+      <StatCard
+        label="Plays this week"
+        value="1,284"
+        line="Up 18% on last week"
+        state={{ tone: "success", label: "Up 18%" }}
+        link={{ label: "Music", to: "/admin/music" }}
+      />,
+    );
+    const card = screen.getByRole("region", { name: "Plays this week" });
+    expect(screen.getByRole("heading", { level: 2, name: "Plays this week" })).toBeInTheDocument();
+    expect(card).toHaveTextContent("1,284");
+    expect(card).toHaveTextContent("Up 18% on last week");
+    expect(screen.getByText("Up 18%").closest(".mf-pill")).toHaveClass("mf-pill--success");
+    expect(screen.getByRole("link", { name: "Music" })).toHaveAttribute("href", "/admin/music");
+  });
+
+  it("takes a level-3 label and leaves out what it isn't given", () => {
+    const { container } = render(<StatCard label="System" value="All jobs running" level={3} />);
+    expect(screen.getByRole("heading", { level: 3, name: "System" })).toBeInTheDocument();
+    expect(container.querySelector(".mf-stat-line, .mf-pill, a")).toBeNull();
   });
 });
 

@@ -3,7 +3,9 @@
  * entries grouped by `section` in `adminSections` order (sections it doesn't
  * list after, as they appear), then People and access, then Settings. An
  * entry with no section sits under Dashboard. A group with nothing the person
- * may open isn't shown.
+ * may open isn't shown. The kernel's own carry the boards' icons (VM Website
+ * `AdminDashboard.dc.html`): Dashboard's grid, People and access's lock,
+ * Settings' gear.
  */
 import type { AdminSection } from "../app/context";
 import type { Placed } from "./slots";
@@ -39,7 +41,7 @@ export function adminSidebar(
   const kernel = (items: KernelItem[]) =>
     items.filter((each) => each.permission === undefined || can(each.permission)).map(({ label, to }) => ({ label, to }));
   const top: SidebarGroup = {
-    items: [{ label: "Dashboard", to: "/admin" }, ...entries.filter((entry) => entry.section === undefined).map(item)],
+    items: [{ label: "Dashboard", to: "/admin", icon: "dashboard" }, ...entries.filter((entry) => entry.section === undefined).map(item)],
   };
   const named = new Map<string, SidebarItem[]>();
   for (const entry of entries) {
@@ -54,11 +56,11 @@ export function adminSidebar(
     const items = named.get(label) ?? [];
     return icon === undefined ? { label, items } : { label, icon, items };
   });
-  const groups = [
+  const groups: SidebarGroup[] = [
     top,
     ...modules,
-    { label: "People and access", items: kernel(PEOPLE) },
-    { label: "Settings", items: kernel(SETTINGS) },
+    { label: "People and access", icon: "lock", items: kernel(PEOPLE) },
+    { label: "Settings", icon: "settings", items: kernel(SETTINGS) },
   ];
   return groups.filter((group) => group.items.length > 0);
 }
