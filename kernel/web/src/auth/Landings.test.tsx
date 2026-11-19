@@ -106,7 +106,10 @@ describe("a landing from mail", () => {
   });
 
   it("sends someone signed in to their account once their email is confirmed", async () => {
-    routedFetch({ "POST /api/auth/verify-email": { status: 200, body: { status: "verified" } } });
+    routedFetch({
+      "POST /api/auth/verify-email": { status: 200, body: { status: "verified" } },
+      "GET /api/auth/session": { status: 200, body: { user: testUser({ verified: true }) } },
+    });
     renderApp({ path: "/auth/verify?token=t", session: testUser({ verified: false }) });
     await userEvent.click(await screen.findByRole("button", { name: "Confirm my email" }));
     expect(await screen.findByRole("link", { name: "Go to your account" })).toHaveAttribute("href", "/account");
@@ -115,7 +118,10 @@ describe("a landing from mail", () => {
 
 describe("choosing a new password", () => {
   it("sends the token with the new password, and says to sign in", async () => {
-    const { sent } = routedFetch({ "POST /api/auth/password/reset": { status: 200, body: { status: "password_reset" } } });
+    const { sent } = routedFetch({
+      "POST /api/auth/password/reset": { status: 200, body: { status: "password_reset" } },
+      "GET /api/auth/session": problem(401, "kernel.not_signed_in"),
+    });
     renderApp({ path: "/auth/reset?token=r-1" });
     await userEvent.type(await screen.findByLabelText("New password"), "copper heron valley");
     await userEvent.click(screen.getByRole("button", { name: "Save password" }));
@@ -166,6 +172,41 @@ describe("a landing that ends every session", () => {
       expect(router.state.location.pathname).toBe("/sign-in");
     });
   }
+});
+
+describe("a landing whose session check fails", () => {
+  it("offers to check again, and the way to sign in only once it's known (CodeRabbit on #83)", async () => {
+    let reads = 0;
+    routedFetch({
+      "POST /api/auth/password/reset": { status: 200, body: { status: "password_reset" } },
+      "GET /api/auth/session": () => {
+        reads += 1;
+        return reads === 1 ? problem(503, "kernel.busy") : problem(401, "kernel.not_signed_in");
+      },
+    });
+    const { router } = renderApp({ path: "/auth/reset?token=t", session: testUser() });
+    await userEvent.type(await screen.findByLabelText("New password"), "copper heron valley");
+    await userEvent.click(screen.getByRole("button", { name: "Save password" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Password saved" })).toBeInTheDocument();
+    expect(await screen.findByText("This browser's sign-in couldn't be checked just now.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Sign in" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await userEvent.click(await screen.findByRole("link", { name: "Sign in" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/sign-in");
+  });
+
+  it("keeps an account still signed in here when the check finds it", async () => {
+    routedFetch({
+      "POST /api/auth/email/undo": { status: 200, body: { status: "email_restored" } },
+      "GET /api/auth/session": { status: 200, body: { user: testUser({ email: "other@mechframe.test" }) } },
+    });
+    const { queryClient } = renderApp({ path: "/auth/email/undo?token=t", session: testUser() });
+    await userEvent.click(await screen.findByRole("button", { name: "Put my old email back" }));
+    await screen.findByRole("heading", { level: 1, name: "Old email back" });
+    expect(queryClient.getQueryData<SessionUser>(SESSION_KEY)?.email).toBe("other@mechframe.test");
+    expect(screen.queryByText(/couldn't be checked/)).toBeNull();
+  });
 });
 
 describe("signing in by link", () => {

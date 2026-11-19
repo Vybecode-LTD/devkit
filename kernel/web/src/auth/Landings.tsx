@@ -25,6 +25,35 @@ import { said } from "./words";
 
 const NO_TOKEN = "This link is missing its code. Open it from the email again.";
 
+/**
+ * What a finished landing offers next, once this browser's sign-in is known:
+ * a check that failed is said, with Try again, since the session it holds may
+ * have just ended and Sign in would bounce home (CodeRabbit on #83).
+ */
+function Checked({ checked, onRetry, children }: { checked: boolean; onRetry: () => void; children: ReactNode }) {
+  if (checked) return children;
+  return (
+    <>
+      <p className="mf-form-error" role="alert">
+        This browser&apos;s sign-in couldn&apos;t be checked just now.
+      </p>
+      <Button size="large" onClick={onRetry}>
+        Try again
+      </Button>
+    </>
+  );
+}
+
+/** Whether this browser's sign-in is known after a landing's success, and the way to check again. */
+function useChecked(): { checked: boolean; check: () => Promise<void> } {
+  const queryClient = useQueryClient();
+  const [checked, setChecked] = useState(true);
+  const check = async () => {
+    setChecked(await refreshSession(queryClient));
+  };
+  return { checked, check };
+}
+
 type LandingProps = {
   /** The page's title in the tab (the kernel page's own). */
   page: string;
@@ -42,7 +71,7 @@ type LandingProps = {
 
 function Landing({ page, title, lead, action, run, done, refused, note }: LandingProps) {
   const token = useAddressToken();
-  const queryClient = useQueryClient();
+  const { checked, check } = useChecked();
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -60,7 +89,7 @@ function Landing({ page, title, lead, action, run, done, refused, note }: Landin
         await run(token);
         // Success changed the account (confirmed, changed, ended its sessions) and no
         // 401 will say so: read it again (Codex and CodeRabbit on #83).
-        await refreshSession(queryClient);
+        await check();
         setFinished(true);
       } catch (caught) {
         if (!(caught instanceof ApiProblem)) throw caught;
@@ -76,7 +105,9 @@ function Landing({ page, title, lead, action, run, done, refused, note }: Landin
       <Seo title={heading} noindex />
       {finished ? (
         <AuthPanel title={done.title} lead={done.lead} step="done" focus>
-          {done.next}
+          <Checked checked={checked} onRetry={() => void check()}>
+            {done.next}
+          </Checked>
         </AuthPanel>
       ) : (
         <AuthPanel title={title} lead={lead} step="ask">
@@ -141,7 +172,7 @@ export function ResetPassword() {
   const [busy, setBusy] = useState(false);
   const [finished, setFinished] = useState(false);
   const heading = useTitle("Choose a new password");
-  const queryClient = useQueryClient();
+  const { checked, check } = useChecked();
 
   const save = (event: SubmitEvent) => {
     event.preventDefault();
@@ -154,7 +185,7 @@ export function ResetPassword() {
       try {
         await api.POST("/api/auth/password/reset", { body: { token, password } });
         // Every session ended, this one too, and the answer was a success (Codex on #83).
-        await refreshSession(queryClient);
+        await check();
         setFinished(true);
       } catch (caught) {
         if (!(caught instanceof ApiProblem)) throw caught;
@@ -171,7 +202,9 @@ export function ResetPassword() {
       <Seo title={heading} noindex />
       {finished ? (
         <AuthPanel title="Password saved" lead={`Sign in with your new password. ${SIGNED_OUT_EVERYWHERE}`} step="done" focus>
-          <SignInLink />
+          <Checked checked={checked} onRetry={() => void check()}>
+            <SignInLink />
+          </Checked>
         </AuthPanel>
       ) : (
         <AuthPanel title="New password" lead="Choose a new password for your account." step="ask">

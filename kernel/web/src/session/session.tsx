@@ -74,16 +74,17 @@ function forget(queryClient: QueryClient): void {
  * A call found no session, or one that answered success ended it (a reset,
  * an undo from mail): read it again, joining a read already on its way (so
  * the session read's own 401 asks nothing more), and forget only if it's
- * gone. If it can't be read, nothing changes.
+ * gone. If it can't be read, nothing changes. Says whether it was read.
  */
-export async function recheckSession(queryClient: QueryClient): Promise<void> {
+export async function recheckSession(queryClient: QueryClient): Promise<boolean> {
   let user: SessionUser | null;
   try {
     user = await queryClient.query({ ...SESSION, staleTime: 0, retry: false });
   } catch {
-    return;
+    return false;
   }
   if (user === null) forget(queryClient);
+  return true;
 }
 
 /**
@@ -91,11 +92,11 @@ export async function recheckSession(queryClient: QueryClient): Promise<void> {
  * confirmed address, an undo from mail): a read already on its way began
  * before it and would bring back what was, so it's stopped, not joined
  * (CodeRabbit on #83). Gone, what was the person's is forgotten; a read that
- * fails leaves the session marked to be read again.
+ * fails leaves the session marked to be read again. Says whether it was read.
  */
-export async function refreshSession(queryClient: QueryClient): Promise<void> {
+export async function refreshSession(queryClient: QueryClient): Promise<boolean> {
   await queryClient.cancelQueries({ queryKey: SESSION_KEY });
-  await recheckSession(queryClient);
+  return recheckSession(queryClient);
 }
 
 /** Tells the client what to do when a call finds the session gone. */
