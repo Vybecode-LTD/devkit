@@ -57,6 +57,9 @@ function useOverflows(): [(element: HTMLDivElement | null) => void, boolean] {
     measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(element);
+    // The table too: rows growing wider leave the scroller's own size as it was (CodeRabbit on #82).
+    const table = element.querySelector("table");
+    if (table) observer?.observe(table);
     return () => {
       observer?.disconnect();
     };

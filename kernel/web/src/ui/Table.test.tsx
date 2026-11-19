@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Table, type Column } from "./Table";
@@ -58,6 +58,35 @@ describe("cubic on #82", () => {
   it("keeps its caption over the empty state, so two empty tables are told apart", () => {
     render(<Table caption="Sign-ins" columns={COLUMNS} rows={[]} rowKey={(person) => person.id} />);
     expect(screen.getByRole("group", { name: "Sign-ins" })).toHaveTextContent("Nothing here yet");
+  });
+
+  it("becomes a tab stop when its rows grow wider than it, with the scroller's own size unchanged (CodeRabbit on #82)", () => {
+    const callbacks: (() => void)[] = [];
+    const watched: Element[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          callbacks.push(callback);
+        }
+        observe(element: Element) {
+          watched.push(element);
+        }
+        disconnect() {
+          // Done.
+        }
+      },
+    );
+    const wide = vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(300);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(300);
+    render(<Table caption="People" columns={COLUMNS} rows={PEOPLE} rowKey={(person) => person.id} />);
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(watched.some((element) => element.tagName === "TABLE")).toBe(true);
+    wide.mockReturnValue(900);
+    act(() => {
+      for (const callback of callbacks) callback();
+    });
+    expect(screen.getByRole("region", { name: "People" })).toHaveAttribute("tabindex", "0");
   });
 
   it("is a tab stop named by its caption while it scrolls sideways, and none while it fits", () => {
