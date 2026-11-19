@@ -279,13 +279,64 @@ async def test_the_list_shows_live_sessions_most_recent_first(db: AsyncSession) 
     ended, ended_row = await _start(db, user)
     await sessions.end_by_token(db, ended)
     await db.commit()
-    listed = await sessions.live_of(db, user)
+    listed = await sessions.live_page(db, user, staff=False, after=None, limit=10)
     assert [row.id for row in listed] == [newer_row.id, older_row.id]
     clock.advance(2 * HOUR)
     await sessions.resume(db, old)  # seen again: first now
-    listed = await sessions.live_of(db, user)
+    listed = await sessions.live_page(db, user, staff=False, after=None, limit=10)
     assert [row.id for row in listed] == [older_row.id, newer_row.id]
     assert ended_row.id not in {row.id for row in listed}
+
+
+async def test_a_page_counts_just_the_sessions_is_live_counts(db: AsyncSession) -> None:
+    """`live_page` is `is_live`'s rule written in SQL: they must agree, for a
+    member's limits and a staff member's, on each way a session stops counting."""
+    user = await _user(db)
+    rows = [(await _start(db, user))[1] for _ in range(6)]
+    now = clock.now()
+    changes: list[dict[str, Any]] = [
+        {},  # live
+        {"last_seen_at": now - timedelta(days=15)},  # past a member's idle limit
+        {"started_at": now - timedelta(days=31)},  # past a member's absolute limit
+        {"expires_at": now - timedelta(seconds=1)},  # past its stored end
+        {"epoch": user.session_epoch - 1},  # from before a reset
+        {"last_seen_at": now - timedelta(hours=9)},  # live for a member, idle for staff
+    ]
+    for row, change in zip(rows, changes, strict=True):
+        if change:
+            await db.execute(update(Session).where(Session.id == row.id).values(**change))
+    await db.commit()
+    stored = list((await db.scalars(select(Session).where(Session.user_id == user.id))).all())
+    for staff in (False, True):
+        paged = await sessions.live_page(db, user, staff=staff, after=None, limit=100)
+        counted = {row.id for row in stored if sessions.is_live(row, user, staff=staff)}
+        assert {row.id for row in paged} == counted
+    assert len(counted) == 1  # the control: staff keep only the first
+    member = {
+        row.id for row in await sessions.live_page(db, user, staff=False, after=None, limit=100)
+    }
+    assert member == {rows[0].id, rows[5].id}
+
+
+async def test_a_page_goes_on_after_the_last_one_shown(db: AsyncSession) -> None:
+    user = await _user(db)
+    for _ in range(3):
+        await _start(db, user)
+        clock.advance(60)
+    everyone = await sessions.live_page(db, user, staff=False, after=None, limit=10)
+    first = await sessions.live_page(db, user, staff=False, after=None, limit=2)
+    assert [row.id for row in first] == [row.id for row in everyone]  # two and one more
+    last = first[1]
+    rest = await sessions.live_page(
+        db, user, staff=False, after=(last.last_seen_at, last.id), limit=2
+    )
+    assert [row.id for row in rest] == [everyone[2].id]
+
+
+async def test_a_suspended_account_has_no_page(db: AsyncSession) -> None:
+    user = await _user(db, status="suspended")
+    await _start(db, user)
+    assert await sessions.live_page(db, user, staff=False, after=None, limit=10) == []
 
 
 async def test_a_sign_in_clears_the_accounts_ended_sessions(db: AsyncSession) -> None:

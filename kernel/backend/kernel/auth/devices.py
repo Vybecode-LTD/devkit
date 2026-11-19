@@ -2,9 +2,10 @@
 docs/contracts/auth-api.md; K4.5). The account page lists them, with a
 sign-out for each and "sign out everywhere else" (VybeSite `SignedInDevices`).
 
-- **`GET /sessions`:** the account's sessions that still count, the most
-  recently seen first, this one marked `current`. `location` is null while
-  the site has no way to place a browser.
+- **`GET /sessions?cursor=&limit=`:** the account's sessions that still
+  count, the most recently seen first, this one marked `current`, in pages
+  (SPEC 7: `limit` 1 to 100, 50 by default; `{items, next_cursor}`).
+  `location` is null while the site has no way to place a browser.
 - **`DELETE /sessions/{id}`:** that session ends at once. Ending this one is
   signing out: the cookie is cleared and the device cookie stays, as at
   `POST /sign-out`. An id that isn't one of the account's sessions still
@@ -21,10 +22,13 @@ change that ended this session meanwhile wins, and this answers 401.
 
 from __future__ import annotations
 
+import re
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Path, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
@@ -37,6 +41,29 @@ from kernel.db import get_db
 from kernel.errors import Problem
 
 router = APIRouter()
+
+_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
+_CURSOR = re.compile(r"([0-9]{1,19})\.([0-9a-f]{32})")
+
+
+def _cursor_of(row: Session) -> str:
+    micros = (row.last_seen_at - _EPOCH) // timedelta(microseconds=1)
+    return f"{micros}.{row.id.hex}"
+
+
+def _after(cursor: str) -> tuple[datetime, uuid.UUID]:
+    found = _CURSOR.fullmatch(cursor)
+    try:
+        if found is None:
+            raise ValueError(cursor)
+        return _EPOCH + timedelta(microseconds=int(found[1])), uuid.UUID(hex=found[2])
+    except (ValueError, OverflowError):
+        raise Problem(
+            "kernel.invalid_request",
+            422,
+            "Some of what was sent isn't valid.",
+            errors={"cursor": ["Not a page of your devices."]},
+        ) from None
 
 
 def view(row: Session, *, current: bool) -> dict[str, Any]:
@@ -55,9 +82,22 @@ async def list_sessions(
     request: Request,
     resumed: Resumed = Depends(signed_in),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, list[dict[str, Any]]]:
-    rows = await sessions.live_of(db, resumed.user, lifetimes=lifetimes_of(request))
-    return {"items": [view(row, current=row.id == resumed.session.id) for row in rows]}
+    cursor: str | None = None,
+    limit: int = Query(default=50, ge=1, le=100),
+) -> dict[str, Any]:
+    found = await sessions.live_page(
+        db,
+        resumed.user,
+        staff=resumed.staff,
+        after=_after(cursor) if cursor is not None else None,
+        limit=limit,
+        lifetimes=lifetimes_of(request),
+    )
+    page = found[:limit]
+    return {
+        "items": [view(row, current=row.id == resumed.session.id) for row in page],
+        "next_cursor": _cursor_of(page[-1]) if len(found) > limit else None,
+    }
 
 
 @router.delete("/sessions/{id}", dependencies=[Depends(current_user)], status_code=204)
@@ -68,8 +108,13 @@ async def end_session(
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     user = await accounts.held(db, resumed.user.id, resumed.session.id)
-    live = await sessions.live_of(db, user, lifetimes=lifetimes_of(request))
-    if session_id not in {row.id for row in live}:
+    row = await db.scalar(
+        select(Session).where(Session.id == session_id, Session.user_id == user.id)
+    )
+    live = row is not None and sessions.is_live(
+        row, user, staff=resumed.staff, lifetimes=lifetimes_of(request)
+    )
+    if not live:
         await db.rollback()
         raise Problem("auth.session_not_found", 404, "That device isn't signed in.")
     await sessions.end(db, user, session_id)

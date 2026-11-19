@@ -158,7 +158,9 @@ async def test_a_session_past_its_idle_limit_isnt_listed_or_ended(site: Site) ->
             update(Session).where(Session.id == uuid.UUID(old)).values(last_seen_at=long_ago)
         )
         await db.commit()
-    assert [item["id"] for item in (await laptop.get(SESSIONS)).json()["items"]] != [old]
+    listed = [item["id"] for item in (await laptop.get(SESSIONS)).json()["items"]]
+    assert old not in listed
+    assert len(listed) == 1  # the control: this one is still there
     refused = await laptop.delete(f"{SESSIONS}/{old}")
     assert (refused.status_code, refused.json()["code"]) == (404, "auth.session_not_found")
 

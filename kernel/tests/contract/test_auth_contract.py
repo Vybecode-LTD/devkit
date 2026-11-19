@@ -1974,6 +1974,29 @@ async def test_sign_out_everywhere_else_keeps_only_this_one(api: Api) -> None:
     assert [item["current"] for item in await _devices(api)] == [True]
 
 
+async def test_the_device_list_comes_in_pages(api: Api) -> None:
+    user, _ = await _two_browsers(api)
+    await api.another_browser().signed_in_as(user)  # three in all
+    everyone = [item["id"] for item in await _devices(api)]
+    first = await api.http.get(SESSIONS, params={"limit": 2})
+    assert first.status_code == 200, first.text
+    assert [item["id"] for item in first.json()["items"]] == everyone[:2]
+    cursor = first.json()["next_cursor"]
+    assert isinstance(cursor, str)
+    rest = await api.http.get(SESSIONS, params={"limit": 2, "cursor": cursor})
+    assert [item["id"] for item in rest.json()["items"]] == everyone[2:]
+    assert rest.json()["next_cursor"] is None
+    assert sum(item["current"] for item in first.json()["items"] + rest.json()["items"]) == 1
+
+
+@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"cursor": "not-a-page"}])
+async def test_the_device_list_refuses_a_page_it_never_gave(
+    api: Api, params: dict[str, Any]
+) -> None:
+    await api.signed_in_as(await api.make_user())
+    assert _code(await api.http.get(SESSIONS, params=params)) == (422, "kernel.invalid_request")
+
+
 async def test_signing_devices_out_from_another_site_is_refused(api: Api) -> None:
     _, phone = await _two_browsers(api)
     (theirs,) = [item for item in await _devices(api) if not item["current"]]

@@ -1312,6 +1312,8 @@ export interface components {
         Devices: {
             /** Items */
             items: components["schemas"]["Device"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /** EmailChange */
         EmailChange: {
@@ -3826,7 +3828,10 @@ export interface operations {
     };
     list_sessions_api_auth_sessions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3840,6 +3845,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Devices"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description A problem (RFC 9457) */

@@ -442,22 +442,37 @@ async def step_up(db: AsyncSession, session: Session, *, second_factor: bool = F
 # --- listing and ending ------------------------------------------------------
 
 
-async def live_of(
-    db: AsyncSession, user: User, *, lifetimes: Lifetimes = DEFAULT_LIFETIMES
+async def live_page(
+    db: AsyncSession,
+    user: User,
+    *,
+    staff: bool,
+    after: tuple[datetime, uuid.UUID] | None,
+    limit: int,
+    lifetimes: Lifetimes = DEFAULT_LIFETIMES,
 ) -> list[Session]:
-    """The account's sessions that still count, the most recently seen first."""
+    """A page of the account's sessions that still count, the most recently
+    seen first (then by id), and one more when there are more: `is_live`'s
+    rule in SQL, so a page reads no more rows than it shows. `after` is the
+    last one shown, as (last seen, id)."""
+    if user.status != _ACTIVE:
+        return []
     now = clock.now()
-    staff = await is_staff(db, user.id)
-    rows = await db.execute(
-        select(Session)
-        .where(Session.user_id == user.id)
-        .order_by(Session.last_seen_at.desc(), Session.started_at.desc())
+    life = lifetimes.of(staff)
+    query = select(Session).where(
+        Session.user_id == user.id,
+        Session.epoch == user.session_epoch,
+        Session.expires_at > now,
+        Session.started_at > now - life.absolute,
+        Session.last_seen_at > now - life.idle,
     )
-    return [
-        row
-        for row in rows.scalars()
-        if is_live(row, user, staff=staff, now=now, lifetimes=lifetimes)
-    ]
+    if after is not None:
+        seen, ident = after
+        query = query.where(
+            (Session.last_seen_at < seen) | ((Session.last_seen_at == seen) & (Session.id < ident))
+        )
+    query = query.order_by(Session.last_seen_at.desc(), Session.id.desc()).limit(limit + 1)
+    return list((await db.scalars(query)).all())
 
 
 async def _delete(db: AsyncSession, *where: Any) -> int:
@@ -544,7 +559,7 @@ __all__ = [
     "is_live",
     "is_staff",
     "knows_device",
-    "live_of",
+    "live_page",
     "new_token",
     "recent",
     "resume",

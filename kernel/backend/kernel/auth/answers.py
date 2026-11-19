@@ -140,6 +140,7 @@ class Device(Answer):
 
 class Devices(Answer):
     items: list[Device]
+    next_cursor: str | None
 
 
 # --- WebAuthn's options, as py_webauthn's options_to_json_dict writes them ---------------
