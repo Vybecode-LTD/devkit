@@ -12,7 +12,7 @@
  * Each column says how to draw its cell; `empty` is what shows when there are
  * no rows, an `EmptyState` by default.
  */
-import type { FocusEvent, Key, ReactNode } from "react";
+import { useId, useLayoutEffect, useState, type FocusEvent, type Key, type ReactNode } from "react";
 
 import { EmptyState } from "./EmptyState";
 
@@ -41,12 +41,55 @@ export function keepFocusInView(event: FocusEvent<HTMLDivElement>): void {
   event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
+/**
+ * Whether the scroller slides sideways: then it's a tab stop of its own, so
+ * a keyboard can move along a table of words alone in a browser that doesn't
+ * make a scroller focusable itself (cubic on #82).
+ */
+function useOverflows(): [(element: HTMLDivElement | null) => void, boolean] {
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [overflows, setOverflows] = useState(false);
+  useLayoutEffect(() => {
+    if (!element) return;
+    const measure = () => {
+      setOverflows(element.scrollWidth > element.clientWidth);
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(element);
+    return () => {
+      observer?.disconnect();
+    };
+  }, [element]);
+  return [setElement, overflows];
+}
+
 export function Table<Row>({ caption, captionHidden = false, columns, rows, rowKey, empty }: TableProps<Row>) {
-  if (rows.length === 0) return <>{empty ?? <EmptyState title="Nothing here yet" />}</>;
+  const id = useId();
+  const [scroller, overflows] = useOverflows();
+  const captionClass = captionHidden ? "mf-visually-hidden" : "mf-table-caption";
+  // Empty, it keeps its caption, so two empty tables are told apart (cubic on #82).
+  if (rows.length === 0) {
+    return (
+      <div role="group" aria-labelledby={`${id}-caption`} className="mf-table-empty">
+        <p id={`${id}-caption`} className={captionClass}>
+          {caption}
+        </p>
+        {empty ?? <EmptyState title="Nothing here yet" />}
+      </div>
+    );
+  }
   return (
-    <div className="mf-table-scroll" onFocus={keepFocusInView}>
+    <div
+      ref={scroller}
+      className="mf-table-scroll"
+      onFocus={keepFocusInView}
+      {...(overflows ? { tabIndex: 0, role: "region", "aria-labelledby": `${id}-caption` } : {})}
+    >
       <table className="mf-table">
-        <caption className={captionHidden ? "mf-visually-hidden" : "mf-table-caption"}>{caption}</caption>
+        <caption id={`${id}-caption`} className={captionClass}>
+          {caption}
+        </caption>
         <thead>
           <tr>
             {columns.map((column) => (

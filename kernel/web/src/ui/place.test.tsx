@@ -1,5 +1,5 @@
 // Landing on a place (`place.ts`) and the scroll memory that uses it (`ScrollMemory.tsx`).
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithKernel } from "../../testing";
@@ -24,7 +24,7 @@ afterEach(() => {
 });
 
 describe("reveal", () => {
-  it("opens every shut section around the place, outermost first, and marks them as opened by a link", () => {
+  it("opens every shut section around the place, outermost first, and marks them as opened by a link", async () => {
     render(
       <details data-testid="outer">
         <summary>Outer</summary>
@@ -41,6 +41,9 @@ describe("reveal", () => {
     reveal(screen.getByText("Here"));
     expect(screen.getByTestId<HTMLDetailsElement>("outer").open).toBe(true);
     expect(screen.getByTestId<HTMLDetailsElement>("inner").open).toBe(true);
+    await waitFor(() => {
+      expect(opened).toEqual(["outer", "inner"]);
+    });
     expect(screen.getByTestId("outer")).toHaveAttribute(OPENED_BY_LINK);
   });
 });
@@ -180,5 +183,60 @@ describe("ScrollMemory", () => {
     expect(window.sessionStorage.getItem("mf_scroll_positions")).toContain("120");
     unmount();
     expect(window.history.scrollRestoration).toBe(before);
+  });
+});
+
+describe("cubic on #82", () => {
+  it("focuses a place that couldn't take the focus, so Tab starts there", () => {
+    const place = document.createElement("h2");
+    place.id = "plain";
+    document.body.append(place);
+    const stop = landOn("plain");
+    expect(place).toHaveFocus();
+    expect(place).toHaveAttribute("tabindex", "-1");
+    stop();
+    place.remove();
+  });
+
+  it("focuses the place on a restore too, without scrolling", () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    const place = document.createElement("h2");
+    place.id = "restored";
+    document.body.append(place);
+    const stop = landOn("restored", { scroll: false });
+    expect(place).toHaveFocus();
+    expect(scrolled).not.toHaveBeenCalled();
+    stop();
+    place.remove();
+  });
+
+  it("tries again when the page grows without a node added, as an image loading does", () => {
+    let grew: () => void = () => undefined;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          grew = callback;
+        }
+        observe() {
+          // Watched.
+        }
+        disconnect() {
+          grew = () => undefined;
+        }
+      },
+    );
+    scrollTo.mockImplementation(() => {
+      // Too short yet: the scroll stops at 100.
+      scrollY = 100;
+    });
+    const done = vi.fn();
+    holdScroll(300, { onDone: done });
+    expect(done).not.toHaveBeenCalled();
+    scrollTo.mockImplementation((options: ScrollToOptions) => {
+      scrollY = options.top ?? 0;
+    });
+    grew();
+    expect(done).toHaveBeenCalledOnce();
   });
 });

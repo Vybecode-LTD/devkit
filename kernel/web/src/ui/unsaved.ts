@@ -90,8 +90,9 @@ export function useUnsavedGuard(dirty: boolean, save: () => Promise<string | nul
     const mine = turn.current;
     setSaving(true);
     setError("");
-    void saveNow
-      .current()
+    // Through a promise, so a save that throws at once fails as any other (cubic on #82).
+    void Promise.resolve()
+      .then(() => saveNow.current())
       .catch((caught: unknown) => (caught instanceof Error ? caught.message : "It couldn't be saved."))
       .then((why) => {
         busy.current = false;

@@ -25,6 +25,15 @@ export type SaveBarProps = {
 /** The room the bar takes below what scrolls: its height, its 16px gap, and the 8px a focus ring needs. */
 export const SAVE_BAR_ROOM = "--mf-save-bar-room";
 
+/** The room each bar showing needs; the root keeps the largest, so one bar going never takes another's (cubic on #82). */
+const rooms = new Map<symbol, number>();
+
+function keepRoom(): void {
+  const root = document.documentElement;
+  if (rooms.size === 0) root.style.removeProperty(SAVE_BAR_ROOM);
+  else root.style.setProperty(SAVE_BAR_ROOM, `${String(Math.max(...rooms.values()))}px`);
+}
+
 export function SaveBar({ changes, onSave, onDiscard, saving = false, saveLabel = "Save" }: SaveBarProps) {
   const bar = useRef<HTMLDivElement>(null);
   const shown = changes > 0;
@@ -32,16 +41,18 @@ export function SaveBar({ changes, onSave, onDiscard, saving = false, saveLabel 
   useLayoutEffect(() => {
     const element = bar.current;
     if (!shown || !element) return;
-    const root = document.documentElement;
+    const mine = Symbol("save bar");
     const measure = () => {
-      root.style.setProperty(SAVE_BAR_ROOM, `${String(Math.ceil(element.getBoundingClientRect().height) + 24)}px`);
+      rooms.set(mine, Math.ceil(element.getBoundingClientRect().height) + 24);
+      keepRoom();
     };
     measure();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(element);
     return () => {
       observer?.disconnect();
-      root.style.removeProperty(SAVE_BAR_ROOM);
+      rooms.delete(mine);
+      keepRoom();
     };
   }, [shown]);
 

@@ -21,7 +21,7 @@ export type FieldProps = {
   label: ReactNode;
   hint?: ReactNode;
   error?: string | readonly string[] | undefined;
-  /** The control's id, when something else needs it; one is made otherwise. */
+  /** The control's id, when something else needs it; one is made otherwise. A control's own id inside a field gives way to it. */
   id?: string;
   className?: string;
   children: ReactNode;
@@ -72,7 +72,8 @@ function useWiring<P extends Wired>(props: P): P {
   const describedBy = [field.describedBy, props["aria-describedby"]].filter(Boolean).join(" ") || undefined;
   return {
     ...props,
-    id: props.id ?? field.id,
+    // The field's, over the control's own: the label points at it (cubic on #82). Give an id to `Field`.
+    id: field.id,
     "aria-describedby": describedBy,
     "aria-invalid": props["aria-invalid"] ?? (field.invalid ? true : undefined),
   };

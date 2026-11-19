@@ -33,19 +33,27 @@ export function reveal(target: HTMLElement): void {
 function watch(step: () => boolean, patienceMs: number, onStop?: () => void): () => void {
   let finished = false;
   const observer = new MutationObserver(() => {
-    if (step()) stop();
+    again();
   });
   const giveUp = window.setTimeout(stop, patienceMs);
   function stop(): void {
     if (finished) return;
     finished = true;
     observer.disconnect();
+    grows?.disconnect();
     window.clearTimeout(giveUp);
     for (const intent of INTENTS) window.removeEventListener(intent, stop, true);
     onStop?.();
   }
+  // The page growing with no node added (an image loading, words changed)
+  // is followed too (cubic on #82).
+  const grows = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(again);
+  function again(): void {
+    if (step()) stop();
+  }
   for (const intent of INTENTS) window.addEventListener(intent, stop, true);
-  observer.observe(document.body, { childList: true, subtree: true });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  grows?.observe(document.body);
   if (step()) stop();
   return stop;
 }
@@ -53,7 +61,9 @@ function watch(step: () => boolean, patienceMs: number, onStop?: () => void): ()
 /**
  * Brings the element with this id into view once it exists, opening the
  * sections around it, and keeps it there while the page finishes loading
- * around it. Focused when it can take focus, so the next Tab starts there.
+ * around it. Focused, made focusable if it isn't, so the next Tab starts
+ * there and a screen reader reads it: `RouteFocus` leaves a page with a
+ * place to this (cubic on #82).
  * `scroll: false` only opens the sections, for a page whose scroll position
  * is restored instead (Back, Forward, a reload).
  */
@@ -62,13 +72,12 @@ export function landOn(id: string, { patienceMs = 5000, scroll = true }: { patie
   return watch(() => {
     const target = document.getElementById(id);
     if (!target) return false;
-    if (landed !== target) reveal(target);
-    if (scroll) {
-      target.scrollIntoView({ block: "start", behavior: "instant" });
-      if (landed !== target && (target.tabIndex >= 0 || target.hasAttribute("tabindex"))) {
-        target.focus({ preventScroll: true });
-      }
+    if (landed !== target) {
+      reveal(target);
+      if (!target.hasAttribute("tabindex") && target.tabIndex < 0) target.setAttribute("tabindex", "-1");
+      target.focus({ preventScroll: true });
     }
+    if (scroll) target.scrollIntoView({ block: "start", behavior: "instant" });
     landed = target;
     // Keep watching: the page can still grow above it.
     return false;

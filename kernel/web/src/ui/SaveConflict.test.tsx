@@ -178,3 +178,30 @@ describe("SaveConflict", () => {
     expect(screen.getByRole("button", { name: "Save" })).toHaveFocus();
   });
 });
+
+describe("cubic on #82", () => {
+  it("refuses a conflict whose entries aren't fields", () => {
+    expect(settingsConflict(refused({ version: 3, conflicts: [null], at: null }))).toBeNull();
+    expect(settingsConflict(refused({ version: 3, conflicts: [{ yours: 1, theirs: 2 }], at: null }))).toBeNull();
+    expect(settingsConflict(refused({ version: 3, conflicts: [{ field: "a", yours: 1 }], at: null }))).toBeNull();
+    expect(settingsConflict(refused({ version: 3, conflicts: [{ field: "a", secret: true }], at: null }))?.conflicts).toEqual([
+      { field: "a", secret: true },
+    ]);
+  });
+
+  it("keeps the choices when the page reads the same conflict again into a new object", async () => {
+    const { rerender } = render(
+      <SaveConflict conflict={{ ...CONFLICT }} labels={LABELS} saving={false} onResolve={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const [theirs] = screen.getAllByRole("radio", { name: "Use theirs" });
+    await userEvent.click(theirs as HTMLElement);
+    rerender(<SaveConflict conflict={{ ...CONFLICT }} labels={LABELS} saving={false} onResolve={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getAllByRole("radio", { name: "Use theirs" })[0]).toBeChecked();
+  });
+
+  it("waits for a choice on a field named like an object's own property", () => {
+    const inherited: SettingsConflict = { ...CONFLICT, conflicts: [{ field: "constructor", yours: 1, theirs: 2 }] };
+    render(<SaveConflict conflict={inherited} labels={{}} saving={false} onResolve={vi.fn()} onCancel={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Save with these choices" })).toBeDisabled();
+  });
+});

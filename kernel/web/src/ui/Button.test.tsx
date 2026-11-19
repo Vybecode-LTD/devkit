@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithKernel } from "../../testing";
 import { Button, LinkButton, buttonClass } from "./Button";
 import { Icon } from "./Icon";
-import { ICON_NAMES } from "./icons";
+import { ICONS, ICON_NAMES } from "./icons";
 
 describe("Button", () => {
   it("is a plain button unless it says otherwise, so a form never sends by accident", () => {
@@ -90,7 +90,12 @@ describe("Icon", () => {
     );
     const drawn = container.querySelectorAll("svg");
     expect(drawn).toHaveLength(ICON_NAMES.length + 1);
-    for (const svg of drawn) expect(svg.childElementCount).toBeGreaterThan(0);
+    for (const [at, name] of ICON_NAMES.entries()) {
+      const svg = drawn[at];
+      expect(svg?.childElementCount).toBeGreaterThan(0);
+      expect(svg).toHaveAttribute("width", String(ICONS[name].size));
+      expect(svg).toHaveAttribute("height", String(ICONS[name].size));
+    }
     expect(container.querySelector(".big")).toHaveAttribute("width", "32");
   });
 

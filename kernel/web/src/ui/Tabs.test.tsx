@@ -21,6 +21,7 @@ describe("Tabs", () => {
     expect(features).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("tabpanel", { name: "Site" })).toBeVisible();
     expect(screen.getByText("Features", { selector: "p" })).not.toBeVisible();
+    expect(screen.getByText("System", { selector: "p" })).not.toBeVisible();
   });
 
   it("moves and chooses with the arrow keys, wrapping, and goes to the ends with Home and End", async () => {

@@ -35,8 +35,13 @@ export function Dialog({ title, onClose, returnTo, heading, wide = false, childr
 
   useEffect(() => {
     const box = dialog.current;
+    // Whether something inside took the focus itself before it opened: a
+    // browser's showModal may focus the first action, which isn't a choice
+    // (cubic on #82).
+    const before = document.activeElement;
+    const took = Boolean(box?.contains(before)) && before !== box;
     if (box && !box.open) box.showModal();
-    if (!box?.contains(document.activeElement) || document.activeElement === box) titleRef.current?.focus();
+    if (!took) titleRef.current?.focus();
     const had = opener.current;
     return () => {
       if (had instanceof HTMLElement && had.isConnected) had.focus();
@@ -55,7 +60,8 @@ export function Dialog({ title, onClose, returnTo, heading, wide = false, childr
         close.current();
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        // An Escape a child already took (a picker closing) is the child's (cubic on #82).
+        if (event.key === "Escape" && !event.defaultPrevented) {
           event.preventDefault();
           close.current();
         }

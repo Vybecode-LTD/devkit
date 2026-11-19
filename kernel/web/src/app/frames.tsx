@@ -7,8 +7,8 @@
  * The site frame holds no heading or paragraph of its own, so a page's words
  * are the only ones the parity test compares with the server's copy.
  */
-import type { ReactNode } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 import { useSession, useSignOut } from "../session/session";
 import { adminSidebar } from "../slots/sidebar";
@@ -41,13 +41,21 @@ function AccountLinks() {
   const session = useSession();
   const signOut = useSignOut();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Where the page is when the move home settles, not where it was at the click.
+  const at = useRef(pathname);
+  useLayoutEffect(() => {
+    at.current = pathname;
+  });
   if (session.status === "signed-out") return <Link to="/sign-in">Sign in</Link>;
   if (session.status !== "signed-in") return null;
   // Home first, then out: signed out on a member page, its guard sends the
   // person to sign in, which overtook a move home whose code was still coming.
+  // Out only once home: a question about unsaved changes can keep them where
+  // they are, and choosing to stay keeps them signed in (cubic on #82).
   const leave = () => {
     Promise.resolve(navigate("/"))
-      .then(signOut)
+      .then(() => (at.current === "/" ? signOut() : undefined))
       .catch((error: unknown) => {
         console.error("Signing out failed.", error);
       });

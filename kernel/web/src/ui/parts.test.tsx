@@ -169,3 +169,31 @@ describe("the kit's words", () => {
     expect(when("not a date")).toBe("");
   });
 });
+
+describe("cubic on #82", () => {
+  it("hands a chip's click on to its own onClick too", async () => {
+    const clicked = vi.fn();
+    const changed = vi.fn();
+    render(
+      <Chip pressed={false} onPressedChange={changed} onClick={clicked}>
+        Drafts
+      </Chip>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Drafts" }));
+    expect(clicked).toHaveBeenCalledOnce();
+    expect(changed).toHaveBeenCalledWith(true);
+  });
+
+  it("keeps a zero: a card titled 0 is named by it, an empty state's line of 0 shows", () => {
+    render(
+      <>
+        <Card title={0}>
+          <p>Body</p>
+        </Card>
+        <EmptyState title="Nothing">{0}</EmptyState>
+      </>,
+    );
+    expect(screen.getByRole("region", { name: "0" })).toBeInTheDocument();
+    expect(screen.getByText("0", { selector: ".mf-empty-line" })).toBeInTheDocument();
+  });
+});

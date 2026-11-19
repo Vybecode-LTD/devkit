@@ -7,14 +7,14 @@ The behavior is ported from VybeSite; the look is drawn from the Vibrant Mindz a
 | Part | What it's for |
 | --- | --- |
 | `Button`, `LinkButton` | Secondary (outlined) by default, `primary` for the page's own action, `small` for the top bar and a Needs-you item. A `Button` is `type="button"` unless it says otherwise |
-| `Field` with `Input`, `TextArea`, `Select` | A labelled control with its hint and its error, wired to it (`aria-describedby`, `aria-invalid`) |
+| `Field` with `Input`, `TextArea`, `Select` | A labelled control with its hint and its error, wired to it (`aria-describedby`, `aria-invalid`); the field's `id` is the control's |
 | `Switch` | A setting that's on or off at once (`role="switch"`) |
 | `Card` | A panel with an optional heading row and actions; `flush` for a table that fills it |
 | `Pill`, `Chip` | A state in words over its tint; a filter that's pressed or not, with a check while pressed |
 | `Attention` | One "Needs you" item: what's wrong, why, and the action that fixes it |
 | `Accordion` | A collapsible section on `<details>`, remembering the reader's own choice, opening for a problem |
 | `Tabs` | WAI-ARIA tabs: one tab stop, arrows, Home and End; every panel stays drawn |
-| `Table` | Records in a sideways scroller that keeps the focused control in view |
+| `Table` | Records in a sideways scroller that keeps the focused control in view, a tab stop named by its caption while it slides; empty, its caption over the empty state |
 | `Dialog` | A modal `<dialog>` named by its heading, focus in and back |
 | `UnsavedDialog`, `useUnsavedGuard`, `useLeaveGuard` | Asking before a move away loses changes |
 | `SaveBar` | A form's Save while it has changes, with room kept below what scrolls |
@@ -38,5 +38,5 @@ The outline turns transparent rather than off, so forced colours still draw it.
 
 ## Checked
 
-- Vitest, a test file beside each part.
-- Playwright on the kit's page, `harness/web/kit.html` at `/kit.html` (`kernel/tests/e2e/kit.spec.ts`): axe in both themes, the dialog open and shut; each control's boundary as drawn, 3:1 against what's behind it, and a switch's knob against its track; the focus rings, reached with real Tab presses; a half-hidden button in a table's scroller brought fully into view; and the save bar keeping the focus clear of itself.
+- Vitest: the parts' tests in `src/ui/`; `RouteFocus` through `app/routes.test.tsx`, `ErrorBoundary` through `slots/slots.test.tsx`, `ScrollMemory` through `place.test.tsx`.
+- Playwright on the kit's page, `harness/web/kit.html` at `/kit.html` (`kernel/tests/e2e/kit.spec.ts`): axe in both themes, the dialog open and shut; the boundary as drawn of each field, select, switch, pressed chip and filled button, 3:1 against what's behind it, and a switch's knob against its track (a secondary button or a chip that's not pressed keeps `border-strong`: its words name it, contract change 15); the focus rings, reached with real Tab presses; a half-hidden button in a table's scroller brought fully into view; and the save bar keeping the focus clear of itself.

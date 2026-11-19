@@ -31,18 +31,33 @@ export type SettingsConflict = {
 
 export type Choices = Record<string, "theirs" | "mine">;
 
-/** The conflict in a refused save, or null when the refusal is something else. */
+/** One field's conflict as the kernel sends it: its name, and both values or that it's a secret. */
+function isFieldConflict(entry: unknown): entry is FieldConflict {
+  if (typeof entry !== "object" || entry === null) return false;
+  const found = entry as Record<string, unknown>;
+  if (typeof found.field !== "string") return false;
+  return found.secret === true || ("yours" in found && "theirs" in found);
+}
+
+/** The conflict in a refused save, or null when the refusal is something else or malformed (cubic on #82). */
 export function settingsConflict(error: unknown): SettingsConflict | null {
   if (!(error instanceof ApiProblem) || error.code !== "kernel.settings_conflict") return null;
   const { version, conflicts, at } = error.extra;
-  if (typeof version !== "number" || !Array.isArray(conflicts)) return null;
+  if (typeof version !== "number" || !Array.isArray(conflicts) || !conflicts.every(isFieldConflict)) return null;
   return {
     detail: error.detail,
     version,
-    conflicts: conflicts as FieldConflict[],
+    conflicts,
     at: typeof at === "string" ? at : null,
   };
 }
+
+/** What makes one conflict itself: a page reading the same 409 again into a new object keeps its choices. */
+function identity(conflict: SettingsConflict): string {
+  return JSON.stringify([conflict.version, conflict.at, conflict.conflicts.map(({ field }) => field)]);
+}
+
+const chosen = (choice: unknown): boolean => choice === "theirs" || choice === "mine";
 
 /**
  * The save to send again: at the conflict's version, with what the person
@@ -96,10 +111,12 @@ export function SaveConflict({ conflict, labels, saving, onResolve, onCancel, fo
   const panel = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [choices, setChoices] = useState<Choices>({});
-  // A new conflict (someone saved again meanwhile) is a fresh choice.
-  const [seen, setSeen] = useState(conflict);
-  if (seen !== conflict) {
-    setSeen(conflict);
+  // A new conflict (someone saved again meanwhile) is a fresh choice; the
+  // same one read again into a new object isn't (cubic on #82).
+  const known = identity(conflict);
+  const [seen, setSeen] = useState(known);
+  if (seen !== known) {
+    setSeen(known);
     setChoices({});
   }
   const back = useRef(returnTo);
@@ -109,7 +126,7 @@ export function SaveConflict({ conflict, labels, saving, onResolve, onCancel, fo
 
   useEffect(() => {
     heading.current?.focus();
-  }, [conflict]);
+  }, [known]);
 
   // Gone, it hands focus back rather than leaving it on the page's body.
   useEffect(() => {
@@ -122,7 +139,8 @@ export function SaveConflict({ conflict, labels, saving, onResolve, onCancel, fo
     };
   }, []);
 
-  const ready = conflict.conflicts.every((each) => choices[each.field]);
+  // Exactly theirs or mine: a field named like `constructor` inherits nothing (cubic on #82).
+  const ready = conflict.conflicts.every((each) => Object.hasOwn(choices, each.field) && chosen(choices[each.field]));
   const value = (field: string, raw: unknown) => (format ? format(field, raw) : shown(raw));
 
   return (

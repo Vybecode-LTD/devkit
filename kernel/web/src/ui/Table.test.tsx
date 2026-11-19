@@ -53,3 +53,22 @@ describe("Table", () => {
     expect(scrolled).toHaveBeenCalledOnce();
   });
 });
+
+describe("cubic on #82", () => {
+  it("keeps its caption over the empty state, so two empty tables are told apart", () => {
+    render(<Table caption="Sign-ins" columns={COLUMNS} rows={[]} rowKey={(person) => person.id} />);
+    expect(screen.getByRole("group", { name: "Sign-ins" })).toHaveTextContent("Nothing here yet");
+  });
+
+  it("is a tab stop named by its caption while it scrolls sideways, and none while it fits", () => {
+    const wide = vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(900);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(300);
+    const { unmount } = render(<Table caption="People" columns={COLUMNS} rows={PEOPLE} rowKey={(person) => person.id} />);
+    const scroller = screen.getByRole("region", { name: "People" });
+    expect(scroller).toHaveAttribute("tabindex", "0");
+    unmount();
+    wide.mockReturnValue(300);
+    render(<Table caption="People" columns={COLUMNS} rows={PEOPLE} rowKey={(person) => person.id} />);
+    expect(screen.queryByRole("region")).toBeNull();
+  });
+});

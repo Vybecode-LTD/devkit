@@ -72,6 +72,17 @@ describe("useUnsavedGuard and UnsavedDialog", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("It couldn't be saved.");
   });
 
+  it("says a save that throws at once as any other failure, and can be tried again (cubic on #82)", async () => {
+    const save = vi.fn<() => Promise<string | null>>().mockImplementationOnce(() => {
+      throw new Error("No form to save.");
+    });
+    const { router } = renderWithKernel(<Editor save={save} />, { path: "/a" });
+    await act(() => router.navigate("/b"));
+    await userEvent.click(screen.getByRole("button", { name: "Save and leave" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No form to save.");
+    expect(screen.getByRole("button", { name: "Save and leave" })).toBeEnabled();
+  });
+
   it("changes nothing when a save answers after the person chose to stay", async () => {
     let finish: (why: string | null) => void = () => undefined;
     const save = vi.fn(() => new Promise<string | null>((resolve) => (finish = resolve)));

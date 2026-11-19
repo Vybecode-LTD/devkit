@@ -44,7 +44,8 @@ export function SectionHistory({ version, labels, load, names = {} }: SectionHis
   const titleId = useId();
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<readonly HistoryVersion[] | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  // Wrapped, so a refusal with a falsy reason still shows as a failure (cubic on #82).
+  const [error, setError] = useState<{ reason: unknown } | null>(null);
   const asked = useRef(0);
   const reader = useRef(load);
   useEffect(() => {
@@ -61,7 +62,7 @@ export function SectionHistory({ version, labels, load, names = {} }: SectionHis
         setVersions(got);
       },
       (failed: unknown) => {
-        if (mine === asked.current) setError(failed ?? new Error("It couldn't be read."));
+        if (mine === asked.current) setError({ reason: failed });
       },
     );
   }, []);
@@ -97,7 +98,7 @@ export function SectionHistory({ version, labels, load, names = {} }: SectionHis
       </summary>
       <div className="mf-accordion-body">
         {error ? (
-          <LoadError what="The history" error={error} onRetry={again} inline />
+          <LoadError what="The history" error={error.reason} onRetry={again} inline />
         ) : versions === null ? (
           <p className="mf-history-quiet">Loading…</p>
         ) : versions.length === 0 ? (

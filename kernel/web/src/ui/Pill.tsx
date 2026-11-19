@@ -29,14 +29,15 @@ export type ChipProps = Omit<ComponentPropsWithRef<"button">, "onChange" | "type
   onPressedChange: (pressed: boolean) => void;
 };
 
-export function Chip({ pressed, onPressedChange, className, children, ...rest }: ChipProps) {
+export function Chip({ pressed, onPressedChange, onClick, className, children, ...rest }: ChipProps) {
   return (
     <button
       {...rest}
       type="button"
       className={className ? `mf-chip ${className}` : "mf-chip"}
       aria-pressed={pressed}
-      onClick={() => {
+      onClick={(event) => {
+        onClick?.(event);
         onPressedChange(!pressed);
       }}
     >

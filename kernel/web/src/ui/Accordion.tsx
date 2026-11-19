@@ -26,6 +26,7 @@ import { useId, useLayoutEffect, useRef, useState, type ReactNode, type Syntheti
 import { Icon } from "./Icon";
 import { Pill, type Tone } from "./Pill";
 import { OPENED_BY_LINK } from "./place";
+import { shows } from "./words";
 
 export type SectionState = { tone: Tone; label: string };
 
@@ -95,7 +96,7 @@ export function Accordion({ id, title, level = 2, meta, state, said, defaultOpen
         <Heading id={titleId} className="mf-accordion-title">
           {title}
         </Heading>
-        {meta && !open ? <span className="mf-accordion-meta">{meta}</span> : null}
+        {shows(meta) && !open ? <span className="mf-accordion-meta">{meta}</span> : null}
         {state ? <Pill tone={state.tone}>{state.label}</Pill> : null}
         <Icon name="chevron-down" className="mf-accordion-chevron" />
       </summary>

@@ -67,3 +67,29 @@ describe("SaveBar", () => {
     expect(watched).toEqual([]);
   });
 });
+
+describe("cubic on #82", () => {
+  it("keeps the room while another bar still shows, when one of two goes", () => {
+    const { rerender } = render(
+      <>
+        <SaveBar changes={1} onSave={vi.fn()} onDiscard={vi.fn()} />
+        <SaveBar changes={1} onSave={vi.fn()} onDiscard={vi.fn()} />
+      </>,
+    );
+    expect(room()).toBe("24px");
+    rerender(
+      <>
+        <SaveBar changes={0} onSave={vi.fn()} onDiscard={vi.fn()} />
+        <SaveBar changes={1} onSave={vi.fn()} onDiscard={vi.fn()} />
+      </>,
+    );
+    expect(room()).toBe("24px");
+    rerender(
+      <>
+        <SaveBar changes={0} onSave={vi.fn()} onDiscard={vi.fn()} />
+        <SaveBar changes={0} onSave={vi.fn()} onDiscard={vi.fn()} />
+      </>,
+    );
+    expect(room()).toBe("");
+  });
+});

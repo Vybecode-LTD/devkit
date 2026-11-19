@@ -61,7 +61,7 @@
       background-color var(--mf-motion-fast);
   }
 
-  .mf-button:hover {
+  .mf-button:hover:not(:disabled) {
     border-color: var(--mf-color-text-muted);
     color: var(--mf-color-text-strong);
   }
@@ -73,7 +73,7 @@
     color: var(--mf-color-on-accent);
   }
 
-  .mf-button--primary:hover {
+  .mf-button--primary:hover:not(:disabled) {
     border-color: var(--mf-color-accent-hover);
     background: var(--mf-color-accent-hover);
   }
@@ -302,8 +302,13 @@
       color var(--mf-motion-fast);
   }
 
-  .mf-chip:hover {
+  .mf-chip:hover:not(:disabled) {
     border-color: var(--mf-color-text-muted);
+  }
+
+  .mf-chip:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
   }
 
   .mf-chip[aria-pressed="true"] {

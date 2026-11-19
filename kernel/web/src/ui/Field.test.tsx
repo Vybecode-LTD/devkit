@@ -28,7 +28,16 @@ describe("Field", () => {
     expect(area).toHaveAccessibleDescription("A line under the name.");
   });
 
-  it("keeps what the control was given itself: its id, its own description", () => {
+  it("gives the control the field's id, over one the control was given, so the label always names it (cubic on #82)", () => {
+    render(
+      <Field label="Email" id="email">
+        <Input id="mine" />
+      </Field>,
+    );
+    expect(screen.getByRole("textbox", { name: "Email" })).toHaveAttribute("id", "email");
+  });
+
+  it("keeps what the control was given itself: its own description", () => {
     render(
       <>
         <p id="extra">Counts toward the limit.</p>

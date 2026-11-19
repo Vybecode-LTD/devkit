@@ -90,4 +90,35 @@ describe("Dialog", () => {
     rerender(<Page open={false} />);
     expect(back.current).toHaveFocus();
   });
+
+  it("leaves an Escape a child already took, such as a picker closing (cubic on #82)", async () => {
+    const closed = vi.fn();
+    render(
+      <Dialog title="Pick" onClose={closed}>
+        <input
+          aria-label="Picker"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") event.preventDefault();
+          }}
+        />
+      </Dialog>,
+    );
+    screen.getByRole("textbox", { name: "Picker" }).focus();
+    await userEvent.keyboard("{Escape}");
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it("puts the focus on its heading even when opening it focused its first action, as a browser may (cubic on #82)", () => {
+    const opening = vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+      this.querySelector("button")?.focus();
+    });
+    render(
+      <Dialog title="Delete this role?" onClose={vi.fn()}>
+        <button type="button">Delete</button>
+      </Dialog>,
+    );
+    expect(opening).toHaveBeenCalledOnce();
+    expect(screen.getByRole("heading", { name: "Delete this role?" })).toHaveFocus();
+  });
 });

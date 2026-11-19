@@ -74,4 +74,11 @@ describe("SectionHistory", () => {
     });
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
+
+  it("says a failure for a refusal that's falsy itself (cubic on #82)", async () => {
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the case under test
+    render(<SectionHistory version={1} labels={LABELS} load={() => Promise.reject(0)} />);
+    await userEvent.click(screen.getByRole("heading", { name: "History · 1 save" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("The history couldn't be loaded.");
+  });
 });

@@ -138,7 +138,7 @@ function AdminLook() {
         </Dialog>
       ) : null}
 
-      <h3>Fields</h3>
+      <h3 id="fields">Fields</h3>
       <div className="kit-grid">
         <Field label="Site name" hint="Shown in the title bar.">
           <Input defaultValue="MechFrame test site" data-kit-boundary="field" />

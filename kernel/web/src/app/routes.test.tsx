@@ -7,6 +7,8 @@ import { defineModule, type ModuleDefinition } from "../modules";
 import { routedFetch } from "../test-fetch";
 import { isMissingCode } from "./RouteError";
 import { FOCUS_WAIT_MS } from "../ui/RouteFocus";
+import { UnsavedDialog } from "../ui/UnsavedDialog";
+import { useUnsavedGuard } from "../ui/unsaved";
 
 function pageSaying(words: string) {
   return () => Promise.resolve({ default: () => <h1>{words}</h1> });
@@ -220,14 +222,49 @@ describe("moving between pages", () => {
     });
   });
 
-  it("leaves a page reached at a #place to the landing, which focuses the place itself", async () => {
+  it("leaves a page reached at a #place to the landing, which focuses the place itself (cubic on #82)", async () => {
+    const withComments = defineModule({
+      id: "posts",
+      routes: {
+        public: [
+          {
+            path: "/post",
+            lazy: () =>
+              Promise.resolve({
+                default: () => (
+                  <>
+                    <h1>The post</h1>
+                    <h2 id="comments">Comments</h2>
+                  </>
+                ),
+              }),
+          },
+        ],
+        member: [],
+        admin: [],
+      },
+    });
+    const { router } = renderApp({ modules: [withComments] });
+    await screen.findByRole("heading", { name: "Test Site" });
+    await act(() => router.navigate("/post#comments"));
+    const place = await screen.findByRole("heading", { name: "Comments" });
+    await waitFor(() => {
+      expect(place).toHaveFocus();
+    });
+    expect(screen.getByRole("heading", { name: "The post" })).not.toHaveFocus();
+  });
+
+  it("focuses the page's heading after a while when its #place never comes (cubic on #82)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const { router } = renderApp({ modules: [blog] });
-    const home = await screen.findByRole("heading", { name: "Test Site" });
-    home.focus();
-    await act(() => router.navigate("/blog#comments"));
+    await screen.findByRole("heading", { name: "Test Site" });
+    await act(() => router.navigate("/blog#nowhere"));
     const heading = await screen.findByRole("heading", { name: "The blog" });
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(heading).not.toHaveFocus();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(FOCUS_WAIT_MS);
+    });
+    expect(heading).toHaveFocus();
+    vi.useRealTimers();
   });
 
   it("waits for a page whose code comes later than a frame, then focuses its heading (Codex on #79)", async () => {
@@ -433,6 +470,32 @@ describe("moving between pages", () => {
       expect(at(router)).toBe("/");
     });
     expect(await screen.findByRole("link", { name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("doesn't sign out when an unsaved-changes question keeps the person on the page (cubic on #82)", async () => {
+    const sent = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
+    vi.stubGlobal("fetch", sent);
+    function Draft() {
+      const guard = useUnsavedGuard(true, () => Promise.resolve(null));
+      return (
+        <>
+          <h1>Your draft</h1>
+          <UnsavedDialog guard={guard} what="This draft" />
+        </>
+      );
+    }
+    const editor = defineModule({
+      id: "editor",
+      routes: { public: [], member: [{ path: "/draft", lazy: () => Promise.resolve({ default: Draft }) }], admin: [] },
+    });
+    const { router } = renderApp({ path: "/draft", session: testUser(), modules: [editor] });
+    await screen.findByRole("heading", { name: "Your draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Stay" }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(at(router)).toBe("/draft");
+    expect(sent).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });
 
   it("goes home on signing out from a member page, even when home's code is slow to come", async () => {

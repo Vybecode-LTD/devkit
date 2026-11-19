@@ -193,6 +193,9 @@ test.describe("at a phone's width", () => {
     expect(before).toBeLessThan(40);
 
     await page.getByRole("heading", { name: /^History/ }).locator("..").focus();
+    // The scroller first: it slides sideways here, so it's a tab stop of its own.
+    await page.keyboard.press("Tab");
+    await expect(scroller).toBeFocused();
     for (const name of ["Edit Ann Example", "Edit Bo Sample", "Edit Cy Placeholder"]) {
       await page.keyboard.press("Tab");
       const button = page.getByRole("button", { name });
@@ -208,12 +211,13 @@ test.describe("at a phone's width", () => {
     }
   });
 
-  test("a table's scroller that holds nothing focusable is a tab stop with its ring drawn inside", async ({ page }) => {
+  test("a table's scroller that slides sideways is a tab stop named by its caption, its ring drawn inside", async ({ page }) => {
     await open(page, "machined-light", THEMES["machined-light"]);
     await page.getByRole("button", { name: "Edit Cy Placeholder" }).focus();
     await page.keyboard.press("Tab");
     const scroller = page.locator('[data-kit="plain"] .mf-table-scroll');
     await expect(scroller).toBeFocused();
+    await expect(scroller).toHaveAccessibleName("Sign-ins");
     expect((await focusedShadow(page)).shadow).toBe(await shadowOf(page, "--mf-shadow-focus-ring-inset"));
   });
 });

@@ -237,7 +237,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `useModuleEnabled(id)` | Whether a module is switched on |
 | `useSettings(id)` | The module's settings, read-only on public pages |
 | `defineModule({...})` | Registers routes and slots (section 8) |
-| UI kit | Button and LinkButton, Field with Input, TextArea, Select and Switch, Card, Pill and Chip, Attention, Accordion, Tabs, Table, Dialog, UnsavedDialog with `useUnsavedGuard` and `useLeaveGuard`, SaveBar, SaveConflict, SectionHistory, Toast (`useToast`), EmptyState, LoadError, ErrorBoundary, RouteFocus, ScrollMemory and Icon (`kernel/web/src/ui/README.md`); the behavior ported from VybeSite, the look drawn from the Vibrant Mindz admin boards on the theme's tokens |
+| UI kit | Button and LinkButton, Field with Input, TextArea and Select, Switch, Card, Pill and Chip, Attention, Accordion, Tabs, Table, Dialog, UnsavedDialog with `useUnsavedGuard` and `useLeaveGuard`, SaveBar, SaveConflict, SectionHistory, Toast (`useToast`), EmptyState, LoadError, ErrorBoundary, RouteFocus, ScrollMemory and Icon (`kernel/web/src/ui/README.md`); the behavior ported from VybeSite, the look drawn from the Vibrant Mindz admin boards on the theme's tokens |
 
 ```mermaid
 flowchart TB

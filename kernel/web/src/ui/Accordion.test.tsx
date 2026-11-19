@@ -144,4 +144,44 @@ describe("Accordion", () => {
     fireEvent(screen.getByTestId("inner"), new Event("toggle", { bubbles: true }));
     expect(details("Outer").open).toBe(false);
   });
+
+  it("shows a meta of 0 while shut (cubic on #82)", () => {
+    render(
+      <Accordion id="count" title="Count" meta={0}>
+        <p>Body</p>
+      </Accordion>,
+    );
+    expect(screen.getByText("0", { selector: ".mf-accordion-meta" })).toBeInTheDocument();
+  });
+
+  it("stays shut when a state that arrived fine turns to a warning later (cubic on #82)", () => {
+    const { rerender } = render(
+      <Accordion id="later" title="Later" state={{ tone: "success", label: "Set" }}>
+        <p>Body</p>
+      </Accordion>,
+    );
+    rerender(
+      <Accordion id="later" title="Later" state={{ tone: "warning", label: "Check" }}>
+        <p>Body</p>
+      </Accordion>,
+    );
+    expect(details("Later").open).toBe(false);
+  });
+
+  it("remembers the reader shutting it, too (cubic on #82)", async () => {
+    const { unmount } = render(
+      <Accordion id="shut" title="Shut" defaultOpen>
+        <p>Body</p>
+      </Accordion>,
+    );
+    await userEvent.click(screen.getByRole("heading", { name: "Shut" }));
+    expect(JSON.parse(window.localStorage.getItem(KEY) ?? "{}")).toEqual({ shut: false });
+    unmount();
+    render(
+      <Accordion id="shut" title="Shut" defaultOpen>
+        <p>Body</p>
+      </Accordion>,
+    );
+    expect(details("Shut").open).toBe(false);
+  });
 });

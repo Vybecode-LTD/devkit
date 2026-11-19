@@ -5,6 +5,8 @@
  */
 import type { ReactNode } from "react";
 
+import { shows } from "./words";
+
 export type EmptyStateProps = {
   /** "No roles of your own yet". */
   title: ReactNode;
@@ -18,8 +20,8 @@ export function EmptyState({ title, children, action }: EmptyStateProps) {
   return (
     <div className="mf-empty">
       <p className="mf-empty-title">{title}</p>
-      {children ? <p className="mf-empty-line">{children}</p> : null}
-      {action ? <div className="mf-empty-action">{action}</div> : null}
+      {shows(children) ? <p className="mf-empty-line">{children}</p> : null}
+      {shows(action) ? <div className="mf-empty-action">{action}</div> : null}
     </div>
   );
 }

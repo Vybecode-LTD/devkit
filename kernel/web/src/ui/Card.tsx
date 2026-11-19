@@ -5,6 +5,8 @@
  */
 import { useId, type ReactNode } from "react";
 
+import { shows } from "./words";
+
 export type CardProps = {
   title?: ReactNode;
   /** The heading's level: 2 on a page, 3 inside a section that has its own. */
@@ -18,16 +20,17 @@ export type CardProps = {
 
 export function Card({ title, level = 2, actions, flush = false, className, children }: CardProps) {
   const id = useId();
+  const titled = shows(title);
   const Heading = level === 3 ? "h3" : "h2";
   const classes = ["mf-card", flush ? "mf-card--flush" : "", className ?? ""].filter(Boolean).join(" ");
   return (
-    <section className={classes} aria-labelledby={title ? id : undefined}>
-      {title ? (
+    <section className={classes} aria-labelledby={titled ? id : undefined}>
+      {titled ? (
         <div className="mf-card-head">
           <Heading id={id} className="mf-card-title">
             {title}
           </Heading>
-          {actions ? <div className="mf-card-actions">{actions}</div> : null}
+          {shows(actions) ? <div className="mf-card-actions">{actions}</div> : null}
         </div>
       ) : null}
       {children}

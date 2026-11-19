@@ -12,7 +12,8 @@
  * focus never scrolls: `ScrollMemory` places the page, at its top, at the
  * place Back gives back (cubic on #79), or at the place its address names,
  * which then takes the focus itself (`landOn`), so a page reached with a
- * `#place` is left to it. The page is compared with the last one focused for,
+ * `#place` is left to it, its heading focused only if nothing took the
+ * focus within `FOCUS_WAIT_MS`. The page is compared with the last one focused for,
  * so StrictMode's second run of the effect does nothing.
  */
 import { useEffect, useRef } from "react";
@@ -38,7 +39,6 @@ export function RouteFocus() {
   useEffect(() => {
     if (last.current === pathname) return;
     last.current = pathname;
-    if (hash) return;
     // Set while this effect moves the focus itself, so only the person's own
     // moves stop it.
     let ours = false;
@@ -61,8 +61,11 @@ export function RouteFocus() {
       if (!ours) stop();
     };
     // After the new page has drawn: its heading may come a frame later, or
-    // once its code has arrived.
+    // once its code has arrived. A page reached at a `#place` leaves it to
+    // the landing (`landOn`), which focuses the place; if nothing takes the
+    // focus meanwhile, its heading still gets it below (cubic on #82).
     const frame = requestAnimationFrame(() => {
+      if (hash) return;
       const found = heading();
       if (found) {
         stop();
@@ -70,8 +73,14 @@ export function RouteFocus() {
       } else observer.observe(document.body, { childList: true, subtree: true });
     });
     const wait = setTimeout(() => {
+      const found = heading();
+      if (hash && found) {
+        stop();
+        move(found);
+        return;
+      }
       const main = document.querySelector<HTMLElement>("main");
-      if (!heading() && main) move(main); // and keep watching for the heading
+      if (!found && main) move(main); // and keep watching for the heading
     }, FOCUS_WAIT_MS);
     const giveUp = setTimeout(() => {
       stop();

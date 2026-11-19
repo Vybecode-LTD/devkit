@@ -10,13 +10,13 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 - **Path:** `C:\DEV\AI-DevKit`. **Remote:** `https://github.com/mechframe/mechframe` (decision 0034), **public** (decision 0011). Never commit secrets, client material or private notes; private notes go in `docs/private/` (gitignored).
 - **The contract:** `SPEC.md`. Every module, the kernel and the CLI follow it. Read the sections you touch before every change.
 
-## Current state (2026-11-18, night; K4.1 to K4.3 landed)
+## Current state (2026-11-19, early morning; K4.4 in #82)
 
 - Spec v0.1 written, the owner's answers applied.
 - **K0 and K1 done and audited** (#1 to #31). **K2 (auth) steps 1 to 8 done** (#32 to #54; decisions 0019 to 0028 and 0030): passwords, sessions, access, sign-in and sign-up, codes and magic links, resets and email change, password change, TOTP and recovery codes, passkeys, and the undo link for an added factor. Steps 9 to 11 wait until the site needs them (decision 0029).
 - **K3 is done, in the site's order:** storage (`kernel/storage.py`, #58, decision 0032), email (`kernel/email.py`, `kernel/mail_adapters.py`, #59, decision 0033: SMTP first, Resend only where SMTP is blocked), the kernel's 19 mails as `kernel.*` templates a site can reword (`kernel/auth/mails.py`, #60), jobs (`kernel/jobs.py`, `cron.py`, `worker.py`, #63, decision 0035: a Postgres queue enqueued in the caller's transaction, the worker in the web process by default, mail on the queue sealed, unverified accounts removed 7 days after their address was set), events (`kernel/events.py`, #65, decision 0036: deliveries are jobs written at emit, so the jobs table is the outbox; 8 tries; the kernel emits four events), audit (`kernel/audit.py`, #67, decision 0037: one append-only `kernel_audit_event` for every module, auth's renamed; `audit.record` in the caller's transaction; staff and own-activity reads; pruned after `AUDIT_KEEP_DAYS`), notifications (`kernel/notifications.py`, #69, decision 0038: `notifications.notify` in the caller's transaction, each person's choice per key, one-click unsubscribe), moderation (`kernel/moderation.py`, #71, decision 0039: kinds a module declares in `moderation.py`, one case per thing, filters that hold and never drop, dismiss, hide, delete, time-outs, and bans as suspensions at `POST /api/auth/admin/users/{id}/suspend`), and public rendering (`kernel/server_copy.py`, `shell.py`, #73, decision 0041: a module's `PAGES` answers each public address with its head, words and JSON-LD, the kernel serves `WEB_DIST` with real 404s and writes `sitemap.xml`, `robots.txt` and `llms.txt`, member pages are `noindex`). **K3's gate passed** (#75, `dev plans/2026-11-17-k3-gate-evidence.md`) on the nine services built; retention and the AI client are outside it (the owner). npm audit runs with an expiring allowlist (`tools/npm_audit.py`, decision 0015 amended). The rename to MechFrame landed after it (#76). Next: K4 (`docs/HANDOFF.md`).
-- **K4 is under way** (`dev plans/contracts/k4-web-kernel.md`, decision 0042, approved 2026-11-18): eight PRs, three landed. #78, the typed client: `Answer` models, `kernel/openapi.json`, `kernel/web/src/api/`. #79, the app shell: the kernel's pages in `kernel.json`, `mountApp`, `useSession`, guards, slots, `<Seo>`, `RouteFocus`, Playwright and axe. #80, the themes: `themes/`, `tools/themes.py`, the colour lint. Next: K4.4, the UI kit (`docs/HANDOFF.md`). The device list's routes (K2 step 4) were never built; they moved to K4.5.
-- **Progress** is one record, `docs/progress.json`, made into `docs/PROGRESS.md` and the owner's visual ledger (#61). v1.0: 50% (30 of 60 steps).
+- **K4 is under way** (`dev plans/contracts/k4-web-kernel.md`, decision 0042, approved 2026-11-18): eight PRs, four in. #78, the typed client: `Answer` models, `kernel/openapi.json`, `kernel/web/src/api/`. #79, the app shell: the kernel's pages in `kernel.json`, `mountApp`, `useSession`, guards, slots, `<Seo>`, Playwright and axe. #80, the themes: `themes/`, `tools/themes.py`, the colour lint. #82, the UI kit: `kernel/web/src/ui/` (its `README.md`), the admin's focus ring, `color.border-control` and the pill tints, and the kit's page `/kit.html` that `kernel/tests/e2e/kit.spec.ts` checks. Next: K4.5, the auth and account screens (`docs/HANDOFF.md`). The device list's routes (K2 step 4) were never built; they moved to K4.5.
+- **Progress** is one record, `docs/progress.json`, made into `docs/PROGRESS.md` and the owner's visual ledger (#61). v1.0: 52% (31 of 60 steps).
 - **The project is MechFrame** (decision 0034, #76); it was AI DevKit until K3. The repo is `mechframe/mechframe`, the planned CLI `mechframe` (also `mf`), the cookies `__Host-mf_*`, the variables `MECHFRAME_*`; the Python import stays `kernel`. Decision records and other history keep the old name as written.
 - **The admin shell** is built in K4 to the Vibrant Mindz canvas Admin design, styled by tokens, for every site: only its generic parts in the kernel, checked in the site's dark theme and Machined Light (decision 0040, amending 0008).
 - First real site: the new Vibrant Mindz site (`docs/plans/vibrant-mindz-module-plan.md`); its step 0 is done (#55, #56). It doubles as the spec's validation build.
@@ -24,21 +24,9 @@ The binding directives are in `C:\DEV\CLAUDE.md` and `C:\DEV\DIRECTIVES.md`, whi
 
 ## Last Completed Task
 
+2026-11-18, night, to 2026-11-19, early morning Eastern (Claude Code, the owner's machine): #81 had landed and the ledger was current. Built K4.4, the UI kit (#82, contract change 15). Measured as drawn, the boards' field and switch-track edges were 1.5:1, so the owner chose a 3:1 `color.border-control` for them alone, and a dark knob on an on switch. axe caught Machined Light's pill words at 3.7:1 on a 12% tint, so each theme gives its own tints. A flaky routes test turned out to be a real Sign out race, fixed after a test that fails every time. Mutants showed the Table's and SaveBar's Playwright tests catch what they guard. The handoff rides in #82.
+
 2026-11-18, late afternoon to night Eastern (Claude Code, the owner's machine): landed #78, then built and landed K4.2 (#79, the app shell) and K4.3 (#80, the themes) to the approved contract, its changes 9 to 14 recorded in it. The owner kept Machined Light's AA role shades. The bots raised 49 threads on #79 and 21 on #80, all fixed with failing-first tests where they touched code, or answered. The handoff is #81 (`docs/HANDOFF.md`).
-
-2026-11-18, afternoon Eastern (Claude Code, the owner's machine): K4's contract was written and approved, with the owner's four answers:
-- the admin includes role editing, New role and Settings › System;
-- the server's words are hidden by `@media (scripting: enabled)`, with a 3 s reveal;
-- Playwright runs locally before each push, and in CI on main's pushes, weekly and by hand;
-- Depth waits.
-
-#78 built the typed client, contract first:
-- every JSON answer is an `Answer` model (a 204 has no body), checked on the way out, built through `answer()` where a cookie or header is set, with a syntax-tree guard on hand-built JSON;
-- `kernel/openapi.json` is committed, its errors documented as problems;
-- the web client (openapi-fetch and openapi-react-query, types from openapi-typescript) gives `ApiProblem` errors, signs the session out on a 401, resends a write once after a step-up, makes queries read-only, and never retries a 4xx;
-- the module ids `auth` and `kernel` are reserved.
-
-Codex, CodeRabbit and cubic found 25 real slips over four rounds, all fixed with failing-first tests where code. The picomatch advisory was withdrawn, so npm audit's allowlist is empty. A helper agent's claim that the device routes had contract tests was wrong; corrected everywhere. The handoff went into #78 too, so it lands with it.
 
 ## Read order
 

@@ -60,7 +60,7 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 | `layout.sidebar` | The admin sidebar's width |
 | `motion.fast` | A quick change: colour, border, background |
 | `motion.base` | An ordinary change: a transform, a panel |
-| `shadow.focus-ring` | The admin's keyboard focus: a 1px accent line and a 4px glow of it |
+| `shadow.focus-ring` | The admin's keyboard focus: a 1px line and a 4px glow of it, in the theme's ring colour (Vibrant Mindz's accent, Machined Light's `color.focus`) |
 | `shadow.focus-ring-gap` | The admin's focus on a filled or pressed control (the primary button, a switch that's on, a pressed chip): a 2px gap of the page colour first |
 | `shadow.focus-ring-inset` | The admin's focus drawn just inside: a row in a clipped list, a table's sideways scroller |
 | `shadow.nav-current-focus` | The current nav item with focus: its 2px edge under the ring |

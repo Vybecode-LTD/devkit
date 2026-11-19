@@ -1,4 +1,10 @@
 /** How the kit says lists, names and times in a sentence (from VybeSite's `lib/settingsSave.ts`). */
+import type { ReactNode } from "react";
+
+/** Whether a part holds anything to draw: `0` does; nothing, `false` and `""` don't (cubic on #82). */
+export function shows(node: ReactNode): boolean {
+  return node !== undefined && node !== null && typeof node !== "boolean" && node !== "";
+}
 
 /** “Port”, “Host” and “Name”. */
 export function and(words: readonly string[]): string {
