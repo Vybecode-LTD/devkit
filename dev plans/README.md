@@ -6,6 +6,8 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 
 `2026-11-17-k3-gate-evidence.md` is the evidence K3's gate was checked on: each service's tests and coverage, the two named tests, and the kernel's contract lint (#75).
 
+`2026-11-19-k45-screens/` holds the sign-in and account screens beside their boards, at 1440 and 390 px in both themes, with what differs and why (#83).
+
 `contracts/` holds the one-page contract each feature that touches a seam gets before its code (`C:\DEV\knowledge\decisions\0008-feature-contracts.md`):
 
 | File | What |

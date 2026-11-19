@@ -498,10 +498,10 @@
    "gate": "not passed",
    "step_order": 5,
    "step": "Auth and account screens, with the device routes",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#83",
+   "decisions": "0042 0043",
    "note": ""
   },
   {
