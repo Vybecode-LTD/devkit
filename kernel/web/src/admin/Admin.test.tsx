@@ -36,6 +36,14 @@ const NOTHING = {
 
 const at = (router: { state: { location: { pathname: string } } }) => router.state.location.pathname;
 
+/** Leaves every GET of `path` waiting, as a slow first read does; the rest go on as told. */
+function holdReads(path: string): void {
+  const base = globalThis.fetch;
+  vi.stubGlobal("fetch", (request: Request) =>
+    request.method === "GET" && new URL(request.url).pathname === path ? new Promise<Response>(() => undefined) : base(request),
+  );
+}
+
 describe("the sidebar", () => {
   it("names each section, and shows its pages under it while one of them is open", async () => {
     routedFetch({
@@ -235,6 +243,65 @@ describe("the top bar", () => {
     await act(() => router.navigate("/admin/activity"));
     expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-expanded", "false");
   });
+
+  it("stays shut on coming back to the page it was opened on (CodeRabbit on #84)", async () => {
+    routedFetch({
+      ...NOTHING,
+      "GET /api/kernel/admin/audit": { status: 200, body: { items: [], next_cursor: null, people: {}, kept_days: 365 } },
+    });
+    const { router } = renderApp({ path: "/admin", session: admin });
+    await userEvent.click(await screen.findByRole("button", { name: "Menu" }));
+    await act(() => router.navigate("/admin/activity"));
+    await screen.findByRole("heading", { level: 1, name: "Activity log" });
+    await act(() => router.navigate("/admin"));
+    await screen.findByRole("heading", { level: 1, name: greeting(new Date()) });
+    expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-expanded", "false");
+    await act(() => router.navigate(-2));
+    await screen.findByRole("heading", { level: 1, name: greeting(new Date()) });
+    expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("says the notices are on their way while the first read is (CodeRabbit on #84)", async () => {
+    routedFetch(NOTHING);
+    holdReads("/api/kernel/notifications");
+    renderApp({ path: "/admin", session: admin });
+    await userEvent.click(await screen.findByRole("button", { name: "Notices" }));
+    const panel = screen.getByRole("region", { name: "Notices" });
+    expect(within(panel).getByRole("status")).toHaveTextContent("Loading your notices");
+    expect(within(panel).queryByText(/Nothing yet/)).toBeNull();
+  });
+
+  it("says when Mark all read didn't go through, and tries again (CodeRabbit on #84)", async () => {
+    let tries = 0;
+    const { sent } = routedFetch({
+      ...NOTHING,
+      "GET /api/kernel/notifications": {
+        status: 200,
+        body: {
+          items: [{ id: "n1", key: "kernel.x", title: "A report came in", link: null, created_at: "2026-11-19T12:00:00Z", read_at: null }],
+          next_cursor: null,
+          unread: 1,
+        },
+      },
+      "POST /api/kernel/notifications/read": () => {
+        tries += 1;
+        return tries === 1 ? problem(500, "kernel.internal_error") : { status: 204 };
+      },
+    });
+    renderApp({ path: "/admin", session: admin });
+    await userEvent.click(await screen.findByRole("button", { name: "Notices, 1 unread" }));
+    const panel = screen.getByRole("region", { name: "Notices" });
+    await userEvent.click(within(panel).getByRole("button", { name: "Mark all read" }));
+    const alert = await within(panel).findByRole("alert");
+    expect(alert).toHaveTextContent("Your notices couldn't be marked read.");
+    await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    await waitFor(() => {
+      expect(within(panel).queryByRole("alert")).toBeNull();
+    });
+    const posts = sent.filter((request) => request.method === "POST");
+    expect(posts).toHaveLength(2);
+    expect(await posts[1]?.clone().json()).toEqual({ all: true });
+  });
 });
 
 describe("the Dashboard", () => {
@@ -272,6 +339,15 @@ describe("the Dashboard", () => {
     expect(first?.querySelector("[role=img]")).toHaveAccessibleName("Problem");
     expect(second?.querySelector("[role=img]")).toHaveAccessibleName("Note");
     expect(within(section).getByRole("link", { name: "See failed jobs" })).toHaveAttribute("href", "/admin/settings/system");
+  });
+
+  it("says what needs the person is on its way while it's read (CodeRabbit on #84)", async () => {
+    routedFetch(NOTHING);
+    holdReads("/api/kernel/admin/attention");
+    renderApp({ path: "/admin", session: admin });
+    const section = await screen.findByRole("region", { name: "Needs you" });
+    expect(within(section).getByRole("status")).toHaveTextContent("Checking what needs you");
+    expect(within(section).queryByText("Nothing needs you right now.")).toBeNull();
   });
 
   it("says so when nothing needs the person, and when the list can't be read", async () => {

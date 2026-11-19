@@ -36,7 +36,7 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 
 - **Python tests,** in Git Bash, in the background: `TEST_DATABASE_URL="postgresql://devkit:devkit@localhost:55432/postgres" MECHFRAME_REQUIRE_DB=1 .venv/Scripts/python.exe -m pytest --cov=kernel`. Don't regenerate `openapi.json` meanwhile.
 - **Web:** `npm.cmd run test:coverage`, `lint`, `typecheck`, `build`; then `npx.cmd playwright test` with `TEST_DATABASE_URL` set.
-- **A look in a browser:** `E2E_PORT=8770 ... python -m harness.e2e` binds 127.0.0.1; make setup calls from inside the page (`page.evaluate(fetch)`), since Node's requests to `localhost` try IPv6 first. Stop it before Playwright.
+- **A look in a browser:** `E2E_PORT=8770 ... python -m harness.e2e`; wait for `/api/kernel/health`, then make setup calls from inside the page (`page.evaluate(fetch)`), which share its cookies. Stop it before Playwright.
 - **React Router draws a move in a transition;** read the drawn page after `navigate()` with `flushSync: true`. **A theme switch in a test** waits for `document.getAnimations()`.
 - **Edits to `docs/progress.json`** go line by line: re-dumping it reformats every line.
 
@@ -49,4 +49,4 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 1. React Router 7 draws each move in a transition: `navigate()` settles first.
 2. A test that switches theme waits for transitions, or measures mid-fade.
 3. An e2e server must answer at the browser's address, or writes fail the origin check.
-4. A uvicorn bound to 127.0.0.1 refuses Node's `localhost` (IPv6 first); browsers fall back.
+4. A test asking for a field the moment its dialog opens races the dialog's own reads; wait for the field.

@@ -3,8 +3,9 @@
  * a dot while some are unread): the signed-in person's own notices
  * (`GET /api/kernel/notifications`, decision 0038), opened from the bell as a
  * panel under it. A notice with a page opens it and counts as read; Mark all
- * read reads them all. Escape, a click or the focus elsewhere closes it, and
- * Escape puts the focus back on the bell.
+ * read reads them all, and says so in the panel if it didn't go through, with
+ * Try again. Escape, a click or the focus elsewhere closes it, and Escape puts
+ * the focus back on the bell.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
@@ -14,9 +15,10 @@ import { api, useApiQuery } from "../api/client";
 import type { components } from "../api/schema";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
-import { LoadError } from "../ui/LoadError";
+import { LoadError, failureWords } from "../ui/LoadError";
 
 type Notice = components["schemas"]["Notice"];
+type Read = { ids: string[] } | { all: true };
 
 const NOTICES = ["get", "/api/kernel/notifications"] as const;
 /** How many the panel shows: the newest. */
@@ -59,13 +61,16 @@ export function Notices() {
     };
   }, [open]);
 
+  // A write that didn't go through, shown in the panel with Try again (CodeRabbit on #84).
+  const [failed, setFailed] = useState<{ body: Read; error: unknown } | null>(null);
   const reread = () => queryClient.invalidateQueries({ queryKey: NOTICES });
-  const markRead = (body: { ids: string[] } | { all: true }) => {
+  const markRead = (body: Read) => {
+    setFailed(null);
     api
       .POST("/api/kernel/notifications/read", { body })
       .then(reread)
       .catch((error: unknown) => {
-        console.error("Marking notices read failed.", error);
+        setFailed({ body, error });
       });
   };
   const items = notices.data?.items ?? [];
@@ -113,9 +118,29 @@ export function Notices() {
               </Button>
             ) : null}
           </div>
+          {failed ? (
+            <div className="mf-load-error mf-load-error--inline" role="alert">
+              <p className="mf-load-error-what">Your notices couldn't be marked read.</p>
+              {failureWords(failed.error) ? <p className="mf-load-error-why">{failureWords(failed.error)}</p> : null}
+              <div className="mf-load-error-actions">
+                <Button
+                  size="small"
+                  onClick={() => {
+                    markRead(failed.body);
+                  }}
+                >
+                  Try again
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {notices.error ? (
             <LoadError what="Your notices" error={notices.error} onRetry={() => void notices.refetch()} inline />
-          ) : notices.isPending ? null : items.length === 0 ? (
+          ) : notices.isPending ? (
+            <p className="mf-admin-notices-empty" role="status">
+              Loading your notices…
+            </p>
+          ) : items.length === 0 ? (
             <p className="mf-admin-notices-empty">Nothing yet. What the site tells you shows here.</p>
           ) : (
             <ul className="mf-admin-notices-list">

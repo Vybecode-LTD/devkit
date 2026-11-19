@@ -12,7 +12,8 @@ Overwritten every session. This one: 2026-11-19, afternoon Eastern (Claude Code,
   - **Screens:** Dashboard (greeting, "Needs you", the modules' `admin.dashboard.widget` cards) and Activity (who did what to whom, by kind, an entry's fields beneath, the keep). The kit gains `StatCard` and the info tone (`color.info`, `color.info-tint`; Machined Light's `info-700` `#2864B8`).
   - **Left off, not faked:** a person's name (the session has none: the email stands in); role names come from ids until K4.7; Activity's search, Export CSV, and Content and Money kinds; the Dashboard's checklist and figures.
   - **By eye:** `dev plans/2026-11-19-k46-admin/`, with what differs from the boards.
-  - **Tests on the pushed head:** Vitest 426; Playwright 67 (the new `admin.spec.ts` 9); Python, the full suite, in the PR body.
+  - **Review:** CodeRabbit's five findings fixed with failing-first tests: the phone's Menu reopening on a return to where it was opened, Mark all read failing silently, the notices and "Needs you" blank while read, and the e2e lookup of the admin's sign-in now paging past the newest fifty. A race in #83's step-up test (the Password field is drawn after two reads) showed under load and now waits for the field.
+  - **Tests on the last head:** Vitest 430; Playwright 67 (`admin.spec.ts` 9); Python 2,051 at 98.58 % (the review touched no Python).
 - **v1.0:** 55 % (33 of 60 steps).
 
 ## Next
@@ -30,7 +31,7 @@ Overwritten every session. This one: 2026-11-19, afternoon Eastern (Claude Code,
 
 ## Notes
 
-- **The e2e server for a look:** `E2E_PORT=8770 TEST_DATABASE_URL=... python -m harness.e2e` binds 127.0.0.1; Node's own requests to `localhost` try IPv6 first and are refused, so make setup calls from inside the browser page (`page.evaluate(fetch)`). Stop it before a Playwright run: both use `mechframe_e2e`.
+- **The e2e server for a look:** `E2E_PORT=8770 TEST_DATABASE_URL=... python -m harness.e2e`; wait for `/api/kernel/health` to answer 200 before the first call. Setup calls made from inside the page (`page.evaluate(fetch)`) share its cookies and pass the origin check. Stop it before a Playwright run: both use `mechframe_e2e`.
 - **An admin page's breadcrumb** ends in the sidebar's name for the page unless `AdminPage`'s `crumb` says otherwise.
 - **Kernel audit actions** each need staff words and a kind (`kernel/web/src/admin/actions.ts`); `Activity.test.tsx` reads `KERNEL_ACTIONS` from `audit.py` and fails on one without.
 - **Traps:** a pinned count in `tests/test_theme_vibrant_mindz.py` moves with every alias and colour role. `npx.cmd playwright test -g "..."` with a space breaks its quoting; pick by `file:line`.

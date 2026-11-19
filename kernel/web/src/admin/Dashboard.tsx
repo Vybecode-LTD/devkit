@@ -39,7 +39,11 @@ function NeedsYou() {
       </h2>
       {needs.error ? (
         <LoadError what="What needs you" error={needs.error} onRetry={() => void needs.refetch()} />
-      ) : needs.isPending ? null : items.length === 0 ? (
+      ) : needs.isPending ? (
+        <p className="mf-needs-clear" role="status">
+          Checking what needs you…
+        </p>
+      ) : items.length === 0 ? (
         <p className="mf-needs-clear">Nothing needs you right now.</p>
       ) : (
         <ul className="mf-needs-list">

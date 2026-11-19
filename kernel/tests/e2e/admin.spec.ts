@@ -3,9 +3,9 @@
 // page, the activity log shows the sign-in that brought them, the notices open and shut, the
 // phone's Menu opens the sidebar; each admin page answers (a smoke test); nothing scrolls
 // sideways at 390 px; axe finds nothing serious in either theme, a dialog or panel open too.
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
-import { THEMES, axe, makeUser, signInTo, theme } from "./support";
+import { PASSWORD, THEMES, axe, makeUser, signInTo, theme } from "./support";
 
 const ADMIN_PAGES = [
   ["/admin", /^Good (morning|afternoon|evening)$/],
@@ -16,6 +16,23 @@ const ADMIN_PAGES = [
   ["/admin/settings/features", "Features"],
   ["/admin/settings/system", "System"],
 ] as const;
+
+/**
+ * `email`'s own sign-in in `table`, paging back with Show older until it shows: every test
+ * writes to the one log side by side, so it needn't be among the newest fifty (CodeRabbit on #84).
+ */
+async function ownSignIn(page: Page, table: Locator, email: string): Promise<Locator> {
+  await expect(table).toBeVisible();
+  const rows = table.getByRole("row");
+  const mine = rows.filter({ hasText: email }).filter({ hasText: "Signed in" }).first();
+  const older = page.getByRole("button", { name: "Show older" });
+  for (let pages = 0; pages < 20 && !(await mine.isVisible()) && (await older.isVisible()); pages += 1) {
+    const shown = await rows.count();
+    await older.click();
+    await expect.poll(() => rows.count()).toBeGreaterThan(shown);
+  }
+  return mine;
+}
 
 async function signedInAdmin(page: Page, next = "/admin"): Promise<string> {
   const user = await makeUser(page.request, "admin", { totp: true, roles: ["member", "admin"] });
@@ -34,9 +51,18 @@ test("staff land on the Dashboard with what needs them, each with its fix", asyn
   await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveText(/Admin\s*\/?\s*Dashboard/);
 });
 
-test("Ctrl K jumps to the activity log, which shows the sign-in that brought them here", async ({ page }) => {
+test("Ctrl K jumps to the activity log, which shows the sign-in that brought them here", async ({ page, request }) => {
   const email = await signedInAdmin(page);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // Fifty-one newer entries, so the admin's sign-in is past the first page and ownSignIn pages back
+  // to it. `request` keeps cookies of its own: the page stays signed in as the admin. Each sign-in
+  // hashes a password, slow on purpose, beside the other tests: three times the usual budget.
+  test.slow();
+  const busy = await makeUser(request, "busy");
+  for (let n = 0; n <= 50; n += 1) {
+    const answer = await request.post("/api/auth/sign-in", { data: { email: busy.email, password: PASSWORD } });
+    expect(answer.status()).toBe(200);
+  }
   await page.keyboard.press("Control+k");
   const dialog = page.getByRole("dialog", { name: "Jump to a page" });
   await expect(dialog.getByRole("combobox", { name: "Page name" })).toBeFocused();
@@ -45,11 +71,12 @@ test("Ctrl K jumps to the activity log, which shows the sign-in that brought the
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/admin\/activity$/);
   await expect(page.getByRole("heading", { level: 1, name: "Activity log" })).toBeVisible();
-  const table = page.getByRole("table", { name: "Entries, newest first" });
-  const mine = table.getByRole("row").filter({ hasText: email }).filter({ hasText: "Signed in" });
-  await expect(mine.first()).toBeVisible();
+  const all = page.getByRole("table", { name: "Entries, newest first" });
+  await expect(all.getByRole("row")).toHaveCount(51); // a header and the newest fifty
+  await expect(all.getByRole("row").filter({ hasText: email })).toHaveCount(0);
+  await expect(await ownSignIn(page, all, email)).toBeVisible();
   await page.getByRole("group", { name: "Kind" }).getByRole("button", { name: "Sign-in" }).click();
-  await expect(page.getByRole("table", { name: "Sign-in entries, newest first" }).getByRole("row").filter({ hasText: email }).first()).toBeVisible();
+  await expect(await ownSignIn(page, page.getByRole("table", { name: "Sign-in entries, newest first" }), email)).toBeVisible();
   await expect(page.getByText(/^Kept for \d+ days\./)).toBeVisible();
 });
 

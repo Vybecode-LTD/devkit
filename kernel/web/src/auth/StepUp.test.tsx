@@ -57,7 +57,8 @@ describe("the step-up dialog", () => {
     renderWithKernel(writer(outcomes), { session: testUser() });
     await userEvent.click(screen.getByRole("button", { name: "Write" }));
     expect(await screen.findByRole("dialog", { name: "Confirm it's you" })).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText("Password"), "quiet orbit lantern");
+    // Drawn once the account's factors are read: wait for it, not just the dialog (found on #84).
+    await userEvent.type(await screen.findByLabelText("Password"), "quiet orbit lantern");
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => {
       expect(outcomes).toEqual([{ value: "ok" }]);
@@ -119,7 +120,7 @@ describe("the step-up dialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Write" }));
     await screen.findByRole("dialog", { name: "Confirm it's you" });
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
-    await userEvent.type(screen.getByLabelText("Password"), "quiet orbit lantern");
+    await userEvent.type(await screen.findByLabelText("Password"), "quiet orbit lantern");
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => {
       expect(outcomes).toEqual([{ value: "ok" }, { value: "ok" }]);

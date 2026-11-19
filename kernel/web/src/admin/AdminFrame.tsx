@@ -11,8 +11,8 @@
  *   jump to (Ctrl K or ⌘ K opens it anywhere in the admin), the notices, View
  *   site.
  * - **Under 960px** the sidebar folds away behind Menu, which opens it in
- *   place under the bar, so the pages follow Menu in the tab order; it closes
- *   on the next page.
+ *   place under the bar, so the pages follow Menu in the tab order; it shuts
+ *   on every move, back to where it was opened too.
  */
 import "./admin.css";
 
@@ -180,13 +180,20 @@ export function AdminFrame() {
   const session = useSession();
   const can = session.status === "signed-in" ? session.can : () => false;
   const groups = adminSidebar(entries, adminSections, can);
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
   const { group, item } = whereIs(groups, pathname);
   const railId = useId();
   const [crumb, setCrumb] = useState<string>();
-  // The address the menu was opened at: on another page it's closed again.
-  const [menuAt, setMenuAt] = useState<string | null>(null);
-  const menuOpen = menuAt === pathname;
+  // Shut on every move, a move back to where it was opened included (CodeRabbit
+  // on #84): each move is a location of its own, so its key is new, or an
+  // older one's on Back. Reset as the move is drawn, not in an effect after.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [drawnAt, setDrawnAt] = useState(location.key);
+  if (drawnAt !== location.key) {
+    setDrawnAt(location.key);
+    setMenuOpen(false);
+  }
   const [jumping, setJumping] = useState(false);
 
   useEffect(() => {
@@ -214,7 +221,7 @@ export function AdminFrame() {
             aria-expanded={menuOpen}
             aria-controls={railId}
             onClick={() => {
-              setMenuAt(menuOpen ? null : pathname);
+              setMenuOpen(!menuOpen);
             }}
           >
             {menuOpen ? <Icon name="close" /> : null}
