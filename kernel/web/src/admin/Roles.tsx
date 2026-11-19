@@ -116,6 +116,11 @@ function RoleEditor({
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const shownId = role ? role.id : idTouched ? id : idFrom(name);
+  // Not while a write is on its way: its ending closes this editor, and would
+  // close another opened meanwhile (CodeRabbit on #85).
+  const close = () => {
+    if (!busy) onClose();
+  };
 
   const refresh = () =>
     Promise.all([
@@ -131,7 +136,18 @@ function RoleEditor({
       return;
     }
     if (caught instanceof ApiProblem && caught.code === "kernel.invalid_request") {
-      setErrors(Object.fromEntries(Object.entries(caught.errors).map(([field, said]) => [field, said.join(" ")])));
+      // Each of the server's field errors shows: beside its field when the
+      // form draws one ("body.name" is Name), else in the alert (CodeRabbit on #85).
+      const drawn = new Set(role ? ["name", "description"] : ["name", "id", "description"]);
+      const beside: Record<string, string> = {};
+      const rest: string[] = [];
+      for (const [key, messages] of Object.entries(caught.errors)) {
+        const field = key.replace(/^body\./, "").split(".")[0] ?? key;
+        if (drawn.has(field)) beside[field] = messages.join(" ");
+        else rest.push(...messages);
+      }
+      setErrors(beside);
+      if (rest.length > 0 || Object.keys(beside).length === 0) setError(rest.length > 0 ? rest.join(" ") : said(caught, REFUSED));
       return;
     }
     setError(caught instanceof ApiProblem ? said(caught, REFUSED) : "That didn't work. Try again.");
@@ -179,7 +195,7 @@ function RoleEditor({
   };
 
   return (
-    <Dialog title={role ? `Edit ${role.name}` : "New role"} onClose={onClose} wide>
+    <Dialog title={role ? `Edit ${role.name}` : "New role"} onClose={close} wide>
       <form
         className="mf-role-form"
         noValidate
@@ -254,7 +270,9 @@ function RoleEditor({
           <Button type="submit" variant="primary" disabled={busy}>
             {role ? "Save role" : "Make role"}
           </Button>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button disabled={busy} onClick={close}>
+            Cancel
+          </Button>
         </div>
         {role ? (
           <div className="mf-role-delete">

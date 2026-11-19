@@ -110,6 +110,14 @@ describe("the people list", () => {
     expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
+  it("keeps the list and offers another try when the roles can't be read (CodeRabbit on #85)", async () => {
+    routedFetch({ ...BASE, "GET /api/auth/admin/users": page([ANN]), "GET /api/auth/admin/roles": problem(500, "kernel.internal_error") });
+    renderApp({ path: "/admin/people", session: admin });
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "People, newest first" })).toBeInTheDocument();
+    expect(screen.getByText(/The roles/)).toBeInTheDocument();
+  });
+
   it("offers no Open without auth.role.assign", async () => {
     routedFetch({ ...BASE, "GET /api/auth/admin/users": page([ANN]) });
     const reader = testUser({ roles: ["member", "helper"], second_factor: true, permissions: ["auth.user.manage"] });
@@ -159,6 +167,32 @@ describe("a person's roles", () => {
     await userEvent.click(dialog.getByRole("button", { name: "Save roles" }));
     await waitFor(() => {
       expect(sent.some((request) => request.method === "GET" && request.url.endsWith("/api/auth/session"))).toBe(true);
+    });
+  });
+
+  it("can't be dismissed while its save is on its way, so the save can't close another person's (CodeRabbit on #85)", async () => {
+    const { fetch } = routedFetch({ ...BASE, "GET /api/auth/admin/users": page([BO]) });
+    const answer = fetch.getMockImplementation();
+    let release: () => void = () => undefined;
+    fetch.mockImplementation((request: Request) => {
+      if (request.method !== "PUT") return answer?.(request) ?? Promise.reject(new TypeError("Failed to fetch"));
+      return new Promise((resolve) => {
+        release = () => {
+          resolve(new Response(JSON.stringify({ ...BO, roles: ["editor", "member"] }), { status: 200, headers: { "content-type": "application/json" } }));
+        };
+      });
+    });
+    const table = await opened();
+    await userEvent.click(await table.findByRole("button", { name: "Open b2@site.test" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "b2@site.test" }));
+    await userEvent.click(dialog.getByRole("switch", { name: /^Member/ }));
+    await userEvent.click(dialog.getByRole("button", { name: "Save roles" }));
+    expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "b2@site.test" })).toBeInTheDocument();
+    release();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
     });
   });
 

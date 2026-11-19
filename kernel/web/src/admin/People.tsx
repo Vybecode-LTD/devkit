@@ -91,6 +91,11 @@ function PersonRoles({ person, roles, onClose }: { person: Person; roles: readon
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const same = chosen.size === person.roles.length && person.roles.every((role) => chosen.has(role));
+  // Not while a save is on its way: its ending closes this dialog, and would
+  // close another person's opened meanwhile (CodeRabbit on #85).
+  const close = () => {
+    if (!busy) onClose();
+  };
 
   const save = async () => {
     setBusy(true);
@@ -114,7 +119,7 @@ function PersonRoles({ person, roles, onClose }: { person: Person; roles: readon
   };
 
   return (
-    <Dialog title={person.name ?? person.email} onClose={onClose}>
+    <Dialog title={person.name ?? person.email} onClose={close}>
       <p className="mf-people-dialog-lead">
         Their roles decide what they can do. Staff roles need a second factor before the admin opens for them.
       </p>
@@ -148,7 +153,9 @@ function PersonRoles({ person, roles, onClose }: { person: Person; roles: readon
         <Button variant="primary" disabled={busy || same} onClick={() => void save()}>
           Save roles
         </Button>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button disabled={busy} onClick={close}>
+          Cancel
+        </Button>
       </div>
     </Dialog>
   );
@@ -254,6 +261,10 @@ export default function People() {
           />
         </Field>
       </div>
+      {roles.error ? (
+        // The list still shows; Open waits for the roles (CodeRabbit on #85).
+        <LoadError what="The roles" error={roles.error} onRetry={() => void roles.refetch()} inline />
+      ) : null}
       {pages.error ? (
         <LoadError what="The people list" error={pages.error} onRetry={() => void pages.refetch()} />
       ) : pages.isPending ? null : (

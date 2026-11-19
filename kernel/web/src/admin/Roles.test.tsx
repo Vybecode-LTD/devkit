@@ -121,6 +121,59 @@ describe("a new role", () => {
   });
 });
 
+describe("the editor's refusals", () => {
+  it("shows each field error the server sends: beside its field, or in the alert when no field shows it (CodeRabbit on #85)", async () => {
+    routedFetch({
+      ...BASE,
+      "POST /api/auth/admin/roles": {
+        status: 422,
+        type: "application/problem+json",
+        body: {
+          type: "urn:mechframe:problem:kernel.invalid_request",
+          title: "Invalid",
+          status: 422,
+          detail: "Some of what was sent isn't valid.",
+          code: "kernel.invalid_request",
+          errors: { "body.name": ["Too long."], "body.permissions": ["At most 200."] },
+        },
+      },
+    });
+    await opened();
+    await userEvent.click(screen.getByRole("button", { name: "New role" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "New role" }));
+    await userEvent.type(dialog.getByRole("textbox", { name: "Name" }), "Crew two");
+    await userEvent.click(dialog.getByRole("button", { name: "Make role" }));
+    expect(await dialog.findByText("Too long.")).toBeInTheDocument();
+    expect(dialog.getByRole("alert")).toHaveTextContent("At most 200.");
+  });
+
+  it("can't be dismissed while its write is on its way", async () => {
+    const { fetch } = routedFetch(BASE);
+    const answer = fetch.getMockImplementation();
+    let release: () => void = () => undefined;
+    fetch.mockImplementation((request: Request) => {
+      if (request.method !== "POST") return answer?.(request) ?? Promise.reject(new TypeError("Failed to fetch"));
+      return new Promise((resolve) => {
+        release = () => {
+          resolve(new Response(JSON.stringify({ ...CREW, id: "crew-two", name: "Crew two" }), { status: 201, headers: { "content-type": "application/json" } }));
+        };
+      });
+    });
+    await opened();
+    await userEvent.click(screen.getByRole("button", { name: "New role" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "New role" }));
+    await userEvent.type(dialog.getByRole("textbox", { name: "Name" }), "Crew two");
+    await userEvent.click(dialog.getByRole("button", { name: "Make role" }));
+    expect(dialog.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "New role" })).toBeInTheDocument();
+    release();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+  });
+});
+
 describe("the site's own role", () => {
   it("is changed", async () => {
     const { sent } = routedFetch({
