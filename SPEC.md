@@ -508,7 +508,7 @@ MechFrame owns all of auth: the design, the data and the tests. It never hand-ro
 - Built-in roles are `owner` (every permission; at least one must exist), `admin`, `editor` and `member`. Sites may add custom roles.
 - Staff means any account with a role other than `member`, a site's custom roles included. Staff MUST have a second factor (14.4) before reaching the admin.
 - Public sign-up creates only `member` accounts. Staff roles come from an owner or admin, or from an invite that names the role.
-- **Who can grant what** (decision 0013): a role can be granted or removed only by someone who holds every permission it carries. Only an owner grants, removes or suspends an owner, and the last owner can't be removed, demoted or suspended. Built-in roles can't be deleted. The same rules bind invites.
+- **Who can grant what** (decision 0013): a role can be granted or removed only by someone who holds every permission it carries. `member`, which anyone gets by signing up, is no rank (decision 0045). Only an owner grants, removes or suspends an owner, and the last owner can't be removed, demoted or suspended. Built-in roles can't be deleted. The same rules bind invites.
 - The first owner is made with `mechframe create-owner`, or with a one-time setup token printed at first boot (VybeSite `setup_admin.py`).
 
 ### 14.2 Sign-in methods
@@ -626,7 +626,7 @@ Both limits are site settings (Q6).
 ### 14.8 Authorization
 
 - Permissions are strings, `<module>.<resource>.<action>`, declared in each manifest with default roles. Owners hold all of them. The kernel's own (`auth.*` and `kernel.*`) are declared in `kernel/kernel.json`, and a test holds the auth migration's seed to that list.
-- Roles map to permission sets that staff can edit in the admin.
+- Roles map to permission sets that staff can edit in the admin (decision 0045): a site's own roles are made, changed and deleted under `auth.role.manage`, each only by someone holding every permission it has or would have; the built-in roles stay as the manifests declare them, and a role someone holds isn't deleted. A change raises its holders' role version (14.5). `member` is no rank: granting or removing it never needs a module's permission for members.
 - Per-resource overrides grant or deny one permission on one thing, such as a single forum category (VybeMindz `per-resource-permission-overrides`), for one person or one role. A denial beats a grant, and a person's own override beats their role's.
 - `require_owner_or(permission)` covers "your own, or staff with the permission".
 - Deny by default. The server checks every time; the front end's `can()` only hides buttons.
@@ -831,6 +831,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-19 | K4's people and roles (decision 0045, contract change 18): `auth.role.manage` (admin by default); the People list and granting roles built; the site's own roles made, changed and deleted within the permissions held; `member` is no rank (14.1, 14.8) |
 | 2026-11-19 | K4's admin shell (decision 0044, contract change 17): the admin's frame and its Dashboard; `GET /api/kernel/admin/attention`; the staff's log names its people and its keep and takes several actions; `kernel.jobs.manage` (admin by default); `AdminPage`, `StatCard` and an info tone, with the required tokens `color.info` and `color.info-tint` (6, 8, 14.10) |
 | 2026-11-19 | K4's sign-in and account screens (decision 0043, contract change 16): the kernel's sign-in pages and landings sit in a frame of their own; one step-up dialog answers every write refused together; the device list's answers and `GET /api/auth/security` are written down in `docs/contracts/auth-api.md` (8, 14.5) |
 | 2026-11-18 | K4's UI kit (decision 0042, contract change 15): the parts in section 6's table, in `kernel/web/src/ui/` and exported from `@/kernel`; `IconName` is the kit's set; the required tokens gain `color.border-control`, the four pill tints and the admin's five focus shadows (`themes/README.md`); `ScrollMemory` takes over from React Router's scroll restoration (6, 16) |

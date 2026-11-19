@@ -526,10 +526,10 @@
    "gate": "not passed",
    "step_order": 7,
    "step": "Admin people and roles, with role editing",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#85",
+   "decisions": "0042 0045",
    "note": ""
   },
   {
