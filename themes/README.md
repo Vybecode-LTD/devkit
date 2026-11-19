@@ -62,7 +62,7 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 - The signals are 4.5:1 on the canvas, surface and raised surface.
 - The focus colour and the accent are at least 3:1 on what they sit on.
 
-Rendered contrast is checked by axe, in Playwright, on each page's default rendering in both themes. Text over photos or glows, and the hover and focus states, are checked by eye beside the boards as each screen is built (contract §7).
+Rendered contrast is checked by axe, in Playwright (`kernel/tests/e2e/parity.spec.ts`), in both themes. It checks the default rendering of every page a visitor reaches signed out: the home page, a 404 and each of the kernel's public pages. The member and admin pages join once sign-in and their screens are built (K4.5, K4.6). Text over photos or glows, and the hover and focus states, are checked by eye beside the boards as each screen is built (contract §7).
 
 `color.border-strong` isn't held to 3:1: in both themes a control also takes its edge from a fill or a shadow. A control's boundary as a whole must reach 3:1 (WCAG 1.4.11), which the UI kit's controls are checked for when they're built (K4.4).
 

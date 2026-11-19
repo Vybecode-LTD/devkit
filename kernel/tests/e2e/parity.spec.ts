@@ -7,6 +7,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { KERNEL_PAGES } from "../../web/src/app/pages";
+
+/** Every page a visitor reaches signed out: the home page, a 404 and each of the kernel's public
+ * pages. The member and admin pages join with sign-in and their screens (K4.5, K4.6; cubic on #80). */
+const PUBLIC_PAGES = ["/", "/nowhere", ...KERNEL_PAGES.filter((page) => page.access === "public").map((page) => page.path)];
+
 const WORDS = ":is(h1, h2, h3, p)";
 
 function normal(text: string): string {
@@ -70,7 +76,7 @@ const THEMES = {
 } as const;
 
 for (const [theme, canvas] of Object.entries(THEMES)) {
-  for (const path of ["/", "/nowhere", "/sign-in"]) {
+  for (const path of PUBLIC_PAGES) {
     test(`axe finds no serious or critical problem on ${path} in ${theme}`, async ({ page }) => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
