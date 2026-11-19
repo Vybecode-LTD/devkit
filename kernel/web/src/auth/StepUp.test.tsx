@@ -251,6 +251,19 @@ describe("the step-up dialog", () => {
     expect(within(dialog).queryByLabelText("Password")).toBeNull();
   });
 
+  it("offers no switch of method while the passkeys couldn't be read (CodeRabbit on #83)", async () => {
+    routedFetch({
+      ...guarded().answers,
+      "GET /api/auth/security": { status: 200, body: { password: true, totp: { since: "2026-11-01T00:00:00Z" }, recovery_codes_left: 9 } },
+      "GET /api/auth/passkeys": problem(500, "kernel.unexpected"),
+    });
+    renderWithKernel(writer([]), { session: testUser() });
+    await userEvent.click(screen.getByRole("button", { name: "Write" }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(await within(dialog).findByText("Your ways to confirm it's you couldn't be loaded.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /instead/ })).toBeNull();
+  });
+
   it("draws in the frame's look it opened over", async () => {
     routedFetch(guarded().answers);
     renderWithKernel(<div className="mf-admin-look">{writer([])}</div>, { session: testUser() });

@@ -289,6 +289,22 @@ describe("a dialog issuing codes", () => {
     expect(await screen.findByRole("dialog", { name: "Save your new recovery codes" })).toHaveTextContent("gggg-hhhh");
   });
 
+  it("lets the app's setup be closed while its key is still coming, before any code is sent (CodeRabbit on #83)", async () => {
+    page();
+    const base = globalThis.fetch;
+    vi.stubGlobal("fetch", (request: Request) =>
+      new URL(request.url).pathname === "/api/auth/totp/setup" ? new Promise<Response>(() => undefined) : base(request),
+    );
+    renderApp({ path: "/account", session: me });
+    await userEvent.click(await within(await card("Authenticator app")).findByRole("button", { name: "Set up" }));
+    const setting = await screen.findByRole("dialog", { name: "Set up an authenticator app" });
+    expect(within(setting).getByRole("button", { name: "Cancel" })).toBeEnabled();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+  });
+
   it("holds the app's setup open while its code is checked", async () => {
     let release: () => void = () => undefined;
     page({ "POST /api/auth/totp/setup": { status: 200, body: { secret: "S", otpauth_uri: "otpauth://totp/x?secret=S" } } });

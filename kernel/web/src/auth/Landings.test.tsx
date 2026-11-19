@@ -1,8 +1,9 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderApp, testUser } from "../../testing";
+import { SESSION_KEY, type SessionUser } from "../session/session";
 import { problem, routedFetch } from "../test-fetch";
 
 // The screens load lazily; import them once before the tests, so none waits on a first import.
@@ -50,6 +51,45 @@ describe("a landing from mail", () => {
       expect(paths.indexOf("GET /api/auth/session")).toBeGreaterThan(paths.indexOf(`POST ${landing.api}`));
       unmount();
     }
+  });
+
+  it("reads the session fresh after a confirmation, not by joining an older read on its way (CodeRabbit on #83)", async () => {
+    let reads = 0;
+    let lateRead: () => void = () => undefined;
+    routedFetch({ "POST /api/auth/verify-email": { status: 200, body: { status: "verified" } } });
+    const base = globalThis.fetch;
+    vi.stubGlobal("fetch", (request: Request) => {
+      if (new URL(request.url).pathname !== "/api/auth/session") return base(request);
+      reads += 1;
+      const answer = (verified: boolean) =>
+        new Response(JSON.stringify({ user: testUser({ verified }) }), { status: 200, headers: { "content-type": "application/json" } });
+      if (reads === 1) {
+        return new Promise<Response>((resolve) => {
+          lateRead = () => {
+            resolve(answer(false));
+          };
+        });
+      }
+      return Promise.resolve(answer(true));
+    });
+    const { queryClient } = renderApp({ path: "/auth/verify?token=t", session: testUser({ verified: false }) });
+    void queryClient.refetchQueries({ queryKey: SESSION_KEY }); // a read on its way, from before the confirmation
+    await userEvent.click(await screen.findByRole("button", { name: "Confirm my email" }));
+    await screen.findByRole("heading", { level: 1, name: "Email confirmed" });
+    lateRead();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(queryClient.getQueryData<SessionUser>(SESSION_KEY)?.verified).toBe(true);
+  });
+
+  it("marks the session to be read again when the re-read after a confirmation fails", async () => {
+    routedFetch({
+      "POST /api/auth/verify-email": { status: 200, body: { status: "verified" } },
+      "GET /api/auth/session": problem(503, "kernel.busy"),
+    });
+    const { queryClient } = renderApp({ path: "/auth/verify?token=t", session: testUser({ verified: false }) });
+    await userEvent.click(await screen.findByRole("button", { name: "Confirm my email" }));
+    await screen.findByRole("heading", { level: 1, name: "Email confirmed" });
+    expect(queryClient.getQueryState(SESSION_KEY)?.isInvalidated).toBe(true);
   });
 
   it("says a used or old link", async () => {

@@ -86,6 +86,18 @@ export async function recheckSession(queryClient: QueryClient): Promise<void> {
   if (user === null) forget(queryClient);
 }
 
+/**
+ * Reads the session fresh after a success that changed the account (a
+ * confirmed address, an undo from mail): a read already on its way began
+ * before it and would bring back what was, so it's stopped, not joined
+ * (CodeRabbit on #83). Gone, what was the person's is forgotten; a read that
+ * fails leaves the session marked to be read again.
+ */
+export async function refreshSession(queryClient: QueryClient): Promise<void> {
+  await queryClient.cancelQueries({ queryKey: SESSION_KEY });
+  await recheckSession(queryClient);
+}
+
 /** Tells the client what to do when a call finds the session gone. */
 export function SessionHandlers({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();

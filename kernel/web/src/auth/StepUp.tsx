@@ -196,7 +196,7 @@ export function StepUpDialog({ onDone }: { onDone: (confirmed: boolean) => void 
               {error}
             </p>
           ) : null}
-          {hasPassword && hasTotp ? (
+          {ready && hasPassword && hasTotp ? (
             <button
               type="button"
               className="mf-text-link mf-step-up-switch"

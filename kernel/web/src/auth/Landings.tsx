@@ -14,7 +14,7 @@ import { Link, Navigate, useNavigate } from "react-router";
 import { ApiProblem, api, useApiQuery } from "../api/client";
 import { useTitle } from "../app/pages/KernelPages";
 import { Seo } from "../seo/Seo";
-import { recheckSession, useSession, type SessionUser } from "../session/session";
+import { refreshSession, useSession, type SessionUser } from "../session/session";
 import { Button } from "../ui/Button";
 import { Field, Input } from "../ui/Field";
 import { AuthPanel, FormError } from "./AuthFrame";
@@ -60,7 +60,7 @@ function Landing({ page, title, lead, action, run, done, refused, note }: Landin
         await run(token);
         // Success changed the account (confirmed, changed, ended its sessions) and no
         // 401 will say so: read it again (Codex and CodeRabbit on #83).
-        await recheckSession(queryClient);
+        await refreshSession(queryClient);
         setFinished(true);
       } catch (caught) {
         if (!(caught instanceof ApiProblem)) throw caught;
@@ -154,7 +154,7 @@ export function ResetPassword() {
       try {
         await api.POST("/api/auth/password/reset", { body: { token, password } });
         // Every session ended, this one too, and the answer was a success (Codex on #83).
-        await recheckSession(queryClient);
+        await refreshSession(queryClient);
         setFinished(true);
       } catch (caught) {
         if (!(caught instanceof ApiProblem)) throw caught;

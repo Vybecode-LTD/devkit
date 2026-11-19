@@ -299,6 +299,9 @@ function SetUp({ onClose }: { onClose: () => void }) {
   const [codes, setCodes] = useState<string[] | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  // Held open only while the code is checked: its answer is the recovery codes, shown once.
+  // While the key is still coming, the person may close it (CodeRabbit on #83).
+  const [confirming, setConfirming] = useState(false);
   // Once, even where StrictMode runs effects twice: a second setup would replace the first key.
   const asked = useRef(false);
   const start = useRef({ run, onClose });
@@ -330,6 +333,7 @@ function SetUp({ onClose }: { onClose: () => void }) {
       setError("Enter the 6 digits your app shows.");
       return;
     }
+    setConfirming(true);
     void run(
       async () => {
         const { data } = await api.POST("/api/auth/totp/confirm", { body: { code: typed } });
@@ -344,12 +348,13 @@ function SetUp({ onClose }: { onClose: () => void }) {
         },
       },
     ).then((result) => {
+      setConfirming(false);
       setError(result.error);
     });
   };
 
   return (
-    <Dialog title={codes ? "Save your recovery codes" : "Set up an authenticator app"} onClose={busy ? held : onClose} wide>
+    <Dialog title={codes ? "Save your recovery codes" : "Set up an authenticator app"} onClose={confirming ? held : onClose} wide>
       {codes ? (
         <>
           <p className="mf-dialog-lead">Each one works once, if you lose your phone. Keep them somewhere safe: they won&apos;t be shown again.</p>
@@ -390,7 +395,7 @@ function SetUp({ onClose }: { onClose: () => void }) {
             </p>
           ) : null}
           <div className="mf-dialog-actions">
-            <Button disabled={busy} onClick={onClose}>
+            <Button disabled={confirming} onClick={onClose}>
               Cancel
             </Button>
             {setup ? (
