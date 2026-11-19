@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderApp, testUser } from "../../testing";
 import { problem, routedFetch } from "../test-fetch";
@@ -35,6 +35,35 @@ describe("the notifications page", () => {
       expect(within(notice).getByRole("switch", { name: "By email" })).toHaveAttribute("aria-checked", "false");
     });
     expect(await sent.find((request) => request.method === "PUT")?.clone().json()).toEqual({ "blog.reply": { in_site: true, email: false } });
+  });
+
+  it("keeps a saved switch when an older read lands after the save (CodeRabbit on #83)", async () => {
+    const item = (email: boolean) => ({ key: "blog.reply", description: "Replies to your comments", default: "both", in_site: true, email });
+    let reads = 0;
+    let lateRead: () => void = () => undefined;
+    routedFetch({ "PUT /api/kernel/notifications/preferences": { status: 200, body: { items: [item(false)] } } });
+    const base = globalThis.fetch;
+    vi.stubGlobal("fetch", (request: Request) => {
+      if (request.method !== "GET" || new URL(request.url).pathname !== "/api/kernel/notifications/preferences") return base(request);
+      reads += 1;
+      const answer = new Response(JSON.stringify({ items: [item(true)] }), { status: 200, headers: { "content-type": "application/json" } });
+      if (reads === 1) return Promise.resolve(answer);
+      return new Promise<Response>((resolve) => {
+        lateRead = () => {
+          resolve(answer);
+        };
+      });
+    });
+    const { queryClient } = renderApp({ path: "/account/notifications", session: me });
+    const notice = await screen.findByRole("group", { name: "Replies to your comments" });
+    void queryClient.refetchQueries({ queryKey: ["get", "/api/kernel/notifications/preferences"] }); // a read on its way, from before the save
+    await userEvent.click(within(notice).getByRole("switch", { name: "By email" }));
+    await waitFor(() => {
+      expect(within(notice).getByRole("switch", { name: "By email" })).toHaveAttribute("aria-checked", "false");
+    });
+    lateRead();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(within(notice).getByRole("switch", { name: "By email" })).toHaveAttribute("aria-checked", "false");
   });
 
   it("says when nothing sends notices, and when the settings didn't load", async () => {

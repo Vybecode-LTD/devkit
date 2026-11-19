@@ -36,6 +36,23 @@ const landing: ModuleDefinition = defineModule({
 
 const staff = testUser({ roles: ["member", "admin"], second_factor: true, permissions: ["auth.user.manage"] });
 
+/** A member page always holding unsaved changes, asking with the kit's dialog. */
+function draftEditor(): ModuleDefinition {
+  function Draft() {
+    const guard = useUnsavedGuard(true, () => Promise.resolve(null));
+    return (
+      <>
+        <h1>Your draft</h1>
+        <UnsavedDialog guard={guard} what="This draft" />
+      </>
+    );
+  }
+  return defineModule({
+    id: "editor",
+    routes: { public: [], member: [{ path: "/draft", lazy: () => Promise.resolve({ default: Draft }) }], admin: [] },
+  });
+}
+
 function at(router: ReturnType<typeof renderApp>["router"]) {
   return router.state.location.pathname + router.state.location.search;
 }
@@ -557,6 +574,35 @@ describe("moving between pages", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Stay" }));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(at(router)).toBe("/draft");
+    expect(sent).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+  });
+
+  it("signs out once the person chooses to leave a page with unsaved changes (CodeRabbit on #83)", async () => {
+    const sent = vi.fn<(request: Request) => Promise<Response>>(() => Promise.resolve(new Response(null, { status: 204 })));
+    vi.stubGlobal("fetch", sent);
+    const { router } = renderApp({ path: "/draft", session: testUser(), modules: [draftEditor()] });
+    await screen.findByRole("heading", { name: "Your draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Leave without saving" }));
+    expect(await screen.findByRole("link", { name: "Sign in" })).toBeInTheDocument();
+    expect(at(router)).toBe("/");
+    expect(sent.mock.calls.map(([request]) => new URL(request.url).pathname)).toContain("/api/auth/sign-out");
+  });
+
+  it("forgets the sign-out once the person stays, so a later move home leaves them signed in", async () => {
+    const sent = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
+    vi.stubGlobal("fetch", sent);
+    const { router } = renderApp({ path: "/draft", session: testUser(), modules: [draftEditor()] });
+    await screen.findByRole("heading", { name: "Your draft" });
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Stay" }));
+    await userEvent.click(screen.getByRole("link", { name: "Test Site" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Leave without saving" }));
+    await waitFor(() => {
+      expect(at(router)).toBe("/");
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(sent).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });

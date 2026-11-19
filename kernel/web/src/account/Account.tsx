@@ -25,6 +25,7 @@ import { Card } from "../ui/Card";
 import { Dialog } from "../ui/Dialog";
 import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { Field, Input } from "../ui/Field";
+import { LoadError } from "../ui/LoadError";
 import { AccountPage, Row, Rows, useAction } from "./AccountPage";
 import { Devices } from "./Devices";
 import { Authenticator, Passkeys } from "./Factors";
@@ -97,7 +98,7 @@ function Password() {
   const [currentError, setCurrentError] = useState("");
   const [nextError, setNextError] = useState("");
   const [error, setError] = useState("");
-  const has = security.data?.password ?? true;
+  const has = security.data?.password;
 
   const close = () => {
     setOpen(false);
@@ -133,7 +134,10 @@ function Password() {
 
   return (
     <Card title="Password" description="At least 12 characters. A few random words work well.">
+      {security.error ? <LoadError what="Your password" error={security.error} onRetry={() => void security.refetch()} inline /> : null}
+      {/* Its action waits for the read: a failed one is never taken as a password (CodeRabbit on #83). */}
       <Rows label="Your password">
+        {has === undefined ? null : (
         <Row
           name="Password"
           meta={has ? "Used with your email to sign in." : "None yet: a reset link sets one."}
@@ -151,6 +155,7 @@ function Password() {
             )
           }
         />
+        )}
       </Rows>
       {open ? (
         <Dialog title="Change your password" onClose={close}>

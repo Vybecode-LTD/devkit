@@ -30,6 +30,11 @@ const AFTER_FACTOR = [PASSKEYS, SECURITY, SESSION_KEY, DEVICES];
 
 const UNVERIFIED = "Confirm your email first: open the link we sent you.";
 
+/** A dialog's close while what it asked for is on its way: it stays. */
+function held(): void {
+  // Nothing: Escape and Cancel wait for the answer.
+}
+
 function NameDialog({
   title,
   lead,
@@ -108,7 +113,9 @@ function Confirm({
   onClose: () => void;
 }) {
   return (
-    <Dialog title={title} onClose={onClose}>
+    // Held open while its change is on its way: closed then, what it gives back
+    // (new recovery codes) would be lost (CodeRabbit on #83).
+    <Dialog title={title} onClose={busy ? held : onClose}>
       <p className="mf-dialog-lead">{lead}</p>
       {error ? (
         <p className="mf-dialog-error" role="alert">
@@ -116,7 +123,9 @@ function Confirm({
         </p>
       ) : null}
       <div className="mf-dialog-actions">
-        <Button onClick={onClose}>Cancel</Button>
+        <Button disabled={busy} onClick={onClose}>
+          Cancel
+        </Button>
         <Button variant="primary" disabled={busy} onClick={onConfirm}>
           {action}
         </Button>
@@ -340,7 +349,7 @@ function SetUp({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Dialog title={codes ? "Save your recovery codes" : "Set up an authenticator app"} onClose={onClose} wide>
+    <Dialog title={codes ? "Save your recovery codes" : "Set up an authenticator app"} onClose={busy ? held : onClose} wide>
       {codes ? (
         <>
           <p className="mf-dialog-lead">Each one works once, if you lose your phone. Keep them somewhere safe: they won&apos;t be shown again.</p>
@@ -367,7 +376,6 @@ function SetUp({ onClose }: { onClose: () => void }) {
                 <Input
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  maxLength={6}
                   value={code}
                   onChange={(event) => {
                     setCode(event.target.value);
@@ -382,7 +390,9 @@ function SetUp({ onClose }: { onClose: () => void }) {
             </p>
           ) : null}
           <div className="mf-dialog-actions">
-            <Button onClick={onClose}>Cancel</Button>
+            <Button disabled={busy} onClick={onClose}>
+              Cancel
+            </Button>
             {setup ? (
               <Button type="submit" variant="primary" disabled={busy}>
                 Turn it on

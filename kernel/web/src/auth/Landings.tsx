@@ -9,7 +9,7 @@
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type SubmitEvent, type ReactNode } from "react";
-import { Link, Navigate } from "react-router";
+import { Link, Navigate, useNavigate } from "react-router";
 
 import { ApiProblem, api, useApiQuery } from "../api/client";
 import { useTitle } from "../app/pages/KernelPages";
@@ -37,12 +37,10 @@ type LandingProps = {
   done: { title: string; lead: ReactNode; next?: ReactNode };
   /** The page's own words for its refusals. */
   refused: Readonly<Record<string, string>>;
-  /** Whether success ends every session, this browser's among them: the page then shows it signed out too. */
-  endsSessions?: boolean;
   note?: ReactNode;
 };
 
-function Landing({ page, title, lead, action, run, done, refused, endsSessions = false, note }: LandingProps) {
+function Landing({ page, title, lead, action, run, done, refused, note }: LandingProps) {
   const token = useAddressToken();
   const queryClient = useQueryClient();
   const [finished, setFinished] = useState(false);
@@ -60,8 +58,9 @@ function Landing({ page, title, lead, action, run, done, refused, endsSessions =
     void (async () => {
       try {
         await run(token);
-        // The server answered success and ended this session too: no 401 will say so (Codex on #83).
-        if (endsSessions) await recheckSession(queryClient);
+        // Success changed the account (confirmed, changed, ended its sessions) and no
+        // 401 will say so: read it again (Codex and CodeRabbit on #83).
+        await recheckSession(queryClient);
         setFinished(true);
       } catch (caught) {
         if (!(caught instanceof ApiProblem)) throw caught;
@@ -230,7 +229,6 @@ export function UndoEmailChange() {
       lead={`Your account's email was changed. If it wasn't you, put your old address back. ${SIGNED_OUT_EVERYWHERE.replace("is signed out", "will be signed out")}`}
       action="Put my old email back"
       run={(token) => api.POST("/api/auth/email/undo", { body: { token } })}
-      endsSessions
       done={{
         title: "Old email back",
         lead: `${SIGNED_OUT_EVERYWHERE} Sign in, then change your password if someone else may know it.`,
@@ -249,7 +247,6 @@ export function UndoSecondFactor() {
       lead="A passkey or an authenticator app was added to your account. If you didn't add it, remove it here. Every device signed in to your account will be signed out."
       action="Remove it"
       run={(token) => api.POST("/api/auth/second-factor/undo", { body: { token } })}
-      endsSessions
       done={{
         title: "Removed",
         lead: `${SIGNED_OUT_EVERYWHERE} Sign in, then change your password if someone else may know it.`,
@@ -269,6 +266,7 @@ export function SignInByLink() {
   const [arrived, setArrived] = useState(false);
   const [error, setError] = useState(token ? "" : NO_TOKEN);
   const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
   const heading = useTitle("Sign in with a link");
 
   // Signed in by this link: home. Someone already signed in may still use a link for another account.
@@ -311,6 +309,9 @@ export function SignInByLink() {
           onSignedIn={signedIn}
           onEnded={() => {
             setEnded(true);
+          }}
+          onBack={() => {
+            void navigate("/sign-in");
           }}
         />
       ) : (

@@ -5,7 +5,9 @@
  * last seen, a sign-out for each, and "Sign out everywhere else". None asks
  * for a recent sign-in: ending a session only ever takes access away.
  */
-import { api, useApiQuery } from "../api/client";
+import { useInfiniteQuery } from "@tanstack/react-query";
+
+import { ApiProblem, api } from "../api/client";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { LoadError } from "../ui/LoadError";
@@ -15,9 +17,19 @@ import { Day, Row, Rows, useAction } from "./AccountPage";
 const DEVICES = ["get", "/api/auth/sessions"] as const;
 
 export function Devices() {
-  const list = useApiQuery("get", "/api/auth/sessions");
+  // In pages, as every list (SPEC 7): the first one holds the latest seen.
+  const list = useInfiniteQuery({
+    queryKey: ["get", "/api/auth/sessions", "pages"],
+    initialPageParam: "",
+    queryFn: async ({ pageParam }) => {
+      const { data } = await api.GET("/api/auth/sessions", { params: { query: pageParam ? { cursor: pageParam } : {} } });
+      if (!data) throw ApiProblem.unreachable();
+      return data;
+    },
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+  });
   const { busy, run } = useAction();
-  const items = list.data?.items ?? [];
+  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
   const mine = items.find((item) => item.current);
   const others = items.filter((item) => !item.current);
 
@@ -75,6 +87,11 @@ export function Devices() {
           />
         ))}
       </Rows>
+      {list.hasNextPage ? (
+        <Button disabled={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+          Show more devices
+        </Button>
+      ) : null}
     </Card>
   );
 }

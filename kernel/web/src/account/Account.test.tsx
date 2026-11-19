@@ -91,6 +91,7 @@ describe("a card whose read failed", () => {
       ["Passkeys", "Your passkeys couldn't be loaded."],
       ["Authenticator app", "Your authenticator app couldn't be loaded."],
       ["Signed-in devices", "Your signed-in devices couldn't be loaded."],
+      ["Password", "Your password couldn't be loaded."],
     ] as const) {
       const shown = within(await card(name));
       expect(await shown.findByText(what)).toBeInTheDocument();
@@ -98,6 +99,7 @@ describe("a card whose read failed", () => {
     }
     expect(screen.queryByText("No passkeys yet")).toBeNull();
     expect(screen.queryByRole("button", { name: "Set up" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Change password" })).toBeNull(); // nor a form for a password it may not have (CodeRabbit on #83)
   });
 });
 
@@ -262,6 +264,57 @@ describe("the authenticator app", () => {
   });
 });
 
+describe("a dialog issuing codes", () => {
+  it("can't be closed while new recovery codes are on their way, so none is lost (CodeRabbit on #83)", async () => {
+    let release: () => void = () => undefined;
+    page({ "GET /api/auth/security": security({ totp: { since: DAY }, recovery_codes_left: 3 }) });
+    const base = globalThis.fetch;
+    vi.stubGlobal("fetch", (request: Request) =>
+      new URL(request.url).pathname === "/api/auth/recovery-codes"
+        ? new Promise<Response>((resolve) => {
+            release = () => {
+              resolve(new Response(JSON.stringify({ recovery_codes: ["gggg-hhhh"] }), { status: 200, headers: { "content-type": "application/json" } }));
+            };
+          })
+        : base(request),
+    );
+    renderApp({ path: "/account", session: me });
+    await userEvent.click(await within(await card("Authenticator app")).findByRole("button", { name: "Make new codes" }));
+    const asking = await screen.findByRole("dialog", { name: "Make new recovery codes?" });
+    await userEvent.click(within(asking).getByRole("button", { name: "Make new codes" }));
+    expect(within(asking).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Make new recovery codes?" })).toBeInTheDocument();
+    release();
+    expect(await screen.findByRole("dialog", { name: "Save your new recovery codes" })).toHaveTextContent("gggg-hhhh");
+  });
+
+  it("holds the app's setup open while its code is checked", async () => {
+    let release: () => void = () => undefined;
+    page({ "POST /api/auth/totp/setup": { status: 200, body: { secret: "S", otpauth_uri: "otpauth://totp/x?secret=S" } } });
+    const base = globalThis.fetch;
+    vi.stubGlobal("fetch", (request: Request) =>
+      new URL(request.url).pathname === "/api/auth/totp/confirm"
+        ? new Promise<Response>((resolve) => {
+            release = () => {
+              resolve(new Response(JSON.stringify({ recovery_codes: ["iiii-jjjj"] }), { status: 200, headers: { "content-type": "application/json" } }));
+            };
+          })
+        : base(request),
+    );
+    renderApp({ path: "/account", session: me });
+    await userEvent.click(await within(await card("Authenticator app")).findByRole("button", { name: "Set up" }));
+    const setting = await screen.findByRole("dialog", { name: "Set up an authenticator app" });
+    await userEvent.type(await within(setting).findByLabelText("Code from your app"), "123456");
+    await userEvent.click(within(setting).getByRole("button", { name: "Turn it on" }));
+    expect(within(setting).getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Set up an authenticator app" })).toBeInTheDocument();
+    release();
+    expect(await screen.findByRole("dialog", { name: "Save your recovery codes" })).toHaveTextContent("iiii-jjjj");
+  });
+});
+
 describe("the password", () => {
   it("is changed with the current one, each refusal on its field", async () => {
     let tries = 0;
@@ -356,6 +409,28 @@ describe("the signed-in devices", () => {
       "/api/auth/sessions/s-2",
       "/api/auth/sessions/sign-out-others",
     ]);
+  });
+
+  it("come in pages, the next shown on asking (SPEC 7; CodeRabbit on #83)", async () => {
+    const { sent } = page({
+      "GET /api/auth/sessions": (request) =>
+        new URL(request.url).searchParams.get("cursor") === "c-1"
+          ? {
+              status: 200,
+              body: {
+                items: [{ id: "s-3", device_label: "Firefox on Linux", location: null, started_at: DAY, last_seen_at: DAY, current: false }],
+                next_cursor: null,
+              },
+            }
+          : { status: 200, body: { ...devices.body, next_cursor: "c-1" } },
+    });
+    renderApp({ path: "/account", session: me });
+    const list = within(await card("Signed-in devices"));
+    await userEvent.click(await list.findByRole("button", { name: "Show more devices" }));
+    expect(await list.findByText("Firefox on Linux")).toBeInTheDocument();
+    expect(list.getByText("Safari on iPhone")).toBeInTheDocument();
+    expect(list.queryByRole("button", { name: "Show more devices" })).toBeNull();
+    expect(sent.some((request) => new URL(request.url).searchParams.get("cursor") === "c-1")).toBe(true);
   });
 
   it("say a refusal as a note", async () => {

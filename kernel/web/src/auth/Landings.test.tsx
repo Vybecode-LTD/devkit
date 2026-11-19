@@ -37,6 +37,21 @@ describe("a landing from mail", () => {
     });
   }
 
+  it("reads the session again after a confirmation, so the account shows it as it is now (CodeRabbit on #83)", async () => {
+    for (const landing of LANDINGS.slice(0, 2)) {
+      const { sent } = routedFetch({
+        [`POST ${landing.api}`]: { status: 200, body: { status: "done" } },
+        "GET /api/auth/session": { status: 200, body: { user: testUser({ verified: true }) } },
+      });
+      const { unmount } = renderApp({ path: `${landing.path}?token=t`, session: testUser({ verified: false }) });
+      await userEvent.click(await screen.findByRole("button", { name: landing.button }));
+      await screen.findByRole("heading", { level: 1, name: landing.done });
+      const paths = sent.map((request) => `${request.method} ${new URL(request.url).pathname}`);
+      expect(paths.indexOf("GET /api/auth/session")).toBeGreaterThan(paths.indexOf(`POST ${landing.api}`));
+      unmount();
+    }
+  });
+
   it("says a used or old link", async () => {
     routedFetch({ "POST /api/auth/verify-email": problem(400, "auth.token_invalid") });
     renderApp({ path: "/auth/verify?token=old" });

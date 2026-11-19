@@ -10,7 +10,7 @@
  * answer would otherwise land on top (CodeRabbit on #79). `staff` is any role
  * but `member`.
  */
-import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, type Query, type QueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, type ReactNode } from "react";
 
 import { ApiProblem, api, setApiHandlers } from "../api/client";
@@ -44,17 +44,29 @@ async function readSession(): Promise<SessionUser | null> {
 /** How the session is read and kept. */
 const SESSION = { queryKey: SESSION_KEY, queryFn: readSession, staleTime: 60_000 };
 
-/** Shows `user` signed in (a sign-in's answer), or signed out with `null`. */
+/** An answer that was the signed-in person's own: everything but who's signed in and what the site is. */
+function personal(query: Query): boolean {
+  return !KEPT.has(query.queryKey.slice(0, 2).map(String).join(":"));
+}
+
+/**
+ * Shows `user` signed in (a sign-in's answer), or signed out with `null`.
+ * Another account than the one shown first forgets the last one's answers,
+ * those on their way too, so the new one never sees them (CodeRabbit on #83).
+ */
 export async function setSessionUser(queryClient: QueryClient, user: SessionUser | null): Promise<void> {
   await queryClient.cancelQueries({ queryKey: SESSION_KEY });
+  const before = queryClient.getQueryData<SessionUser | null>(SESSION_KEY);
+  if ((before?.id ?? null) !== (user?.id ?? null)) {
+    await queryClient.cancelQueries({ predicate: personal });
+    queryClient.removeQueries({ predicate: personal });
+  }
   queryClient.setQueryData(SESSION_KEY, user);
 }
 
 /** Forgets every answer that was the person's own, then shows them signed out. */
 function forget(queryClient: QueryClient): void {
-  queryClient.removeQueries({
-    predicate: (query) => !KEPT.has(query.queryKey.slice(0, 2).map(String).join(":")),
-  });
+  queryClient.removeQueries({ predicate: personal });
   queryClient.setQueryData(SESSION_KEY, null);
 }
 

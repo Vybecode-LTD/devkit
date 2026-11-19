@@ -103,6 +103,8 @@
     line-height: 0.9;
     letter-spacing: normal;
     text-transform: uppercase;
+    /* A word too long for a phone's line ("UNSUBSCRIBE" at 320 px) breaks, rather than the page scrolling sideways. */
+    overflow-wrap: anywhere;
   }
 
   .mf-auth-lead {

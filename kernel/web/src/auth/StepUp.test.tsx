@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -195,6 +195,60 @@ describe("the step-up dialog", () => {
       expect(outcomes).toEqual([{ value: "ok" }]);
     });
     expect(await sent.find((request) => request.url.endsWith("/api/auth/step-up"))?.clone().json()).toMatchObject({ passkey: { id: "k" } });
+  });
+
+  it("lets a closed dialog's late answer leave the next one alone (CodeRabbit on #83)", async () => {
+    routedFetch(guarded().answers);
+    const base = globalThis.fetch;
+    let release: () => void = () => undefined;
+    vi.stubGlobal("fetch", (request: Request) =>
+      new URL(request.url).pathname === "/api/auth/step-up"
+        ? new Promise<Response>((resolve) => {
+            release = () => {
+              resolve(new Response(JSON.stringify({ status: "recent" }), { status: 200, headers: { "content-type": "application/json" } }));
+            };
+          })
+        : base(request),
+    );
+    const outcomes: Outcome[] = [];
+    renderWithKernel(writer(outcomes), { session: testUser() });
+    await userEvent.click(screen.getByRole("button", { name: "Write" }));
+    await userEvent.type(await screen.findByLabelText("Password"), "quiet orbit lantern");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" })); // while its confirmation is on its way
+    await waitFor(() => {
+      expect(outcomes).toHaveLength(1);
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Write" }));
+    expect(await screen.findByRole("dialog", { name: "Confirm it's you" })).toBeInTheDocument();
+    release(); // the first dialog's confirmation lands now
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole("dialog", { name: "Confirm it's you" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => {
+      expect(outcomes).toHaveLength(2); // the second write was answered too, not left waiting
+    });
+  });
+
+  it("says when it can't read the account's ways in, with Try again, and asks for nothing meanwhile (CodeRabbit on #83)", async () => {
+    let tries = 0;
+    routedFetch({
+      ...guarded().answers,
+      "GET /api/auth/security": () => {
+        tries += 1;
+        return tries === 1
+          ? problem(500, "kernel.unexpected")
+          : { status: 200, body: { password: false, totp: { since: "2026-11-01T00:00:00Z" }, recovery_codes_left: 9 } };
+      },
+    });
+    renderWithKernel(writer([]), { session: testUser() });
+    await userEvent.click(screen.getByRole("button", { name: "Write" }));
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(await within(dialog).findByText("Your ways to confirm it's you couldn't be loaded.")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Password")).toBeNull();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Try again" }));
+    expect(await within(dialog).findByLabelText("Code from your app")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Password")).toBeNull();
   });
 
   it("draws in the frame's look it opened over", async () => {

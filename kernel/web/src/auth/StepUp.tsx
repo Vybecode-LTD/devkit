@@ -21,6 +21,7 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Field, Input } from "../ui/Field";
 import { Icon } from "../ui/Icon";
+import { LoadError } from "../ui/LoadError";
 import { PasskeyCancelled, getPasskey, passkeysWork } from "./passkey";
 import { said } from "./words";
 
@@ -38,16 +39,24 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setApiHandlers({
       stepUp: () => {
-        open.current ??= new Promise<boolean>((resolve) => {
-          setAsking({
-            answer: (confirmed) => {
-              open.current = null;
-              setAsking(null);
-              resolve(confirmed);
-            },
-          });
+        if (open.current) return open.current;
+        let settle: (confirmed: boolean) => void = () => undefined;
+        const asked = new Promise<boolean>((resolve) => {
+          settle = resolve;
         });
-        return open.current;
+        // Each dialog answers for itself alone: one closed while its confirmation
+        // was on its way may hear back after the next has opened (CodeRabbit on #83).
+        const mine: Asking = {
+          answer: (confirmed) => {
+            if (open.current !== asked) return;
+            open.current = null;
+            setAsking((current) => (current === mine ? null : current));
+            settle(confirmed);
+          },
+        };
+        open.current = asked;
+        setAsking(mine);
+        return asked;
       },
     });
     return () => {
@@ -79,10 +88,14 @@ export function StepUpDialog({ onDone }: { onDone: (confirmed: boolean) => void 
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const hasPassword = security.data?.password ?? true;
+  // Nothing is offered until both reads are in, and a read that failed is said
+  // with Try again, never taken as the account's having no such way (CodeRabbit on #83).
+  const failed = security.error ?? passkeys.error;
+  const ready = security.data !== undefined && passkeys.data !== undefined;
+  const hasPassword = security.data?.password ?? false;
   const hasTotp = Boolean(security.data?.totp);
-  const way = chosen === "totp" && hasTotp ? "totp" : hasPassword ? "password" : hasTotp ? "totp" : "none";
-  const byPasskey = passkeysWork() && (passkeys.data?.items.length ?? 0) > 0;
+  const way = !ready ? "none" : chosen === "totp" && hasTotp ? "totp" : hasPassword ? "password" : hasTotp ? "totp" : "none";
+  const byPasskey = ready && passkeysWork() && passkeys.data.items.length > 0;
 
   const step = async (work: () => Promise<unknown>) => {
     setBusy(true);
@@ -137,6 +150,17 @@ export function StepUpDialog({ onDone }: { onDone: (confirmed: boolean) => void 
     >
       <div className={`${look} mf-step-up`}>
         <p className="mf-dialog-lead">It&apos;s been more than 10 minutes since you signed in. Confirm it&apos;s you to go on.</p>
+        {failed ? (
+          <LoadError
+            what="Your ways to confirm it's you"
+            error={failed}
+            inline
+            onRetry={() => {
+              void security.refetch();
+              void passkeys.refetch();
+            }}
+          />
+        ) : null}
         {byPasskey ? (
           <Button variant="strong" disabled={busy} onClick={() => void withPasskey()}>
             <Icon name="key" />
@@ -160,7 +184,6 @@ export function StepUpDialog({ onDone }: { onDone: (confirmed: boolean) => void 
               <Input
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                maxLength={6}
                 value={code}
                 onChange={(event) => {
                   setCode(event.target.value);

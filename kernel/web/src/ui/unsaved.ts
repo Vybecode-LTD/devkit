@@ -9,12 +9,24 @@
  *   and only then: a page that asks needlessly teaches people to ignore it.
  *
  * `useLeaveGuard` is the blocker alone, for an editor that asks its own way;
- * `useUnsavedGuard` adds the question `UnsavedDialog` asks.
+ * `useUnsavedGuard` adds the question `UnsavedDialog` asks. Either one's
+ * `stay` keeps the person where they are and tells `onStay`'s listeners, so
+ * whatever started the move it held (the frame's Sign out) lets it go.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useBlocker, type Blocker, type BlockerFunction } from "react-router";
 
-export function useLeaveGuard(dirty: boolean): { blocker: Blocker; release: () => void } {
+const stayListeners = new Set<() => void>();
+
+/** Hears each time a person answers a held move with "stay"; gives the way to stop. */
+export function onStay(listener: () => void): () => void {
+  stayListeners.add(listener);
+  return () => {
+    stayListeners.delete(listener);
+  };
+}
+
+export function useLeaveGuard(dirty: boolean): { blocker: Blocker; release: () => void; stay: () => void } {
   // Read at the moment of a move, not at the last render: `release` must hold
   // for a move made in the same breath as the save it follows.
   const armed = useRef(dirty);
@@ -43,7 +55,12 @@ export function useLeaveGuard(dirty: boolean): { blocker: Blocker; release: () =
   const release = useCallback(() => {
     armed.current = false;
   }, []);
-  return { blocker, release };
+  /** Keeps the person here: the held move is dropped, and whoever started it is told. */
+  const stay = useCallback(() => {
+    blocker.reset?.();
+    for (const listener of [...stayListeners]) listener();
+  }, [blocker]);
+  return { blocker, release, stay };
 }
 
 export type UnsavedGuard = {
@@ -66,7 +83,7 @@ export type UnsavedGuard = {
  * its own, so the leave goes where it was going.
  */
 export function useUnsavedGuard(dirty: boolean, save: () => Promise<string | null>): UnsavedGuard {
-  const { blocker, release } = useLeaveGuard(dirty);
+  const { blocker, release, stay: keep } = useLeaveGuard(dirty);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const busy = useRef(false);
@@ -106,8 +123,8 @@ export function useUnsavedGuard(dirty: boolean, save: () => Promise<string | nul
   const stay = useCallback(() => {
     turn.current += 1;
     setError("");
-    blocker.reset?.();
-  }, [blocker]);
+    keep();
+  }, [keep]);
 
   return { asking: blocker.state === "blocked", saving, error, saveAndLeave, leave, stay, release };
 }

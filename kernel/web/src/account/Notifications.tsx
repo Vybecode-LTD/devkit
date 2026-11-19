@@ -60,7 +60,10 @@ export default function Notifications() {
     void run(
       async () => {
         const { data } = await api.PUT("/api/kernel/notifications/preferences", { body: { [key]: choice } });
-        if (data) queryClient.setQueryData(PREFERENCES, data);
+        if (!data) return;
+        // A read on its way from before the save would land over it (CodeRabbit on #83).
+        await queryClient.cancelQueries({ queryKey: PREFERENCES });
+        queryClient.setQueryData(PREFERENCES, data);
       },
       { done: "Saved." },
       true,

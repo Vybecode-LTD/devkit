@@ -373,6 +373,19 @@ async function theme(page: Page, name: string, canvas: string): Promise<void> {
 }
 
 for (const [name, canvas] of Object.entries(THEMES)) {
+  test(`no sign-in page scrolls sideways at 320 px in ${name}, its title's longest word included (CodeRabbit on #83)`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    for (const path of ["/sign-in", "/sign-up", "/forgot-password", "/notifications/unsubscribe?token=x", "/auth/second-factor/undo?token=x"]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await theme(page, name, canvas);
+      const wide = await page.evaluate(() => document.documentElement.scrollWidth);
+      expect(wide, path).toBeLessThanOrEqual(320);
+    }
+  });
+}
+
+for (const [name, canvas] of Object.entries(THEMES)) {
   test(`axe finds no serious or critical problem on the account's pages in ${name}, a dialog open or shut`, async ({ page }) => {
     const user = await makeUser(page.request, "axe", { totp: true });
     await signInWithPassword(page, user.email);

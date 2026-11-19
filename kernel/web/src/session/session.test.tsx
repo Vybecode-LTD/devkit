@@ -165,6 +165,22 @@ describe("useSession", () => {
   });
 });
 
+describe("setSessionUser", () => {
+  it("forgets the last account's own answers when another signs in, and keeps them for the same one (CodeRabbit on #83)", async () => {
+    const queryClient = new QueryClient();
+    const ann = { id: "a", email: "ann@site.test", roles: ["member"], permissions: [], verified: true, second_factor: false };
+    queryClient.setQueryData(SESSION_KEY, ann);
+    queryClient.setQueryData(["get", "/api/auth/activity", "pages"], { pages: [{ items: ["ann's"] }] });
+    queryClient.setQueryData(["get", "/api/kernel/site"], { name: "Site" });
+    await setSessionUser(queryClient, { ...ann });
+    expect(queryClient.getQueryData(["get", "/api/auth/activity", "pages"])).toBeDefined(); // the same account
+    await setSessionUser(queryClient, { ...ann, id: "b", email: "bo@site.test" });
+    expect(queryClient.getQueryData(["get", "/api/auth/activity", "pages"])).toBeUndefined();
+    expect(queryClient.getQueryData(["get", "/api/kernel/site"])).toEqual({ name: "Site" });
+    expect(queryClient.getQueryData<SessionUser>(SESSION_KEY)?.id).toBe("b");
+  });
+});
+
 describe("useSignOut", () => {
   it("signs out on the server, then shows the person signed out", async () => {
     const { sent } = routedFetch({

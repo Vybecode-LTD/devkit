@@ -105,6 +105,10 @@ export default function SignIn() {
             setNotice("That sign-in ran out, or had too many tries. Start again.");
             goTo({ at: "start" });
           }}
+          onBack={() => {
+            setNotice("");
+            goTo({ at: "start" });
+          }}
         />
       )}
     </>
@@ -290,7 +294,6 @@ function CodeStep({ email, onAnswer, onBack }: { email: string; onAnswer: (answe
             name="code"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
             placeholder="000000"
             value={code}
             onChange={(event) => {
@@ -305,7 +308,7 @@ function CodeStep({ email, onAnswer, onBack }: { email: string; onAnswer: (answe
       </form>
       <p className="mf-auth-note">
         No email? Check spam. A new code can be sent after a minute.{" "}
-        <button type="button" className="mf-text-link" onClick={onBack}>
+        <button type="button" className="mf-text-link" disabled={busy} onClick={onBack}>
           Back to sign in
         </button>
       </p>
@@ -339,11 +342,14 @@ export function SecondStep({
   methods,
   onSignedIn,
   onEnded,
+  onBack,
 }: {
   challenge: string;
   methods: readonly Method[];
   onSignedIn: (user: SessionUser) => Promise<void>;
   onEnded: () => void;
+  /** Back to the start, when this browser can't use any of the account's second steps. */
+  onBack: () => void;
 }) {
   const [code, setCode] = useState("");
   const [recovery, setRecovery] = useState("");
@@ -418,6 +424,22 @@ export function SecondStep({
     </form>
   );
 
+  // A passkey-only account in a browser with no passkeys: nothing here can finish it (CodeRabbit on #83).
+  if (!byPasskey && !byTotp && !byRecovery) {
+    return (
+      <AuthPanel
+        title="One more step"
+        lead="Your account's second step is a passkey, and this browser can't use one. Sign in on a device that can, or try another browser."
+        step="second"
+        focus
+      >
+        <Button size="large" onClick={onBack}>
+          Back to sign in
+        </Button>
+      </AuthPanel>
+    );
+  }
+
   return (
     <AuthPanel title="One more step" lead={secondLead(methods, passkeys)} step="second" focus>
       {byPasskey ? (
@@ -436,7 +458,6 @@ export function SecondStep({
               name="totp"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
               placeholder="000000"
               value={code}
               onChange={(event) => {

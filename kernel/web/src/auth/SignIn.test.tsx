@@ -109,7 +109,7 @@ describe("the second step", () => {
       expect(heading).toHaveFocus();
     });
     expect(screen.getByText(/Enter the code from your authenticator app/)).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText("Code from your app"), "123456");
+    await userEvent.type(screen.getByLabelText("Code from your app"), "123 456"); // as an app shows it (CodeRabbit on #83)
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
     await waitFor(() => {
       expect(at(router)).toBe("/blog");
@@ -162,6 +162,18 @@ describe("the second step", () => {
     expect(sent.filter((request) => request.url.endsWith("/second-factor"))).toHaveLength(0);
   });
 
+  it("says so, and goes back, when this browser can't use the account's only second factor (CodeRabbit on #83)", async () => {
+    vi.stubGlobal("PublicKeyCredential", undefined);
+    routedFetch({ "POST /api/auth/sign-in": secondFactor(["passkey"]) });
+    renderApp({ path: "/sign-in" });
+    await typePassword();
+    expect(await screen.findByText(/second step is a passkey, and this browser can't use one/)).toBeInTheDocument();
+    expect(screen.queryByText(/recovery codes/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Back to sign in" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("offers only a recovery code to an account with nothing else", async () => {
     routedFetch({ "POST /api/auth/sign-in": secondFactor(["recovery_code"]) });
     renderApp({ path: "/sign-in" });
@@ -210,6 +222,30 @@ describe("signing in with an emailed code", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("That code is wrong, or it's run out.");
     await userEvent.click(screen.getByRole("button", { name: "Back to sign in" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
+  });
+
+  it("takes a code typed with a space, and holds Back while it's checked (CodeRabbit on #83)", async () => {
+    let answer: (value: Response) => void = () => undefined;
+    const { sent } = routedFetch({ "POST /api/auth/code": { status: 202, body: { status: "check_email" } } });
+    const fetch = globalThis.fetch;
+    vi.stubGlobal("fetch", (request: Request) =>
+      new URL(request.url).pathname === "/api/auth/code/verify"
+        ? (sent.push(request), new Promise<Response>((resolve) => (answer = resolve)))
+        : fetch(request),
+    );
+    renderApp({ path: "/sign-in" });
+    await userEvent.type(await screen.findByLabelText("Email"), "ann@mechframe.test");
+    await userEvent.click(screen.getByRole("button", { name: "Email me a code instead" }));
+    await userEvent.type(await screen.findByLabelText("Code"), "123 456");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Back to sign in" })).toBeDisabled();
+    });
+    expect(await sent.at(-1)?.clone().json()).toEqual({ email: "ann@mechframe.test", code: "123456" });
+    answer(new Response(JSON.stringify({ code: "auth.invalid_code", status: 401, title: "No", detail: "No.", type: "x" }), { status: 401, headers: { "content-type": "application/problem+json" } }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Back to sign in" })).toBeEnabled();
+    });
   });
 
   it("goes on to the second step when the account has one", async () => {

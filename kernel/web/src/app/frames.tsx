@@ -7,7 +7,7 @@
  * The site frame holds no heading or paragraph of its own, so a page's words
  * are the only ones the parity test compares with the server's copy.
  */
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
 import { useSession, useSignOut } from "../session/session";
@@ -17,6 +17,7 @@ import { useSite } from "../site/site";
 import { useKernelSetup } from "./context";
 import { RouteFocus } from "../ui/RouteFocus";
 import { ScrollMemory } from "../ui/ScrollMemory";
+import { onStay } from "../ui/unsaved";
 
 /** Every page: focus moved to its heading, scroll kept per page and landed on its place (`ScrollMemory`). */
 export function Root() {
@@ -45,9 +46,25 @@ function AccountLinks() {
   const { pathname } = useLocation();
   // Where the page is when the move home settles, not where it was at the click.
   const at = useRef(pathname);
+  // A Sign out whose move home a question about unsaved changes is holding:
+  // out once the move goes on and lands home; forgotten if they stay (CodeRabbit on #83).
+  const held = useRef(false);
   useLayoutEffect(() => {
     at.current = pathname;
+    if (held.current && pathname === "/") {
+      held.current = false;
+      signOut().catch((error: unknown) => {
+        console.error("Signing out failed.", error);
+      });
+    }
   });
+  useEffect(
+    () =>
+      onStay(() => {
+        held.current = false;
+      }),
+    [],
+  );
   if (session.status === "signed-out") return <Link to="/sign-in">Sign in</Link>;
   if (session.status !== "signed-in") return null;
   // Home first, then out: signed out on a member page, its guard sends the
@@ -59,7 +76,11 @@ function AccountLinks() {
   // old page, and Sign out went home without signing out (K4.5).
   const leave = () => {
     Promise.resolve(navigate("/", { flushSync: true }))
-      .then(() => (at.current === "/" ? signOut() : undefined))
+      .then(() => {
+        if (at.current === "/") return signOut();
+        held.current = true; // a question holds the move: out if it goes on, not if they stay
+        return undefined;
+      })
       .catch((error: unknown) => {
         console.error("Signing out failed.", error);
       });
