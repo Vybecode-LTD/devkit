@@ -1,7 +1,7 @@
 /**
  * The kit's icon set (K4 contract change 10): line icons on a 24px grid,
  * drawn in `currentColor`, from the Vibrant Mindz admin boards (VM Website
- * `design/generators/admin_kit.py`). `IconName` is one of these names; the
+ * `design/generators/admin_kit.py`) and its sign-in board. `IconName` is one of these names; the
  * slots' `icon` and `adminSections` take it.
  */
 import type { ReactNode } from "react";
@@ -151,6 +151,23 @@ export const ICONS = {
     2,
   ),
   shield: line(<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z" />),
+  // The sign-in board's (VM Website design/site/Auth.dc.html): a passkey, and an emailed code.
+  key: line(
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="M10.8 12.2L20 3M16 7l3 3M14 9l2 2" />
+    </>,
+    20,
+    1.9,
+  ),
+  mail: line(
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7l9 6 9-6" />
+    </>,
+    20,
+    1.9,
+  ),
 } as const satisfies Record<string, Drawn>;
 
 /** An icon's name: one of the kit's set. */

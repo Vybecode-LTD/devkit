@@ -16,8 +16,11 @@ const THEMES = {
 async function open(page: Page, theme: string, canvas: string): Promise<void> {
   await page.goto("/kit.html");
   await expect(page.getByRole("heading", { level: 1, name: "UI kit" })).toBeVisible();
-  await page.evaluate((name) => {
+  // The new theme's colours fade in where a part has a transition: measure once they've landed.
+  await page.evaluate(async (name) => {
     document.documentElement.dataset.theme = name;
+    document.body.getBoundingClientRect(); // styles worked out now, so their transitions have started
+    await Promise.all(document.getAnimations().map((animation) => animation.finished));
   }, theme);
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe(canvas);
 }
@@ -112,10 +115,27 @@ for (const [theme, canvas] of Object.entries(THEMES)) {
         });
         return [...boundaries, ...knobs];
       });
-      // A filled button, five fields, a pressed chip, two switches, and their knobs.
-      expect(measured).toHaveLength(11);
+      // Three filled buttons (the passkey's among them), six fields, a pressed chip, two switches, and their knobs.
+      expect(measured).toHaveLength(14);
       const short = measured.filter((each) => each.ratio < 3).map((each) => `${each.control}: ${each.ratio.toFixed(2)}:1`);
       expect(short).toEqual([]);
+    });
+
+    test("a primary button keeps its words in on-accent while the pointer is over it, in either look", async ({ page }) => {
+      await open(page, theme, canvas);
+      const onAccent = await page.evaluate(() => {
+        const probe = document.createElement("span");
+        probe.style.color = "var(--mf-color-on-accent)";
+        document.body.append(probe);
+        const drawn = getComputedStyle(probe).color;
+        probe.remove();
+        return drawn;
+      });
+      for (const look of ["#admin-look", "#site-look"]) {
+        const button = page.locator(`section:has(> h2${look}) .mf-button--primary`).first();
+        await button.hover();
+        await expect(button).toHaveCSS("color", onAccent);
+      }
     });
 
     test("focus is the admin's ring, with a gap on a filled or pressed control and over a selected tab's edge; the site keeps its outline", async ({ page }) => {
@@ -152,7 +172,7 @@ for (const [theme, canvas] of Object.entries(THEMES)) {
 
       await page.getByRole("button", { name: "Use a passkey" }).focus();
       await page.keyboard.press("Shift+Tab");
-      await expect(page.getByRole("button", { name: "Sign in" })).toBeFocused();
+      await expect(page.getByRole("button", { name: "Sign in", exact: true }).first()).toBeFocused();
       const site = await page.evaluate(() => {
         const style = getComputedStyle(document.activeElement as Element);
         const focus = getComputedStyle(document.documentElement).getPropertyValue("--mf-color-focus");

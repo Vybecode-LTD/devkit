@@ -34,6 +34,10 @@
     gap: 1rem;
   }
 
+  .kit-narrow {
+    max-width: 28.75rem;
+  }
+
   .kit-stack {
     display: flex;
     flex-direction: column;

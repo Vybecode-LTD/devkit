@@ -6,10 +6,10 @@ The behavior is ported from VybeSite; the look is drawn from the Vibrant Mindz a
 
 | Part | What it's for |
 | --- | --- |
-| `Button`, `LinkButton` | Secondary (outlined) by default, `primary` for the page's own action, `small` for the top bar and a Needs-you item. A `Button` is `type="button"` unless it says otherwise |
-| `Field` with `Input`, `TextArea`, `Select` | A labelled control with its hint and its error, wired to it (`aria-describedby`, `aria-invalid`); the field's `id` is the control's |
+| `Button`, `LinkButton` | Secondary (outlined) by default, `primary` for the page's own action, `strong` for sign-in's passkey; `small` for the top bar and a Needs-you item, `large` for the sign-in screens' 54px. A `Button` is `type="button"` unless it says otherwise |
+| `Field` with `Input`, `TextArea`, `Select` | A labelled control with its hint and its error, wired to it (`aria-describedby`, `aria-invalid`); the field's `id` is the control's. `size="large"` is sign-in's 54px; `aside` sits beside the label ("Forgot password?") |
 | `Switch` | A setting that's on or off at once (`role="switch"`) |
-| `Card` | A panel with an optional heading row and actions; `flush` for a table that fills it |
+| `Card` | A panel with an optional heading row, a `description` under its title, and actions; `flush` for a table that fills it |
 | `Pill`, `Chip` | A state in words over its tint; a filter that's pressed or not, with a check while pressed |
 | `Attention` | One "Needs you" item: what's wrong, why, and the action that fixes it |
 | `Accordion` | A collapsible section on `<details>`, remembering the reader's own choice, opening by itself when its first state is a problem (a later one keeps to its pill) |
@@ -25,6 +25,10 @@ The behavior is ported from VybeSite; the look is drawn from the Vibrant Mindz a
 | `ErrorBoundary` | A part that fails to draw, kept from taking the page with it |
 | `RouteFocus`, `ScrollMemory`, `landOn`, `reveal` | Focus and scroll on a move between pages, and landing on a `#place` |
 | `Icon`, `ICON_NAMES` | The kit's icon set; `IconName` is one of its names |
+
+## The site's look
+
+The site's frames (`SiteFrame`, the sign-in frame) carry `.mf-site-look`, the look of VM Website's site boards (`Auth.dc.html`, `Account.dc.html`; shell-slots.md, findings 3 to 5): the body's words at 17px, every button fully round and 44px, cards padded 28px at a 22px radius under a display title, a pill's words in the strongest colour with its tone in the dot. `.mf-text-link` draws a link, or a button that moves the page on, as underlined words. Sizes are fixed in code at the boards' values, as the admin's are (decision 0043).
 
 ## Focus, two ways
 

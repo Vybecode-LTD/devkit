@@ -8,6 +8,9 @@
  * `error` is what the server said of the field (`ApiProblem.errors[name]`) or
  * the form's own check; several are said together.
  *
+ * `size="large"` is the sign-in screens' field (VM Website `Auth.dc.html`):
+ * its label in the body's words, the control 54px at a 14px radius.
+ *
  * `Switch` is a setting that's on or off at once (`role="switch"`), with its
  * label beside it.
  */
@@ -25,6 +28,10 @@ export type FieldProps = {
   error?: string | readonly string[] | undefined;
   /** The control's id, when something else needs it; one is made otherwise. A control's own id inside a field gives way to it. */
   id?: string;
+  /** `large` for the sign-in screens. */
+  size?: "medium" | "large";
+  /** Beside the label, at its right: a link out of the form ("Forgot password?"), never inside the label. */
+  aside?: ReactNode;
   className?: string;
   children: ReactNode;
 };
@@ -34,7 +41,7 @@ function words(error: FieldProps["error"]): string {
   return typeof error === "string" ? error : error.join(" ");
 }
 
-export function Field({ label, hint, error, id, className, children }: FieldProps) {
+export function Field({ label, hint, error, id, size = "medium", aside, className, children }: FieldProps) {
   const made = useId();
   const control = id ?? `${made}-control`;
   const said = words(error);
@@ -43,10 +50,19 @@ export function Field({ label, hint, error, id, className, children }: FieldProp
   const errorId = said ? `${made}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
   return (
-    <div className={className ? `mf-field ${className}` : "mf-field"}>
-      <label className="mf-field-label" htmlFor={control}>
-        {label}
-      </label>
+    <div className={["mf-field", size === "large" ? "mf-field--large" : "", className ?? ""].filter(Boolean).join(" ")}>
+      {shows(aside) ? (
+        <div className="mf-field-head">
+          <label className="mf-field-label" htmlFor={control}>
+            {label}
+          </label>
+          {aside}
+        </div>
+      ) : (
+        <label className="mf-field-label" htmlFor={control}>
+          {label}
+        </label>
+      )}
       {hinted ? (
         <p id={hintId} className="mf-field-hint">
           {hint}

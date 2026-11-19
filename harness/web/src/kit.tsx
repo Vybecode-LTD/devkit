@@ -21,6 +21,7 @@ import {
   Dialog,
   EmptyState,
   Field,
+  Icon,
   Input,
   LinkButton,
   LoadError,
@@ -267,7 +268,7 @@ function AdminLook() {
 
 function SiteLook() {
   return (
-    <section className="kit-section" aria-labelledby="site-look">
+    <section className="kit-section mf-site-look" aria-labelledby="site-look">
       <h2 id="site-look">The site's look</h2>
       <div className="kit-row">
         <Button variant="primary">Sign in</Button>
@@ -276,6 +277,29 @@ function SiteLook() {
       <Field label="Email">
         <Input type="email" defaultValue="ann.example@mechframe.test" data-kit-boundary="field" />
       </Field>
+      <h3>Sign-in's sizes</h3>
+      <div className="kit-stack kit-narrow">
+        <Button variant="strong" size="large" data-kit-boundary="filled">
+          <Icon name="key" />
+          Sign in with a passkey
+        </Button>
+        <Field label="Password" size="large" hint="At least 12 characters." aside={<a href="#site-look">Forgot password?</a>}>
+          <Input type="password" defaultValue="quiet orbit lantern" data-kit-boundary="field" />
+        </Field>
+        <Button variant="primary" size="large" data-kit-boundary="filled">
+          Create account
+        </Button>
+        <Button size="large">
+          <Icon name="mail" />
+          Email me a code instead
+        </Button>
+      </div>
+      <h3>The account's cards</h3>
+      <Card title="Signed-in devices" description="Anywhere your account is open right now." actions={<Button>Sign out everywhere else</Button>}>
+        <p>
+          This device <Pill>Now</Pill> <Pill tone="success">On</Pill>
+        </p>
+      </Card>
     </section>
   );
 }
