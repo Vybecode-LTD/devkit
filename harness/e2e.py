@@ -8,6 +8,13 @@ makes `mechframe_e2e` on TEST_DATABASE_URL's server at each start, so a run
 stopped half-way is cleaned by the next, then migrates it and gives the site
 a description, so the home page's parity test compares a paragraph as well as
 the heading. A fresh SECRET_KEY each start; nothing here is a site's.
+
+**The site is the address the browser opens**, `http://localhost:<port>`, so
+the page's writes pass the origin check and a passkey's origin and relying
+party match it (K4.5). An http or local SITE_URL is refused outside DEBUG,
+so DEBUG is on; Chromium keeps a `__Host-` cookie from localhost, which it
+counts as secure. **Rate limits are off**: the tests sign in side by side
+from one address, and the contract suite checks every limit.
 """
 
 from __future__ import annotations
@@ -81,40 +88,7 @@ def main(root: Path = ROOT) -> int:
     from harness.migrations import upgrade
 
     upgrade(database_url)
-    # Made up, as conftest.py's are. The app reads no .env (env_file=False
-    # below), so a local one's keys, bucket or mail server never reach it;
-    # these blanks also cover anything set in the shell. .test is reserved
-    # (RFC 2606), never live.
-    os.environ.update(
-        {
-            "HARNESS_TEST_SUPPORT": "1",
-            "SECRET_KEY": secrets.token_urlsafe(48),
-            "ENCRYPTION_KEYS": Fernet.generate_key().decode(),
-            "DEBUG": "false",
-            "WEB_DIST": str(dist),
-            "SITE_NAME": SITE_NAME,
-            "SITE_URL": "https://mechframe.test",
-            "MODULES": "*",
-            "SENTRY_DSN": "",
-            "CLIENT_IP_HEADER": "",
-            "CORS_ORIGINS": "",
-            "HSTS_MAX_AGE": "0",
-            "ROBOTS_NOINDEX": "false",
-            "JOBS_IN_WEB": "false",
-            "STORAGE_ENDPOINT_URL": "",
-            "STORAGE_ACCESS_KEY_ID": "",
-            "STORAGE_SECRET_ACCESS_KEY": "",
-            "STORAGE_BUCKET": "",
-            "STORAGE_PUBLIC_BUCKET": "",
-            "STORAGE_PUBLIC_URL": "",
-            "MAIL_FROM": "",
-            "MAIL_FROM_NAME": "",
-            "SMTP_HOST": "",
-            "SMTP_USERNAME": "",
-            "SMTP_PASSWORD": "",
-            "RESEND_API_KEY": "",
-        }
-    )
+    os.environ.update(environment(dist))
     import uvicorn
 
     from harness.testing import build_test_app
@@ -123,6 +97,42 @@ def main(root: Path = ROOT) -> int:
     asyncio.run(describe(database_url))
     uvicorn.run(app, host="127.0.0.1", port=PORT, log_level="warning")
     return 0
+
+
+def environment(dist: Path, port: int = PORT) -> dict[str, str]:
+    """The server's settings. Made up, as conftest.py's are. The app reads no
+    .env (`env_file=False` in `main`), so a local one's keys, bucket or mail
+    server never reach it; these blanks also cover anything set in the shell.
+    .test is reserved (RFC 2606), never live."""
+    return {
+        "HARNESS_TEST_SUPPORT": "1",
+        "SECRET_KEY": secrets.token_urlsafe(48),
+        "ENCRYPTION_KEYS": Fernet.generate_key().decode(),
+        "DEBUG": "true",
+        "WEB_DIST": str(dist),
+        "SITE_NAME": SITE_NAME,
+        "SITE_URL": f"http://localhost:{port}",
+        "RATE_LIMIT_ENABLED": "false",
+        "MODULES": "*",
+        "SENTRY_DSN": "",
+        "CLIENT_IP_HEADER": "",
+        "CORS_ORIGINS": "",
+        "HSTS_MAX_AGE": "0",
+        "ROBOTS_NOINDEX": "false",
+        "JOBS_IN_WEB": "false",
+        "STORAGE_ENDPOINT_URL": "",
+        "STORAGE_ACCESS_KEY_ID": "",
+        "STORAGE_SECRET_ACCESS_KEY": "",
+        "STORAGE_BUCKET": "",
+        "STORAGE_PUBLIC_BUCKET": "",
+        "STORAGE_PUBLIC_URL": "",
+        "MAIL_FROM": "",
+        "MAIL_FROM_NAME": "",
+        "SMTP_HOST": "",
+        "SMTP_USERNAME": "",
+        "SMTP_PASSWORD": "",
+        "RESEND_API_KEY": "",
+    }
 
 
 if __name__ == "__main__":

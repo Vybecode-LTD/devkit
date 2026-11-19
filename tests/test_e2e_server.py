@@ -72,6 +72,23 @@ def test_its_app_never_reads_a_local_env_file(
     assert build_test_app(url, env_file=False) is not None
 
 
+def test_its_site_is_the_address_the_browser_opens(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The page's writes pass the origin check and a passkey's ceremony its
+    origin and relying party, at the address Playwright opens (K4.5)."""
+    from kernel.auth.ceremonies import relying_party
+    from kernel.config import KernelConfig
+
+    for name, value in e2e.environment(tmp_path, port=8799).items():
+        monkeypatch.setenv(name, value)
+    config = KernelConfig(_env_file=None)  # type: ignore[call-arg]
+    assert config.site_url == "http://localhost:8799"
+    party = relying_party(config)
+    assert (party.id, party.origins) == ("localhost", ("http://localhost:8799",))
+    assert config.rate_limit_enabled is False
+
+
 async def test_its_database_is_made_fresh_with_the_sites_description(server_url: str) -> None:
     settings.register(server_copy.SECTION, server_copy.SiteSettings)  # as the server's app does
     name = f"mechframe_e2e_test_{uuid.uuid4().hex[:8]}"
