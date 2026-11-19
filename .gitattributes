@@ -2,3 +2,5 @@
 kernel/openapi.json text eol=lf
 modules/*/openapi.json text eol=lf
 kernel/web/src/api/schema.ts text eol=lf
+themes/*/tokens.css text eol=lf
+themes/*/tailwind.css text eol=lf

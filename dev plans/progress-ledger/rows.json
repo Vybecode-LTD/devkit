@@ -470,8 +470,8 @@
    "gate": "not passed",
    "step_order": 3,
    "step": "Themes: Machined Light and Vibrant Mindz on the kernel's tokens",
-   "status": "review",
-   "status_label": "In review",
+   "status": "done",
+   "status_label": "Done",
    "prs": "#80",
    "decisions": "0042",
    "note": ""

@@ -11,6 +11,7 @@ TypeScript)."""
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -129,6 +130,21 @@ def test_its_tokens_sit_under_its_own_name_only(theme: themes.Theme) -> None:
 
 def test_the_generated_files_are_current() -> None:
     assert themes.main(["--check"]) == 0
+
+
+@pytest.mark.parametrize("name", ["tokens.css", "tailwind.css"])
+def test_git_keeps_the_generated_files_lf(name: str) -> None:
+    # A Windows checkout with autocrlf otherwise writes CRLF, and --check calls every file stale.
+    files = [(theme.folder / name).relative_to(ROOT).as_posix() for theme in THEMES]
+    found = subprocess.run(  # noqa: S603  (git itself, our own paths)
+        ["git", "check-attr", "eol", "--", *files],  # noqa: S607
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout.splitlines()
+    assert found == [f"{path}: eol: lf" for path in files]
 
 
 def test_a_stale_file_is_found(tmp_path: Path) -> None:
