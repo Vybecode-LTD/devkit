@@ -140,13 +140,17 @@ export function useSettings(id: string): SettingsForm {
             ),
           ),
         );
-        // An edit made while this was on its way begins from what the save
-        // left: its version, and the values the edit started from with this
-        // save's on top. A read after it can't move that on, so a change
-        // someone else saves meanwhile is still a conflict (CodeRabbit on #87).
+        // An edit made while this was on its way keeps the values it started
+        // from, with this save's on top. It moves on to the version this save
+        // made only if no one else saved in between: then that version is the
+        // edit's start with this save applied. Otherwise it may hold another
+        // admin's change to the same field, so the edit keeps its first
+        // version and the kernel still finds the conflict (CodeRabbit on #87).
         setBase((now) => {
+          if (!data) return null;
           const started = now?.values ?? latest.current?.values ?? EMPTY;
-          return data ? { version: data.version, values: { ...started, ...sent } } : null;
+          const onlyThis = data.changed.length > 0 ? data.version === version + 1 : data.version === version;
+          return { version: onlyThis ? data.version : (now?.version ?? version), values: { ...started, ...sent } };
         });
         await reread();
         if (!data || data.changed.length === 0) return { status: "unchanged" };

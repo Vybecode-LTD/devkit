@@ -255,6 +255,48 @@ describe("useSettings", () => {
     expect(puts[1]).toEqual({ version: 3, changes: { per_page: 20 } });
   });
 
+  it("keeps such an edit at its first version when someone else saved before that save landed", async () => {
+    let now = { version: 2, values: { title: "News", per_page: 10 } as Record<string, unknown> };
+    const { form, fetch, sent } = shown({
+      [`GET ${SECTION}`]: () => read(now.version, now.values),
+      [`PUT ${SECTION}`]: () => {
+        if (now.version === 2) {
+          // Someone else saved the page size as 3 first; the title merges in as 4.
+          now = { version: 4, values: { title: "Notes", per_page: 30 } };
+          return { status: 200, body: { version: 4, changed: ["title"], merged: [] } };
+        }
+        return { status: 200, body: { version: 5, changed: ["per_page"], merged: [] } };
+      },
+    });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Notes");
+    });
+    const open = gated(fetch, "PUT");
+    let pending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pending = form().save();
+    });
+    act(() => {
+      form().set("per_page", 20);
+    });
+    open();
+    await act(async () => {
+      await pending;
+    });
+    await waitFor(() => {
+      expect(form().saved).toEqual({ title: "Notes", per_page: 30 });
+    });
+    await act(async () => {
+      await form().save();
+    });
+    // Version 4 already holds their page size; at 2 the kernel sees both changed it (CodeRabbit on #87).
+    const puts = await bodies(sent, "PUT");
+    expect(puts[1]).toEqual({ version: 2, changes: { per_page: 20 } });
+  });
+
   it("puts a refused value's words beside its field", async () => {
     const refused = problem(422, "kernel.invalid_request");
     const { form } = shown({
