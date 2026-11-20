@@ -16,6 +16,8 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 
 `2026-11-20-k4-gate-evidence.md` is the evidence K4's gate was checked on (contract §7): the runs, each bullet's tests, the one finding (a stale People list after a save under load, fixed by #89), and the kernel's contract lint (#90).
 
+`2026-11-20-k5-gate-evidence.md` is the evidence K5's gate was checked on (contract §7): the smoke's runs, alone and with the fixture modules, each bullet's tests, and the kernel's close (KICKOFF): SPEC 16's rows in CI, the scans, one gap for the first module, and the spec sections changed since K0 (#96).
+
 `contracts/` holds the one-page contract each feature that touches a seam gets before its code (`C:\DEV\knowledge\decisions\0008-feature-contracts.md`):
 
 | File | What |

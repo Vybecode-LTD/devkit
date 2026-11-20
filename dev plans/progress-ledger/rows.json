@@ -565,7 +565,7 @@
    "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
-   "gate": "not passed",
+   "gate": "passed",
    "step_order": 1,
    "step": "The mechframe commands and lock files",
    "status": "done",
@@ -579,7 +579,7 @@
    "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
-   "gate": "not passed",
+   "gate": "passed",
    "step_order": 2,
    "step": "templates/site, made from the harness",
    "status": "done",
@@ -593,7 +593,7 @@
    "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
-   "gate": "not passed",
+   "gate": "passed",
    "step_order": 3,
    "step": "The start command and .env.example for a host's edge",
    "status": "done",
@@ -607,7 +607,7 @@
    "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
-   "gate": "not passed",
+   "gate": "passed",
    "step_order": 4,
    "step": "mechframe catalog",
    "status": "done",
@@ -621,7 +621,7 @@
    "phase_order": 8,
    "phase_id": "k5",
    "phase": "K5: CLI and site template",
-   "gate": "not passed",
+   "gate": "passed",
    "step_order": 5,
    "step": "SPEC 10's confirmation before a destructive migration",
    "status": "done",
@@ -2104,7 +2104,7 @@
   },
   {
    "label": "main",
-   "value": "e60b23c"
+   "value": "b543642"
   }
  ]
 }

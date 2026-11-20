@@ -2,7 +2,7 @@
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
-Updated 2026-11-20, `main` at `e60b23c`. Progress counts steps, not effort: each row below is one step, whatever its size.
+Updated 2026-11-20, `main` at `b543642`. Progress counts steps, not effort: each row below is one step, whatever its size.
 
 ## Overall
 
@@ -111,11 +111,11 @@ Gate: Component tests, axe with no serious violations, Playwright runs of every 
 | Admin settings: Site, Features and System | Done | [#87](https://github.com/mechframe/mechframe/pull/87) | [0042](decisions/0042-web-kernel.md), [0046](decisions/0046-settings-features-system.md) |  |
 | Depth theme | Later |  |  | The owner, 2026-11-18: when a site wants it |
 
-### K5: CLI and site template · 5 of 5 done · gate not passed yet
+### K5: CLI and site template · 5 of 5 done · gate passed
 
 mechframe works end to end.
 
-Gate: mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it.
+Gate: mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it. Checked against the contract's §7 on main at b543642, alone and with the fixture modules added (dev plans/2026-11-20-k5-gate-evidence.md).
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |

@@ -1,6 +1,6 @@
 {
   "updated": "2026-11-20",
-  "main": "e60b23c",
+  "main": "b543642",
   "ledger_url": "https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm",
   "milestones": [
     {
@@ -126,8 +126,8 @@
       "milestone": "v1",
       "name": "K5: CLI and site template",
       "goal": "mechframe works end to end.",
-      "gate": "mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it.",
-      "gate_passed": false,
+      "gate": "mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it. Checked against the contract's §7 on main at b543642, alone and with the fixture modules added (dev plans/2026-11-20-k5-gate-evidence.md).",
+      "gate_passed": true,
       "items": [
         {"name": "The mechframe commands and lock files", "status": "done", "prs": [91, 92, 94, 95], "decisions": ["0047", "0048", "0050", "0051"], "note": "check and the lock in #91; new (kernel only) in #92; add, remove and new --recipe in #94; create-owner in #95; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"},
         {"name": "templates/site, made from the harness", "status": "done", "prs": [92], "decisions": ["0047", "0048"], "note": "the site's own pages (create_app(site=), defineSite), kernel.load_module, the site's tests and CI, tools/site_smoke.py"},
