@@ -30,7 +30,8 @@ import { Home, NotFound, Pending, Unreachable } from "./pages/KernelPages";
 import { RouteError } from "./RouteError";
 import { SCREENS } from "./screens";
 
-type Owned = { module: string; page: ComponentType };
+/** A page at `/`: its module's, and whether it's a member page, behind sign-in. */
+type Owned = { module: string; page: ComponentType; member: boolean };
 
 /**
  * A module's page waits for its switch, says so if the switch can't be read,
@@ -54,16 +55,26 @@ function Loaded({ page: Page }: { page: ComponentType }) {
   );
 }
 
-/** `/`: the site's own page if it has one, else the first module on's that declares it, else the kernel's home. */
+function Owner({ owner }: { owner: Owned }) {
+  const page = <Loaded page={owner.page} />;
+  return owner.member ? <RequireAuth>{page}</RequireAuth> : page;
+}
+
+/**
+ * `/`: the site's own page if it has one, public or member, else the first
+ * module on's that declares it, else the kernel's home. A member page at `/`
+ * is chosen here too, behind sign-in: the index route takes `/` before any
+ * other route could (CodeRabbit on #92).
+ */
 function HomeRoute({ owners }: { owners: readonly Owned[] }) {
   const found = useModulesRead();
   const [first] = owners;
   if (first === undefined) return <Home />;
-  if (first.module === SITE) return <Loaded page={first.page} />;
+  if (first.module === SITE) return <Owner owner={first} />;
   if (found.status === "loading") return null;
   if (found.status === "failed") return <Unreachable problem={found.problem} retry={found.retry} />;
   const owner = owners.find((each) => found.value.has(each.module));
-  return owner ? <Loaded page={owner.page} /> : <Home />;
+  return owner ? <Owner owner={owner} /> : <Home />;
 }
 
 function kernelRoute(page: KernelPage): RouteObject {
@@ -97,13 +108,15 @@ function moduleRoute(module: ModuleDefinition, route: ModuleRoute, access: Acces
   };
 }
 
-/** The public pages (but `/`) and then the member pages of `modules`, in the site frame. */
+/** The public and then the member pages of `modules`, in the site frame; `/` is `HomeRoute`'s. */
 function pageRoutes(modules: readonly ModuleDefinition[]): RouteObject[] {
   return [
     ...modules.flatMap((module) =>
       module.routes.public.filter((route) => route.path !== "/").map((route) => moduleRoute(module, route, "public")),
     ),
-    ...modules.flatMap((module) => module.routes.member.map((route) => moduleRoute(module, route, "member"))),
+    ...modules.flatMap((module) =>
+      module.routes.member.filter((route) => route.path !== "/").map((route) => moduleRoute(module, route, "member")),
+    ),
   ];
 }
 
@@ -119,9 +132,11 @@ export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet
   const kernel = (access: KernelPage["access"]) => KERNEL_PAGES.filter((page) => page.access === access);
   const dashboard = KERNEL_PAGES.find((page) => page.path === "/admin");
   const owners = modules.flatMap((module) =>
-    module.routes.public
-      .filter((route) => route.path === "/")
-      .map((route): Owned => ({ module: module.id, page: lazyPart(route.lazy) })),
+    (["public", "member"] as const).flatMap((access) =>
+      module.routes[access]
+        .filter((route) => route.path === "/")
+        .map((route): Owned => ({ module: module.id, page: lazyPart(route.lazy), member: access === "member" })),
+    ),
   );
   return [
     {

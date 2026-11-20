@@ -12,7 +12,9 @@ In one go, or not at all:
    the theme's `tokens.css` as `web/src/theme/tokens.css`.
 4. Copies the kernel (`mechframe.layout`) and writes `mechframe.lock.json`.
 
-A failure half-way removes what it wrote: a folder it made goes, and an
+A run holds its folder from its first write (a folder it makes, or a claim
+file in an empty one), so two runs never write to one site. A failure
+half-way removes what it wrote: a folder it made goes, and an
 empty folder it was given is emptied again. `--recipe` joins with `add` (#93).
 """
 
@@ -39,6 +41,8 @@ DEFAULT_THEME = "machined-light"
 NAME_MARK = "__SITE_NAME__"
 THEME_MARK = "__THEME__"
 MAX_NAME = 100
+#: The file a run holds an empty folder by while it writes the site there.
+CLAIM = ".mechframe-new"
 #: What a copy of the template leaves behind wherever it is: build output and caches.
 LEFT_OUT = frozenset(
     {
@@ -157,12 +161,29 @@ def _undo(site: Path, made_folder: bool) -> None:
             path.unlink(missing_ok=True)
 
 
+def _claim(site: Path, made_folder: bool) -> Path:
+    """This run's hold on `site`, taken atomically: the folder made here, or the
+    claim file made in an empty one, so two runs never write to one site or undo
+    each other's (CodeRabbit on #92). Raises Refused when another run has it."""
+    taken = f"{site} was taken by another run of mechframe new meanwhile: give a folder of its own."
+    try:
+        site.mkdir(parents=True, exist_ok=not made_folder)
+        claim = site / CLAIM
+        claim.open("x").close()
+    except FileExistsError:
+        raise Refused(taken) from None
+    if [path.name for path in site.iterdir()] != [CLAIM]:
+        claim.unlink()
+        raise Refused(taken)
+    return claim
+
+
 def new(site: Path, *, name: str, theme: str = DEFAULT_THEME, root: Path = ROOT) -> Made:
     """Make the site in `site`. Raises Refused before writing anything."""
     name = checked_name(name)
     _refusals(site, theme, root)
     made_folder = not site.exists()
-    site.mkdir(parents=True, exist_ok=True)
+    claim = _claim(site, made_folder)
     try:
         _copy_template(site, name, theme, root)
         manifest = kernel_manifest(root)
@@ -176,6 +197,7 @@ def new(site: Path, *, name: str, theme: str = DEFAULT_THEME, root: Path = ROOT)
             "theme": theme,
         }
         lock.write(site, data, root=root)
+        claim.unlink()
     except BaseException:
         _undo(site, made_folder)
         raise

@@ -45,6 +45,19 @@ def test_the_database_comes_from_dotenv_as_the_apps_does(
     assert migrations.config(given).get_main_option("sqlalchemy.url") == given
 
 
+def test_a_folder_with_a_percent_sign_in_its_name_migrates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Alembic's options are an ini file's: a % in the site's path is written
+    as %% (CodeRabbit on #92), and read back as it is."""
+    folder = Path("/work/100%ready/site/backend")
+    monkeypatch.setattr(migrations, "SCRIPT_LOCATION", folder / "alembic")
+    monkeypatch.setattr(
+        migrations, "migration_dirs", lambda: [str(folder / "migrations" / "kernel")]
+    )
+    cfg = migrations.config("postgresql://u:p@db.test/site")
+    assert cfg.get_main_option("script_location") == str(folder / "alembic")
+    assert cfg.get_main_option("version_locations") == str(folder / "migrations" / "kernel")
+
+
 def test_the_command_says_how_to_use_it() -> None:
     assert migrations.main([]) == 2
     assert migrations.main(["sideways"]) == 2

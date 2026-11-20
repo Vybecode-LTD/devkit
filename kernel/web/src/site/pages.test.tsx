@@ -124,10 +124,35 @@ describe("the site's pages", () => {
   });
 });
 
+describe("the site's member home page (CodeRabbit on #92)", () => {
+  const members = site({
+    routes: { public: [], member: [{ path: "/", lazy: pageSaying("Members' home") }] },
+  });
+
+  it("is the site's, over a module's public home, for someone signed in", async () => {
+    renderApp({ modules: [landing], sitePages: members, session: testUser() });
+    expect(await screen.findByRole("heading", { name: "Members' home" })).toBeInTheDocument();
+  });
+
+  it("asks someone signed out to sign in", async () => {
+    const { router } = renderApp({ modules: [landing], sitePages: members });
+    expect(await screen.findByRole("heading", { level: 1, name: "Sign in" })).toBeInTheDocument();
+    // Home is where signing in lands anyway, so no `next` (guards/next.ts).
+    expect(router.state.location.pathname + router.state.location.search).toBe("/sign-in");
+  });
+});
+
 describe("the site's slots", () => {
   it("show its links whatever modules are on", async () => {
     renderWithKernel(<SlotOutlet name="nav.public" label="Menu" />, { modules: [landing], on: [], sitePages: site() });
     expect(await screen.findByRole("link", { name: "About us" })).toHaveAttribute("href", "/about");
+  });
+
+  it("show its links while it isn't known which modules are on, and no module's (CodeRabbit on #92)", async () => {
+    const linked = defineModule({ ...landing, id: "linked", slots: { "nav.public": [{ label: "Shop", to: "/shop" }] } });
+    renderWithKernel(<SlotOutlet name="nav.public" label="Menu" />, { modules: [linked], on: "loading", sitePages: site() });
+    expect(await screen.findByRole("link", { name: "About us" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Shop" })).toBeNull();
   });
 });
 

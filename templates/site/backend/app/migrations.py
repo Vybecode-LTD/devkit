@@ -34,6 +34,10 @@ def migration_dirs() -> list[str]:
     return [str(path) for path in found if path.is_dir()]
 
 
+def _ini(value: str) -> str:
+    return value.replace("%", "%%")
+
+
 def app_database_url() -> str:
     """The database the app uses: DATABASE_URL from the environment, then
     from .env, as the app's KernelConfig reads it (Codex on #92)."""
@@ -46,11 +50,12 @@ def config(database_url: str | None = None) -> Config:
     """An Alembic config for this site, on `database_url`, else the app's."""
     url = database_url if database_url is not None else app_database_url()
     cfg = Config(stdout=sys.stdout)
-    cfg.set_main_option("script_location", str(SCRIPT_LOCATION))
+    # Alembic's config is an ini file: a literal %, in a path as in the URL, is
+    # written doubled (CodeRabbit on #92).
+    cfg.set_main_option("script_location", _ini(str(SCRIPT_LOCATION)))
     cfg.set_main_option("path_separator", "os")
-    cfg.set_main_option("version_locations", os.pathsep.join(migration_dirs()))
-    # Alembic's config is an ini file: a literal % must be doubled.
-    cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+    cfg.set_main_option("version_locations", _ini(os.pathsep.join(migration_dirs())))
+    cfg.set_main_option("sqlalchemy.url", _ini(url))
     return cfg
 
 

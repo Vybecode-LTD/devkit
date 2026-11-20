@@ -132,12 +132,14 @@ async def migrated_url(server_url: str) -> AsyncIterator[str]:
     """A database for this run with every migration applied, dropped after."""
     name = f"site_test_{uuid.uuid4().hex[:12]}"
     await _create(name)
-    url = _with_database(server_url, name)
-    from app.migrations import upgrade
+    try:  # dropped even when a migration fails (CodeRabbit on #92)
+        url = _with_database(server_url, name)
+        from app.migrations import upgrade
 
-    await asyncio.to_thread(upgrade, url)
-    yield url
-    await _drop(name)
+        await asyncio.to_thread(upgrade, url)
+        yield url
+    finally:
+        await _drop(name)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -145,5 +147,7 @@ async def empty_database_url(server_url: str) -> AsyncIterator[str]:
     """An empty database of this test's own, dropped after."""
     name = f"site_empty_{uuid.uuid4().hex[:12]}"
     await _create(name)
-    yield _with_database(server_url, name)
-    await _drop(name)
+    try:
+        yield _with_database(server_url, name)
+    finally:
+        await _drop(name)

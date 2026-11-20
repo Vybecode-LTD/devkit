@@ -212,11 +212,16 @@ def test_railway_builds_the_dockerfile_migrates_first_and_trusts_its_edge(site: 
 
 def test_railway_lists_every_setting_so_an_apply_deletes_none(site: Path) -> None:
     """An apply deletes a variable on the service that the file doesn't list
-    (seen on a throwaway project, 2026-11-20): every setting in .env.example is
-    in railway.ts, but WEB_DIST, which the Dockerfile sets."""
+    (seen on a throwaway project, 2026-11-20): every setting the kernel reads
+    is in railway.ts and in .env.example (CodeRabbit on #92)."""
+    from kernel.config import KernelConfig
+
     env = _railway_env((site / ".railway" / "railway.ts").read_text("utf-8"))
-    settings = set(dotenv_values(site / ".env.example")) - {"WEB_DIST"}
-    assert sorted(settings - set(env)) == []
+    example = set(dotenv_values(site / ".env.example"))
+    kernel = {(field.alias or name).upper() for name, field in KernelConfig.model_fields.items()}
+    assert sorted(kernel - set(env)) == []
+    assert sorted(kernel - example) == []
+    assert sorted(example - set(env)) == []
 
 
 def test_railways_sdk_is_pinned_and_locked(site: Path) -> None:

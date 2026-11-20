@@ -70,7 +70,10 @@ def test_a_run_stops_at_the_first_failure_and_logs_each_step(tmp_path: Path) -> 
     assert "two" in text
     assert "=== second: exit 3" in text
     assert "three" not in text
-    assert [line.split(" (")[0] for line in said] == ["ok   first", "FAIL second"]
+    assert [line.split(" (")[0] for line in said[:2]] == ["ok   first", "FAIL second"]
+    # The failed step's own output is shown too, for a log nobody can open (CodeRabbit on #92).
+    assert "two" in said[2:]
+    assert "one" not in said[2:]
 
 
 def test_a_command_that_isnt_there_fails_its_step(tmp_path: Path) -> None:

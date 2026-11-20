@@ -26,12 +26,12 @@ export function useSlot<Name extends SlotName>(name: Name): Placed<Name>[] {
   const { modules } = useKernelSetup();
   const on = useModulesOn();
   const session = useSession();
-  if (on === undefined) return [];
   const may = (permission: string | undefined) =>
     permission === undefined || (session.status === "signed-in" && session.can(permission));
   const found: Placed<Name>[] = [];
   for (const definition of modules) {
-    if (definition.id !== SITE && !on.has(definition.id)) continue; // the site's are always on
+    // The site's are always on, even while the switches are read; a module's wait for them (CodeRabbit on #92).
+    if (definition.id !== SITE && !on?.has(definition.id)) continue;
     const entries = (definition.slots?.[name] ?? []) as SlotEntryOf<Name>[];
     entries.forEach((entry, at) => {
       const permission = "permission" in entry ? entry.permission : undefined;

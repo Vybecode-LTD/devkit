@@ -173,3 +173,14 @@ async def test_the_sites_pages_over_http(app_factory: AppFactory, tmp_path: Path
     assert missing.status_code == 404
     assert "## Pages\n\n- [About us](https://mechframe.test/about): Who we are.\n" in llms.text
     assert "<loc>https://mechframe.test/about</loc>" in sitemap.text
+
+
+async def test_a_member_home_page_is_never_in_the_sitemap() -> None:
+    """When `/` answers with the site's member shell, the kernel's home page
+    isn't listed in its place (CodeRabbit on #92)."""
+    routes = server_copy.build(
+        [public_module("landing", public=["/"], pages=FakePages(entries=[Entry("/")]))],
+        site=_site(public=(), pages=None, member=("/",)),
+    )
+    found = await server_copy.entries(None, routes, frozenset({"landing"}))  # type: ignore[arg-type]
+    assert found == []

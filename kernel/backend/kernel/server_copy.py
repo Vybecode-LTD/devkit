@@ -846,7 +846,9 @@ async def entries(db: AsyncSession, routes: Routes, on: frozenset[str]) -> list[
     entries and each module on's that aren't `noindex` and that its own
     public pattern answers among the modules on."""
     found: list[tuple[str, Entry]] = []
-    if routes.home_owner(on) is None:
+    # Only while nothing answers `/`: a member home page (the shell, noindex) is
+    # no place for the kernel's (CodeRabbit on #92).
+    if routes.resolve("/", on) is None:
         found.append((KERNEL, Entry("/")))
     owners = routes.with_pages()
     for module_id in sorted(owners, key=lambda owner: owner != SITE):

@@ -39,6 +39,8 @@ from urllib.parse import urlsplit, urlunsplit
 ROOT = Path(__file__).resolve().parent.parent
 SITE_NAME = "Test Site"
 DATABASE = "site_smoke"
+#: How much of a failed step's output is shown.
+TAIL = 80
 
 
 @dataclass(frozen=True)
@@ -179,8 +181,20 @@ def run(
             out.flush()
             say(f"{'ok  ' if code == 0 else 'FAIL'} {step.name} ({took:.0f} s)")
             if code != 0:
+                for line in _tail(log, step.name):
+                    say(line)
                 return step.name
     return None
+
+
+def _tail(log: Path, name: str, lines: int = TAIL) -> list[str]:
+    """The last `lines` lines of step `name`'s output in `log`. A runner's
+    folder is gone once its job ends, so a failure shows them (CodeRabbit on #92)."""
+    text = log.read_text("utf-8", errors="replace")
+    end = text.rfind(f"\n=== {name}: exit ")
+    start = text.rfind(f"\n=== {name}: ", 0, end)
+    body = text[text.index("\n", start + 1) + 1 : end] if 0 <= start < end else text
+    return body.splitlines()[-lines:]
 
 
 def make(site: Path) -> None:

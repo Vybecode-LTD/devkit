@@ -197,3 +197,29 @@ def test_a_checkout_without_the_template_or_themes_is_refused(
     assert new.themes(maker) == []
     assert _new(maker, tmp_path / "two") == 2
     assert "The themes: none." in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("ready", [False, True])
+def test_two_runs_on_one_folder_never_overwrite_each_other(
+    maker: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ready: bool
+) -> None:
+    """Another run makes the site between this one's refusals and its first
+    write: this one refuses and leaves that site alone (CodeRabbit on #92),
+    whether the folder was there and empty or not there at all."""
+    folder = tmp_path / "site"
+    if ready:
+        folder.mkdir()
+    refusals = new._refusals
+
+    def then_another_run(site: Path, theme: str, root: Path) -> None:
+        refusals(site, theme, root)
+        monkeypatch.setattr(new, "_refusals", refusals)
+        new.new(site, name="First", theme=theme, root=root)
+
+    monkeypatch.setattr(new, "_refusals", then_another_run)
+    with pytest.raises(new.Refused, match="another run"):
+        new.new(folder, name="Second", root=maker)
+    assert dotenv_values(folder / ".env.example")["SITE_NAME"] == "First"
+    report = check.check(folder, root=maker)
+    assert (report.exit_code(), report.edited, report.missing, report.added) == (0, [], [], [])
+    assert not (folder / new.CLAIM).exists()

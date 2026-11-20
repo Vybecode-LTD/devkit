@@ -5,7 +5,7 @@
   "description": "This site's web app: MechFrame's kernel, its modules' bindings and the site's own pages.",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
     "dev": "vite",
@@ -63,7 +63,7 @@
     "dependencies, devDependencies, overrides and engines are MechFrame's own, at its exact versions: the copied kernel is built and tested with them. `python -m tools.site_template` writes them in MechFrame; a site changes them only with MechFrame's.",
     "overrides.minimatch: eslint 10 and typescript-eslint 8 ask for minimatch 10, which has GHSA-g3hv-75wg-m249 (dev-only, a DoS). 11.0.8 is past it; drop the override when they move to 11.",
     "overrides.openapi-typescript: 7.13 asks for TypeScript ^5 as a peer; the repo is on 6.0.x for typescript-eslint, and the generator runs fine on it (npm run api:check passes). Drop the override when it allows 6.",
-    "engines.node: 22.12 at least, as @axe-core/playwright 4.14 asks (cubic on #79); engine-strict is on (.npmrc).",
+    "engines.node: what every locked package accepts, jsdom 31 the narrowest (^22.22.2 || ^24.15.0 || >=26.0.0; ESLint 10 wants ^22.13, @axe-core/playwright 4.14 22.12: CodeRabbit on #92); engine-strict is on (.npmrc).",
     "overrides.@axe-core/playwright: it asks for playwright-core ^1 and would pull a newer one than the runner's; held to @playwright/test's own, so one Chromium build (1248) serves both."
   ]
 }

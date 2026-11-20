@@ -12,7 +12,7 @@
 // next apply, so every setting the site may have is here: a fixed value, a reference,
 // or `preserve()`, which keeps what the site's owner typed into Railway and makes
 // nothing while it's unset. Secrets are never written here. `mechframe add` adds a
-// module's settings (as .env.example's); `WEB_DIST` is the Dockerfile's.
+// module's settings, as .env.example's; every setting the kernel reads is here.
 import { defineRailway, postgres, preserve, project, service } from "railway/iac";
 
 export const partial = "web";
@@ -55,10 +55,30 @@ export default defineRailway((ctx) => {
       STORAGE_BUCKET: preserve(),
       STORAGE_PUBLIC_BUCKET: preserve(),
       STORAGE_PUBLIC_URL: preserve(),
+      SIGN_UP_MODE: preserve(),
+      CORS_ORIGINS: preserve(),
+      HSTS_MAX_AGE: preserve(),
+      ROBOTS_NOINDEX: preserve(),
+      SENTRY_ENVIRONMENT: preserve(),
+      LOG_LEVEL: preserve(),
+      // The kernel's defaults while unset (.env.example's tuning); WEB_DIST is the Dockerfile's.
+      WEB_DIST: preserve(),
       JOBS_CONCURRENCY: preserve(),
       JOBS_POLL_SECONDS: preserve(),
       JOBS_DRAIN_SECONDS: preserve(),
       AUDIT_KEEP_DAYS: preserve(),
+      DB_POOL_SIZE: preserve(),
+      DB_MAX_OVERFLOW: preserve(),
+      MODULES_CACHE_SECONDS: preserve(),
+      MAX_BODY_BYTES: preserve(),
+      STORAGE_REGION: preserve(),
+      STORAGE_MAX_BYTES: preserve(),
+      RATE_LIMIT_ENABLED: preserve(),
+      RATE_LIMIT_STORAGE: preserve(),
+      ARGON2_MEMORY_KIB: preserve(),
+      ARGON2_TIME_COST: preserve(),
+      ARGON2_LANES: preserve(),
+      ARGON2_CONCURRENCY: preserve(),
       // --- The modules' settings, added by mechframe add ---
     },
   });

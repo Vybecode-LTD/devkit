@@ -5,7 +5,7 @@
   "description": "Railway's SDK, for .railway/railway.ts: `railway config plan` and `apply` read it (README.md, \"Deploying\"). The web app is web/package.json.",
   "type": "module",
   "engines": {
-    "node": ">=22.12"
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "devDependencies": {
     "railway": "3.16.0"

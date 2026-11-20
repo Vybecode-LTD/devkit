@@ -15,8 +15,9 @@ down_revision: str | Sequence[str] | None = ${repr(down_revision)}
 branch_labels: str | Sequence[str] | None = ${repr(branch_labels)}
 depends_on: str | Sequence[str] | None = ${repr(depends_on)}
 
-# True when this migration drops or rewrites data: the CLI asks before running it
-# (SPEC.md section 10).
+# True when this migration drops or rewrites data (SPEC.md section 10). Nothing reads it
+# yet: the CLI's confirmation before one runs isn't built, so read a pending revision
+# marked True before migrating (CodeRabbit on #92).
 destructive = False
 
 

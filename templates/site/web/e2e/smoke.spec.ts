@@ -38,9 +38,8 @@ test("the home page says only what the server's copy says", async ({ page, brows
   await page.goto("/");
   await expect(page.locator("[data-server-copy]")).toHaveCount(0);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  const shown = await visibleWords(page, "main");
-  expect(shown.length).toBeGreaterThanOrEqual(1);
-  for (const words of shown) expect(served).toContain(words);
+  // The same words, all of them, in the same order (CodeRabbit on #92).
+  expect(await visibleWords(page, "main")).toEqual(served);
 });
 
 test("sign-in draws, with nothing serious for axe", async ({ page }) => {
