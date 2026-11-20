@@ -37,6 +37,7 @@ Overwritten every session. This one: 2026-11-20, afternoon Eastern (Claude Code,
 ## Open questions for the owner
 
 - **Delete `mechframe-iac-probe`:** Railway, the project, Settings, Danger, Delete. Or keep it for #93's check of `add` writing `railway.ts`.
+- **Where SPEC 10's destructive-migration confirmation lives.** Nothing reads `destructive = True` yet, in the harness or a site (CodeRabbit on #92); the templates now say so. Say `app.migrations` refusing a pending one without `--confirm-destructive`, which would also hold Railway's pre-deploy until confirmed.
 - **Plan a site's Railway file in its CI?** It would need a project token as an Actions secret: yours to make.
 - A name for a person (nothing sets `display_name`)? A way for a site to reword the kernel's screens?
 - Decisions 0032 to 0039's own calls; the R2 test buckets; the desk steps (the `postgres` password, `Set-ExecutionPolicy`).

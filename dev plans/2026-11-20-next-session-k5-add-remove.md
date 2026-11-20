@@ -31,6 +31,7 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 ## 5. Ask the owner
 
 - Delete `mechframe-iac-probe` (Railway, "color8's Projects")? Or keep it to check `add`'s `railway.ts` with a plan: only `railway config plan`, read-only.
+- Where SPEC 10's destructive-migration confirmation goes (nothing reads `destructive = True` yet; `docs/HANDOFF.md`).
 - The rest: `docs/HANDOFF.md`, "Open questions". Ask, don't decide.
 
 ## 6. Environment and traps
