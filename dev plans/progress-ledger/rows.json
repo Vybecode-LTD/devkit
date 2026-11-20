@@ -624,11 +624,11 @@
    "gate": "not passed",
    "step_order": 5,
    "step": "SPEC 10's confirmation before a destructive migration",
-   "status": "next",
-   "status_label": "Next",
-   "prs": "",
-   "decisions": "",
-   "note": "nothing reads destructive = True yet (CodeRabbit on #92); the owner, 2026-11-20: build it after #92, before any module with migrations"
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#93",
+   "decisions": "0049",
+   "note": "kernel.migrate: once its branch holds data, an upgrade stops before a revision marked destructive = True until --confirm-destructive names it; the owner, 2026-11-20: before any module with migrations"
   },
   {
    "milestone": "MechFrame v1.0",

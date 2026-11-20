@@ -133,7 +133,7 @@
         {"name": "templates/site, made from the harness", "status": "done", "prs": [92], "decisions": ["0047", "0048"], "note": "the site's own pages (create_app(site=), defineSite), kernel.load_module, the site's tests and CI, tools/site_smoke.py"},
         {"name": "The start command and .env.example for a host's edge", "status": "done", "prs": [92], "decisions": ["0048"], "note": "the Dockerfile's start command reads the proxy's headers; .railway/railway.ts (Railway as code) in place of railway.toml, checked live on a throwaway project"},
         {"name": "mechframe catalog", "status": "done", "prs": [91], "decisions": ["0047"]},
-        {"name": "SPEC 10's confirmation before a destructive migration", "status": "next", "note": "nothing reads destructive = True yet (CodeRabbit on #92); the owner, 2026-11-20: build it after #92, before any module with migrations"}
+        {"name": "SPEC 10's confirmation before a destructive migration", "status": "done", "prs": [93], "decisions": ["0049"], "note": "kernel.migrate: once its branch holds data, an upgrade stops before a revision marked destructive = True until --confirm-destructive names it; the owner, 2026-11-20: before any module with migrations"}
       ]
     },
     {

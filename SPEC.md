@@ -415,7 +415,7 @@ Each module owns its own tables and its own migration branch. It links only to t
 
 - Each module's migrations form their own Alembic branch, labeled with the module id and depending on the kernel's branch.
 - Every migration MUST downgrade cleanly. CI runs upgrade, downgrade, upgrade on an empty database and on seeded data.
-- A migration that drops or rewrites data is marked `destructive = True` in its file, and the CLI asks before running it.
+- A migration that drops or rewrites data is marked `destructive = True` in its file. Once its branch is in the database, `python -m app.migrations upgrade` stops before anything runs and names it, until the owner names it back with `--confirm-destructive <revision>`: a deploy's pre-deploy step fails there, and the owner runs it by hand after a backup. On a database new to its branch (a new site, a module just added) it runs unasked, since the tables it could touch are made in the same upgrade (decision 0049).
 - Removing a module keeps its tables unless the owner runs `mechframe remove <id> --drop-data`.
 
 **Personal data**
@@ -860,6 +860,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-20 | A destructive migration waits for the owner (decision 0049, K5 contract change 7): once its branch is in the database, an upgrade stops before it and names it, until `--confirm-destructive <revision>` names it back; the harness and every site share `kernel.migrate` (10) |
 | 2026-11-20 | K5's site template (decision 0048, K5 contract changes 5 and 6): a site's own pages, `create_app(site=)` and `defineSite` for `mountApp({ site })`, always on and first in a tie, `site` no module's id (6, 8, 9); `load_module` (6); a site's Python runs with `backend` on the path, and `.railway/railway.ts` replaces `railway.toml` for Railway, listing every setting (4) |
 | 2026-11-20 | K5's CLI and site template (decision 0047, K5 contract): the CLI copies from its own checkout; a site's exact layout; lock hashes read `\r\n` as `\n`; `advisories.json`'s entries; `check`'s exits; `add` prints the migration and test steps; `remove --drop-data`, `diff` and `upgrade` wait; the catalog's fields (4, 12, 13, 17) |
 | 2026-11-19 | `auth.user.role_changed` is emitted by a grant on the admin's People, `{user_id, added, removed}`, in its transaction; every kernel event in the table is now emitted (11) |

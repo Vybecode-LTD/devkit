@@ -78,7 +78,7 @@ def test_discover(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_the_migrations_command(capsys: pytest.CaptureFixture[str]) -> None:
     assert migrations.main([]) == 2
-    assert "usage:" in capsys.readouterr().out
+    assert "usage:" in capsys.readouterr().err
     assert migrations.main(["heads"]) == 0
     out = capsys.readouterr().out
     assert "Rev: kernel_" in out

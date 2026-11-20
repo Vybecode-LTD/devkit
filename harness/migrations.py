@@ -6,7 +6,9 @@ revision carries its id as a label and depends on the kernel's
 module's, so `upgrade("heads")` runs them all in order.
 
 From a terminal, `python -m harness.migrations upgrade` does the same with the
-database in DATABASE_URL.
+database in DATABASE_URL. Either stops before a migration marked
+`destructive = True` whose branch is already in the database, until it's named
+with `--confirm-destructive` (`kernel.migrate`, decision 0049).
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from alembic import command
 from alembic.config import Config
 
 from harness.layout import ROOT, migration_dirs
+from kernel import migrate
 
 SCRIPT_LOCATION = ROOT / "harness" / "alembic"
 
@@ -36,8 +39,15 @@ def config(database_url: str | None = None) -> Config:
     return cfg
 
 
-def upgrade(database_url: str | None = None, target: str = "heads") -> None:
-    command.upgrade(config(database_url), target)
+def upgrade(
+    database_url: str | None = None,
+    target: str = "heads",
+    *,
+    confirm_destructive: migrate.Confirm = (),
+) -> None:
+    """Upgrade, refusing a destructive revision not named in
+    `confirm_destructive` (True: all of them, for a throwaway database)."""
+    migrate.upgrade(config(database_url), target, confirm=confirm_destructive)
 
 
 def downgrade(database_url: str | None = None, target: str = "base") -> None:
@@ -45,25 +55,9 @@ def downgrade(database_url: str | None = None, target: str = "base") -> None:
 
 
 def main(argv: list[str]) -> int:
-    """`upgrade [target]`, `downgrade [target]`, `heads` or `history`."""
-    if not argv or argv[0] not in {"upgrade", "downgrade", "heads", "history", "current"}:
-        print(
-            "usage: python -m harness.migrations upgrade|downgrade|heads|history|current [target]"
-        )
-        return 2
-    cfg = config()
-    action, rest = argv[0], argv[1:]
-    if action == "upgrade":
-        command.upgrade(cfg, rest[0] if rest else "heads")
-    elif action == "downgrade":
-        command.downgrade(cfg, rest[0] if rest else "-1")
-    elif action == "heads":
-        command.heads(cfg, verbose=True)
-    elif action == "history":
-        command.history(cfg, verbose=True)
-    else:
-        command.current(cfg, verbose=True)
-    return 0
+    """`upgrade [target] [--confirm-destructive REVISION]`, `downgrade [target]`,
+    `heads`, `history` or `current`."""
+    return migrate.command_line(argv, config, prog="python -m harness.migrations")
 
 
 if __name__ == "__main__":

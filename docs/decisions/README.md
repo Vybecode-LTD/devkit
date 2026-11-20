@@ -52,3 +52,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0046](0046-settings-features-system.md) | Settings, Features and System: the sign-up mode as a setting, switches that announce themselves, failed jobs that can only be discarded | Decided; applied in K4.8 |
 | [0047](0047-cli-and-site-template.md) | The CLI and the site template: copied from the checkout, a site's exact layout, hashes that ignore line endings, what waits | Decided; applied in K5 from #91 |
 | [0048](0048-site-pages-and-template.md) | The site's own pages, `kernel.load_module`, and how a site runs: always on, `backend` on the path, Railway as code | Decided; applied in K5.2 (#92) |
+| [0049](0049-destructive-migrations-wait.md) | A destructive migration waits for the owner: named back with `--confirm-destructive`, once its branch holds data | Decided; applied in K5.3 (#93) |

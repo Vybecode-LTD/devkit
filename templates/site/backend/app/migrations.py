@@ -6,7 +6,9 @@ The kernel's revisions carry the branch label `kernel`; each module's first
 revision carries its id and depends on the kernel's. `version_locations` lists
 `backend/migrations/kernel/` and each module's folder there, so
 `upgrade("heads")` runs them all in order. Railway runs `upgrade` before each
-deploy goes live (README.md, "Deploying").
+deploy goes live (README.md, "Deploying"). It stops before a migration marked
+`destructive = True` whose branch is already in the database, until the owner
+names it with `--confirm-destructive` (`kernel.migrate`, decision 0049).
 """
 
 from __future__ import annotations
@@ -18,10 +20,10 @@ from alembic import command
 from alembic.config import Config
 
 from app import BACKEND
+from kernel import migrate
 
 MIGRATIONS = BACKEND / "migrations"
 SCRIPT_LOCATION = BACKEND / "alembic"
-VERBS = ("upgrade", "downgrade", "heads", "history", "current")
 
 
 def migration_dirs() -> list[str]:
@@ -59,8 +61,15 @@ def config(database_url: str | None = None) -> Config:
     return cfg
 
 
-def upgrade(database_url: str | None = None, target: str = "heads") -> None:
-    command.upgrade(config(database_url), target)
+def upgrade(
+    database_url: str | None = None,
+    target: str = "heads",
+    *,
+    confirm_destructive: migrate.Confirm = (),
+) -> None:
+    """Upgrade, refusing a destructive revision not named in
+    `confirm_destructive` (True: all of them, for a throwaway database)."""
+    migrate.upgrade(config(database_url), target, confirm=confirm_destructive)
 
 
 def downgrade(database_url: str | None = None, target: str = "base") -> None:
@@ -68,23 +77,9 @@ def downgrade(database_url: str | None = None, target: str = "base") -> None:
 
 
 def main(argv: list[str]) -> int:
-    """`upgrade [target]`, `downgrade [target]`, `heads`, `history` or `current`."""
-    if not argv or argv[0] not in VERBS:
-        print(f"usage: python -m app.migrations {'|'.join(VERBS)} [target]")
-        return 2
-    cfg = config()
-    action, rest = argv[0], argv[1:]
-    if action == "upgrade":
-        command.upgrade(cfg, rest[0] if rest else "heads")
-    elif action == "downgrade":
-        command.downgrade(cfg, rest[0] if rest else "-1")
-    elif action == "heads":
-        command.heads(cfg, verbose=True)
-    elif action == "history":
-        command.history(cfg, verbose=True)
-    else:
-        command.current(cfg, verbose=True)
-    return 0
+    """`upgrade [target] [--confirm-destructive REVISION]`, `downgrade [target]`,
+    `heads`, `history` or `current`."""
+    return migrate.command_line(argv, config, prog="python -m app.migrations")
 
 
 if __name__ == "__main__":

@@ -64,9 +64,10 @@ None: no tables or migrations. `app.owner` writes an account through the kernel'
 
 1. **#91, the CLI's core:** `cli/mechframe/` (`__main__.py`, `source.py`, `lock.py`, `hashes.py`, `catalog.py`, `check.py`), `cli/tests/`, `pyproject.toml`'s scripts, the CLI in CI's Python job. Also this contract, decision 0047, SPEC 4, 12, 13 and 17, and `cli/README.md`.
 2. **#92, the site template:** `templates/site/` (the table above), `load_module` with the harness moved onto it, `mechframe new` (kernel only), and `tools/site_smoke.py`. The smoke tool builds a new site in a temporary folder: venv, `pip install --require-hashes`, `npm ci`, build, migrations, the site's tests and `check`. CI's E2E workflow runs it, on main and weekly, never on a PR. A test holds the template's web dependencies equal to the root `package.json`'s.
-3. **#93, `add` and `remove`:** the registries, `.env.example`, the lock, `new --recipe`; tested on fixture modules in `cli/tests/fixtures/`, since no module is built yet.
-4. **#94, `create-owner`:** `kernel.auth.owners.create_owner(db, email) -> str`, the template's `app/owner.py`, the CLI's wrapper, tests first.
-5. **#95, the gate's evidence** (docs only).
+3. **#93, SPEC 10's confirmation before a destructive migration** (change 7): `kernel.migrate`, with the harness's and the template's `migrations` on it, tests first.
+4. **#94, `add` and `remove`:** the registries, `.env.example`, the lock, `new --recipe`; tested on fixture modules in `cli/tests/fixtures/`, since no module is built yet.
+5. **#95, `create-owner`:** `kernel.auth.owners.create_owner(db, email) -> str`, the template's `app/owner.py`, the CLI's wrapper, tests first.
+6. **#96, the gate's evidence** (docs only).
 
 ## 5. Conventions this follows
 
@@ -120,7 +121,8 @@ None. The owner answered all five on 2026-11-20, each as recommended:
    A copy is affected when `introduced <= version` and, if `fixed` is set, `version < fixed`, by semver precedence. `schema/advisories.schema.json` holds the shape, and `tools.validate_schemas` checks the file against it.
 2. **2026-11-20, `check` exits 2 on a copied manifest that doesn't validate** (#91), as it does on an invalid lock: §2's row named the lock only.
 3. **2026-11-20, every version pattern in `schema/` is semver's own grammar** (#91, CodeRabbit): the lock's, the advisories' and the module manifest's. A version such as `0.1.0-01` now fails validation instead of reaching the parser. `check` also refuses a recorded file it can't read, and a checkout version semver refuses.
-4. **2026-11-20, the install fetches nothing unpinned** (#91, CodeRabbit; SPEC 15): `jsonschema` is declared in `pyproject.toml`; setuptools joins `requirements-dev.in`, hash-pinned and audited; and the install is `python -m pip install --no-deps --no-build-isolation -e .` after the pinned requirements.5. **2026-11-20, the site's own pages, in exact shape** (#92, decision 0048; §8 question 4):
+4. **2026-11-20, the install fetches nothing unpinned** (#91, CodeRabbit; SPEC 15): `jsonschema` is declared in `pyproject.toml`; setuptools joins `requirements-dev.in`, hash-pinned and audited; and the install is `python -m pip install --no-deps --no-build-isolation -e .` after the pinned requirements.
+5. **2026-11-20, the site's own pages, in exact shape** (#92, decision 0048; §8 question 4):
    - **Server:** `create_app(site=server_copy.SitePages(public=..., member=..., pages=..., name="Pages"))`, from the template's `backend/app/site/pages.py` (`SITE_PAGES`). The patterns are checked as a module's and are always on. At the same rank the site's wins over a module's, and the start logs it; a module's more fixed pattern still wins.
    - **Web:** `defineSite({ routes: { public, member }, slots })` in `web/src/site/site.ts`, given to `mountApp({ modules, site })`. Its routes come first and never wait for a switch, and its slot entries show whatever modules are on. It has no admin pages.
    - **The id:** `site` is the owner of both, so no module may take it (the manifest schema, `RESERVED_IDS`, `defineModule`).
@@ -132,3 +134,6 @@ None. The owner answered all five on 2026-11-20, each as recommended:
    - **`.env.example`** holds the live values, `DEBUG=false` among them; the README says which three lines change for local work.
    - **`.railway/railway.ts` in place of `railway.toml`** (§2's row and §8 question 3; the owner, 2026-11-20). Railway's docs: new services can't use config as code, and existing files stop being read on 2026-12-01. The file is a `partial` named `web`: the service built from the Dockerfile, its pre-deploy migrations, health check and variables (`FORWARDED_ALLOW_IPS=*` among them), and a `postgres`. Railway's SDK 3.16.0 is pinned in the site's root `package.json`. The owner applies it with `railway config plan` and `apply`.
    - **Checked live** on a throwaway project (`mechframe-iac-probe`, with the owner's OK): an apply deletes a variable on the service that the file doesn't list. So the file lists every setting in `.env.example` (`preserve()` for those typed into Railway), and `add` (#93) writes a module's settings into both.
+7. **2026-11-20, a destructive migration waits for the owner** (#93, decision 0049; the owner: before any module with migrations). §4 gains it as item 3, so `add` and `remove` are #94, `create-owner` #95 and the gate's evidence #96.
+   - `kernel.migrate` is both runners' command. An upgrade stops before an unconfirmed revision marked `destructive = True` once its branch is in the database: it exits 2, names it, and prints the command that runs it, `--confirm-destructive <revision>`.
+   - A name covers its own revision only. On a database new to its branch (a new site, a module just added) a destructive revision runs unasked.

@@ -49,7 +49,7 @@ depends_on = "kernel_0002"     # the kernel revision whose tables this module ne
 - Later revisions of the module: `down_revision = "blog_0001"`, no labels.
 - Make one with the head pinned to the branch, so it never lands on another module's chain:
   `command.revision(cfg, message="...", autogenerate=True, rev_id="blog_0002", head="blog@head", version_path=".../modules/blog/migrations")`
-- Then read the generated file. Strip the "auto generated" comments, add the docstring saying what and why, set `destructive = True` if it drops or rewrites data, and seed rows with `op.bulk_insert`.
+- Then read the generated file. Strip the "auto generated" comments, add the docstring saying what and why, set `destructive = True` if it drops or rewrites data (once its branch is in a database, `upgrade` then stops before it until the owner names it with `--confirm-destructive <revision>`; decision 0049), and seed rows with `op.bulk_insert`.
 
 ## Ownership rules (enforce them in review)
 

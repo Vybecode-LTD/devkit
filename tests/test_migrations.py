@@ -29,10 +29,17 @@ from sqlalchemy import table as table_
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from harness import migrations
 from harness.layout import KERNEL, module_dirs
-from harness.migrations import config, downgrade, upgrade
+from harness.migrations import config, downgrade
 from harness.models import load_all
 from kernel.db import Base, async_database_url
+
+
+def upgrade(url: str, target: str = "heads") -> None:
+    """Every revision, a destructive one too (decision 0049): each test's
+    database is thrown away after, and the stairway steps each one down and up."""
+    migrations.upgrade(url, target, confirm_destructive=True)
 
 
 async def _sync(url: str, work: Any) -> Any:
