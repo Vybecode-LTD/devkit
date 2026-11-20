@@ -2,7 +2,8 @@
 
 It makes sites from this MechFrame checkout and checks them against it
 (SPEC.md sections 12 and 13). Run it as `python -m mechframe`, or, after
-`python -m pip install -e .`, as `mechframe` or `mf` (decision 0034).
+`python -m pip install --no-deps --no-build-isolation -e .` (after the pinned
+requirements, so nothing unpinned is fetched), as `mechframe` or `mf` (decision 0034).
 """
 
 from __future__ import annotations

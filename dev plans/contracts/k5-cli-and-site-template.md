@@ -14,7 +14,7 @@ An agent turns a brief into a running site with one command. `mechframe new` wri
 
 ## 2. Interfaces
 
-**The CLI** is `cli/mechframe/`: Python 3.12, the standard library plus `jsonschema`. From a MechFrame checkout it runs as `python -m mechframe` (`cli` on the path). After `python -m pip install -e .` it also answers to `mechframe` and `mf` (`[project.scripts]` in `pyproject.toml`). It copies from, and checks against, **the checkout its own code sits in** (`mechframe.source.ROOT`). It never fetches anything.
+**The CLI** is `cli/mechframe/`: Python 3.12, the standard library plus `jsonschema`. From a MechFrame checkout it runs as `python -m mechframe` (`cli` on the path). After the pinned requirements, `python -m pip install --no-deps --no-build-isolation -e .` makes it also answer to `mechframe` and `mf` (`[project.scripts]` in `pyproject.toml`). It copies from, and checks against, **the checkout its own code sits in** (`mechframe.source.ROOT`). It never fetches anything.
 
 | Command | Does | Exits |
 | --- | --- | --- |
@@ -120,3 +120,4 @@ None. The owner answered all five on 2026-11-20, each as recommended:
    A copy is affected when `introduced <= version` and, if `fixed` is set, `version < fixed`, by semver precedence. `schema/advisories.schema.json` holds the shape, and `tools.validate_schemas` checks the file against it.
 2. **2026-11-20, `check` exits 2 on a copied manifest that doesn't validate** (#91), as it does on an invalid lock: §2's row named the lock only.
 3. **2026-11-20, every version pattern in `schema/` is semver's own grammar** (#91, CodeRabbit): the lock's, the advisories' and the module manifest's. A version such as `0.1.0-01` now fails validation instead of reaching the parser. `check` also refuses a recorded file it can't read, and a checkout version semver refuses.
+4. **2026-11-20, the install fetches nothing unpinned** (#91, CodeRabbit; SPEC 15): `jsonschema` is declared in `pyproject.toml`; setuptools joins `requirements-dev.in`, hash-pinned and audited; and the install is `python -m pip install --no-deps --no-build-isolation -e .` after the pinned requirements.

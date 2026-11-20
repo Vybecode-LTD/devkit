@@ -84,3 +84,25 @@ def test_a_recorded_file_that_can_t_be_read_is_a_refusal(
         problem.startswith("backend/kernel/auth/sessions.py: can't be read")
         for problem in report.problems
     )
+
+
+#: Where the CLI's install is written down for people and agents.
+INSTALL_DOCS = (
+    "cli/README.md",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "pyproject.toml",
+    "cli/mechframe/__init__.py",
+)
+
+
+def test_the_install_fetches_nothing_unpinned() -> None:
+    """SPEC 15: Python dependencies are hash-pinned and audited. The CLI's install
+    takes them from the pinned requirements and fetches nothing (CodeRabbit on #91)."""
+    pins = (source.ROOT / "requirements-dev.txt").read_text("utf-8")
+    assert "\nsetuptools==" in pins  # the build backend, for --no-build-isolation
+    assert "\njsonschema==" in pins
+    for name in INSTALL_DOCS:
+        text = (source.ROOT / name).read_text("utf-8")
+        assert "pip install -e ." not in text, name
+        assert "pip install --no-deps --no-build-isolation -e ." in text, name

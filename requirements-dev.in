@@ -13,4 +13,5 @@ jsonschema>=4.23  # tools/validate_schemas.py
 moto[s3]>=5.1.0  # an in-process S3 for kernel.storage's tests (the owner's choice, decision 0032)
 pip-audit>=2.10.1  # checks both .txt files for known vulnerabilities, in CI too
 uv>=0.12.18  # makes both .txt files from their .in files
+setuptools>=75  # builds the CLI's editable install with --no-build-isolation, so it fetches nothing unpinned (decision 0047)
 filelock>=4.2.1  # pip-audit's, through cachecontrol: 4.0.3 has known CVEs

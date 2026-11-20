@@ -11,7 +11,7 @@
 
   No module is built yet, so `diff` and `upgrade` have nothing to compare.
 - **Decision:**
-  1. **The CLI copies from, and checks against, the checkout its own code sits in.** It fetches nothing. It runs as `python -m mechframe`, or as `mechframe` and `mf` after `python -m pip install -e .`, the one part of the repo that is installed.
+  1. **The CLI copies from, and checks against, the checkout its own code sits in.** It fetches nothing. It runs as `python -m mechframe`, or as `mechframe` and `mf` after `python -m pip install --no-deps --no-build-isolation -e .`, the one part of the repo that is installed. It goes on after the pinned requirements, which hold `jsonschema` and setuptools, so the install fetches nothing unpinned (SPEC 15).
   2. **A site's layout is exact** (SPEC 4):
      - The kernel's package goes to `backend/kernel/`, with `kernel.json`.
      - Its migrations go to `backend/migrations/kernel/`, and its web to `web/src/kernel/`.

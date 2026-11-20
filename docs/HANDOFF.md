@@ -16,12 +16,12 @@ Overwritten every session. This one: 2026-11-20, morning Eastern (Claude Code, t
     - a site's own pages join in #92;
     - the template ships a CI workflow that runs `mechframe check` from a shallow clone.
   - **#91, the CLI's core:**
-    - `cli/mechframe/` (`python -m mechframe`, or `mechframe` and `mf` after `python -m pip install -e .`), which copies from, and checks against, its own checkout;
+    - `cli/mechframe/` (`python -m mechframe`, or `mechframe` and `mf` after `python -m pip install --no-deps --no-build-isolation -e .`), which copies from, and checks against, its own checkout;
     - `layout.py` (where the kernel and modules land in a site);
     - the lock and its hashes (`\r\n` read as `\n`);
     - `check`, which exits 2 on an invalid lock or manifest or a version semver refuses, 1 on an open high or critical advisory, and 0 otherwise;
     - `catalog`, and `schema/advisories.schema.json` (contract change 1);
-    - every version pattern in `schema/` tightened to semver's grammar (change 3);
+    - every version pattern in `schema/` tightened to semver's grammar (change 3), and an install that fetches nothing unpinned: setuptools pinned in `requirements-dev.in` (change 4);
     - SPEC 4, 12, 13 and 17.
   - **Review:** Codex's two findings and CodeRabbit's four were fixed with failing-first tests: jsonschema is declared in `pyproject.toml`; a version semver refuses fails the schemas and `check`; an unreadable recorded file is a refusal; `validate_schemas` checks an `advisories.json` that holds `null`.
 - **v1.0:** 58 % (35 of 60 steps). The ledger's `steps` dataset points at `main`'s rows once #91 lands (republished then).

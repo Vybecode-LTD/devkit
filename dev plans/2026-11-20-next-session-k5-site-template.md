@@ -8,7 +8,7 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 
 ## 2. Rules not in a CLAUDE.md
 
-- **K5's contract is approved** (`dev plans/contracts/k5-cli-and-site-template.md`; decision 0047). Its §8 holds the owner's five answers. The next change after approval is 4.
+- **K5's contract is approved** (`dev plans/contracts/k5-cli-and-site-template.md`; decision 0047). Its §8 holds the owner's five answers. The next change after approval is 5.
 - **Landing:** push once the local suites are green, and batch the fixes. Wait for CodeRabbit before pushing a fix while CI runs. Land by fast-forward once "CI result" is green and no thread is open. Stage by name and run gitleaks on the staged diff.
 - **Outward-facing is the owner's call:** no Railway project, domain or variables for a site, and no change to CI's security gates.
 - **`AGENTS.md` holds `CLAUDE.md`'s text:** change both together.
@@ -29,7 +29,7 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
      - `Dockerfile`, `railway.toml` (`FORWARDED_ALLOW_IPS=*`), `.env.example` (`CLIENT_IP_HEADER=X-Real-IP`);
      - `.github/workflows/ci.yml`, `CLAUDE.md` and `AGENTS.md`.
    - **`kernel.modules.load_module(manifest)`**, lifted from `harness/registry.py`, with the harness moved onto it.
-   - **The site's own pages:** `mountApp({ site })` and `create_app(site=...)`, always on, with server copy, no switch on Features. Record their exact shape as contract change 4.
+   - **The site's own pages:** `mountApp({ site })` and `create_app(site=...)`, always on, with server copy, no switch on Features. Record their exact shape as contract change 5.
    - **`mechframe new <dir>`** (kernel only), on `layout.copy` and `lock.write`.
    - **`tests/test_site_template.py`** and **`tools/site_smoke.py`.** The smoke tool builds a new site in a temporary folder: venv, `pip install --require-hashes`, `npm ci`, build, migrations, the site's tests and `mechframe check`. The E2E workflow runs it, never on a PR.
 2. Then #93 (`add`, `remove`), #94 (`create-owner`), #95 (K5's gate).
@@ -47,7 +47,7 @@ The list in `docs/HANDOFF.md`, "Open questions": ask, don't decide.
 
 ## 7. Evidence and next IDs
 
-`docs/HANDOFF.md`, the K5 contract (changes 1 to 3), decision 0047, #91's body. Next free: decision 0048, PR #92, migration `kernel_0013`, contract change 4.
+`docs/HANDOFF.md`, the K5 contract (changes 1 to 4), decision 0047, #91's body. Next free: decision 0048, PR #92, migration `kernel_0013`, contract change 5.
 
 ## 8. Candidates for `knowledge/`
 

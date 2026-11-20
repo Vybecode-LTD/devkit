@@ -5,7 +5,8 @@ Built in phase K5 (the contract: `dev plans/contracts/k5-cli-and-site-template.m
 From the repo root:
 
 ```powershell
-python -m pip install -e .        # once: installs the CLI as mechframe and mf, run from this checkout
+python -m pip install --require-hashes -r requirements.txt -r requirements-dev.txt   # the pinned, audited tools
+python -m pip install --no-deps --no-build-isolation -e .   # once: the CLI as mechframe and mf, from this checkout; fetches nothing
 mechframe check --site C:\path\to\site
 ```
 
