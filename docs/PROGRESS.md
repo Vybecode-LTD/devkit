@@ -93,11 +93,11 @@ AI DevKit became MechFrame once K3 was done (decision 0034).
 | One PR: prose, packages, cookies, variables, skills and links say MechFrame | Done | [#76](https://github.com/mechframe/mechframe/pull/76) | [0034](decisions/0034-rename-to-mechframe.md) |  |
 | The owner moves the repo to github.com/mechframe/mechframe and installs the review bots there | Done |  | [0034](decisions/0034-rename-to-mechframe.md) | 2026-11-18: transferred; Codex, CodeRabbit and cubic review there |
 
-### K4: web kernel · 8 of 9 done · gate not passed yet
+### K4: web kernel · 8 of 9 done · gate passed
 
 The front-end half of the kernel.
 
-Gate: Component tests, axe with no serious violations, Playwright runs of every sign-in method.
+Gate: Component tests, axe with no serious violations, Playwright runs of every sign-in method. Checked against the contract's §7 on main after #89 (dev plans/2026-11-20-k4-gate-evidence.md).
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |

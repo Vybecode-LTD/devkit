@@ -107,8 +107,8 @@
       "milestone": "v1",
       "name": "K4: web kernel",
       "goal": "The front-end half of the kernel.",
-      "gate": "Component tests, axe with no serious violations, Playwright runs of every sign-in method.",
-      "gate_passed": false,
+      "gate": "Component tests, axe with no serious violations, Playwright runs of every sign-in method. Checked against the contract's §7 on main after #89 (dev plans/2026-11-20-k4-gate-evidence.md).",
+      "gate_passed": true,
       "items": [
         {"name": "The typed client: every answer typed, the committed specs, api and its hooks", "status": "done", "prs": [78], "decisions": ["0042"]},
         {"name": "The app shell: router, useSession, guards, slots, the kernel's pages, server copy, Playwright", "status": "done", "prs": [79], "decisions": ["0042"]},

@@ -14,6 +14,8 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 
 `2026-11-19-k48-settings-system/` holds the admin's Settings tabs (Site, Features, System) at 1440 and 390 px in both themes, with failed jobs on System, and `README.md` saying what differs from `AdminSettings.dc.html` and why (#87).
 
+`2026-11-20-k4-gate-evidence.md` is the evidence K4's gate was checked on (contract §7): the runs, each bullet's tests, the one finding (a stale People list after a save under load, fixed by #89), and the kernel's contract lint (#90).
+
 `contracts/` holds the one-page contract each feature that touches a seam gets before its code (`C:\DEV\knowledge\decisions\0008-feature-contracts.md`):
 
 | File | What |
