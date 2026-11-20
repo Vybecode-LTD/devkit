@@ -23,5 +23,6 @@
   - On Railway, the owner runs a refused revision from the site's checkout at the new commit, with `DATABASE_URL` set to one that reaches the database from their machine (the Postgres service's `DATABASE_PUBLIC_URL`, behind its TCP proxy), then redeploys (the site's README, "Deploying").
   - A site's agents never add the flag to the deploy command, nor unmark a migration (the template's `CLAUDE.md` and `AGENTS.md`).
   - `downgrade` asks nothing: it's run by hand, never by a deploy.
+  - **A site made before #93 has no guard:** its `backend/app/migrations.py` calls Alembic itself, and the file is the site's own, so no `mechframe` command replaces it. Copy the template's over it before a destructive revision reaches its database (CodeRabbit on #93). Only test sites predate #93.
   - The check takes its steps from Alembic's `ScriptDirectory._upgrade_revs`, as `command.upgrade` does. Alembic is pinned, and the tests run through it.
 - **See:** SPEC 10; decision 0048; the K5 contract's change 7; `kernel/backend/kernel/migrate.py`; `kernel/tests/test_migrate.py`; the template's `backend/tests/test_migrations.py`
