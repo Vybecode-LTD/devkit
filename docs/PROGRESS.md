@@ -107,7 +107,7 @@ Gate: Component tests, axe with no serious violations, Playwright runs of every 
 | UI kit, moved to React 19 and tokens | Done | [#82](https://github.com/mechframe/mechframe/pull/82) | [0042](decisions/0042-web-kernel.md) |  |
 | Auth and account screens, with the device routes | Done | [#83](https://github.com/mechframe/mechframe/pull/83) | [0042](decisions/0042-web-kernel.md), [0043](decisions/0043-sign-in-and-account-screens.md) |  |
 | Admin shell: sidebar, top bar, Dashboard and Activity | Done | [#84](https://github.com/mechframe/mechframe/pull/84) | [0042](decisions/0042-web-kernel.md), [0044](decisions/0044-admin-shell.md) |  |
-| Admin people and roles, with role editing | Done | [#85](https://github.com/mechframe/mechframe/pull/85), [#88](https://github.com/mechframe/mechframe/pull/88) | [0042](decisions/0042-web-kernel.md), [0045](decisions/0045-people-and-roles.md) |  |
+| Admin people and roles, with role editing | Done | [#85](https://github.com/mechframe/mechframe/pull/85), [#88](https://github.com/mechframe/mechframe/pull/88), [#89](https://github.com/mechframe/mechframe/pull/89) | [0042](decisions/0042-web-kernel.md), [0045](decisions/0045-people-and-roles.md) |  |
 | Admin settings: Site, Features and System | Done | [#87](https://github.com/mechframe/mechframe/pull/87) | [0042](decisions/0042-web-kernel.md), [0046](decisions/0046-settings-features-system.md) |  |
 | Depth theme | Later |  |  | The owner, 2026-11-18: when a site wants it |
 

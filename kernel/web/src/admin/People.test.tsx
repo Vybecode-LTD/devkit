@@ -170,6 +170,52 @@ describe("a person's roles", () => {
     });
   });
 
+  it("are shown as saved when the save lands while a search's first page is on its way (K4's gate)", async () => {
+    const saved = { ...CY, roles: ["editor", "member"] };
+    let committed = false;
+    const { fetch, sent } = routedFetch({
+      ...BASE,
+      "GET /api/auth/admin/users": () => page([committed ? saved : CY]),
+      [`PUT /api/auth/admin/users/${CY.id}/roles`]: () => {
+        committed = true;
+        return { status: 200, body: saved };
+      },
+    });
+    // The search's first page is read before the save commits, and answers after it.
+    const answer = fetch.getMockImplementation();
+    let searches = 0;
+    let releaseSearch: () => void = () => undefined;
+    fetch.mockImplementation((request: Request) => {
+      const reply = answer?.(request) ?? Promise.reject(new TypeError("Failed to fetch"));
+      const searching = request.method === "GET" && new URL(request.url).searchParams.has("q");
+      if (!searching || searches++ > 0) return reply;
+      return new Promise<Response>((resolve) => {
+        releaseSearch = () => {
+          resolve(reply);
+        };
+      });
+    });
+    const table = await opened();
+    await userEvent.type(screen.getByRole("searchbox", { name: "Search by email" }), "c3");
+    await userEvent.click(table.getByRole("button", { name: "Open c3@site.test" }));
+    const dialog = within(await screen.findByRole("dialog", { name: "c3@site.test" }));
+    await waitFor(() => {
+      expect(sent.some((request) => new URL(request.url).searchParams.get("q") === "c3")).toBe(true);
+    });
+    await userEvent.click(dialog.getByRole("switch", { name: /^Editor/ }));
+    await userEvent.click(dialog.getByRole("button", { name: "Save roles" }));
+    await waitFor(() => {
+      expect(committed).toBe(true);
+    });
+    releaseSearch();
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+    const found = within(await screen.findByRole("table", { name: 'People whose email holds "c3", newest first' }));
+    expect(await found.findByText("Editor")).toBeInTheDocument();
+    expect(found.getByText("Not set up")).toBeInTheDocument();
+  });
+
   it("can't be dismissed while its save is on its way, so the save can't close another person's (CodeRabbit on #85)", async () => {
     const { fetch } = routedFetch({ ...BASE, "GET /api/auth/admin/users": page([BO]) });
     const answer = fetch.getMockImplementation();

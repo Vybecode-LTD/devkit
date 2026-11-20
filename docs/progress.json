@@ -116,7 +116,7 @@
         {"name": "UI kit, moved to React 19 and tokens", "status": "done", "prs": [82], "decisions": ["0042"]},
         {"name": "Auth and account screens, with the device routes", "status": "done", "prs": [83], "decisions": ["0042", "0043"]},
         {"name": "Admin shell: sidebar, top bar, Dashboard and Activity", "status": "done", "prs": [84], "decisions": ["0042", "0044"]},
-        {"name": "Admin people and roles, with role editing", "status": "done", "prs": [85, 88], "decisions": ["0042", "0045"]},
+        {"name": "Admin people and roles, with role editing", "status": "done", "prs": [85, 88, 89], "decisions": ["0042", "0045"]},
         {"name": "Admin settings: Site, Features and System", "status": "done", "prs": [87], "decisions": ["0042", "0046"]},
         {"name": "Depth theme", "status": "later", "note": "The owner, 2026-11-18: when a site wants it"}
       ]

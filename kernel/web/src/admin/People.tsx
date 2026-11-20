@@ -102,6 +102,9 @@ function PersonRoles({ person, roles, onClose }: { person: Person; roles: readon
     setError("");
     try {
       await api.PUT("/api/auth/admin/users/{id}/roles", { params: { path: { id: person.id } }, body: { roles: [...chosen] } });
+      // A list still loading its first page (a search just begun) would be handed that read,
+      // begun before this save, rather than read again: stop it first (K4's gate).
+      await queryClient.cancelQueries({ queryKey: ["get", "/api/auth/admin/users"] });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["get", "/api/auth/admin/users"] }),
         queryClient.invalidateQueries({ queryKey: ["get", "/api/auth/admin/roles"] }),
