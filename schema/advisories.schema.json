@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechframe.local/schema/advisories.schema.json",
+  "title": "MechFrame security advisories (advisories.json)",
+  "description": "SPEC.md section 13 and the K5 contract's change 1: each security fix to the kernel or a module. A copy is affected when introduced <= its version and, if fixed is set, its version < fixed, by semver precedence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "advisories"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "$comment": {
+      "type": "string"
+    },
+    "advisories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "module",
+          "introduced",
+          "fixed",
+          "severity",
+          "summary"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^MF-\\d{4}-\\d{4}$"
+          },
+          "module": {
+            "type": "string",
+            "description": "kernel, or a module's id",
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+          },
+          "introduced": {
+            "type": "string",
+            "description": "The first version affected",
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+          },
+          "fixed": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first version fixed, or null while there's no fix",
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(-[0-9A-Za-z.-]+)?$"
+          },
+          "severity": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 3
+          }
+        }
+      }
+    }
+  }
+}

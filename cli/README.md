@@ -1,16 +1,24 @@
 # mechframe CLI
 
-Built in phase K5. Commands (SPEC.md sections 12 and 13):
+Built in phase K5 (the contract: `dev plans/contracts/k5-cli-and-site-template.md`; decision 0047). The CLI is written in Python, using the standard library plus `jsonschema`. It copies from, and checks against, **the MechFrame checkout its own code sits in**, and fetches nothing.
 
-| Command | Does |
-| --- | --- |
-| `mechframe new <site> --recipe <name>` | Copies `templates/site/`, the kernel and the recipe's modules; writes the lock file |
-| `mechframe add <id>` | Checks requires and conflicts, copies the module, regenerates the registries, appends env vars, records hashes, runs its migrations and tests |
-| `mechframe remove <id> [--drop-data]` | Switches it off, offers an export, removes code and registry entries; keeps tables unless told |
-| `mechframe check` | Validates manifests, lists edited copies, modules behind their latest version and open advisories; non-zero on a high-severity advisory |
-| `mechframe diff <id>` | Three-way: the copy in the lock file, the site's files, the latest MechFrame version |
-| `mechframe upgrade <id>` | Applies an upgrade when the copy is unedited; otherwise writes a patch |
-| `mechframe catalog` | Regenerates `catalog.json` from every manifest |
-| `mechframe create-owner` | Creates a site's first owner account |
+From the repo root:
 
-Written in Python (standard library plus `jsonschema`), run as `python -m mechframe`. Installed, it answers to `mechframe` and to `mf` (decision 0034); where TeX's Metafont `mf` comes first on the PATH, `mechframe` always works.
+```powershell
+python -m pip install -e .        # once: installs the CLI as mechframe and mf, run from this checkout
+mechframe check --site C:\path\to\site
+```
+
+Without installing it, `python -m mechframe` works with `cli` on the path: `$env:PYTHONPATH = "cli"`. Where TeX's Metafont `mf` comes first on the PATH, `mechframe` always works (decision 0034).
+
+| Command | Does | Built |
+| --- | --- | --- |
+| `mechframe catalog [--check]` | Writes `catalog.json` from every built module's manifest. `--check` only says whether it's current | #91 |
+| `mechframe check [--site <dir>] [--json]` | Validates the lock and the copied manifests. Lists edited, missing and added files in copied folders, copies behind this checkout, and open advisories. Exits 2 on an invalid lock or manifest, 1 on an open high or critical advisory, 0 otherwise | #91 |
+| `mechframe new <dir> [--name] [--recipe] [--theme]` | Copies `templates/site/`, the kernel and the recipe's modules; writes the lock | K5, #92 |
+| `mechframe add <id>` | Checks requires and conflicts, copies the module, regenerates the registries, appends env vars, records hashes; prints its migration and test commands | K5, #93 |
+| `mechframe remove <id>` | Refuses while another module requires it; removes its code, registry and lock entries; keeps its tables | K5, #93 |
+| `mechframe create-owner <email>` | Runs the site's `python -m app.owner <email>`, which prints a one-time link to set a password | K5, #94 |
+| `mechframe diff <id>`, `upgrade <id>` | Three-way against the copy in the lock, the site's files and this checkout | When a module ships its second version |
+
+The site's layout, the lock's hashes and the advisories' entries: SPEC.md sections 4 and 13. The code is in `cli/mechframe/`, and its tests are in `cli/tests/`.

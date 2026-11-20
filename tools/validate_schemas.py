@@ -6,8 +6,9 @@ Schema can't say (SPEC.md sections 4, 5 and 10).
 What it checks:
 - every `modules/*/module.json` (the template included) against
   `module.schema.json`; every `recipes/*.json` against `recipe.schema.json`;
-  `kernel/kernel.json` against `kernel.schema.json`; `catalog.json` and
-  `advisories.json` parse;
+  `kernel/kernel.json` against `kernel.schema.json`; `advisories.json` against
+  `advisories.schema.json`; `catalog.json` parses (`mechframe catalog --check`
+  holds it current);
 - a module's folder is named by its id (the template excepted), its backend
   package is the id with `-` turned into `_`, every table it owns starts with
   that package name and `_`, and every permission key with its id and `.`;
@@ -120,8 +121,11 @@ def check(root: Path = ROOT) -> Report:
     if data is not None:
         _against(kernel, data, kernel_path, root, report)
 
-    for name in ("catalog.json", "advisories.json"):
-        _load(root / name, root, report)
+    _load(root / "catalog.json", root, report)
+    advisories_path = root / "advisories.json"
+    data = _load(advisories_path, root, report)
+    if data is not None:
+        _against(_validator(root, "advisories.schema.json"), data, advisories_path, root, report)
     return report
 
 

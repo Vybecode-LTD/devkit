@@ -109,22 +109,29 @@ mechframe/
 ```
 <site>/
   mechframe.lock.json
-  CLAUDE.md  AGENTS.md
+  CLAUDE.md  AGENTS.md  README.md  .env.example  compose.yaml
+  requirements.txt  requirements-dev.txt  pyproject.toml
   backend/
-    app/main.py           builds the app from the kernel and enabled modules
+    app/main.py           builds the app from the kernel and the modules in app/modules.py
+    app/modules.py        MODULE_IDS, written by mechframe add and remove
+    app/migrations.py  app/worker.py  app/owner.py
     app/site/             this site's own backend code
-    kernel/               copied
-    modules/<id>/         copied
     alembic/              env.py loads every branch
+    kernel/               copied: kernel/backend/kernel/ and kernel.json
+    migrations/kernel/    copied: kernel/migrations/
+    migrations/<id>/      copied: modules/<id>/migrations/
+    modules/<id_>/        copied: modules/<id>/backend/<id_>/, module.json, MODULE.md, CHANGELOG.md
+    tests/
   web/
-    src/kernel/           copied
-    src/modules/<id>/     copied
+    src/kernel/           copied: kernel/web/
+    src/modules/<id>/     copied: modules/<id>/web/
+    src/modules.ts        written by mechframe add and remove
     src/site/             this site's own pages and overrides
-    src/theme/tokens.css
-  Dockerfile  railway.toml
+    src/theme/tokens.css  copied: themes/<theme>/tokens.css
+  Dockerfile  railway.toml  .github/workflows/ci.yml
 ```
 
-Code written for one site goes in `site/` folders. Copied folders MAY be edited, but `mechframe check` reports every edit against the lock file (section 12).
+A copy leaves tests, caches and the web folders' own package files behind: MechFrame's CI tests what it copies, and the lock's hashes prove a copy is what was tested (decision 0047). Code written for one site goes in `site/` folders. Copied folders MAY be edited, but `mechframe check` reports every edit against the lock file (section 12).
 
 MechFrame itself lives at `C:\DEV\AI-DevKit`, in the GitHub repo `mechframe/mechframe` (decision 0034): public for now, the code still proprietary (decision 0011).
 
@@ -452,18 +459,21 @@ A module is copied in with `mechframe add` (the CLI is `mechframe`, with `mf` as
 3. Regenerate `backend/app/modules.py` and `web/src/modules.ts`, the two registries the app is built from.
 4. Append its env vars to `.env.example` and print the ones still to set.
 5. Record its version and every copied file's hash in `mechframe.lock.json`.
-6. Run its migrations (`alembic upgrade <id>@head`).
-7. Run its tests and report the result.
+6. Print the command for its migrations (`python -m app.migrations upgrade <id>@head`).
+7. Print the command for the site's tests.
+
+The CLI runs from a MechFrame checkout, with MechFrame's Python, and copies from that checkout; it fetches nothing. So the site runs steps 6 and 7 itself, in its own environment (decision 0047).
 
 **Switching on and off.** A module is on when the deploy's `MODULES` list allows it and the admin hasn't switched it off on the Features page (VybeSite's parts). While off, its routes answer 404, its slots are hidden, its jobs pause and its event handlers wait. A switch applies at once in the process that made it and within `MODULES_CACHE_SECONDS` (5 by default) in every other worker (decision 0009).
 
-**`mechframe remove <id>`.** Switch it off, offer an export of its data, delete its code and registry entries, and keep its tables unless `--drop-data` is given.
+**`mechframe remove <id>`.** Refuse while another module requires it. Delete its code, registry entries and lock entry, comment out its env vars, and keep its tables. `--drop-data` waits for the first module with data, since its downgrade must run before its files go (decision 0047).
 
 **Upgrades**
 
 - `mechframe diff <id>` compares three versions: the copy recorded in the lock file, the site's current files, and the latest MechFrame version.
 - `mechframe upgrade <id>` applies the change when the site hasn't edited the module. Otherwise it writes a patch for an agent to merge.
-- `mechframe check` lists every edited file in copied folders, every module behind its latest version, and every open advisory.
+- `mechframe check` lists every edited, missing or added file in copied folders, every copy behind the checkout's version, and every open advisory. It exits 2 when the lock or a copied manifest doesn't validate, 1 on an open high or critical advisory, and 0 otherwise.
+- `diff` and `upgrade` wait for a module's second version: a three-way diff reads the old copy's files from a Git tag per version (the owner, 2026-11-20).
 
 **Customizing without editing.** Prefer settings, slots, event handlers and pages in `site/`. Edit copied files only when those can't do the job.
 
@@ -492,7 +502,16 @@ The kernel, each module and this spec carry their own semver. Because copies don
 }
 ```
 
-**Advisories.** `ADVISORIES.md` and `advisories.json` in MechFrame list each security fix: an id, the affected module and versions, the fixed version, its severity and a one-line description. `mechframe check` exits non-zero on any open advisory of high severity, so a site's CI fails until it is patched.
+Paths are relative to the site, with `/`. A file's hash is `sha256:` of its bytes with `\r\n` read as `\n`, so the line endings Git writes in a Windows checkout don't read as edits. `recipe` is null for a site with the kernel only.
+
+**Advisories.** `ADVISORIES.md` and `advisories.json` in MechFrame list each security fix. Each entry in `advisories.json` is `{id, module, introduced, fixed, severity, summary}`:
+
+- `id` is `MF-<year>-<number>`, such as `MF-2026-0001`;
+- `module` is `kernel` or a module's id;
+- `introduced` is the first version affected, and `fixed` the first fixed one, or null while there's no fix;
+- `severity` is `low`, `medium`, `high` or `critical`.
+
+A copy is affected from `introduced` up to, but not including, `fixed`, by semver precedence (`schema/advisories.schema.json`). `mechframe check` exits non-zero on any open advisory of high severity, so a site's CI fails until it is patched.
 
 Every module keeps a `CHANGELOG.md`. A change to this spec is recorded in `docs/decisions/` before it lands.
 
@@ -758,7 +777,7 @@ Any agent starts at `AGENT-GUIDE.md`, picks from `catalog.json` and recipes, and
 
 **Starter recipes:** `minimal`, `local-business`, `artist-or-band`, `saas-landing`, `community`, `shop`, `publication`.
 
-**`catalog.json`** is generated from every manifest and holds only what picking needs: id, summary, `use_when`, `avoid_when`, `requires`, `conflicts` and status. An agent can read the whole library in one small file.
+**`catalog.json`** is generated by `mechframe catalog` from every built module's manifest (scaffolds and `planned` modules left out) and holds only what picking needs: id, name, version, status, category, summary, `use_when`, `avoid_when`, `requires` and `conflicts`, in id order with no timestamp. An agent can read the whole library in one small file.
 
 **Later:** an MCP server exposing `list_modules`, `recommend(brief)`, `add(module)` and `check()`, so any MCP-capable AI can drive the CLI.
 
@@ -831,6 +850,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-20 | K5's CLI and site template (decision 0047, K5 contract): the CLI copies from its own checkout; a site's exact layout; lock hashes read `\r\n` as `\n`; `advisories.json`'s entries; `check`'s exits; `add` prints the migration and test steps; `remove --drop-data`, `diff` and `upgrade` wait; the catalog's fields (4, 12, 13, 17) |
 | 2026-11-19 | `auth.user.role_changed` is emitted by a grant on the admin's People, `{user_id, added, removed}`, in its transaction; every kernel event in the table is now emitted (11) |
 | 2026-11-19 | K4's Settings, Features and System (decision 0046, contract change 19): the sign-up mode is the settings section `kernel.auth`, defaulting to `SIGN_UP_MODE`; module switches are audited and emit `kernel.module.enabled` and `kernel.module.disabled`; a failed job whose contents were wiped, or that nothing declares, can only be discarded (11, 12, 14.7) |
 | 2026-11-19 | K4's people and roles (decision 0045, contract change 18): `auth.role.manage` (admin by default); the People list and granting roles built; the site's own roles made, changed and deleted within the permissions held; `member` is no rank (14.1, 14.8) |

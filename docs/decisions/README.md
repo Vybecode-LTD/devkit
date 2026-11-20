@@ -50,3 +50,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0044](0044-admin-shell.md) | The admin shell: sections in the sidebar, "Needs you" for those who can act, the log naming its people, an info tone | Decided; applied in K4.6 |
 | [0045](0045-people-and-roles.md) | People and roles in the admin: who may grant and edit what, the locks that keep the last owner, `auth.role.manage` | Decided; applied in K4.7 |
 | [0046](0046-settings-features-system.md) | Settings, Features and System: the sign-up mode as a setting, switches that announce themselves, failed jobs that can only be discarded | Decided; applied in K4.8 |
+| [0047](0047-cli-and-site-template.md) | The CLI and the site template: copied from the checkout, a site's exact layout, hashes that ignore line endings, what waits | Decided; applied in K5 from #91 |

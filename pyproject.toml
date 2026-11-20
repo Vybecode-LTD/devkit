@@ -8,16 +8,30 @@ version = "0.0.0"
 description = "MechFrame: reusable website modules for AI agents (dev environment only)"
 requires-python = ">=3.12"
 
+# The CLI (cli/mechframe/, K5) is the one part installed: `python -m pip install -e .`
+# gives `mechframe` and `mf`, run from this checkout (it copies from it).
+[project.scripts]
+mechframe = "mechframe.__main__:main"
+mf = "mechframe.__main__:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "cli"}
+packages = ["mechframe"]
+
 [tool.uv]
 package = false
 
 # --- tests -------------------------------------------------------------------
 [tool.pytest.ini_options]
 minversion = "8.3"
-testpaths = ["kernel/tests", "tests", "modules"]
+testpaths = ["kernel/tests", "tests", "modules", "cli/tests"]
 # kernel/backend makes `import kernel` work; the repo root makes `harness` and
-# `tools` importable. conftest.py adds every modules/*/backend.
-pythonpath = ["kernel/backend", "."]
+# `tools` importable, and cli `mechframe`. conftest.py adds every modules/*/backend.
+pythonpath = ["kernel/backend", ".", "cli"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
@@ -30,7 +44,7 @@ filterwarnings = ["error", "ignore::DeprecationWarning:passlib.*"]
 norecursedirs = ["node_modules", ".venv", "_template", "templates", "dist"]
 
 [tool.coverage.run]
-source = ["kernel/backend/kernel", "harness", "tools"]
+source = ["kernel/backend/kernel", "harness", "tools", "cli/mechframe"]
 branch = true
 # SQLAlchemy's async layer runs on greenlets: without this, lines after a
 # database await inside a request go unmeasured.
@@ -75,15 +89,15 @@ extend-immutable-calls = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["kernel", "harness", "tools"]
+known-first-party = ["kernel", "harness", "tools", "mechframe"]
 
 # --- types ---------------------------------------------------------------------
 [tool.mypy]
 python_version = "3.12"
-mypy_path = "kernel/backend"
+mypy_path = "kernel/backend,cli"
 # Spec section 16: mypy strict. Every module's backend package too (its name
 # is the module's id), so the strict flag is set for everything checked.
-files = ["kernel/backend/kernel", "modules/*/backend", "harness", "tools"]
+files = ["kernel/backend/kernel", "modules/*/backend", "harness", "tools", "cli/mechframe"]
 plugins = ["pydantic.mypy"]
 strict = true
 warn_unused_configs = true

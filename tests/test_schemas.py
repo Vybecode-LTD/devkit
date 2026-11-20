@@ -105,6 +105,23 @@ def test_unreadable_json_is_a_problem(repo: Path) -> None:
     assert check(repo).problems[0].startswith("recipes/minimal.json: can't be read as JSON")
 
 
+def test_an_advisory_is_checked_against_its_schema(repo: Path) -> None:
+    entry = {
+        "id": "MF-2026-0001",
+        "module": "kernel",
+        "introduced": "0.1.0",
+        "fixed": None,
+        "severity": "high",
+        "summary": "Something the kernel got wrong",
+    }
+    path = repo / "advisories.json"
+    path.write_text(json.dumps({"advisories": [entry]}), "utf-8")
+    assert check(repo).problems == []
+    path.write_text(json.dumps({"advisories": [{**entry, "severity": "severe"}]}), "utf-8")
+    (problem,) = check(repo).problems
+    assert problem.startswith("advisories.json: advisories/0/severity")
+
+
 def test_main_exits_one_on_a_problem(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _edit(repo, status="beta")
     assert main([str(repo)]) == 1

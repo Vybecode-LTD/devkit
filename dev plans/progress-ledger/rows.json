@@ -568,11 +568,11 @@
    "gate": "not passed",
    "step_order": 1,
    "step": "The mechframe commands and lock files",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
-   "note": ""
+   "status": "next",
+   "status_label": "Next",
+   "prs": "#91",
+   "decisions": "0047",
+   "note": "check and the lock in #91; new, add, remove and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"
   },
   {
    "milestone": "MechFrame v1.0",
@@ -610,10 +610,10 @@
    "gate": "not passed",
    "step_order": 4,
    "step": "mechframe catalog",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#91",
+   "decisions": "0047",
    "note": ""
   },
   {

@@ -8,9 +8,9 @@ Updated 2026-11-19, `main` at `c38cdfa`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 35 | 0 | 0 | 19 | 3 | 3 | █████░░░░░ 58% (35 of 60) |
+| MechFrame v1.0 | 36 | 0 | 1 | 17 | 3 | 3 | ██████░░░░ 60% (36 of 60) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 35 | 0 | 0 | 104 | 3 | 6 | ██░░░░░░░░ 23% (35 of 148) |
+| Everything | 36 | 0 | 1 | 102 | 3 | 6 | ██░░░░░░░░ 24% (36 of 148) |
 
 ## MechFrame v1.0
 
@@ -111,13 +111,18 @@ Gate: Component tests, axe with no serious violations, Playwright runs of every 
 | Admin settings: Site, Features and System | Done | [#87](https://github.com/mechframe/mechframe/pull/87) | [0042](decisions/0042-web-kernel.md), [0046](decisions/0046-settings-features-system.md) |  |
 | Depth theme | Later |  |  | The owner, 2026-11-18: when a site wants it |
 
-### K5: CLI and site template · 0 of 4 done · gate not passed yet
+### K5: CLI and site template · 1 of 4 done · gate not passed yet
 
 mechframe works end to end.
 
 Gate: mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it.
 
-To do: `The mechframe commands and lock files`, `templates/site, made from the harness`, `The start command and .env.example for a host's edge`, `mechframe catalog`.
+| Step | Status | PRs | Decisions | Note |
+| --- | --- | --- | --- | --- |
+| The mechframe commands and lock files | Next | [#91](https://github.com/mechframe/mechframe/pull/91) | [0047](decisions/0047-cli-and-site-template.md) | check and the lock in #91; new, add, remove and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20) |
+| templates/site, made from the harness | To do |  |  |  |
+| The start command and .env.example for a host's edge | To do |  |  |  |
+| mechframe catalog | Done | [#91](https://github.com/mechframe/mechframe/pull/91) | [0047](decisions/0047-cli-and-site-template.md) |  |
 
 ### Contract hooks · 0 of 10 done
 

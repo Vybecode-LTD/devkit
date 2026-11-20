@@ -41,3 +41,6 @@ playwright-report/
 
 # Private notes: the repo is public. See docs/private/README.md on the owner's machine.
 docs/private/
+
+# The CLI's editable install (python -m pip install -e .)
+*.egg-info/

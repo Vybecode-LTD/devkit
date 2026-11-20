@@ -129,10 +129,10 @@
       "gate": "mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it.",
       "gate_passed": false,
       "items": [
-        {"name": "The mechframe commands and lock files", "status": "todo"},
+        {"name": "The mechframe commands and lock files", "status": "next", "prs": [91], "decisions": ["0047"], "note": "check and the lock in #91; new, add, remove and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"},
         {"name": "templates/site, made from the harness", "status": "todo"},
         {"name": "The start command and .env.example for a host's edge", "status": "todo"},
-        {"name": "mechframe catalog", "status": "todo"}
+        {"name": "mechframe catalog", "status": "done", "prs": [91], "decisions": ["0047"]}
       ]
     },
     {
