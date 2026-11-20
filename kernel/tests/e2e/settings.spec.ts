@@ -61,9 +61,10 @@ test("a failed job is retried, and one that can't run again is discarded", async
   await signedInAdmin(page, "/admin/settings/system");
   await expect(page.getByText(/jobs? failed for good$/)).toBeVisible();
   const table = page.getByRole("table", { name: "Jobs that failed for good" });
-  // Each test's jobs are its own; the list may hold others' too.
-  const rows = table.getByRole("row").filter({ hasText: "probe.fail" });
-  await expect(rows.first()).toBeVisible();
+  // Each row by its own job's id, so no other job's row can stand in (CodeRabbit on #87).
+  const row = (id: string) => table.getByRole("row").filter({ has: page.locator(`[data-job="${id}"]`) });
+  await expect(row(retried)).toBeVisible();
+  await expect(row(wiped)).toBeVisible();
   const dead = async (): Promise<{ id: string; retryable: boolean }[]> => {
     const listed = await page.request.get("/api/kernel/admin/jobs/dead?limit=100");
     return ((await listed.json()) as { items: { id: string; retryable: boolean }[] }).items;
@@ -72,14 +73,12 @@ test("a failed job is retried, and one that can't run again is discarded", async
   expect(items.find((item) => item.id === retried)?.retryable).toBe(true);
   expect(items.find((item) => item.id === wiped)?.retryable).toBe(false);
 
-  const retryable = rows.filter({ has: page.getByRole("button", { name: "Retry" }) }).first();
-  await retryable.getByRole("button", { name: "Retry" }).click();
+  await row(retried).getByRole("button", { name: "Retry" }).click();
   await expect(page.getByText("probe.fail will run again shortly.")).toBeVisible();
-  // It was this test's job the Retry took, not another's (CodeRabbit on #87).
   expect((await dead()).map((item) => item.id)).not.toContain(retried);
 
-  const onlyDiscard = rows.filter({ hasNot: page.getByRole("button", { name: "Retry" }) }).first();
-  await onlyDiscard.getByRole("button", { name: "Discard" }).click();
+  await expect(row(wiped).getByRole("button", { name: "Retry" })).toHaveCount(0);
+  await row(wiped).getByRole("button", { name: "Discard" }).click();
   await page.getByRole("dialog", { name: "Discard probe.fail?" }).getByRole("button", { name: "Discard" }).click();
   await expect(page.getByText("probe.fail is discarded.")).toBeVisible();
   expect((await dead()).map((item) => item.id)).not.toContain(wiped);
