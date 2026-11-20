@@ -540,7 +540,7 @@ MechFrame owns all of auth: the design, the data and the tests. It never hand-ro
 - Staff means any account with a role other than `member`, a site's custom roles included. Staff MUST have a second factor (14.4) before reaching the admin.
 - Public sign-up creates only `member` accounts. Staff roles come from an owner or admin, or from an invite that names the role.
 - **Who can grant what** (decision 0013): a role can be granted or removed only by someone who holds every permission it carries. `member`, which anyone gets by signing up, is no rank (decision 0045). Only an owner grants, removes or suspends an owner, and the last owner can't be removed, demoted or suspended. Built-in roles can't be deleted. The same rules bind invites.
-- The first owner is made with `mechframe create-owner`, or with a one-time setup token printed at first boot (VybeSite `setup_admin.py`).
+- The first owner is made from the server with `mechframe create-owner <email>`, which runs the site's `python -m app.owner <email>`: the address's account (made if there's none) gets the owner role, every way into it is closed, and the command prints a one-time link to set its password, a reset link (14.7). Nothing is mailed, and there's no setup token at first boot. With an active owner, only an owner's own address gets a new link; any other is refused, and an owner grants the role in Admin, People (decision 0051).
 
 ### 14.2 Sign-in methods
 
@@ -862,6 +862,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-20 | The first owner, from the server (decision 0051, K5 contract change 9): `create-owner` prints a reset link for the owner's account, closes every way into it first, refuses any address but an owner's once there is one, and replaces the setup token at first boot (14.1) |
 | 2026-11-20 | `add`, `remove` and `new --recipe` (decision 0050, K5 contract change 8): `requires` ranges and pre-releases, `add` writing `railway.ts` and running whole or not at all, `remove` keeping a module's migrations and `railway.ts` lines, and the recipe's order and settings (12) |
 | 2026-11-20 | A destructive migration waits for the owner (decision 0049, K5 contract change 7): once its branch is in the database, an upgrade stops before it and names it, until `--confirm-destructive <revision>` names it back; the harness and every site share `kernel.migrate` (10) |
 | 2026-11-20 | K5's site template (decision 0048, K5 contract changes 5 and 6): a site's own pages, `create_app(site=)` and `defineSite` for `mountApp({ site })`, always on and first in a tie, `site` no module's id (6, 8, 9); `load_module` (6); a site's Python runs with `backend` on the path, and `.railway/railway.ts` replaces `railway.toml` for Railway, listing every setting (4) |

@@ -1,9 +1,8 @@
 """`python -m mechframe <command>` (K5 contract §2; cli/README.md).
 
-Built so far: `new` (with `--recipe`, a recipe's modules too), `add`,
-`remove`, `catalog` and `check`. `create-owner` follows in the next K5 pull
-request; `diff` and `upgrade` wait for a module's second version (the owner,
-2026-11-20).
+Built: `new` (with `--recipe`, a recipe's modules too), `add`, `remove`,
+`create-owner`, `catalog` and `check`. `diff` and `upgrade` wait for a
+module's second version (the owner, 2026-11-20).
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-from mechframe import __version__, catalog, check, modules, new
+from mechframe import __version__, catalog, check, modules, new, owner
 from mechframe.source import ROOT
 
 
@@ -45,6 +44,13 @@ def _parser() -> argparse.ArgumentParser:
     adding.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
     _root(adding)
 
+    owning = commands.add_parser(
+        "create-owner", help="make the site's owner: prints a one-time link to set its password"
+    )
+    owning.add_argument("email", help="the owner's email address")
+    owning.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
+    _root(owning)
+
     removing = commands.add_parser("remove", help="remove a module from a site, keeping its tables")
     removing.add_argument("id", help="the module's id")
     removing.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
@@ -75,6 +81,12 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print("\n".join(new.next_steps(made)))
         return 0
+    if args.command == "create-owner":
+        try:
+            return owner.create_owner(args.site.resolve(), args.email, root=args.root)
+        except owner.Refused as refusal:
+            print(refusal, file=sys.stderr)
+            return 2
     if args.command in ("add", "remove"):
         site = args.site.resolve()
         try:

@@ -112,6 +112,7 @@ KERNEL_ACTIONS = frozenset(
         "auth.user.restored",
         # People and roles in the admin (K4.7).
         "auth.user.roles_changed",
+        "auth.user.owner_link_issued",
         "auth.role.created",
         "auth.role.changed",
         "auth.role.deleted",

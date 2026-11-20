@@ -20,6 +20,7 @@ const STAFF: Readonly<Record<string, Words>> = {
   "auth.user.suspended": (subject) => `Suspended ${subject}`,
   "auth.user.restored": (subject) => `Restored ${subject}`,
   "auth.user.roles_changed": (subject) => `Changed ${subject}'s roles`,
+  "auth.user.owner_link_issued": (subject) => `Gave ${subject} an owner's link from the server`,
   "auth.role.created": "Created a role",
   "auth.role.changed": "Changed a role",
   "auth.role.deleted": "Deleted a role",

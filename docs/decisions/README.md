@@ -54,3 +54,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0048](0048-site-pages-and-template.md) | The site's own pages, `kernel.load_module`, and how a site runs: always on, `backend` on the path, Railway as code | Decided; applied in K5.2 (#92) |
 | [0049](0049-destructive-migrations-wait.md) | A destructive migration waits for the owner: named back with `--confirm-destructive`, once its branch holds data | Decided; applied in K5.3 (#93) |
 | [0050](0050-add-and-remove.md) | `mechframe add` and `remove`: what each writes, what `remove` keeps, and how `requires` reads a range | Decided; applied in K5.4 (#94) |
+| [0051](0051-create-owner.md) | The site's owner, made from the server: the reset's own link, and only an owner's address once there is one | Decided; applied in K5.5 (#95) |

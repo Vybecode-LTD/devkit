@@ -31,7 +31,7 @@ Copy `.env.example` to `.env`, set `DEBUG=true`, `SITE_URL=http://localhost:8000
 | Run the backend | `.venv\Scripts\python.exe -m uvicorn app.main:app --reload` |
 | Install and run the web app (another terminal) | `cd web; npm ci; npm run dev` (http://localhost:5173) |
 | Build the web app the backend serves | `cd web; npm run build` |
-| The first owner | `.venv\Scripts\python.exe -m app.owner <email>` (arrives with MechFrame's #94) |
+| The first owner | `.venv\Scripts\python.exe -m app.owner <email>`, or `mechframe create-owner <email> --site .` from MechFrame's checkout: it prints a one-time link to set the owner's password, valid 30 minutes. Run it again for a new one |
 | Python tests, lint, types | `.venv\Scripts\python.exe -m pytest`, `-m ruff check .`, `-m black --check .`, `-m mypy` |
 | Web tests, lint, types | `cd web; npm test; npm run lint; npm run typecheck` |
 | End-to-end tests | `cd web; npx playwright install chromium` once, then `npm run build; npm run e2e`, with `TEST_DATABASE_URL` set |
@@ -53,6 +53,8 @@ railway config apply
 `railway init` makes the project and links this folder to it (`railway link` for one that exists). On Windows, from Git Bash, the SDK can't find the CLI through npm's shim: run each `railway config` command as `env "_=$RW" "$RW" config plan`, with `RW="$(cygpath -w "$(npm root -g)/@railway/cli/bin/railway.exe")"`.
 
 Then, in Railway's dashboard, connect the `web` service to this repo (Settings, Source) and type its secrets into Variables: `SITE_URL`, `SECRET_KEY`, `ENCRYPTION_KEYS`, and mail and storage if the site uses them. Every key is typed by the site's owner into the host, never committed.
+
+Once it's live, make the owner in the service's own shell, where its database and secrets are: `railway ssh`, then `python -m app.owner <email>`. Open the link it prints within 30 minutes and set the password.
 
 **A variable on the `web` service that `railway.ts` doesn't list is deleted by the next apply,** which the plan marks as destructive. Add a new setting to the file first, as `preserve()` when its value is typed into Railway.
 
