@@ -471,7 +471,11 @@ export interface paths {
         put?: never;
         /**
          * Retry Job
-         * @description Queues a failed job again, due now, with its tries given back.
+         * @description Queues a failed job again, due now, with all its tries: as a new job
+         *     with the old one's name, module, payload and key, the old one removed.
+         *     The worker knows a claim by its job's id and try, so a worker that lost
+         *     the old job's lease and wakes late can never write over the new run, as
+         *     resetting the old row's tries would let it (CodeRabbit on #87).
          */
         post: operations["retry_job_api_kernel_admin_jobs__id__retry_post"];
         delete?: never;
@@ -2114,6 +2118,11 @@ export interface components {
              * @constant
              */
             state: "queued";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
         };
         /** RoleChange */
         RoleChange: {

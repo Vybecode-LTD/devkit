@@ -87,8 +87,22 @@ export default function Features() {
     }
   };
 
-  const dependents = (item: ModuleItem): ModuleItem[] =>
-    item.required_by.map((id) => byId.get(id)).filter((found): found is ModuleItem => found !== undefined && found.on);
+  // Every module on that goes off with it, down the chain: what needs it,
+  // what needs those, and so on (CodeRabbit on #87).
+  const dependents = (item: ModuleItem): ModuleItem[] => {
+    const found: ModuleItem[] = [];
+    const seen = new Set([item.id]);
+    const waiting = [...item.required_by];
+    for (let id = waiting.shift(); id !== undefined; id = waiting.shift()) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const next = byId.get(id);
+      if (!next) continue;
+      if (next.on) found.push(next);
+      waiting.push(...next.required_by);
+    }
+    return found;
+  };
 
   const choose = (item: ModuleItem, on: boolean) => {
     if (!on && dependents(item).length > 0) {

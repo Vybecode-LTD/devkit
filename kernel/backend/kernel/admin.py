@@ -24,7 +24,7 @@ from typing import Annotated, Any, Literal, cast
 from fastapi import APIRouter, Depends, Path, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
-from sqlalchemy import and_, delete, exists, func, or_, select, update
+from sqlalchemy import and_, delete, exists, func, insert, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -161,6 +161,8 @@ class DeadJobs(Answer):
 
 class Retried(Answer):
     state: Literal["queued"]
+    #: The job as queued again: a new one, so no claim of the old can match it.
+    id: Id
 
 
 # --- settings: each section's form, save and history -------------------------------------
@@ -463,7 +465,11 @@ async def retry_job(
     user: User = Depends(require_permission(JOBS)),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Queues a failed job again, due now, with its tries given back."""
+    """Queues a failed job again, due now, with all its tries: as a new job
+    with the old one's name, module, payload and key, the old one removed.
+    The worker knows a claim by its job's id and try, so a worker that lost
+    the old job's lease and wakes late can never write over the new run, as
+    resetting the old row's tries would let it (CodeRabbit on #87)."""
     job = await _dead_held(db, job_id)
     name = job.name
     if job.name not in _declared(request):
@@ -473,13 +479,19 @@ async def retry_job(
             "This job's contents were private, so they were wiped when it failed. It can't "
             "run again: discard it."
         )
+    anew = uuid.uuid4()
+    await db.execute(delete(Job).where(Job.id == job_id))
     try:
         # The live-key index refuses a second waiting run of one name and key.
         await db.execute(
-            update(Job)
-            .where(Job.id == job_id)
-            .values(
-                state="queued", tries=0, run_at=clock.now(), finished_at=None, locked_until=None
+            insert(Job).values(
+                id=anew,
+                name=job.name,
+                module=job.module,
+                payload=job.payload,
+                sealed=job.sealed,
+                key=job.key,
+                run_at=clock.now(),
             )
         )
     except IntegrityError:
@@ -492,11 +504,11 @@ async def retry_job(
         "kernel.job.retried",
         actor=user.id,
         target=("kernel.job", job_id),
-        details={"name": name},
+        details={"name": name, "queued_as": str(anew)},
         request=request,
     )
     await db.commit()
-    return {"state": "queued"}
+    return {"state": "queued", "id": str(anew)}
 
 
 @router.delete(JOB, status_code=204)

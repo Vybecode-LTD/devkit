@@ -5,8 +5,32 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { renderApp, testUser } from "../../testing";
+import { defineModule } from "../modules";
+import { useSettings } from "../settings/useSettings";
+import { Field, Input } from "../ui/Field";
 import { problem, routedFetch, type Answer } from "../test-fetch";
 import { signUpHint } from "./Site";
+
+function BlogSection() {
+  const form = useSettings("blog");
+  const title = typeof form.values.title === "string" ? form.values.title : "";
+  return (
+    <Field label="Blog title">
+      <Input
+        value={title}
+        onChange={(event) => {
+          form.set("title", event.target.value);
+        }}
+      />
+    </Field>
+  );
+}
+
+const blog = defineModule({
+  id: "blog",
+  routes: { public: [], member: [], admin: [] },
+  slots: { "admin.settings.section": [{ id: "blog", title: "Blog", lazy: () => Promise.resolve({ default: BlogSection }) }] },
+});
 
 beforeAll(async () => {
   await import("./Site");
@@ -95,6 +119,23 @@ describe("the Site tab", () => {
     expect(sentTo(sent, "PUT", "/api/kernel/admin/settings/kernel.auth")).toHaveLength(0);
   });
 
+  it("takes one profile on each line as it's typed, Enter and all", async () => {
+    const { sent } = answers({
+      "PUT /api/kernel/admin/settings/kernel.site": { status: 200, body: { version: 5, changed: ["same_as"], merged: [] } },
+    });
+    const user = userEvent.setup();
+    await opened();
+    const profiles = screen.getByRole("textbox", { name: "Profiles elsewhere" });
+    await user.clear(profiles);
+    await user.type(profiles, "https://a.test{Enter}https://b.test");
+    // The newline stays while typing (Codex on #87).
+    expect(profiles).toHaveValue(["https://a.test", "https://b.test"].join(String.fromCharCode(10)));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("Settings saved.");
+    const [put] = sentTo(sent, "PUT", "/api/kernel/admin/settings/kernel.site");
+    expect(await put?.json()).toEqual({ version: 4, changes: { same_as: ["https://a.test", "https://b.test"] } });
+  });
+
   it("opens sign-up by saving the accounts section", async () => {
     const { sent } = answers({
       "PUT /api/kernel/admin/settings/kernel.auth": { status: 200, body: { version: 1, changed: ["sign_up_mode"], merged: [] } },
@@ -158,6 +199,34 @@ describe("the Site tab", () => {
     await waitFor(() => {
       expect(sentTo(sent, "PUT", "/api/kernel/admin/settings/kernel.site")).toHaveLength(1);
     });
+  });
+});
+
+describe("a module's settings section", () => {
+  it("is saved by the page's Save, and kept from a move away while it has changes", async () => {
+    const { sent } = answers({
+      "GET /api/kernel/admin/settings/blog": form(1, { title: "News" }),
+      "PUT /api/kernel/admin/settings/blog": { status: 200, body: { version: 2, changed: ["title"], merged: [] } },
+    });
+    const user = userEvent.setup();
+    renderApp({ path: "/admin/settings", session: admin(), modules: [blog] });
+    const title = await screen.findByRole("textbox", { name: "Blog title" });
+    await waitFor(() => {
+      expect(title).toHaveValue("News");
+    });
+    await user.clear(title);
+    await user.type(title, "Notes");
+    // The page's one Save sees the section's change (CodeRabbit on #87).
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeEnabled();
+    await user.click(within(screen.getByRole("navigation", { name: "Settings" })).getByRole("link", { name: "Features" }));
+    expect(await screen.findByRole("dialog", { name: "You have changes that aren't saved" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Stay" }));
+    await user.click(save);
+    await screen.findByText("Settings saved.");
+    const puts = sentTo(sent, "PUT", "/api/kernel/admin/settings/blog");
+    expect(puts).toHaveLength(1);
+    expect(await puts[0]?.json()).toEqual({ version: 1, changes: { title: "Notes" } });
   });
 });
 

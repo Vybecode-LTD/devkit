@@ -11,12 +11,13 @@
  * zone (no section holds them), and "Members must use a second factor"
  * (nothing enforces it). The name is the host's SITE_NAME, shown as it is.
  */
-import { Suspense, useCallback, useId, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useId, useMemo, useState, type ComponentPropsWithRef, type ReactNode } from "react";
 
 import { ApiProblem } from "../api/problem";
 import { lazyPart } from "../app/lazy";
 import { said } from "../auth/words";
 import { useSite } from "../site/site";
+import { SettingsGroupContext, type GroupMember, type SettingsGroup } from "../settings/group";
 import { useSettings, type SaveOutcome, type SettingsForm } from "../settings/useSettings";
 import { useSlot } from "../slots/slots";
 import { Button } from "../ui/Button";
@@ -57,6 +58,28 @@ const listed = (typed: string): string[] =>
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+
+/**
+ * A list a line each, kept as typed while it's edited, so Enter starts the
+ * next line; the form holds the lines trimmed, the blank ones left out
+ * (Codex on #87). A list from elsewhere (a discard, a save read back)
+ * replaces what's shown.
+ */
+function LinesArea({ value, onList, ...rest }: { value: unknown; onList: (list: string[]) => void } & Omit<ComponentPropsWithRef<"textarea">, "value" | "onChange">) {
+  const [text, setText] = useState(() => lines(value));
+  const wanted = JSON.stringify(listed(lines(value)));
+  if (JSON.stringify(listed(text)) !== wanted) setText(lines(value));
+  return (
+    <TextArea
+      {...rest}
+      value={text}
+      onChange={(event) => {
+        setText(event.target.value);
+        onList(listed(event.target.value));
+      }}
+    />
+  );
+}
 
 /** What the sign-up switch says under itself, by the mode saved. */
 export function signUpHint(mode: unknown): string {
@@ -153,17 +176,36 @@ export default function Site() {
   const identity = useSettings("kernel.site");
   const accounts = useSettings("kernel.auth");
   const forms = [identity, accounts];
-  const dirty = identity.dirty || accounts.dirty;
+  // The modules' sections drawn below, each a useSettings form that joins
+  // this page's one Save and its question (CodeRabbit on #87).
+  const [members, setMembers] = useState<ReadonlyMap<symbol, GroupMember>>(new Map());
+  const group = useMemo<SettingsGroup>(
+    () => ({
+      join: (key, member) => {
+        setMembers((now) => new Map(now).set(key, member));
+      },
+      leave: (key) => {
+        setMembers((now) => {
+          if (!now.has(key)) return now;
+          const next = new Map(now);
+          next.delete(key);
+          return next;
+        });
+      },
+    }),
+    [],
+  );
+  const dirty = identity.dirty || accounts.dirty || [...members.values()].some((member) => member.dirty);
   const saving = identity.saving || accounts.saving;
 
   const saveAll = useCallback(async (): Promise<string | null> => {
-    for (const form of [identity, accounts]) {
+    for (const form of [identity, accounts, ...members.values()]) {
       if (!form.dirty) continue;
       const problem = sayOutcome(await form.save());
       if (problem) return problem;
     }
     return null;
-  }, [identity, accounts]);
+  }, [identity, accounts, members]);
 
   const guard = useUnsavedGuard(dirty, saveAll);
 
@@ -248,11 +290,11 @@ export default function Site() {
               />
             </Field>
             <Field label={SITE_LABELS.same_as} hint="The site's pages on other services, one address on each line." error={identity.errors.same_as}>
-              <TextArea
+              <LinesArea
                 rows={3}
-                value={lines(values.same_as)}
-                onChange={(event) => {
-                  identity.set("same_as", listed(event.target.value));
+                value={values.same_as}
+                onList={(list) => {
+                  identity.set("same_as", list);
                 }}
               />
             </Field>
@@ -289,7 +331,9 @@ export default function Site() {
             <History form={accounts} labels={ACCOUNT_LABELS} />
           </Card>
         </form>
-        <ModuleSections />
+        <SettingsGroupContext value={group}>
+          <ModuleSections />
+        </SettingsGroupContext>
       </Loaded>
       <UnsavedDialog guard={guard} what="The site's settings" several />
     </SettingsPage>

@@ -1,6 +1,6 @@
 // The admin's System tab (K4.8): the background jobs, the ones that failed for
 // good with Retry and Discard, and the services as the host set them up.
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -98,6 +98,26 @@ describe("the System tab", () => {
     await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Discard" }));
     expect(await screen.findByText("kernel.send_mail is discarded.")).toBeInTheDocument();
     expect(sentTo(sent, "DELETE", `/api/kernel/admin/jobs/${MAIL.id}`)).toHaveLength(1);
+  });
+
+  it("puts the focus on the list's heading once a discarded job's row is gone", async () => {
+    let gone = false;
+    answers({
+      "GET /api/kernel/admin/jobs/dead": () => ({ status: 200, body: { items: gone ? [DIGEST] : [DIGEST, MAIL], next_cursor: null } }),
+      [`DELETE /api/kernel/admin/jobs/${MAIL.id}`]: () => {
+        gone = true;
+        return { status: 204 };
+      },
+    });
+    const user = userEvent.setup();
+    const table = await opened();
+    await user.click(within(table.getAllByRole("row")[2] as HTMLElement).getByRole("button", { name: "Discard" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Discard" }));
+    await screen.findByText("kernel.send_mail is discarded.");
+    // Its Discard button went with the row; the focus isn't left on nothing (CodeRabbit on #87).
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { level: 2, name: "Jobs that failed for good" })).toHaveFocus();
+    });
   });
 
   it("offers no Retry or Discard without the jobs permission", async () => {
