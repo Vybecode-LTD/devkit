@@ -297,6 +297,41 @@ describe("useSettings", () => {
     expect(puts[1]).toEqual({ version: 2, changes: { per_page: 20 } });
   });
 
+  it("keeps a field changed back while its save is on its way as an edit", async () => {
+    let now = { version: 2, values: { title: "News" } as Record<string, unknown> };
+    const { form, fetch } = shown({
+      [`GET ${SECTION}`]: () => read(now.version, now.values),
+      [`PUT ${SECTION}`]: () => {
+        now = { version: 3, values: { title: "Notes" } };
+        return { status: 200, body: { version: 3, changed: ["title"], merged: [] } };
+      },
+    });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Notes");
+    });
+    const open = gated(fetch, "PUT");
+    let pending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pending = form().save();
+    });
+    act(() => {
+      form().set("title", "News");
+    });
+    open();
+    await act(async () => {
+      await pending;
+    });
+    await waitFor(() => {
+      expect(form().saved).toEqual({ title: "Notes" });
+    });
+    // "News" came after "Notes" was sent: it's the person's latest word (CodeRabbit on #87).
+    expect(form().values).toEqual({ title: "News" });
+    expect(form().changes).toEqual({ title: "News" });
+  });
+
   it("puts a refused value's words beside its field", async () => {
     const refused = problem(422, "kernel.invalid_request");
     const { form } = shown({

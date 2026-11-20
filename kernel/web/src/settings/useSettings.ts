@@ -97,6 +97,9 @@ export function useSettings(id: string): SettingsForm {
   // With no edit left (saved, discarded, or changed back), the form begins
   // again from what's saved (CodeRabbit on #87): settled while drawing.
   if (base !== null && Object.keys(draft).length === 0) setBase(null);
+  // What a save on its way sent: a field in it set back to where its edit
+  // began is still an edit, the one after it (CodeRabbit on #87).
+  const flying = useRef<Readonly<Record<string, unknown>>>({});
   // The latest read, for a save that ends after the render that sent it.
   const latest = useRef(query.data);
   useLayoutEffect(() => {
@@ -127,6 +130,7 @@ export function useSettings(id: string): SettingsForm {
     async (version: number, sent: Readonly<Record<string, unknown>>, kept: Readonly<Record<string, unknown>> = {}): Promise<SaveOutcome> => {
       setSaving(true);
       setErrors({});
+      flying.current = sent;
       try {
         const { data } = await api.PUT("/api/kernel/admin/settings/{id}", { ...init, body: { version, changes: { ...sent } } });
         setConflict(null);
@@ -164,6 +168,7 @@ export function useSettings(id: string): SettingsForm {
         if (caught instanceof ApiProblem && caught.code === "kernel.invalid_request") setErrors(fieldErrors(caught));
         return { status: "refused", problem: caught };
       } finally {
+        flying.current = {};
         setSaving(false);
       }
     },
@@ -227,8 +232,9 @@ export function useSettings(id: string): SettingsForm {
     dirty,
     set: (field, value) => {
       const read = query.data;
-      if (from !== null && field in from.values && same(value, from.values[field])) {
+      if (from !== null && field in from.values && same(value, from.values[field]) && !(field in flying.current)) {
         // Changed back to where it began: no longer an edit (CodeRabbit on #87).
+        // Not while a save of it is on its way: then it's the latest word.
         setDraft((now) => Object.fromEntries(Object.entries(now).filter(([key]) => key !== field)));
       } else {
         if (read) setBase((now) => now ?? { version: read.version, values: read.values });
