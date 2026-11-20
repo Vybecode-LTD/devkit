@@ -1,0 +1,13 @@
+{
+  "name": "site-railway",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Railway's SDK, for .railway/railway.ts: `railway config plan` and `apply` read it (README.md, \"Deploying\"). The web app is web/package.json.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "devDependencies": {
+    "railway": "3.16.0"
+  }
+}

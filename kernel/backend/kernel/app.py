@@ -2,10 +2,13 @@
 
 Lifted from VybeSite `main.py`. A site's `backend/app/main.py` is:
 
+    from app import installed
+    from app.modules import MODULE_IDS   # written by `mechframe add` and `remove`
+    from app.site.pages import SITE_PAGES  # the site's own pages
     from kernel import create_app
-    from app.modules import INSTALLED   # written by `mechframe add`
+    from kernel.config import KernelConfig
 
-    app = create_app(modules=INSTALLED)
+    app = create_app(modules=installed(MODULE_IDS), config=KernelConfig(), site=SITE_PAGES)
 
 What it does, in order:
 1. Reads the config and refuses to start on unsafe secrets (outside DEBUG).
@@ -48,6 +51,8 @@ What it does, in order:
     after every other route, the kernel's files (`/sitemap.xml`,
     `/robots.txt`, `/llms.txt`) and the catch-all that answers every address
     outside the API (`kernel.shell`, decision 0041); HEAD is answered as GET.
+    The site's own pages (`site=`, its `app/site/pages.py`'s `SITE_PAGES`) join
+    the modules', always on (decision 0048).
 
 Steps 1 to 3, 7 and 8, the events' and jobs' checks and registering each
 module's settings model, and checking the pages, are `assemble`, which
@@ -187,6 +192,7 @@ def assemble(
     mailer: Mailer | None = None,
     emails: Mapping[str, Template] | None = None,
     role: Literal["web", "worker"] = "web",
+    site: server_copy.SitePages | None = None,
 ) -> Assembled:
     """Reads and checks the config, the modules, their mail templates, events
     and jobs, and installs the mailer and templates for `kernel.email` and the
@@ -222,7 +228,7 @@ def assemble(
             templates,
         )
         reportable = moderation.build((module.id, module.reportable) for module in installed)
-        public = server_copy.build(installed)
+        public = server_copy.build(installed, site)
         catalog = events.build(
             [
                 ("kernel", events.KERNEL_PAYLOADS, (), None),
@@ -279,8 +285,11 @@ def create_app(
     mailer: Mailer | None = None,
     breach_lookup: RangeLookup | None = None,
     emails: Mapping[str, Template] | None = None,
+    site: server_copy.SitePages | None = None,
 ) -> FastAPI:
-    built = assemble(modules=modules, config=config, mailer=mailer, emails=emails, role="web")
+    built = assemble(
+        modules=modules, config=config, mailer=mailer, emails=emails, role="web", site=site
+    )
     config, installed, registry = built.config, built.installed, built.registry
     try:
         app_shell = shell.Shell.load(config.web_dist)

@@ -27,6 +27,8 @@ miss is logged, once per TTL.
 from __future__ import annotations
 
 import asyncio
+import importlib
+import importlib.util
 import json
 import logging
 import time
@@ -119,6 +121,107 @@ class InstalledModule:
         return self.manifest.id
 
 
+# --- building a module from its manifest ---------------------------------------------------
+
+
+def _found(module_name: str) -> Any:
+    """The module `module_name`, imported, or None when there's no such file."""
+    try:
+        if importlib.util.find_spec(module_name) is None:
+            return None
+    except ModuleNotFoundError:  # its package isn't there at all
+        return None
+    return importlib.import_module(module_name)
+
+
+def _attribute(module_name: str, attribute: str) -> Any:
+    found = _found(module_name)
+    return None if found is None else getattr(found, attribute, None)
+
+
+def module_jobs(module_name: str) -> tuple[Job, ...]:
+    """Every `kernel.jobs.Job` in `module_name`: what `@jobs.handler` and
+    `@jobs.scheduled` make (decision 0035)."""
+    found = _found(module_name)
+    if found is None:
+        return ()
+    return tuple(value for value in vars(found).values() if isinstance(value, Job))
+
+
+def module_events(
+    module_name: str,
+) -> tuple[tuple[type[Payload], ...], tuple[Listener, ...]]:
+    """The payloads `module_name` declares itself (not ones it imports, such
+    as the kernel's) and its listeners (decision 0036)."""
+    found = _found(module_name)
+    if found is None:
+        return (), ()
+    values = list(vars(found).values())
+    payloads = tuple(
+        value
+        for value in values
+        if isinstance(value, type)
+        and value.__module__ == found.__name__
+        and events.declaration(value) is not None
+    )
+    listeners = tuple(value for value in values if isinstance(value, Listener))
+    return payloads, listeners
+
+
+def module_kinds(module_name: str) -> tuple[type[Kind], ...]:
+    """The kinds `module_name` declares itself: not `Kind`, nor one it imports
+    (decision 0039)."""
+    from kernel.moderation import Kind  # moderation reads OFF from here
+
+    found = _found(module_name)
+    if found is None:
+        return ()
+    return tuple(
+        value
+        for value in vars(found).values()
+        if isinstance(value, type)
+        and issubclass(value, Kind)
+        and value.__module__ == found.__name__
+        and value.name
+    )
+
+
+def load_module(manifest: Path) -> InstalledModule:
+    """The module whose `module.json` is at `manifest`, built from its
+    package's fixed names (decision 0009). The harness and every site build
+    their modules with it (K5 contract §2):
+
+    - `<id_>/router.py`'s `router`, mounted at /api/<id>;
+    - `<id_>/schemas.py`'s `Settings`, the module's settings model;
+    - `<id_>/__init__.py`'s `CSP`, the hosts it adds while it's on, as
+      (directive, https origin) pairs;
+    - `<id_>/emails.py`'s `EMAILS`, its email templates (kernel.email);
+    - `<id_>/jobs.py`'s jobs (kernel.jobs);
+    - `<id_>/events.py`'s event payloads and listeners (kernel.events);
+    - `<id_>/moderation.py`'s kinds (kernel.moderation);
+    - `<id_>/server_copy.py`'s `PAGES`, its public pages (kernel.server_copy).
+
+    The package `<id_>` must be importable: the caller puts its folder on
+    `sys.path`. A package that isn't there gives the manifest alone."""
+    found = Manifest.from_file(manifest)
+    package = found.package
+    if _found(package) is None:
+        return InstalledModule(found)
+    payloads, listeners = module_events(f"{package}.events")
+    return InstalledModule(
+        found,
+        router=_attribute(f"{package}.router", "router"),
+        settings=_attribute(f"{package}.schemas", "Settings"),
+        csp=tuple(_attribute(package, "CSP") or ()),
+        emails=dict(_attribute(f"{package}.emails", "EMAILS") or {}),
+        jobs=module_jobs(f"{package}.jobs"),
+        payloads=payloads,
+        listeners=listeners,
+        reportable=module_kinds(f"{package}.moderation"),
+        pages=_attribute(f"{package}.server_copy", "PAGES"),
+    )
+
+
 OFF = "This part of the site is switched off."
 
 #: The first key of the switches' advisory lock: pg_advisory_xact_lock(LOCK_CLASS, 0).
@@ -128,8 +231,10 @@ log = logging.getLogger(__name__)
 
 
 #: Ids a module can't take: the kernel's own route prefixes (`/api/auth`,
-#: `/api/kernel`), Alembic branch and table prefixes (cubic on #78).
-RESERVED_IDS = frozenset({"auth", "kernel"})
+#: `/api/kernel`), Alembic branch and table prefixes (cubic on #78), and
+#: `site`, which names the site's own pages (kernel.server_copy.SITE,
+#: decision 0048).
+RESERVED_IDS = frozenset({"auth", "kernel", "site"})
 
 
 class ModuleRegistry:

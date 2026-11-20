@@ -15,7 +15,7 @@ import { flushSync } from "react-dom";
 import { RouterProvider, createBrowserRouter } from "react-router";
 
 import { apiQueryOptions, retryUnlessRefused } from "../api/client";
-import { defineModule, type ModuleDefinition } from "../modules";
+import { defineModule, siteModule, type ModuleDefinition, type SiteDefinition } from "../modules";
 import { StepUpProvider } from "../auth/StepUp";
 import { SessionHandlers } from "../session/session";
 import { ToastProvider } from "../ui/Toast";
@@ -25,6 +25,8 @@ import { buildRoutes } from "./routes";
 export type AppOptions = {
   /** Every module's binding (`module.web.ts`'s default export). */
   modules: ModuleDefinition[];
+  /** The site's own pages and slots (`src/site/site.ts`, `defineSite`): always on, and first in a tie. */
+  site?: SiteDefinition;
   /** The admin sidebar's order and icons for module sections. */
   adminSections?: AdminSection[];
   /** Where to mount; the page's `#root` by default. */
@@ -105,7 +107,8 @@ export function mountApp(options: AppOptions): Promise<Root> {
   const root = options.root ?? document.getElementById("root");
   if (!root) throw new Error("The page has no #root to mount the app in.");
   checkModules(options.modules);
-  const setup: KernelSetup = { modules: options.modules, adminSections: options.adminSections ?? [] };
+  const modules = options.site ? [siteModule(options.site), ...options.modules] : options.modules;
+  const setup: KernelSetup = { modules, adminSections: options.adminSections ?? [] };
   const queryClient = kernelQueryClient();
   return modulesOn(queryClient).then((on) => {
     const router = createBrowserRouter(buildRoutes(setup.modules, on));

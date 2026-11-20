@@ -1,0 +1,19 @@
+# What the image never holds: secrets, local environments and build output it makes itself.
+.env
+.env.*
+!.env.example
+.git
+.github
+.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+node_modules
+.railway
+web/node_modules
+web/dist
+web/test-results
+web/playwright-report
+web/coverage

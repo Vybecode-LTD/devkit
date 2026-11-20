@@ -2,15 +2,15 @@
 
 Generated from `docs/progress.json` by `python -m tools.progress`: edit the JSON, then run the tool. `tests/test_progress.py` fails when this page is stale. The same data feeds the [visual progress ledger](https://claude.ai/artifact/48auLkb7Ajmyn2SNAni9rm).
 
-Updated 2026-11-19, `main` at `c38cdfa`. Progress counts steps, not effort: each row below is one step, whatever its size.
+Updated 2026-11-20, `main` at `e60b23c`. Progress counts steps, not effort: each row below is one step, whatever its size.
 
 ## Overall
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 36 | 0 | 1 | 17 | 3 | 3 | ██████░░░░ 60% (36 of 60) |
+| MechFrame v1.0 | 38 | 0 | 1 | 15 | 3 | 3 | ██████░░░░ 63% (38 of 60) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 36 | 0 | 1 | 102 | 3 | 6 | ██░░░░░░░░ 24% (36 of 148) |
+| Everything | 38 | 0 | 1 | 100 | 3 | 6 | ██░░░░░░░░ 25% (38 of 148) |
 
 ## MechFrame v1.0
 
@@ -111,7 +111,7 @@ Gate: Component tests, axe with no serious violations, Playwright runs of every 
 | Admin settings: Site, Features and System | Done | [#87](https://github.com/mechframe/mechframe/pull/87) | [0042](decisions/0042-web-kernel.md), [0046](decisions/0046-settings-features-system.md) |  |
 | Depth theme | Later |  |  | The owner, 2026-11-18: when a site wants it |
 
-### K5: CLI and site template · 1 of 4 done · gate not passed yet
+### K5: CLI and site template · 3 of 4 done · gate not passed yet
 
 mechframe works end to end.
 
@@ -119,9 +119,9 @@ Gate: mechframe new test-site builds, migrates and passes its tests; mechframe c
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
-| The mechframe commands and lock files | Next | [#91](https://github.com/mechframe/mechframe/pull/91) | [0047](decisions/0047-cli-and-site-template.md) | check and the lock in #91; new, add, remove and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20) |
-| templates/site, made from the harness | To do |  |  |  |
-| The start command and .env.example for a host's edge | To do |  |  |  |
+| The mechframe commands and lock files | Next | [#91](https://github.com/mechframe/mechframe/pull/91), [#92](https://github.com/mechframe/mechframe/pull/92) | [0047](decisions/0047-cli-and-site-template.md), [0048](decisions/0048-site-pages-and-template.md) | check and the lock in #91; new (kernel only) in #92; add, remove, new --recipe and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20) |
+| templates/site, made from the harness | Done | [#92](https://github.com/mechframe/mechframe/pull/92) | [0047](decisions/0047-cli-and-site-template.md), [0048](decisions/0048-site-pages-and-template.md) | the site's own pages (create_app(site=), defineSite), kernel.load_module, the site's tests and CI, tools/site_smoke.py |
+| The start command and .env.example for a host's edge | Done | [#92](https://github.com/mechframe/mechframe/pull/92) | [0048](decisions/0048-site-pages-and-template.md) | the Dockerfile's start command reads the proxy's headers; .railway/railway.ts (Railway as code) in place of railway.toml, checked live on a throwaway project |
 | mechframe catalog | Done | [#91](https://github.com/mechframe/mechframe/pull/91) | [0047](decisions/0047-cli-and-site-template.md) |  |
 
 ### Contract hooks · 0 of 10 done

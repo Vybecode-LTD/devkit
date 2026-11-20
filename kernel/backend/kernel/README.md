@@ -4,7 +4,7 @@
 
 | File | What | Phase |
 | --- | --- | --- |
-| `app.py` | `create_app`: builds a site's app from the kernel and its modules | K1 |
+| `app.py` | `create_app`: builds a site's app from the kernel, its modules and, from K5, its own pages (`site=`, decision 0048) | K1 |
 | `config.py` | Environment config; refuses to start on unsafe secrets outside DEBUG; MODULES | K1 |
 | `db.py` | `Base`, naming convention, `Database`, `get_db`, one-row tables (`for_saving`) | K1 |
 | `crypto.py` | `seal` / `open` / `rotate` with MultiFernet | K1 |
@@ -14,7 +14,7 @@
 | `redact.py` | Strips emails, tokens, IPs, queries and DB values from text | K1 |
 | `logs.py` | JSON or text logs, stdout/stderr split, every line redacted | K1 |
 | `error_tracking.py` | Sentry, only when SENTRY_DSN is set; nothing private sent | K1 |
-| `modules.py` | Manifests, the module registry, switches and `require_module` | K1 |
+| `modules.py` | Manifests, the module registry, switches and `require_module`; from K5, `load_module`, which builds a module from its manifest and fixed names | K1 |
 | `settings.py` | Versioned per-module settings with three-way merge on save | K1 |
 | `access.py` | Route access marks (`public`) and the audit of undeclared routes | K1 |
 | `models.py` | Kernel tables: `kernel_module_state`, `kernel_setting`, `kernel_setting_version` | K1 |

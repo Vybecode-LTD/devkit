@@ -534,7 +534,7 @@ async def test_the_default_home_page_answers_until_a_module_owns_it(
     assert _title(default.text) == "Test Site"
     assert '"@type": "Organization"' in default.text
     owned = app_factory(
-        [public_module("site", public=["/"], pages=FakePages({"/": HELLO}))],
+        [public_module("home", public=["/"], pages=FakePages({"/": HELLO}))],
         site_name="Test Site",
         web_dist=str(dist),
     )

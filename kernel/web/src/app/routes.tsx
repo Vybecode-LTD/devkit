@@ -12,12 +12,14 @@
  * - Anything else is the 404 page, in its frame.
  *
  * Every module page loads lazily, and a module that's off is the 404 page.
+ * The site's own pages (`mountApp({ site })`, decision 0048) come first among
+ * the modules', so they win a tie, and are always on.
  */
 import { Suspense, type ComponentType, type ReactNode } from "react";
 import type { RouteObject } from "react-router";
 
 import { RequireAdmin, RequireAuth, RequirePermission } from "../guards/guards";
-import type { ModuleDefinition, ModuleRoute } from "../modules";
+import { SITE, type ModuleDefinition, type ModuleRoute } from "../modules";
 import { useModulesRead } from "../site/site";
 import { AdminFrame } from "../admin/AdminFrame";
 import { AuthFrame } from "../auth/AuthFrame";
@@ -52,10 +54,12 @@ function Loaded({ page: Page }: { page: ComponentType }) {
   );
 }
 
-/** `/`: the page of the first module on that declares it, else the kernel's home. */
+/** `/`: the site's own page if it has one, else the first module on's that declares it, else the kernel's home. */
 function HomeRoute({ owners }: { owners: readonly Owned[] }) {
   const found = useModulesRead();
-  if (owners.length === 0) return <Home />;
+  const [first] = owners;
+  if (first === undefined) return <Home />;
+  if (first.module === SITE) return <Loaded page={first.page} />;
   if (found.status === "loading") return null;
   if (found.status === "failed") return <Unreachable problem={found.problem} retry={found.retry} />;
   const owner = owners.find((each) => found.value.has(each.module));
@@ -88,7 +92,8 @@ function moduleRoute(module: ModuleDefinition, route: ModuleRoute, access: Acces
   return {
     path: route.path,
     caseSensitive: true, // as the server matches (cubic on #79)
-    element: <ModuleGate module={module.id}>{guarded}</ModuleGate>,
+    // The site's own pages have no switch: they never wait for one.
+    element: module.id === SITE ? guarded : <ModuleGate module={module.id}>{guarded}</ModuleGate>,
   };
 }
 
@@ -100,7 +105,7 @@ function moduleRoute(module: ModuleDefinition, route: ModuleRoute, access: Acces
  * off while the app is open is still the 404 page (`ModuleGate`).
  */
 export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet<string>): RouteObject[] {
-  const modules = on === undefined ? given : given.filter((module) => on.has(module.id));
+  const modules = on === undefined ? given : given.filter((module) => module.id === SITE || on.has(module.id));
   const kernel = (access: KernelPage["access"]) => KERNEL_PAGES.filter((page) => page.access === access);
   const dashboard = KERNEL_PAGES.find((page) => page.path === "/admin");
   const owners = modules.flatMap((module) =>

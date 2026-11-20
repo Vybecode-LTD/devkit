@@ -1,0 +1,189 @@
+name: CI
+
+# This site's checks, on every pull request into main and every push to it:
+# its Python (lint, types, tests on a real Postgres, an audit of the pins), its
+# web app (lint, types, Vitest, the build), and `mechframe check` against a
+# shallow clone of MechFrame (what this site edited, what is behind, and any
+# advisory it must patch: an open high or critical one fails). The end-to-end
+# tests run on main's pushes and by hand, not on a pull request.
+#
+# Actions are pinned to commit SHAs, as MechFrame's own CI pins them.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: site
+          POSTGRES_PASSWORD: site
+          POSTGRES_DB: site
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U site" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql://site:site@localhost:5432/postgres
+      MECHFRAME_REQUIRE_DB: "1"
+      PYTHONPATH: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install the pinned dependencies
+        run: >-
+          python -m pip install --require-hashes --only-binary=:all:
+          -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint and format
+        run: |
+          python -m ruff check .
+          python -m black --check .
+
+      - name: Types
+        run: python -m mypy
+
+      - name: Tests
+        run: python -m pytest
+
+      - name: Audit the pinned dependencies (pip-audit)
+        run: >-
+          python -m pip_audit --strict --progress-spinner off --require-hashes --disable-pip
+          -r requirements.txt -r requirements-dev.txt
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install (the lockfile only, no install scripts)
+        run: npm ci
+
+      - name: Lint, types, tests and the build
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+          npm run build
+
+      - name: Railway's file, held to its SDK's types (.railway/railway.ts)
+        working-directory: .
+        run: |
+          npm ci
+          node web/node_modules/typescript/bin/tsc -p .railway/tsconfig.json
+
+  mechframe:
+    name: mechframe check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install the pinned dependencies (the CLI needs jsonschema)
+        run: >-
+          python -m pip install --require-hashes --only-binary=:all:
+          -r requirements.txt -r requirements-dev.txt
+
+      - name: MechFrame, a shallow clone
+        run: git clone --depth 1 https://github.com/mechframe/mechframe "$RUNNER_TEMP/mechframe"
+
+      - name: What this site edited, what is behind, and open advisories
+        env:
+          PYTHONPATH: ${{ runner.temp }}/mechframe/cli
+        run: python -m mechframe check --site .
+
+  e2e:
+    name: End to end (Playwright, Chromium)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: site
+          POSTGRES_PASSWORD: site
+          POSTGRES_DB: site
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U site" --health-interval 2s
+          --health-timeout 3s --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql://site:site@localhost:5432/postgres
+      E2E_PYTHON: python
+      CI: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install the pinned dependencies
+        run: >-
+          python -m pip install --require-hashes --only-binary=:all:
+          -r requirements.txt -r requirements-dev.txt
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install, Chromium, the build and the tests
+        working-directory: web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm run build
+          npm run e2e

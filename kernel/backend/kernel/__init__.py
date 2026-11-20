@@ -36,7 +36,7 @@ from kernel.auth.dependencies import (
 )
 from kernel.db import Base, Database, for_saving, get_db, one_row_only
 from kernel.errors import Problem
-from kernel.modules import InstalledModule, Manifest, require_module
+from kernel.modules import InstalledModule, Manifest, load_module, require_module
 from kernel.ratelimit import rate_limit
 from kernel.settings import settings
 from kernel.version import __version__
@@ -62,6 +62,7 @@ __all__ = [
     "for_saving",
     "get_db",
     "jobs",
+    "load_module",
     "moderation",
     "notifications",
     "one_row_only",

@@ -10,7 +10,7 @@ import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { useKernelSetup } from "../app/context";
 import { lazyPart } from "../app/lazy";
 import { useSession } from "../session/session";
-import { useModulesOn } from "../site/site";
+import { SITE, useModulesOn } from "../site/site";
 import { LINK_SLOTS, type Lazy, type LinkSlotName, type SlotEntryOf, type SlotName } from "./types";
 
 /**
@@ -31,7 +31,7 @@ export function useSlot<Name extends SlotName>(name: Name): Placed<Name>[] {
     permission === undefined || (session.status === "signed-in" && session.can(permission));
   const found: Placed<Name>[] = [];
   for (const definition of modules) {
-    if (!on.has(definition.id)) continue;
+    if (definition.id !== SITE && !on.has(definition.id)) continue; // the site's are always on
     const entries = (definition.slots?.[name] ?? []) as SlotEntryOf<Name>[];
     entries.forEach((entry, at) => {
       const permission = "permission" in entry ? entry.permission : undefined;

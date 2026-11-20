@@ -70,9 +70,14 @@ AppFactory = Callable[..., FastAPI]
 def app_factory(migrated_url: str) -> AppFactory:
     from kernel.app import create_app
 
-    def build(installed: list[InstalledModule] | None = None, **overrides: Any) -> FastAPI:
+    def build(
+        installed: list[InstalledModule] | None = None,
+        *,
+        site: server_copy.SitePages | None = None,
+        **overrides: Any,
+    ) -> FastAPI:
         config = make_config(**{"database_url": migrated_url, **overrides})
-        return create_app(modules=installed or [], config=config)
+        return create_app(modules=installed or [], config=config, site=site)
 
     return build
 

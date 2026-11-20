@@ -1,0 +1,86 @@
+# This site's Python tooling, as MechFrame's own (SPEC.md section 16). The site isn't
+# installed as a package: every command runs with `backend` on the path
+# (PYTHONPATH=backend; README.md). Its dependencies are requirements.in and
+# requirements-dev.in, pinned with hashes in the .txt files: MechFrame's own.
+
+[project]
+name = "site"
+version = "0.0.0"
+requires-python = ">=3.12"
+
+[tool.uv]
+package = false
+
+# --- tests -------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.3"
+testpaths = ["backend/tests"]
+pythonpath = ["backend"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = ["--strict-markers", "--strict-config", "-ra", "--import-mode=importlib"]
+markers = [
+    "db: needs the test Postgres (compose.yaml); skipped when it isn't running, unless MECHFRAME_REQUIRE_DB=1",
+]
+filterwarnings = ["error", "ignore::DeprecationWarning:passlib.*"]
+norecursedirs = ["node_modules", ".venv", "web", "dist"]
+
+[tool.coverage.run]
+source = ["backend/app"]
+branch = true
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.report]
+precision = 2
+skip_empty = true
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
+
+# --- lint and format -----------------------------------------------------------
+# The copied kernel and modules are checked where MechFrame keeps them: here, the
+# site's own code (backend/app, backend/tests, backend/alembic).
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+extend-exclude = "backend/(kernel|modules|migrations)/"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["node_modules", "web", "backend/kernel", "backend/modules", "backend/migrations"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "ASYNC", "RUF", "C4", "SIM", "PT"]
+# E501: Black owns line length.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert, and use made-up secrets and local URLs.
+"backend/tests/**" = ["S101", "S105", "S106", "S311", "S608"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+  "fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body", "fastapi.Header", "fastapi.Cookie", "fastapi.Security",
+  "kernel.require_permission", "kernel.require_owner_or", "kernel.require_recent_auth",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "kernel"]
+
+# --- types ---------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "backend"
+files = ["backend/app", "backend/tests"]
+explicit_package_bases = true
+plugins = ["pydantic.mypy"]
+strict = true
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["alembic.*", "boto3.*", "botocore.*", "asyncpg.*"]
+ignore_missing_imports = true

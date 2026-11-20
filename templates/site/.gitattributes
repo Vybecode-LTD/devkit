@@ -1,0 +1,9 @@
+# Text is stored with LF; a Windows checkout may hold CRLF, which mechframe check
+# reads as LF, so line endings never count as edits to a copied file.
+* text=auto
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
+# The shell's start command runs under sh in the image.
+Dockerfile text eol=lf

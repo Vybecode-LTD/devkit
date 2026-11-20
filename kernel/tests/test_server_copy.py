@@ -86,7 +86,7 @@ def test_only_the_modules_on_are_matched() -> None:
         [
             public_module("news", public=["/news/:slug"], pages=FakePages()),
             public_module("latest", public=["/news/latest"], pages=FakePages()),
-            public_module("site", public=["/"], pages=FakePages()),
+            public_module("home", public=["/"], pages=FakePages()),
         ]
     )
     found = routes.resolve("/news/latest", frozenset({"news"}))
@@ -96,7 +96,7 @@ def test_only_the_modules_on_are_matched() -> None:
     assert getattr(both, "module", None) == "latest"
     assert getattr(routes.resolve("/news/latest"), "module", None) == "latest"  # every module
     assert routes.resolve("/news/latest", frozenset()) is None
-    assert routes.home_owner(frozenset({"site"})) == "site"
+    assert routes.home_owner(frozenset({"home"})) == "home"
     assert routes.home_owner(frozenset({"news"})) is None
 
 
@@ -119,12 +119,12 @@ async def test_the_sitemap_follows_the_modules_on() -> None:
         [
             public_module("news", public=["/news/:slug"], pages=news),
             public_module("latest", public=["/news/latest"], pages=FakePages()),
-            public_module("site", public=["/"], pages=FakePages(entries=[Entry("/")])),
+            public_module("home", public=["/"], pages=FakePages(entries=[Entry("/")])),
         ]
     )
     found = await server_copy.entries(None, routes, frozenset({"news"}))  # type: ignore[arg-type]
     assert [(module, entry.path) for module, entry in found] == [
-        ("kernel", "/"),  # site, which owns /, is off: the kernel's home page answers there
+        ("kernel", "/"),  # home, which owns /, is off: the kernel's home page answers there
         ("news", "/news/latest"),
         ("news", "/news/old"),
     ]
@@ -153,11 +153,11 @@ def test_a_member_page_is_matched_as_one() -> None:
 
 
 def test_a_module_may_own_the_home_page() -> None:
-    routes = server_copy.build([public_module("site", public=["/"], pages=FakePages())])
+    routes = server_copy.build([public_module("home", public=["/"], pages=FakePages())])
     assert routes.owns_home
     found = routes.resolve("/")
     assert found is not None
-    assert (found.module, found.params) == ("site", {})
+    assert (found.module, found.params) == ("home", {})
 
 
 @pytest.mark.parametrize(
@@ -663,9 +663,9 @@ async def test_the_sitemap_lists_only_the_modules_on_and_never_noindex() -> None
 
 async def test_a_module_owning_home_lists_it_itself() -> None:
     site = FakePages(entries=[Entry("/", modified=date(2026, 11, 3))])
-    routes = server_copy.build([public_module("site", public=["/"], pages=site)])
-    found = await server_copy.entries(None, routes, frozenset({"site"}))  # type: ignore[arg-type]
-    assert [(module, entry.path) for module, entry in found] == [("site", "/")]
+    routes = server_copy.build([public_module("home", public=["/"], pages=site)])
+    found = await server_copy.entries(None, routes, frozenset({"home"}))  # type: ignore[arg-type]
+    assert [(module, entry.path) for module, entry in found] == [("home", "/")]
     assert "<lastmod>2026-11-03</lastmod>" in server_copy.sitemap_xml(found, SITE)
 
 

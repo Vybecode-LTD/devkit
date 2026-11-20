@@ -16,7 +16,7 @@ import { RouterProvider, createMemoryRouter } from "react-router";
 import type { AdminSection } from "./src/app/context";
 import { KernelProviders, drawNow } from "./src/app/mount";
 import { buildRoutes } from "./src/app/routes";
-import type { ModuleDefinition } from "./src/modules";
+import { siteModule, type ModuleDefinition, type SiteDefinition } from "./src/modules";
 import { SESSION_KEY, type SessionUser } from "./src/session/session";
 import type { Site } from "./src/site/site";
 
@@ -27,6 +27,8 @@ export type KernelRenderOptions = {
   session?: SessionUser | null | "loading";
   /** The modules' bindings. */
   modules?: ModuleDefinition[];
+  /** The site's own pages and slots, as `mountApp({ site })` takes them (`site` here is its identity). */
+  sitePages?: SiteDefinition;
   /** The modules on; every module given by default; `"loading"` for not read yet. */
   on?: string[] | "loading";
   /** The site's identity, over `TEST_SITE`; `"loading"` for not read yet. */
@@ -90,9 +92,15 @@ export function testQueryClient(options: KernelRenderOptions = {}): QueryClient 
   return queryClient;
 }
 
+/** The modules as `mountApp` holds them: the site's own first, when given. */
+function allModules(options: KernelRenderOptions): ModuleDefinition[] {
+  const modules = options.modules ?? [];
+  return options.sitePages ? [siteModule(options.sitePages), ...modules] : modules;
+}
+
 function drawn(router: ReturnType<typeof createMemoryRouter>, options: KernelRenderOptions): KernelRender {
   const queryClient = testQueryClient(options);
-  const setup = { modules: options.modules ?? [], adminSections: options.adminSections ?? [] };
+  const setup = { modules: allModules(options), adminSections: options.adminSections ?? [] };
   const app = createElement(KernelProviders, { queryClient, setup, children: createElement(RouterProvider, { router, flushSync: drawNow }) });
   const result = render(options.strict ? createElement(StrictMode, null, app) : app);
   return { ...result, queryClient, router };
@@ -109,6 +117,6 @@ export function renderApp(options: KernelRenderOptions = {}): KernelRender {
   const modules = options.modules ?? [];
   // As mountApp: the modules on's routes, or every module's while it's not read.
   const on = options.on === "loading" ? undefined : new Set(options.on ?? modules.map((module) => module.id));
-  const router = createMemoryRouter(buildRoutes(modules, on), { initialEntries: [options.path ?? "/"] });
+  const router = createMemoryRouter(buildRoutes(allModules(options), on), { initialEntries: [options.path ?? "/"] });
   return drawn(router, options);
 }

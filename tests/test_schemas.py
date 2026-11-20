@@ -147,3 +147,16 @@ def test_the_kernel_declares_only_its_own_permissions(repo: Path) -> None:
     )
     path.write_text(json.dumps(data), "utf-8")
     assert any("kernel.json" in problem for problem in check(repo).problems)
+
+
+@pytest.mark.parametrize("taken", ["auth", "kernel", "site"])
+def test_a_module_may_not_take_the_kernels_own_ids(taken: str) -> None:
+    """`site` is the key of the site's own pages and links (decision 0048), as
+    `auth` and `kernel` are the kernel's routes and branch."""
+    from jsonschema import Draft202012Validator
+
+    schema = json.loads((ROOT / "schema" / "module.schema.json").read_text("utf-8"))
+    manifest = json.loads((ROOT / "modules" / "_template" / "module.json").read_text("utf-8"))
+    manifest["id"] = taken
+    errors = list(Draft202012Validator(schema).iter_errors(manifest))
+    assert any(list(error.absolute_path) == ["id"] for error in errors)

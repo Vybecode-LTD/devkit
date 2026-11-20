@@ -10,6 +10,9 @@ import type { ApiProblem } from "../api/problem";
 import { useApiQuery } from "../api/client";
 import type { components } from "../api/schema";
 
+/** The id of the site's own pages and slots, which are always on (decision 0048). */
+export { SITE } from "../modules";
+
 export type Site = components["schemas"]["Site"];
 
 /** A read: on its way, failed with nothing to show, or read. */

@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import sys
+from pathlib import Path
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kernel import events, server_copy
 from kernel.access import public
 from kernel.errors import Problem
 from kernel.models import AuditEvent
-from kernel.modules import InstalledModule, ModuleRegistry
+from kernel.modules import InstalledModule, ModuleRegistry, load_module, module_jobs
 
 from .conftest import AppFactory, Client, Heard, manifest, unique_id
 
@@ -45,7 +49,7 @@ def test_bad_installs_are_refused() -> None:
         registry(InstalledModule(manifest("shop")), InstalledModule(manifest("shop")))
 
 
-@pytest.mark.parametrize("taken", ["auth", "kernel"])
+@pytest.mark.parametrize("taken", ["auth", "kernel", "site"])
 def test_a_module_can_t_take_the_kernel_s_own_ids(taken: str) -> None:
     """`/api/auth` and `/api/kernel` are the kernel's routes, `kernel` its
     Alembic branch, and both its table prefixes: a module of either id would
@@ -265,3 +269,127 @@ async def test_an_older_read_cant_undo_a_switch_made_here(db: AsyncSession) -> N
     await stale
     assert found.on_cached() == set()
     assert await found.on(db) == set()  # and the cache is still the switch's
+
+
+# --- building a module from its manifest (kernel.modules.load_module) ---------------------
+
+
+def _module_folder(root: Path, module_id: str, files: dict[str, str]) -> Path:
+    """A module's manifest beside its package's files, as a site holds it
+    (`backend/modules/<id_>/`, module.json inside the package)."""
+    package = root / module_id.replace("-", "_")
+    package.mkdir(parents=True)
+    raw = {
+        "id": module_id,
+        "name": module_id.title(),
+        "version": "0.1.0",
+        "requires": {"kernel": "^0.1", "modules": {}},
+        "routes": {"api": f"/api/{module_id}", "public": ["/photos"], "member": [], "admin": []},
+    }
+    (package / "module.json").write_text(json.dumps(raw), "utf-8")
+    for name, body in files.items():
+        (package / name).write_text(body, "utf-8")
+    return package
+
+
+def test_load_module_builds_a_module_from_its_fixed_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module_id = unique_id("gallery")
+    name = module_id.replace("-", "_")
+    folder = _module_folder(
+        tmp_path,
+        module_id,
+        {
+            "__init__.py": 'CSP = [("frame-src", "https://player.test")]\n',
+            "router.py": "from fastapi import APIRouter\nrouter = APIRouter()\n",
+            "schemas.py": "from pydantic import BaseModel\nclass Settings(BaseModel):\n    size: int = 3\n",
+            "emails.py": (
+                "from kernel import email\n"
+                f'EMAILS = {{"{module_id}.new_photo": email.Template("New photo", "See it.")}}\n'
+            ),
+            "jobs.py": (
+                "from kernel import jobs\n"
+                f'@jobs.handler("{module_id}.resize")\n'
+                "async def resize(ctx, payload):\n"
+                "    return None\n"
+            ),
+            "events.py": (
+                "from kernel import events, jobs\n"
+                "from kernel.events import UserDeleted\n"
+                f"@events.payload('{module_id}.photo.added', v=1)\n"
+                "class Added(events.Payload):\n"
+                "    photo_id: int\n"
+                f"@events.on('auth.user.deleted', '{module_id}.forget_user')\n"
+                "async def forget_user(ctx: jobs.Context, event: events.Event) -> None:\n"
+                "    return None\n"
+            ),
+            "moderation.py": (
+                "from kernel import moderation\n"
+                "from kernel.moderation import Kind\n"
+                f'@moderation.kind("{module_id}.photo", actions=("hide",))\n'
+                "class Photo(moderation.Kind):\n"
+                "    async def describe(self, db, id):\n"
+                "        return None\n"
+                "    async def apply(self, db, id, action):\n"
+                "        return None\n"
+            ),
+            "server_copy.py": (
+                "from kernel import server_copy\n"
+                "class GalleryPages(server_copy.Pages):\n"
+                "    async def page(self, db, path, params):\n"
+                "        return None\n"
+                "PAGES = GalleryPages()\n"
+            ),
+        },
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    try:
+        module = load_module(folder / "module.json")
+    finally:
+        for loaded in [each for each in sys.modules if each.startswith(name)]:
+            del sys.modules[loaded]
+    assert module.id == module_id
+    assert module.manifest.version == "0.1.0"
+    assert module.router is not None
+    assert module.settings is not None
+    assert module.settings().model_dump() == {"size": 3}
+    assert module.csp == (("frame-src", "https://player.test"),)
+    assert list(module.emails) == [f"{module_id}.new_photo"]
+    assert [job.name for job in module.jobs] == [f"{module_id}.resize"]
+    assert [events.declaration(model) for model in module.payloads] == [
+        (f"{module_id}.photo.added", 1)
+    ]
+    assert [listener.name for listener in module.listeners] == [f"{module_id}.forget_user"]
+    assert [kind.name for kind in module.reportable] == [f"{module_id}.photo"]
+    assert isinstance(module.pages, server_copy.Pages)
+
+
+def test_load_module_of_a_package_with_none_of_the_names_or_none_at_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bare_id, absent_id = unique_id("bare"), unique_id("absent")
+    bare = _module_folder(tmp_path, bare_id, {"__init__.py": ""})
+    absent = _module_folder(tmp_path, absent_id, {})
+    (absent / "module.json").rename(tmp_path / "absent.json")
+    absent.rmdir()
+    monkeypatch.syspath_prepend(str(tmp_path))
+    try:
+        found = load_module(bare / "module.json")
+    finally:
+        for loaded in [each for each in sys.modules if each.startswith(bare_id.replace("-", "_"))]:
+            del sys.modules[loaded]
+    assert (found.router, found.settings, found.pages) == (None, None, None)
+    assert (found.csp, found.jobs, found.payloads, found.listeners, found.reportable) == (
+        (),
+        (),
+        (),
+        (),
+        (),
+    )
+    assert found.emails == {}
+    assert module_jobs(f"{absent_id.replace('-', '_')}.jobs") == ()  # no package at all
+    # Its package isn't importable: the manifest only.
+    nothing = load_module(tmp_path / "absent.json")
+    assert nothing.id == absent_id
+    assert nothing.router is None

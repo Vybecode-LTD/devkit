@@ -67,8 +67,10 @@ jobs:
           # The Python job also validates every manifest, so schemas and recipes count, and
           # checks the themes (tests/test_themes.py, tools.themes --check).
           # tests/test_link_skills.py reads skills/; tests/test_openapi.py the committed specs.
-          # cli/ is the mechframe CLI and its tests (K5).
-          python=$(any '^(kernel/(backend|migrations|tests)/|kernel/(kernel|openapi)\.json$|modules/[^/]+/openapi\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|cli/|tools/|tests/|skills/|schema/|recipes/|themes/|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
+          # cli/ is the mechframe CLI and its tests (K5); templates/ the site template, which
+          # tests/test_site_template.py makes a site from and runs that site's own tests on; the
+          # root's package files, which the template's web package must equal.
+          python=$(any '^(kernel/(backend|migrations|tests)/|kernel/(kernel|openapi)\.json$|modules/[^/]+/openapi\.json$|modules/[^/]+/(module\.json$|backend/|migrations/|tests/(backend|contract)/)|harness/(alembic/|[^/]+\.py$)|cli/|templates/|tools/|tests/|skills/|schema/|recipes/|themes/|package(-lock)?\.json$|catalog\.json$|advisories\.json$|conftest\.py$|pyproject\.toml$|requirements)')
           # The web tests read kernel/kernel.json for the version. The Web job runs
           # npm audit's allowlist (tools/npm_audit*) against the real lockfile, and
           # checks the API types against kernel/openapi.json. Its lint and types cover the

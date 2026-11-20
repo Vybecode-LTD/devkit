@@ -115,23 +115,27 @@ mechframe/
     app/main.py           builds the app from the kernel and the modules in app/modules.py
     app/modules.py        MODULE_IDS, written by mechframe add and remove
     app/migrations.py  app/worker.py  app/owner.py
-    app/site/             this site's own backend code
+    app/__init__.py       puts backend/modules on the path; installed(MODULE_IDS) builds each with load_module
+    app/site/             this site's own backend code: pages.py, its pages' server copy (SITE_PAGES)
     alembic/              env.py loads every branch
     kernel/               copied: kernel/backend/kernel/ and kernel.json
     migrations/kernel/    copied: kernel/migrations/
     migrations/<id>/      copied: modules/<id>/migrations/
     modules/<id_>/        copied: modules/<id>/backend/<id_>/, module.json, MODULE.md, CHANGELOG.md
-    tests/
+    tests/                conftest.py (a throwaway Postgres), test_app.py, test_migrations.py, test_pages.py, e2e_server.py
   web/
     src/kernel/           copied: kernel/web/
     src/modules/<id>/     copied: modules/<id>/web/
     src/modules.ts        written by mechframe add and remove
-    src/site/             this site's own pages and overrides
+    src/site/             this site's own pages and overrides: site.ts lists them (defineSite)
     src/theme/tokens.css  copied: themes/<theme>/tokens.css
-  Dockerfile  railway.toml  .github/workflows/ci.yml
+  Dockerfile  .dockerignore  .github/workflows/ci.yml
+  .railway/railway.ts   the site on Railway as code; package.json pins Railway's SDK for it
 ```
 
 A copy leaves tests, caches and the web folders' own package files behind: MechFrame's CI tests what it copies, and the lock's hashes prove a copy is what was tested (decision 0047). Code written for one site goes in `site/` folders. Copied folders MAY be edited, but `mechframe check` reports every edit against the lock file (section 12).
+
+A site's Python runs with `backend` on the path: `PYTHONPATH=backend` in a terminal, `/app/backend` in the image, `pythonpath` in `pyproject.toml` for the tests. `mechframe new` copies `templates/site/` and this checkout's pinned requirements, writes the site's name and theme in, and adds the kernel and the lock. The Dockerfile's command is the start command on any host. On Railway, `.railway/railway.ts` declares the web service built from it, with its pre-deploy migrations, health check and every setting, and a Postgres; the site's owner applies it with `railway config apply`, since a new service reads no `railway.toml` (decision 0048).
 
 MechFrame itself lives at `C:\DEV\AI-DevKit`, in the GitHub repo `mechframe/mechframe` (decision 0034): public for now, the code still proprietary (decision 0011).
 
@@ -228,7 +232,8 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 
 | Name | Gives | Since |
 | --- | --- | --- |
-| `create_app(modules=, config=)` | The site's FastAPI app: the kernel, the modules, their routes, settings and CSP hosts | K1 |
+| `create_app(modules=, config=, site=)` | The site's FastAPI app: the kernel, the modules, their routes, settings and CSP hosts, and from K5 the site's own pages (`server_copy.SitePages`, section 9) | K1 |
+| `load_module(manifest)` | A module built from its `module.json` and its package's fixed names (decision 0009), as the harness and every site build theirs | K5 |
 | `Database(url)` | The engine and session factory `create_app` uses | K1 |
 | `InstalledModule`, `Manifest` | A module as the app is built from it: its manifest, `router`, `Settings`, `CSP` and, from K3, its emails, jobs, events, reportable kinds and `pages` | K1 |
 | `__version__` | The kernel's version, which the public surface follows under semver | K1 |
@@ -244,6 +249,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `useModuleEnabled(id)` | Whether a module is switched on |
 | `useSettings(id)` | The module's settings, read-only on public pages |
 | `defineModule({...})` | Registers routes and slots (section 8) |
+| `defineSite({...})` | The site's own pages and slots, for `mountApp({ modules, site })`: always on (section 8, decision 0048) |
 | `AdminPage` | An admin page's header, a module's too: its title, one line, its actions, the head's title and the breadcrumb's last part (decision 0044) |
 | UI kit | Button and LinkButton, Field with Input, TextArea and Select, Switch, Card, Pill and Chip, Attention, StatCard, Accordion, Tabs, Table, Dialog, UnsavedDialog with `useUnsavedGuard` and `useLeaveGuard`, SaveBar, SaveConflict, SectionHistory, Toast (`useToast`), EmptyState, LoadError, ErrorBoundary, RouteFocus, ScrollMemory and Icon (`kernel/web/src/ui/README.md`); the behavior ported from VybeSite, the look drawn from the Vibrant Mindz admin boards on the theme's tokens |
 
@@ -350,6 +356,8 @@ The slots are typed (`Slots`): links take `{label, to, permission?}`, with `sect
 
 **The shell** (`mountApp`, mounted with `createRoot`) is a data router. The kernel's sign-in pages and the landings from mail sit in a frame of their own, with no site menus (decision 0043); public and member pages sit in the site frame, member pages behind `RequireAuth`, which sends a signed-out person to `/sign-in?next=<path>` (only ever a path on this site); admin pages in the admin frame behind `RequireAdmin` (a member gets the 404 page, staff without a second factor go to `/account?needs=second-factor`), and each one that names a permission behind it too (`RequirePermission` shows the no-access page, never a redirect); the Dashboard needs only `RequireAdmin`. The router holds only the modules on, read once at the start, and matches with case as the server does, so an address goes to the module on that the server would give it; a module switched off while the app is open becomes the 404 page, before any sign-in or permission is asked for, once the app reads the switches again (on the next page opened, or the window's next focus, once they're five minutes old). The kernel's own pages (sign-in, sign-up, the email landings, the account's and the admin's) are one list, `kernel.json`'s `pages`, which the router and the server each keep in code, held to it by tests. A module route that takes one under its first segment (`/account/:tab`) is refused at the start; one that starts with a `:name` (`/:slug`) may meet them and never gets them. A write refused for a step-up opens one dialog for every write refused with it, and is sent again once the person has confirmed it's them (decision 0043). A module's component tests draw its parts with `renderWithKernel` from `@/kernel/testing`.
 
+**The site's own pages** are `defineSite({ routes: { public, member }, slots })` in `src/site/site.ts`, given to `mountApp({ modules, site })` (decision 0048). They sit in the site frame as a module's do, member pages behind `RequireAuth`, but they're always on: no switch on Features, and nothing waits for one. Their routes come first, so a site's route wins a tie with a module's; a module's more specific route still wins. The site has no admin pages, and its slot entries show whatever modules are on. `site` is the kernel's id for them, which no module may take.
+
 **Rules**
 
 - Styling comes only from tokens (`var(--mf-*)`; `themes/README.md` lists the kernel's required ones). A site names its theme on `<html data-theme="...">`. Hard-coded colors fail the checks (ESLint for TypeScript, `tests/test_themes.py` for CSS). Tailwind v4's theme maps to the same tokens.
@@ -378,6 +386,8 @@ Every public page MUST be readable without JavaScript, because GPTBot, ClaudeBot
 | --- | --- |
 | `page(db, path, params)` | For an address one of its `routes.public` patterns matched, with the pattern's `:name` parts: a `Page` (title, description, words, JSON-LD, image, Open Graph kind, published and modified times, noindex, the canonical's query), a `Moved` (a 301 or 302 to a path on this site), or None for a 404. One call reads the rows once |
 | `sitemap(db)` | Every public page as an `Entry` (path, last modified, and with a title, a link in `llms.txt`; `noindex` keeps it out of both) |
+
+**The site's own pages** are `create_app(site=server_copy.SitePages(public=..., member=..., pages=...))`, from its `backend/app/site/pages.py` (decision 0048). They're checked as a module's and answer the same way, always on, and listed in `sitemap.xml` and `llms.txt`. At the same rank a site's pattern takes an address from a module's, and the start logs it; a module's more fixed pattern still wins.
 
 The words come from the kernel's builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`, `time`, `section`, `article`), which escape every value: one `h1`, `h2` per section, no inline styles. `cleaned` passes HTML made elsewhere, such as a post's Markdown, through nh3, and the finished words are cleaned again against a tight allowlist. The start refuses a module with `routes.public` and no `PAGES`, or the reverse, and two patterns that answer the same address at the same rank: the one with more fixed segments wins.
 
@@ -850,6 +860,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-20 | K5's site template (decision 0048, K5 contract changes 5 and 6): a site's own pages, `create_app(site=)` and `defineSite` for `mountApp({ site })`, always on and first in a tie, `site` no module's id (6, 8, 9); `load_module` (6); a site's Python runs with `backend` on the path, and `.railway/railway.ts` replaces `railway.toml` for Railway, listing every setting (4) |
 | 2026-11-20 | K5's CLI and site template (decision 0047, K5 contract): the CLI copies from its own checkout; a site's exact layout; lock hashes read `\r\n` as `\n`; `advisories.json`'s entries; `check`'s exits; `add` prints the migration and test steps; `remove --drop-data`, `diff` and `upgrade` wait; the catalog's fields (4, 12, 13, 17) |
 | 2026-11-19 | `auth.user.role_changed` is emitted by a grant on the admin's People, `{user_id, added, removed}`, in its transaction; every kernel event in the table is now emitted (11) |
 | 2026-11-19 | K4's Settings, Features and System (decision 0046, contract change 19): the sign-up mode is the settings section `kernel.auth`, defaulting to `SIGN_UP_MODE`; module switches are audited and emit `kernel.module.enabled` and `kernel.module.disabled`; a failed job whose contents were wiped, or that nothing declares, can only be discarded (11, 12, 14.7) |

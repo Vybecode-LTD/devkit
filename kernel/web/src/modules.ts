@@ -35,8 +35,11 @@ export type ModuleDefinition = {
 
 const MODULE_ID = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
-/** The ids the kernel keeps for its own API (`/api/auth`, `/api/kernel`), as the backend does. */
-const RESERVED = new Set(["auth", "kernel"]);
+/** The id the site's own pages and slots go by (`defineSite`, decision 0048): always on. */
+export const SITE = "site";
+
+/** The ids the kernel keeps: its own API (`/api/auth`, `/api/kernel`) and the site's, as the backend does. */
+const RESERVED = new Set(["auth", "kernel", SITE]);
 
 /** A path on this site as the browser reads it: dots resolved, no query or fragment. */
 function pathOf(to: string): string {
@@ -108,4 +111,42 @@ export function defineModule(definition: ModuleDefinition): ModuleDefinition {
   checkRoutes(definition);
   checkSlots(definition);
   return definition;
+}
+
+/**
+ * The site's own pages and the slots it fills (`mountApp({ site })`, decision
+ * 0048): its `src/site/site.ts`. They're always on, with no switch on Features,
+ * and win a tie with a module's route; a more fixed module route still wins.
+ * No admin pages: those are a module's.
+ */
+export type SiteDefinition = {
+  routes: {
+    public: ModuleRoute[];
+    member: ModuleRoute[];
+  };
+  /** The kernel slots the site fills, as a module's binding does. */
+  slots?: Slots;
+};
+
+/** The site as the router and the slots read it: a module that's always on, under the id `SITE`. */
+export function siteModule(site: SiteDefinition): ModuleDefinition {
+  const definition: ModuleDefinition = {
+    id: SITE,
+    routes: { public: site.routes.public, member: site.routes.member, admin: [] },
+    ...(site.slots ? { slots: site.slots } : {}),
+  };
+  checkRoutes(definition);
+  checkSlots(definition);
+  return definition;
+}
+
+/**
+ * Registers the site's own pages, in `src/site/site.ts`. Checks them as
+ * `defineModule` checks a module's: nothing under /admin, no path given twice,
+ * no route that takes one of the kernel's pages, and slot entries the kernel
+ * can show.
+ */
+export function defineSite(site: SiteDefinition): SiteDefinition {
+  siteModule(site);
+  return site;
 }

@@ -673,7 +673,7 @@ async def test_an_event_reaches_its_listener_once_and_a_second_run_changes_nothi
 def test_a_module_s_events_py_is_found_by_type(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from harness.registry import module_events
+    from kernel.modules import module_events
 
     owner = unique_id()
     package = f"discovered_{uuid.uuid4().hex[:8]}"

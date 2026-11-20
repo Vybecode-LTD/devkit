@@ -58,7 +58,7 @@ describe("defineModule", () => {
     expect(() => defineModule(blog({ routes }))).toThrow(/list it as an admin route/);
   });
 
-  it.each(["auth", "kernel"])("refuses the id %s, which the kernel keeps (cubic on #79)", (id) => {
+  it.each(["auth", "kernel", "site"])("refuses the id %s, which the kernel keeps (cubic on #79)", (id) => {
     expect(() => defineModule(blog({ id }))).toThrow(/the kernel's own/);
   });
 

@@ -18,8 +18,8 @@ export {
   useApiQuery,
 } from "./src/api/client";
 export type { ApiClientOptions, KernelPaths, ProblemBody } from "./src/api/client";
-export { defineModule } from "./src/modules";
-export type { ModuleDefinition, ModuleRoute } from "./src/modules";
+export { defineModule, defineSite } from "./src/modules";
+export type { ModuleDefinition, ModuleRoute, SiteDefinition } from "./src/modules";
 export type { AdminLinkEntry, IconName, Lazy, LinkEntry, SlotName, Slots } from "./src/slots/types";
 
 export { mountApp } from "./src/app/mount";

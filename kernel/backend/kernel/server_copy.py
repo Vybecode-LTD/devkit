@@ -38,6 +38,12 @@ JSON-LD) until a module on declares it. The kernel's own pages
 always answer as the kernel's, and the start refuses a pattern that takes
 one under its first segment (`/account/:tab`); `/:slug` may, and never gets them.
 
+**The site's own pages** (`create_app(site=SitePages(...))`, decision 0048)
+are checked as a module's and answer the same way, under the owner `SITE`.
+They're always on, whatever the modules' switches, and at the same rank the
+site's pattern takes an address from a module's (the start logs which); a
+module's more fixed pattern still wins.
+
 **The words** come from the builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`,
 `time`, `section`, `article`), which escape every value: anything that isn't
 their `Html` is text. `cleaned` passes HTML made elsewhere, such as a post's
@@ -92,6 +98,9 @@ log = logging.getLogger(__name__)
 SECTION = "kernel.site"
 #: The kernel's own entries in the sitemap (its default home page).
 KERNEL = "kernel"
+#: The owner of the site's own pages (`create_app(site=...)`, decision 0048):
+#: always on, and an id no module may take (`kernel.modules.RESERVED_IDS`).
+SITE = "site"
 #: The most addresses sitemap.xml lists (sitemaps.org), and links llms.txt.
 MAX_SITEMAP = 50_000
 MAX_LLMS_LINKS = 500
@@ -394,6 +403,23 @@ class Pages:
         return ()
 
 
+@dataclass(frozen=True)
+class SitePages:
+    """The site's own pages (`create_app(site=...)`, decision 0048): its
+    `backend/app/site/pages.py`'s `SITE_PAGES`. They're always on, with no switch on
+    Features, and answer as a module's do: `public` patterns with their
+    `pages`, `member` ones in the shell with noindex. At the same rank the
+    site's pattern wins over a module's, and the start logs it; a module's
+    pattern with more fixed segments still wins.
+
+    `name` heads the site's links in llms.txt."""
+
+    public: tuple[str, ...] = ()
+    member: tuple[str, ...] = ()
+    pages: Pages | None = None
+    name: str = "Pages"
+
+
 # --- which module answers ----------------------------------------------------------------------
 
 
@@ -464,24 +490,27 @@ class Routes:
     def __init__(
         self, patterns: list[_Pattern], pages: dict[str, Pages], names: dict[str, str]
     ) -> None:
-        #: Most fixed segments first: the first match is the one that answers.
-        self._patterns = sorted(patterns, key=lambda pattern: -pattern.rank)
+        #: Most fixed segments first, the site's before a module's at one rank:
+        #: the first match is the one that answers.
+        self._patterns = sorted(
+            patterns, key=lambda pattern: (-pattern.rank, pattern.module != SITE)
+        )
         self._pages = pages
         self._names = names
 
     def resolve(self, path: str, on: frozenset[str] | None = None) -> Match | None:
         """The pattern that answers `path`, a path with no trailing slash,
-        among the modules `on` (every module installed when None): a module
-        that's off steps aside, so its pattern never keeps an address from a
-        module on whose pattern also takes it. A kernel page is no module's,
-        so the shell, the sitemap and llms.txt all leave it to the kernel; nor
-        is an address with a trailing slash, which the shell moves to the one
-        without it (cubic on #79)."""
+        among the modules `on` (every module installed when None) and the
+        site's own, which are always on: a module that's off steps aside, so
+        its pattern never keeps an address from a module on whose pattern also
+        takes it. A kernel page is no module's, so the shell, the sitemap and
+        llms.txt all leave it to the kernel; nor is an address with a trailing
+        slash, which the shell moves to the one without it (cubic on #79)."""
         if path in KERNEL_PAGE_TITLES or (path != "/" and path.endswith("/")):
             return None
         segments = () if path == "/" else tuple(path[1:].split("/"))
         for pattern in self._patterns:
-            if on is not None and pattern.module not in on:
+            if on is not None and pattern.module not in on and pattern.module != SITE:
                 continue
             params = pattern.match(segments)
             if params is not None:
@@ -507,14 +536,35 @@ class Routes:
         return sorted(self._pages)
 
 
-def build(installed: Iterable[InstalledModule]) -> Routes:
-    """The modules' pages, checked: `routes.public` and `pages` together,
-    every pattern one the kernel can take, and no two answering the same
-    address at the same rank. Raises ValueError."""
+def _site_patterns(site: SitePages) -> tuple[list[_Pattern], Pages | None]:
+    if site.pages is not None and not isinstance(site.pages, Pages):
+        raise ValueError("The site's pages must be a server_copy.Pages.")
+    if site.public and site.pages is None:
+        raise ValueError("The site lists public pages but gives no pages (app/site/pages.py).")
+    if site.pages is not None and not site.public:
+        raise ValueError("The site gives pages but lists no public pages to answer with them.")
+    patterns = [_parse(SITE, text, False) for text in site.public]
+    patterns += [_parse(SITE, text, True) for text in site.member]
+    return patterns, site.pages
+
+
+def build(installed: Iterable[InstalledModule], site: SitePages | None = None) -> Routes:
+    """The modules' pages and the site's own, checked: `routes.public` and
+    `pages` together, every pattern one the kernel can take, and no two
+    answering the same address at the same rank, but for the site's against a
+    module's, where the site's wins and the log says so. Raises ValueError."""
     patterns: list[_Pattern] = []
     pages: dict[str, Pages] = {}
     names: dict[str, str] = {}
+    if site is not None:
+        found, site_pages = _site_patterns(site)
+        patterns += found
+        names[SITE] = site.name
+        if site_pages is not None:
+            pages[SITE] = site_pages
     for module in installed:
+        if module.id == SITE:
+            raise ValueError(f"{SITE} names the site's own pages: a module can't take it.")
         routes = module.manifest.raw.get("routes") or {}
         public = list(routes.get("public") or [])
         member = list(routes.get("member") or [])
@@ -535,11 +585,21 @@ def build(installed: Iterable[InstalledModule]) -> Routes:
         _check_kernel_pages(pattern)
     for number, first in enumerate(patterns):
         for second in patterns[number + 1 :]:
-            if first.rank == second.rank and first.meets(second):
-                raise ValueError(
-                    f"{first.module}'s {first.text} and {second.module}'s {second.text} answer "
-                    "the same addresses at the same rank: give one more fixed segments."
+            if first.rank != second.rank or not first.meets(second):
+                continue
+            if (first.module == SITE) != (second.module == SITE):
+                ours, theirs = (first, second) if first.module == SITE else (second, first)
+                log.warning(
+                    "The site's %s takes the place of %s's %s.",
+                    ours.text,
+                    theirs.module,
+                    theirs.text,
                 )
+                continue
+            raise ValueError(
+                f"{first.module}'s {first.text} and {second.module}'s {second.text} answer "
+                "the same addresses at the same rank: give one more fixed segments."
+            )
     return Routes(patterns, pages, names)
 
 
@@ -782,14 +842,15 @@ def home(site: Identity) -> Page:
 
 async def entries(db: AsyncSession, routes: Routes, on: frozenset[str]) -> list[tuple[str, Entry]]:
     """Every page the sitemap and llms.txt list, by module: the kernel's home
-    page while no module on owns `/`, then each module on's entries that
-    aren't `noindex` and that its own public pattern answers among the
-    modules on."""
+    page while neither the site nor a module on owns `/`, then the site's
+    entries and each module on's that aren't `noindex` and that its own
+    public pattern answers among the modules on."""
     found: list[tuple[str, Entry]] = []
     if routes.home_owner(on) is None:
         found.append((KERNEL, Entry("/")))
-    for module_id in routes.with_pages():
-        if module_id not in on:
+    owners = routes.with_pages()
+    for module_id in sorted(owners, key=lambda owner: owner != SITE):
+        if module_id not in on and module_id != SITE:
             continue
         for entry in await routes.pages_of(module_id).sitemap(db):
             answers = routes.resolve(entry.path, on)

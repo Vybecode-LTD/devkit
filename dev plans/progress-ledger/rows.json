@@ -570,9 +570,9 @@
    "step": "The mechframe commands and lock files",
    "status": "next",
    "status_label": "Next",
-   "prs": "#91",
-   "decisions": "0047",
-   "note": "check and the lock in #91; new, add, remove and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"
+   "prs": "#91 #92",
+   "decisions": "0047 0048",
+   "note": "check and the lock in #91; new (kernel only) in #92; add, remove, new --recipe and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"
   },
   {
    "milestone": "MechFrame v1.0",
@@ -582,11 +582,11 @@
    "gate": "not passed",
    "step_order": 2,
    "step": "templates/site, made from the harness",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
-   "note": ""
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#92",
+   "decisions": "0047 0048",
+   "note": "the site's own pages (create_app(site=), defineSite), kernel.load_module, the site's tests and CI, tools/site_smoke.py"
   },
   {
    "milestone": "MechFrame v1.0",
@@ -596,11 +596,11 @@
    "gate": "not passed",
    "step_order": 3,
    "step": "The start command and .env.example for a host's edge",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
-   "note": ""
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#92",
+   "decisions": "0048",
+   "note": "the Dockerfile's start command reads the proxy's headers; .railway/railway.ts (Railway as code) in place of railway.toml, checked live on a throwaway project"
   },
   {
    "milestone": "MechFrame v1.0",
@@ -2086,11 +2086,11 @@
   },
   {
    "label": "Updated",
-   "value": "2026-11-19"
+   "value": "2026-11-20"
   },
   {
    "label": "main",
-   "value": "c38cdfa"
+   "value": "e60b23c"
   }
  ]
 }
