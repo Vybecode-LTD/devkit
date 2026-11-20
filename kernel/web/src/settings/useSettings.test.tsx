@@ -28,6 +28,24 @@ function shown(fetched: Record<string, Answer | ((request: Request) => Answer)>)
 
 const read = (version: number, values: Record<string, unknown>): Answer => ({ status: 200, body: { version, values } });
 
+/** Holds the first `method` request open until the returned function is called. */
+function gated(fetch: ReturnType<typeof routedFetch>["fetch"], method: string): () => void {
+  let open: () => void = () => undefined;
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  const original = fetch.getMockImplementation();
+  if (!original) throw new Error("no fetch to hold");
+  let held = false;
+  fetch.mockImplementation((request: Request) => {
+    if (request.method !== method || held) return original(request);
+    held = true;
+    return opened.then(() => original(request));
+  });
+  return open;
+}
+
+
 const bodies = async (sent: Request[], method: string) =>
   Promise.all(sent.filter((request) => request.method === method && new URL(request.url).pathname === SECTION).map((request) => request.clone().json()));
 
@@ -170,6 +188,151 @@ describe("useSettings", () => {
     });
     // "Newer" came after the choice; it isn't the value given up (CodeRabbit on #87).
     expect(form().changes).toEqual({ title: "Newer" });
+  });
+
+  it("lets a field changed and changed back show what's saved since", async () => {
+    let now = { version: 2, values: { title: "News" } as Record<string, unknown> };
+    const { form, queryClient } = shown({ [`GET ${SECTION}`]: () => read(now.version, now.values) });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Mine");
+    });
+    act(() => {
+      form().set("title", "News");
+    });
+    now = { version: 3, values: { title: "Theirs" } };
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ["get", "/api/kernel/admin/settings/{id}"] });
+    });
+    // Nothing is changed, so the form shows what's saved (CodeRabbit on #87).
+    await waitFor(() => {
+      expect(form().values).toEqual({ title: "Theirs" });
+    });
+    expect(form().dirty).toBe(false);
+  });
+
+  it("keeps an edit made while a save was on its way protected from a later save", async () => {
+    let now = { version: 2, values: { title: "News", per_page: 10 } as Record<string, unknown> };
+    const { form, fetch, sent } = shown({
+      [`GET ${SECTION}`]: () => read(now.version, now.values),
+      [`PUT ${SECTION}`]: () => {
+        if (now.version === 2) {
+          // The title saves as 3; then someone else saves the page size as 4.
+          now = { version: 4, values: { title: "Notes", per_page: 30 } };
+          return { status: 200, body: { version: 3, changed: ["title"], merged: [] } };
+        }
+        return { status: 200, body: { version: 5, changed: ["per_page"], merged: [] } };
+      },
+    });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Notes");
+    });
+    const open = gated(fetch, "PUT");
+    let pending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pending = form().save();
+    });
+    act(() => {
+      form().set("per_page", 20);
+    });
+    open();
+    await act(async () => {
+      await pending;
+    });
+    await waitFor(() => {
+      expect(form().saved).toEqual({ title: "Notes", per_page: 30 });
+    });
+    await act(async () => {
+      await form().save();
+    });
+    // At 3, what the title's save left, so the kernel sees both changed the page size (CodeRabbit on #87).
+    const puts = await bodies(sent, "PUT");
+    expect(puts[1]).toEqual({ version: 3, changes: { per_page: 20 } });
+  });
+
+  it("keeps such an edit at its first version when someone else saved before that save landed", async () => {
+    let now = { version: 2, values: { title: "News", per_page: 10 } as Record<string, unknown> };
+    const { form, fetch, sent } = shown({
+      [`GET ${SECTION}`]: () => read(now.version, now.values),
+      [`PUT ${SECTION}`]: () => {
+        if (now.version === 2) {
+          // Someone else saved the page size as 3 first; the title merges in as 4.
+          now = { version: 4, values: { title: "Notes", per_page: 30 } };
+          return { status: 200, body: { version: 4, changed: ["title"], merged: [] } };
+        }
+        return { status: 200, body: { version: 5, changed: ["per_page"], merged: [] } };
+      },
+    });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Notes");
+    });
+    const open = gated(fetch, "PUT");
+    let pending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pending = form().save();
+    });
+    act(() => {
+      form().set("per_page", 20);
+    });
+    open();
+    await act(async () => {
+      await pending;
+    });
+    await waitFor(() => {
+      expect(form().saved).toEqual({ title: "Notes", per_page: 30 });
+    });
+    await act(async () => {
+      await form().save();
+    });
+    // Version 4 already holds their page size; at 2 the kernel sees both changed it (CodeRabbit on #87).
+    const puts = await bodies(sent, "PUT");
+    expect(puts[1]).toEqual({ version: 2, changes: { per_page: 20 } });
+  });
+
+  it("keeps a field changed back while its save is on its way as an edit", async () => {
+    let now = { version: 2, values: { title: "News" } as Record<string, unknown> };
+    const { form, fetch } = shown({
+      [`GET ${SECTION}`]: () => read(now.version, now.values),
+      [`PUT ${SECTION}`]: () => {
+        now = { version: 3, values: { title: "Notes" } };
+        return { status: 200, body: { version: 3, changed: ["title"], merged: [] } };
+      },
+    });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Notes");
+    });
+    const open = gated(fetch, "PUT");
+    let pending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pending = form().save();
+    });
+    act(() => {
+      form().set("title", "News");
+    });
+    // While "Notes" is on its way, "News" is a change: a move away asks first (CodeRabbit on #87).
+    expect(form().dirty).toBe(true);
+    expect(form().changes).toEqual({ title: "News" });
+    open();
+    await act(async () => {
+      await pending;
+    });
+    await waitFor(() => {
+      expect(form().saved).toEqual({ title: "Notes" });
+    });
+    // "News" came after "Notes" was sent: it's the person's latest word (CodeRabbit on #87).
+    expect(form().values).toEqual({ title: "News" });
+    expect(form().changes).toEqual({ title: "News" });
   });
 
   it("puts a refused value's words beside its field", async () => {

@@ -166,7 +166,7 @@ function Failed({ count, heading }: { count: number; heading: RefObject<HTMLHead
       key: "job",
       header: "Job",
       cell: (job) => (
-        <span className="mf-settings-job">
+        <span className="mf-settings-job" data-job={job.id}>
           <span className="mf-settings-mono">{job.name}</span>
           <span className="mf-settings-row-line">
             {job.module === "kernel" ? "The kernel" : `The ${job.module} module`}, failed {when(job.failed_at)}

@@ -202,7 +202,44 @@ describe("the Site tab", () => {
   });
 });
 
+/** Holds the first `method` request open until the returned function is called. */
+function gated(fetch: ReturnType<typeof routedFetch>["fetch"], method: string): () => void {
+  let open: () => void = () => undefined;
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  const original = fetch.getMockImplementation();
+  if (!original) throw new Error("no fetch to hold");
+  let held = false;
+  fetch.mockImplementation((request: Request) => {
+    if (request.method !== method || held) return original(request);
+    held = true;
+    return opened.then(() => original(request));
+  });
+  return open;
+}
+
 describe("a module's settings section", () => {
+  it("holds the page's Save while the section saves", async () => {
+    const { fetch } = answers({
+      "GET /api/kernel/admin/settings/blog": form(1, { title: "News" }),
+      "PUT /api/kernel/admin/settings/blog": { status: 200, body: { version: 2, changed: ["title"], merged: [] } },
+    });
+    const user = userEvent.setup();
+    renderApp({ path: "/admin/settings", session: admin(), modules: [blog] });
+    const title = await screen.findByRole("textbox", { name: "Blog title" });
+    await waitFor(() => {
+      expect(title).toHaveValue("News");
+    });
+    await user.type(title, "!");
+    const open = gated(fetch, "PUT");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    // Only the module's section is saving; a second click mustn't send it again (CodeRabbit on #87).
+    expect(await screen.findByRole("button", { name: "Saving…" })).toBeDisabled();
+    open();
+    await screen.findByText("Settings saved.");
+  });
+
   it("is saved by the page's Save, and kept from a move away while it has changes", async () => {
     const { sent } = answers({
       "GET /api/kernel/admin/settings/blog": form(1, { title: "News" }),

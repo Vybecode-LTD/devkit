@@ -90,13 +90,28 @@ export function useSettings(id: string): SettingsForm {
   // still goes at this version, so the kernel can tell the edit never saw
   // what changed since and merges it, or says it's a conflict (Codex on #87).
   const [base, setBase] = useState<{ version: number; values: SettingsValues } | null>(null);
+  // What a save on its way sent. A field in it that the person has set to
+  // anything else since, back to where its edit began included, is a change:
+  // the newest word, kept from a move away and saved after (CodeRabbit on #87).
+  const [flying, setFlying] = useState<Readonly<Record<string, unknown>>>({});
 
   const saved = query.data?.values ?? EMPTY;
   const from = useMemo(() => base ?? (query.data ? { version: query.data.version, values: query.data.values } : null), [base, query.data]);
   const fromValues = from?.values ?? EMPTY;
+  // With no edit left (saved, discarded, or changed back), the form begins
+  // again from what's saved (CodeRabbit on #87): settled while drawing.
+  if (base !== null && Object.keys(draft).length === 0) setBase(null);
+  // The latest read, for a save that ends after the render that sent it.
+  const latest = useRef(query.data);
+  useLayoutEffect(() => {
+    latest.current = query.data;
+  });
   const changes = useMemo(
-    () => Object.fromEntries(Object.entries(draft).filter(([field, value]) => !same(value, fromValues[field]))),
-    [draft, fromValues],
+    () =>
+      Object.fromEntries(
+        Object.entries(draft).filter(([field, value]) => !same(value, fromValues[field]) || (field in flying && !same(value, flying[field]))),
+      ),
+    [draft, fromValues, flying],
   );
   const values = useMemo(() => ({ ...saved, ...draft }), [saved, draft]);
   const dirty = Object.keys(changes).length > 0;
@@ -119,6 +134,7 @@ export function useSettings(id: string): SettingsForm {
     async (version: number, sent: Readonly<Record<string, unknown>>, kept: Readonly<Record<string, unknown>> = {}): Promise<SaveOutcome> => {
       setSaving(true);
       setErrors({});
+      setFlying(sent);
       try {
         const { data } = await api.PUT("/api/kernel/admin/settings/{id}", { ...init, body: { version, changes: { ...sent } } });
         setConflict(null);
@@ -132,8 +148,18 @@ export function useSettings(id: string): SettingsForm {
             ),
           ),
         );
-        // Anything still in the draft begins again from what this save left.
-        setBase(null);
+        // An edit made while this was on its way keeps the values it started
+        // from, with this save's on top. It moves on to the version this save
+        // made only if no one else saved in between: then that version is the
+        // edit's start with this save applied. Otherwise it may hold another
+        // admin's change to the same field, so the edit keeps its first
+        // version and the kernel still finds the conflict (CodeRabbit on #87).
+        setBase((now) => {
+          if (!data) return null;
+          const started = now?.values ?? latest.current?.values ?? EMPTY;
+          const onlyThis = data.changed.length > 0 ? data.version === version + 1 : data.version === version;
+          return { version: onlyThis ? data.version : (now?.version ?? version), values: { ...started, ...sent } };
+        });
         await reread();
         if (!data || data.changed.length === 0) return { status: "unchanged" };
         return { status: "saved", changed: data.changed, merged: data.merged };
@@ -146,6 +172,7 @@ export function useSettings(id: string): SettingsForm {
         if (caught instanceof ApiProblem && caught.code === "kernel.invalid_request") setErrors(fieldErrors(caught));
         return { status: "refused", problem: caught };
       } finally {
+        setFlying({});
         setSaving(false);
       }
     },
@@ -209,8 +236,14 @@ export function useSettings(id: string): SettingsForm {
     dirty,
     set: (field, value) => {
       const read = query.data;
-      if (read) setBase((now) => now ?? { version: read.version, values: read.values });
-      setDraft((now) => ({ ...now, [field]: value }));
+      if (from !== null && field in from.values && same(value, from.values[field]) && !(field in flying)) {
+        // Changed back to where it began: no longer an edit (CodeRabbit on #87).
+        // Not while a save of it is on its way: then it's the latest word.
+        setDraft((now) => Object.fromEntries(Object.entries(now).filter(([key]) => key !== field)));
+      } else {
+        if (read) setBase((now) => now ?? { version: read.version, values: read.values });
+        setDraft((now) => ({ ...now, [field]: value }));
+      }
       setErrors((now) => (field in now ? Object.fromEntries(Object.entries(now).filter(([key]) => key !== field)) : now));
     },
     discard: () => {
