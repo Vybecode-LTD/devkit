@@ -13,9 +13,10 @@ never goes online and the real lookup's parsing still runs.
 Built: reset, clock, routes, breached (the fake breach lookup's list), mail (what
 the app's mailer was handed, kept by a `CapturingMailer` behind the same
 checks a site's adapter gets, read after the due jobs have run, since mail
-goes out through the jobs queue), jobs/run (every due job, now) and users
-(accounts made without judging their passwords). Still to come with K2 and
-K3: oauth/grant, delete-hooks.
+goes out through the jobs queue), jobs/run (every due job, now), jobs (a job
+queued now: the probe modules', `harness.probe`, which only the test support
+mounts) and users (accounts made without judging their passwords). Still to
+come with K2 and K3: oauth/grant, delete-hooks.
 """
 
 from __future__ import annotations
@@ -30,8 +31,9 @@ from fastapi.routing import APIRoute, iter_route_contexts
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 
+from harness import probe
 from harness.registry import discover
-from kernel import clock, create_app, crypto
+from kernel import clock, create_app, crypto, jobs
 from kernel.access import needs_step_up, public, undeclared
 from kernel.auth.accounts import normal_email
 from kernel.auth.models import Role, Totp, User, UserRole
@@ -153,6 +155,27 @@ async def users(body: NewUser, request: Request) -> dict[str, str]:
     return made
 
 
+class NewJob(BaseModel):
+    name: str = Field(max_length=jobs.MAX_NAME)
+    sealed: bool = False
+    key: str | None = None
+
+
+@router.post("/jobs", status_code=201)
+async def new_job(body: NewJob, request: Request) -> dict[str, str]:
+    """A job queued now, with an empty payload: the probe modules' (`probe.fail`
+    fails on its one try), or any well-formed name, which nothing runs."""
+    async with request.app.state.database.sessions() as db:
+        try:
+            made = await jobs.enqueue(db, body.name, {}, key=body.key, sealed=body.sealed)
+        except ValueError as error:
+            raise Problem("harness.bad_job", 422, str(error)) from None
+        if made is None:
+            raise Problem("harness.job_waiting", 409, "A job of that name and key is waiting.")
+        await db.commit()
+    return {"id": str(made)}
+
+
 @router.post("/clock", status_code=204)
 async def move_clock(body: Advance) -> Response:
     clock.advance(body.advance)
@@ -207,7 +230,12 @@ def build_test_app(database_url: str | None = None, *, env_file: bool = True) ->
                 lines.append(f"{hexed[5:]}:1")
         return "\n".join(lines)
 
-    app = create_app(modules=discover(), config=config, mailer=captured, breach_lookup=fake_range)
+    app = create_app(
+        modules=[*discover(), *probe.MODULES],
+        config=config,
+        mailer=captured,
+        breach_lookup=fake_range,
+    )
     app.state.captured_mail = captured
     app.state.breached = set()
     app.include_router(router, prefix="/api/_test")

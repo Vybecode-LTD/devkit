@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechframe.local/schema/events/kernel.module.enabled.v1.schema.json",
+  "additionalProperties": false,
+  "description": "A module is on again: the admin switched it on, or a module it\nrequires came back on (SPEC 12).",
+  "properties": {
+    "module": {
+      "title": "Module",
+      "type": "string"
+    }
+  },
+  "required": [
+    "module"
+  ],
+  "title": "kernel.module.enabled (v1)",
+  "type": "object"
+}

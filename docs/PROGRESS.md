@@ -8,9 +8,9 @@ Updated 2026-11-19, `main` at `c38cdfa`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 34 | 0 | 0 | 20 | 3 | 3 | █████░░░░░ 56% (34 of 60) |
+| MechFrame v1.0 | 34 | 1 | 0 | 19 | 3 | 3 | █████░░░░░ 56% (34 of 60) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 34 | 0 | 0 | 105 | 3 | 6 | ██░░░░░░░░ 22% (34 of 148) |
+| Everything | 34 | 1 | 0 | 104 | 3 | 6 | ██░░░░░░░░ 22% (34 of 148) |
 
 ## MechFrame v1.0
 
@@ -108,7 +108,7 @@ Gate: Component tests, axe with no serious violations, Playwright runs of every 
 | Auth and account screens, with the device routes | Done | [#83](https://github.com/mechframe/mechframe/pull/83) | [0042](decisions/0042-web-kernel.md), [0043](decisions/0043-sign-in-and-account-screens.md) |  |
 | Admin shell: sidebar, top bar, Dashboard and Activity | Done | [#84](https://github.com/mechframe/mechframe/pull/84) | [0042](decisions/0042-web-kernel.md), [0044](decisions/0044-admin-shell.md) |  |
 | Admin people and roles, with role editing | Done | [#85](https://github.com/mechframe/mechframe/pull/85) | [0042](decisions/0042-web-kernel.md), [0045](decisions/0045-people-and-roles.md) |  |
-| Admin settings: Site, Features and System | To do |  |  |  |
+| Admin settings: Site, Features and System | In review | [#87](https://github.com/mechframe/mechframe/pull/87) | [0042](decisions/0042-web-kernel.md), [0046](decisions/0046-settings-features-system.md) |  |
 | Depth theme | Later |  |  | The owner, 2026-11-18: when a site wants it |
 
 ### K5: CLI and site template · 0 of 4 done · gate not passed yet

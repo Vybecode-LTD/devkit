@@ -226,6 +226,22 @@ class SettingsChanged(Payload):
     version: int
 
 
+@payload("kernel.module.enabled", v=1)
+class ModuleEnabled(Payload):
+    """A module is on again: the admin switched it on, or a module it
+    requires came back on (SPEC 12)."""
+
+    module: str
+
+
+@payload("kernel.module.disabled", v=1)
+class ModuleDisabled(Payload):
+    """A module went off: the admin switched it off, or a module it requires
+    went off. Its data is kept; its jobs and deliveries wait."""
+
+    module: str
+
+
 KERNEL_PAYLOADS: tuple[type[Payload], ...] = (
     UserCreated,
     UserVerified,
@@ -233,6 +249,8 @@ KERNEL_PAYLOADS: tuple[type[Payload], ...] = (
     UserRestored,
     UserDeleted,
     SettingsChanged,
+    ModuleEnabled,
+    ModuleDisabled,
 )
 
 

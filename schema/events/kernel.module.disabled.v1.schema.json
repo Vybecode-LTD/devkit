@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechframe.local/schema/events/kernel.module.disabled.v1.schema.json",
+  "additionalProperties": false,
+  "description": "A module went off: the admin switched it off, or a module it requires\nwent off. Its data is kept; its jobs and deliveries wait.",
+  "properties": {
+    "module": {
+      "title": "Module",
+      "type": "string"
+    }
+  },
+  "required": [
+    "module"
+  ],
+  "title": "kernel.module.disabled (v1)",
+  "type": "object"
+}

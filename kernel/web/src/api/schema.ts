@@ -331,6 +331,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/kernel/admin/settings/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Settings Form
+         * @description The section's values at its version; 404 for one no module registers.
+         */
+        get: operations["settings_form_api_kernel_admin_settings__id__get"];
+        /**
+         * Save Settings
+         * @description Saves what the form changed, merged with any save since it was read
+         *     (kernel.settings): 409 `kernel.settings_conflict` when both changed one
+         *     field, saving nothing.
+         */
+        put: operations["save_settings_api_kernel_admin_settings__id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/settings/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Settings History
+         * @description The section's saves, newest first, in pages, with who made them.
+         */
+        get: operations["settings_history_api_kernel_admin_settings__id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Modules
+         * @description The modules MODULES allows, by name, each with its switch and needs.
+         */
+        get: operations["modules_api_kernel_admin_modules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/modules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Switch Module
+         * @description Switches a module on or off (kernel.modules): off turns off every
+         *     module requiring it too. Answers the whole list.
+         */
+        put: operations["switch_module_api_kernel_admin_modules__id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * System
+         * @description The queue, the services as the deploy set them, the build and its
+         *     modules (no health check: K4 contract §6).
+         */
+        get: operations["system_api_kernel_admin_system_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/jobs/dead": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dead Jobs
+         * @description The jobs that failed for good, the newest failure first, in pages;
+         *     never a payload.
+         */
+        get: operations["dead_jobs_api_kernel_admin_jobs_dead_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/jobs/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Job
+         * @description Queues a failed job again, due now, with its tries given back.
+         */
+        post: operations["retry_job_api_kernel_admin_jobs__id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Discard Job
+         * @description Removes a failed job for good.
+         */
+        delete: operations["discard_job_api_kernel_admin_jobs__id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/sign-in": {
         parameters: {
             query?: never;
@@ -1435,6 +1604,36 @@ export interface components {
             /** Alg */
             alg: number;
         };
+        /** DeadJob */
+        DeadJob: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Module */
+            module: string;
+            /** Tries */
+            tries: number;
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Failed At
+             * Format: date-time
+             */
+            failed_at: string;
+            /** Retryable */
+            retryable: boolean;
+        };
+        /** DeadJobs */
+        DeadJobs: {
+            /** Items */
+            items: components["schemas"]["DeadJob"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /**
          * Device
          * @description A signed-in browser, as the account page lists it (14.5).
@@ -1510,6 +1709,20 @@ export interface components {
              */
             database: "ok" | "unreachable";
         };
+        /** JobCounts */
+        JobCounts: {
+            /** Queued */
+            queued: number;
+            /** Running */
+            running: number;
+            /** Dead */
+            dead: number;
+            /**
+             * Worker
+             * @enum {string}
+             */
+            worker: "ok" | "behind";
+        };
         /** ModerationLog */
         ModerationLog: {
             /** Items */
@@ -1542,6 +1755,37 @@ export interface components {
             details: {
                 [key: string]: unknown;
             };
+        };
+        /** ModuleCounts */
+        ModuleCounts: {
+            /** Installed */
+            installed: number;
+            /** On */
+            on: number;
+        };
+        /** ModuleItem */
+        ModuleItem: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Summary */
+            summary: string;
+            /** Category */
+            category: string;
+            /** On */
+            on: boolean;
+            /** Switched */
+            switched: boolean;
+            /** Requires */
+            requires: string[];
+            /** Required By */
+            required_by: string[];
+        };
+        /** ModuleList */
+        ModuleList: {
+            /** Items */
+            items: components["schemas"]["ModuleItem"][];
         };
         /** ModulesOn */
         ModulesOn: {
@@ -1863,6 +2107,14 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** Retried */
+        Retried: {
+            /**
+             * State
+             * @constant
+             */
+            state: "queued";
+        };
         /** RoleChange */
         RoleChange: {
             /** Name */
@@ -1904,6 +2156,13 @@ export interface components {
         RolesOf: {
             /** Roles */
             roles: string[];
+        };
+        /** Saver */
+        Saver: {
+            /** Name */
+            name: string | null;
+            /** Email */
+            email: string;
         };
         /** SecondFactor */
         SecondFactor: {
@@ -1949,9 +2208,78 @@ export interface components {
             /** Recovery Codes Left */
             recovery_codes_left: number;
         };
+        /** Services */
+        Services: {
+            /**
+             * Email
+             * @enum {string}
+             */
+            email: "smtp" | "resend" | "log";
+            storage: components["schemas"]["Storage"];
+        };
         /** SessionAnswer */
         SessionAnswer: {
             user: components["schemas"]["UserView"];
+        };
+        /**
+         * SettingsForm
+         * @description A section as its form reads it: a secret as `{kept, changes}`.
+         */
+        SettingsForm: {
+            /** Version */
+            version: number;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /** SettingsHistory */
+        SettingsHistory: {
+            /** Items */
+            items: components["schemas"]["SettingsVersion"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** People */
+            people: {
+                [key: string]: components["schemas"]["Saver"];
+            };
+        };
+        /**
+         * SettingsSave
+         * @description `{version, changes}`: the form's values by field, read at `version`.
+         */
+        SettingsSave: {
+            /** Version */
+            version: number;
+            /** Changes */
+            changes: {
+                [key: string]: unknown;
+            };
+        };
+        /** SettingsSaved */
+        SettingsSaved: {
+            /** Version */
+            version: number;
+            /** Changed */
+            changed: string[];
+            /** Merged */
+            merged: string[];
+        };
+        /** SettingsVersion */
+        SettingsVersion: {
+            /** Number */
+            number: number;
+            /** Changed */
+            changed: string[];
+            /** Via */
+            via: string;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Saved By Id */
+            saved_by_id: string | null;
         };
         /** SignIn */
         SignIn: {
@@ -2015,10 +2343,30 @@ export interface components {
              */
             status: "recent";
         };
+        /** Storage */
+        Storage: {
+            /** Configured */
+            configured: boolean;
+            /** Public */
+            public: boolean;
+        };
         /** Suspend */
         Suspend: {
             /** Reason */
             reason: string;
+        };
+        /** Switch */
+        Switch: {
+            /** On */
+            on: boolean;
+        };
+        /** System */
+        System: {
+            jobs: components["schemas"]["JobCounts"];
+            services: components["schemas"]["Services"];
+            /** Version */
+            version: string;
+            modules: components["schemas"]["ModuleCounts"];
         };
         /** Target */
         Target: {
@@ -2831,6 +3179,354 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ModerationLog"];
                 };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    settings_form_api_kernel_admin_settings__id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsForm"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    save_settings_api_kernel_admin_settings__id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsSaved"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    settings_history_api_kernel_admin_settings__id__history_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsHistory"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    modules_api_kernel_admin_modules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleList"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    switch_module_api_kernel_admin_modules__id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Switch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleList"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    system_api_kernel_admin_system_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["System"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    dead_jobs_api_kernel_admin_jobs_dead_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadJobs"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retry_job_api_kernel_admin_jobs__id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Retried"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    discard_job_api_kernel_admin_jobs__id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
             422: {

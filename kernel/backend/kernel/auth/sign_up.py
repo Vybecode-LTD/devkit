@@ -1,8 +1,11 @@
 """Sign-up and email verification at /api/auth (SPEC.md 14.6, 14.7 and 14.10;
 docs/contracts/auth-api.md; decision 0020).
 
-**The site's mode** (`SIGN_UP_MODE`) comes first: closed answers 403
-`auth.sign_up_closed`, invite-only 403 `auth.invite_required`. Until invites
+**The site's mode** comes first: the settings section `kernel.auth`'s
+`sign_up_mode`, whose default is `SIGN_UP_MODE` (the deploy's variable stands
+until someone saves the setting; K4 contract change 19, decision 0020's
+plan). Closed answers 403 `auth.sign_up_closed`, invite-only 403
+`auth.invite_required`. Until invites
 arrive (K2's API keys and invites) no invite is valid, so an invite-only site
 takes no sign-ups at all. Public sign-up makes only `member` accounts (14.1).
 
@@ -41,7 +44,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import timedelta
-from typing import cast
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -61,6 +64,7 @@ from kernel.db import get_db
 from kernel.email import MAX_ADDRESS, is_address, queue_message
 from kernel.errors import Problem
 from kernel.ratelimit import RateLimiter, rate_limit, too_many
+from kernel.settings import settings
 
 log = logging.getLogger(__name__)
 
@@ -99,6 +103,33 @@ class VerifyEmail(BaseModel):
     token: str = Field(max_length=128)
 
 
+#: The settings section that holds who may make an account.
+SECTION = "kernel.auth"
+
+Mode = Literal["open", "invite", "closed"]
+
+
+def settings_model(default: Mode) -> type[BaseModel]:
+    """The section `kernel.auth`'s model, its mode defaulting to the
+    deploy's SIGN_UP_MODE, so a site keeps its variable until it saves."""
+
+    class AuthSettings(BaseModel):
+        """The settings section `kernel.auth`: who may make an account."""
+
+        model_config = ConfigDict(extra="forbid")
+
+        #: Open to anyone, by invitation only, or closed.
+        sign_up_mode: Mode = default
+
+    return AuthSettings
+
+
+async def sign_up_mode(db: AsyncSession) -> Mode:
+    """The site's sign-up mode as saved, else SIGN_UP_MODE."""
+    found: Mode = cast(Any, await settings.for_module(db, SECTION)).sign_up_mode
+    return found
+
+
 def _site(config: KernelConfig) -> str:
     return config.site_url.rstrip("/")
 
@@ -115,9 +146,10 @@ async def sign_up(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
     config: KernelConfig = request.app.state.config
-    if config.sign_up_mode == "closed":
+    mode = await sign_up_mode(db)
+    if mode == "closed":
         raise Problem("auth.sign_up_closed", 403, "This site isn't taking new accounts.")
-    if config.sign_up_mode == "invite":
+    if mode == "invite":
         raise Problem(
             "auth.invite_required", 403, "This site takes new accounts by invitation only."
         )

@@ -32,6 +32,9 @@ export { RequireAuth, RequirePermission } from "./src/guards/guards";
 export { useSlot, SlotOutlet } from "./src/slots/slots";
 export { useModuleEnabled, useSite } from "./src/site/site";
 export type { Site } from "./src/site/site";
+// A settings section's admin form, for a module's admin.settings.section part (K4.8).
+export { useSettings } from "./src/settings/useSettings";
+export type { SaveOutcome, SettingsForm, SettingsValues } from "./src/settings/useSettings";
 export { Seo } from "./src/seo/Seo";
 export type { SeoProps } from "./src/seo/Seo";
 

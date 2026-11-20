@@ -7,14 +7,15 @@ import logging
 
 import pytest
 from fastapi import APIRouter, Depends, FastAPI
-from sqlalchemy import event
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel.access import public
 from kernel.errors import Problem
+from kernel.models import AuditEvent
 from kernel.modules import InstalledModule, ModuleRegistry
 
-from .conftest import AppFactory, Client, manifest, unique_id
+from .conftest import AppFactory, Client, Heard, manifest, unique_id
 
 
 def registry(*modules: InstalledModule, allowed: set[str] | None = None) -> ModuleRegistry:
@@ -71,10 +72,48 @@ async def test_unknown_and_disallowed_switches_are_refused(db: AsyncSession) -> 
     )
     with pytest.raises(Problem) as unknown:
         await found.set_enabled(db, "nope", False)
-    assert (unknown.value.status, unknown.value.code) == (422, "kernel.module_unknown")
+    assert (unknown.value.status, unknown.value.code) == (404, "kernel.module_unknown")
     with pytest.raises(Problem) as disallowed:
         await found.set_enabled(db, "shop", True)
-    assert disallowed.value.code == "kernel.module_not_allowed"
+    assert (disallowed.value.status, disallowed.value.code) == (422, "kernel.module_not_allowed")
+    # The Features page lists only what MODULES allows.
+    assert [item["id"] for item in await found.listing(db)] == ["blog"]
+
+
+async def test_a_switch_is_logged_once_and_heard_for_each_module_it_changes(
+    db: AsyncSession, heard: Heard
+) -> None:
+    """A switch emits kernel.module.disabled or .enabled for every module whose
+    on-state it changed, the one requiring it too (SPEC 11); a switch to where
+    it already is changes nothing (K4 contract change 19)."""
+    base, extra = unique_id("base"), unique_id("extra")
+    found = registry(
+        InstalledModule(manifest(base)), InstalledModule(manifest(extra, requires={base: "^0.1"}))
+    )
+    await found.set_enabled(db, base, False)
+    await found.set_enabled(db, base, False)  # already off
+    await found.set_enabled(db, extra, True)  # already on, and still off with base
+    await found.set_enabled(db, base, True)
+    assert sorted((name, payload["module"]) for name, payload in await heard.drain()) == sorted(
+        [
+            ("kernel.module.disabled", base),
+            ("kernel.module.disabled", extra),
+            ("kernel.module.enabled", base),
+            ("kernel.module.enabled", extra),
+        ]
+    )
+    logged = (
+        await db.scalars(
+            select(AuditEvent)
+            .where(AuditEvent.target_type == "kernel.module")
+            .where(AuditEvent.target_id.in_([base, extra]))
+            .order_by(AuditEvent.id)
+        )
+    ).all()
+    assert [(entry.action, entry.target_id, entry.details) for entry in logged] == [
+        ("kernel.module.disabled", base, {"on": [], "off": sorted([base, extra])}),
+        ("kernel.module.enabled", base, {"on": sorted([base, extra]), "off": []}),
+    ]
 
 
 def _module_with_route(module_id: str) -> InstalledModule:

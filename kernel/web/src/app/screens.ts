@@ -1,8 +1,8 @@
 /**
  * The kernel pages' screens, by path, each loaded only when its page opens
  * (`lazyPart`, so a failed load asks again on Try again). A kernel page
- * without one here still shows its heading (`Pending`) until its screen is
- * built: the admin's Settings, K4.8.
+ * without one here would show its heading (`Pending`) until its screen is
+ * built; every kernel page has one since K4.8.
  */
 import type { Lazy } from "../slots/types";
 
@@ -29,4 +29,7 @@ export const SCREENS: Readonly<Record<string, Lazy>> = {
   "/admin/people": () => import("../admin/People"),
   "/admin/roles": () => import("../admin/Roles"),
   "/admin/activity": () => import("../admin/Activity"),
+  "/admin/settings": () => import("../admin/Site"),
+  "/admin/settings/features": () => import("../admin/Features"),
+  "/admin/settings/system": () => import("../admin/System"),
 };

@@ -115,6 +115,11 @@ KERNEL_ACTIONS = frozenset(
         "auth.role.created",
         "auth.role.changed",
         "auth.role.deleted",
+        # Features and System in the admin (K4.8).
+        "kernel.module.enabled",
+        "kernel.module.disabled",
+        "kernel.job.retried",
+        "kernel.job.discarded",
     }
 )
 

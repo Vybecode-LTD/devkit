@@ -540,10 +540,10 @@
    "gate": "not passed",
    "step_order": 8,
    "step": "Admin settings: Site, Features and System",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "review",
+   "status_label": "In review",
+   "prs": "#87",
+   "decisions": "0042 0046",
    "note": ""
   },
   {

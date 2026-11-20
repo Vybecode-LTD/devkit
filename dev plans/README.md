@@ -12,6 +12,8 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 
 `2026-11-19-k47-people-roles/` holds the admin's People and Roles beside their boards (and the boards as drawn), at 1440 and 390 px in both themes, with both dialogs, and what differs and why (#85).
 
+`2026-11-19-k48-settings-system/` holds the admin's Settings tabs (Site, Features, System) at 1440 and 390 px in both themes, with failed jobs on System, and `README.md` saying what differs from `AdminSettings.dc.html` and why (#87).
+
 `contracts/` holds the one-page contract each feature that touches a seam gets before its code (`C:\DEV\knowledge\decisions\0008-feature-contracts.md`):
 
 | File | What |

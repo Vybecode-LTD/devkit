@@ -46,4 +46,7 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0040](0040-admin-shell-design.md) | The admin shell is built to the Vibrant Mindz canvas design, styled by tokens (amends 0008) | Decided; applied in K4 |
 | [0041](0041-public-rendering.md) | Public rendering: one `page()` per address, matched by `routes.public`; the shell, `WEB_DIST` and the kernel's files | Applied |
 | [0042](0042-web-kernel.md) | The web kernel: typed answers and a client from committed specs, kernel pages in one list, `--mf-*` tokens, the admin to the boards | Decided; applied in K4 |
-| [0043](0043-sign-in-and-account-screens.md) | The sign-in and account screens: a frame of their own, the site's look in the kit, `GET /api/auth/security`, the device routes written down | Decided; applied in K4.5 |
+| [0043](0043-sign-in-and-account-screens.md) | The sign-in and account screens: a frame of their own, the site's look in the kit, `GET /api/auth/security`, the device routes written down | Decided; applied in K4.5 |
+| [0044](0044-admin-shell.md) | The admin shell: sections in the sidebar, "Needs you" for those who can act, the log naming its people, an info tone | Decided; applied in K4.6 |
+| [0045](0045-people-and-roles.md) | People and roles in the admin: who may grant and edit what, the locks that keep the last owner, `auth.role.manage` | Decided; applied in K4.7 |
+| [0046](0046-settings-features-system.md) | Settings, Features and System: the sign-up mode as a setting, switches that announce themselves, failed jobs that can only be discarded | Decided; applied in K4.8 |

@@ -73,7 +73,7 @@ describe("the sidebar", () => {
   it("marks only Site as current on Site, not on Features", async () => {
     routedFetch(NOTHING);
     renderApp({ path: "/admin/settings/features", session: admin });
-    await screen.findByRole("heading", { level: 1, name: "Features" });
+    await screen.findByRole("heading", { level: 1, name: "Settings" });
     const pages = within(screen.getByRole("navigation", { name: "Admin" })).getByRole("list", { name: "Settings" });
     expect(within(pages).getByRole("link", { name: "Site" })).not.toHaveAttribute("aria-current");
     expect(within(pages).getByRole("link", { name: "Features" })).toHaveAttribute("aria-current", "page");

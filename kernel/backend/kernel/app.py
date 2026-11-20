@@ -84,6 +84,8 @@ from kernel import (
     server_copy,
     shell,
 )
+from kernel.admin import router as admin_router
+from kernel.auth import sign_up
 from kernel.auth.codes import router as codes_router
 from kernel.auth.dependencies import SessionCookies
 from kernel.auth.devices import router as devices_router
@@ -262,6 +264,7 @@ def assemble(
     # settings too (Codex on #63).
     settings.register(moderation.SECTION, moderation.Filters)
     settings.register(server_copy.SECTION, server_copy.SiteSettings)
+    settings.register(sign_up.SECTION, sign_up.settings_model(config.sign_up_mode))
     for module in installed:
         if module.settings is not None:
             settings.register(module.id, module.settings)
@@ -347,6 +350,7 @@ def create_app(
     openapi.install(app)
 
     app.include_router(kernel_router, prefix="/api/kernel")
+    app.include_router(admin_router, prefix="/api/kernel")
     app.include_router(auth_router, prefix="/api/auth")
     app.include_router(sign_up_router, prefix="/api/auth")
     app.include_router(codes_router, prefix="/api/auth")

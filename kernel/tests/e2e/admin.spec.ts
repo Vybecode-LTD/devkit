@@ -1,5 +1,5 @@
-// The admin's frame, Dashboard, Activity, People and Roles, as Chromium draws them (K4 contract §7,
-// K4.6 and K4.7):
+// The admin's frame, Dashboard, Activity, People, Roles and Settings, as Chromium draws them (K4
+// contract §7, K4.6 to K4.8; Settings' own flows are settings.spec.ts):
 // staff with a second factor land on the Dashboard with what needs them, Ctrl K jumps to a
 // page, the activity log shows the sign-in that brought them, the notices open and shut, the
 // phone's Menu opens the sidebar; each admin page answers (a smoke test); nothing scrolls
@@ -14,9 +14,14 @@ const ADMIN_PAGES = [
   ["/admin/roles", "Roles and permissions"],
   ["/admin/activity", "Activity log"],
   ["/admin/settings", "Settings"],
-  ["/admin/settings/features", "Features"],
-  ["/admin/settings/system", "System"],
+  ["/admin/settings/features", "Settings"],
+  ["/admin/settings/system", "Settings"],
 ] as const;
+
+/** The admin pages the phone and axe loops open; Settings' three tabs (K4.8) have an axe test of their own. */
+const OTHERS = ["/admin", "/admin/activity", "/admin/people", "/admin/roles"];
+const SETTINGS = ["/admin/settings", "/admin/settings/features", "/admin/settings/system"];
+const LOOPED = [...OTHERS, ...SETTINGS];
 
 /**
  * `email`'s own sign-in in `table`, paging back with Show older until it shows: every test
@@ -118,7 +123,7 @@ for (const [name, canvas] of Object.entries(THEMES)) {
   test(`nothing in the admin scrolls sideways at 390 px in ${name}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signedInAdmin(page);
-    for (const path of ["/admin", "/admin/activity", "/admin/people", "/admin/roles"]) {
+    for (const path of LOOPED) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.waitForLoadState("networkidle");
@@ -129,9 +134,20 @@ for (const [name, canvas] of Object.entries(THEMES)) {
     }
   });
 
+  test(`axe finds no serious or critical problem in Settings in ${name}`, async ({ page }) => {
+    await signedInAdmin(page, "/admin/settings");
+    for (const path of SETTINGS) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      await theme(page, name, canvas);
+      expect(await axe(page), path).toEqual([]);
+    }
+  });
+
   test(`axe finds no serious or critical problem in the admin in ${name}, Jump to and the notices open too`, async ({ page }) => {
     await signedInAdmin(page);
-    for (const path of ["/admin", "/admin/activity", "/admin/people", "/admin/roles"]) {
+    for (const path of OTHERS) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await page.waitForLoadState("networkidle");

@@ -38,11 +38,12 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kernel import audit, events
 from kernel.db import get_db
 from kernel.email import Template
 from kernel.errors import Problem
@@ -119,6 +120,9 @@ class InstalledModule:
 
 
 OFF = "This part of the site is switched off."
+
+#: The first key of the switches' advisory lock: pg_advisory_xact_lock(LOCK_CLASS, 0).
+LOCK_CLASS = 84712032
 
 log = logging.getLogger(__name__)
 
@@ -233,12 +237,18 @@ class ModuleRegistry:
     ) -> frozenset[str]:
         """Switch a module on or off and commit. Returns the modules on after.
 
-        Refuses (422) a module that isn't installed, and one MODULES leaves
-        out: switched here, it would stay that way when a later deploy allows
-        it. Switching one off also turns off every module requiring it, which
-        keeps its own switch."""
+        Refuses a module that isn't installed (404) and one MODULES leaves out
+        (422): switched here, it would stay that way when a later deploy
+        allows it. Switching one off also turns off every module requiring
+        it, which keeps its own switch.
+
+        A switch that changes something is audited as `kernel.module.enabled`
+        or `kernel.module.disabled`, and emits that event for every module
+        whose on-state it changed, a module requiring it included (SPEC 11).
+        Switches take one advisory lock, so two of them never read each
+        other's half; one to where it already is changes nothing."""
         if module_id not in self.installed:
-            raise Problem("kernel.module_unknown", 422, f"There's no module called {module_id}.")
+            raise Problem("kernel.module_unknown", 404, f"There's no module called {module_id}.")
         if module_id not in self.allowed:
             raise Problem(
                 "kernel.module_not_allowed",
@@ -246,6 +256,15 @@ class ModuleRegistry:
                 f"{self.installed[module_id].manifest.name} isn't available on this site "
                 "(MODULES), so it can't be switched on or off here.",
             )
+        await db.execute(text("SELECT pg_advisory_xact_lock(:kind, 0)"), {"kind": LOCK_CLASS})
+        switched_off = await self.switched_off(db)
+        if (module_id not in switched_off) == enabled:
+            await db.commit()  # ends the transaction, and the lock with it
+            return await self.on(db, fresh=True)
+        before = self.effective(switched_off)
+        after = self.effective(
+            switched_off - {module_id} if enabled else switched_off | {module_id}
+        )
         statement = insert(ModuleState).values(
             module_id=module_id, enabled=enabled, updated_by_id=by
         )
@@ -258,9 +277,40 @@ class ModuleRegistry:
             },
         )
         await db.execute(statement)
+        target = ("kernel.module", module_id)
+        details = {"on": sorted(after - before), "off": sorted(before - after)}
+        if enabled:
+            audit.record(db, "kernel.module.enabled", actor=by, target=target, details=details)
+        else:
+            audit.record(db, "kernel.module.disabled", actor=by, target=target, details=details)
+        for changed in sorted(after - before):
+            await events.emit(db, "kernel.module.enabled", events.ModuleEnabled(module=changed))
+        for changed in sorted(before - after):
+            await events.emit(db, "kernel.module.disabled", events.ModuleDisabled(module=changed))
         await db.commit()
-        # K3: emit kernel.module.enabled / kernel.module.disabled and audit it.
         return await self.on(db, fresh=True)
+
+    async def listing(self, db: AsyncSession) -> list[dict[str, Any]]:
+        """The modules MODULES allows, by name, as the Features page shows
+        them: `switched` is the admin's switch, `on` also needs every module
+        it requires on (read fresh, not from the cache)."""
+        switched_off = await self.switched_off(db)
+        on = await self.on(db, fresh=True)
+        items = [
+            {
+                "id": module.id,
+                "name": module.manifest.name,
+                "summary": str(module.manifest.raw.get("summary", "")),
+                "category": str(module.manifest.raw.get("category", "")),
+                "on": module.id in on,
+                "switched": module.id not in switched_off,
+                "requires": sorted(module.manifest.requires),
+                "required_by": self.requiring(module.id),
+            }
+            for module in self.installed.values()
+            if module.id in self.allowed
+        ]
+        return sorted(items, key=lambda item: (item["name"].casefold(), item["id"]))
 
 
 def require_module(module_id: str) -> Callable[..., Awaitable[None]]:

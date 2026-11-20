@@ -21,17 +21,19 @@ import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from sqlalchemy import func, select, text, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kernel import clock
 from kernel.app import create_app
-from kernel.auth import passwords, tokens
+from kernel.auth import passwords, sign_up, tokens
 from kernel.auth.accounts import normal_email
 from kernel.auth.hashing import keyed_hash
 from kernel.auth.models import AuditEvent, Token, User, UserRole
 from kernel.config import KernelConfig
 from kernel.email import CapturingMailer, Mailer, Template
+from kernel.models import Setting, SettingVersion
+from kernel.settings import settings
 
 from ..conftest import SITE, Client, Draining, Heard, make_config
 
@@ -125,7 +127,15 @@ async def _site(
         holder.append(site)
         async with site.db() as db:
             site.audit_from = await db.scalar(select(func.max(AuditEvent.id))) or 0
+            # A mode saved by an earlier test would outrank this site's SIGN_UP_MODE.
+            await _forget_saved_mode(db)
         yield site
+
+
+async def _forget_saved_mode(db: AsyncSession) -> None:
+    await db.execute(delete(SettingVersion).where(SettingVersion.module_id == sign_up.SECTION))
+    await db.execute(delete(Setting).where(Setting.module_id == sign_up.SECTION))
+    await db.commit()
 
 
 @pytest_asyncio.fixture
@@ -439,6 +449,26 @@ async def test_a_closed_or_invite_only_site_makes_no_account(
 
 def test_sign_up_is_closed_until_a_site_opens_it() -> None:
     assert KernelConfig.model_fields["sign_up_mode"].default == "closed"
+
+
+async def test_a_saved_mode_outranks_sign_up_mode_which_stands_until_then(
+    migrated_url: str,
+) -> None:
+    """The settings section kernel.auth takes the mode over from SIGN_UP_MODE
+    once saved (K4 contract change 19; decision 0020's plan)."""
+    async with _site(migrated_url, sign_up_mode="closed") as site:
+        async with site.db() as db:
+            form = await settings.form(db, sign_up.SECTION)
+        assert form == {"version": 0, "values": {"sign_up_mode": "closed"}}
+        refused = await site.sign_up(_address())
+        assert (refused.status_code, refused.json()["code"]) == (403, "auth.sign_up_closed")
+        try:
+            async with site.db() as db:
+                await settings.save(db, sign_up.SECTION, {"sign_up_mode": "open"}, version=0)
+            assert (await site.sign_up(_address())).status_code == 202
+        finally:
+            async with site.db() as db:
+                await _forget_saved_mode(db)
 
 
 # --- the mail ------------------------------------------------------------------------

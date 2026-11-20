@@ -209,14 +209,26 @@ class SettingsRegistry:
             "values": self._masked(model, row.values if row else {}),
         }
 
-    async def history(self, db: AsyncSession, module_id: str) -> list[dict[str, Any]]:
-        """Every saved version, newest first, without its values."""
+    async def history(
+        self,
+        db: AsyncSession,
+        module_id: str,
+        *,
+        before: int | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """The saved versions, newest first, without their values: every one,
+        or `limit` of them numbered below `before` (a page)."""
         self.model(module_id)
         statement = (
             select(SettingVersion)
             .where(SettingVersion.module_id == module_id)
             .order_by(SettingVersion.number.desc())
         )
+        if before is not None:
+            statement = statement.where(SettingVersion.number < before)
+        if limit is not None:
+            statement = statement.limit(limit)
         return [
             {
                 "number": version.number,
