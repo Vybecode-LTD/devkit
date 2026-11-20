@@ -320,6 +320,9 @@ describe("useSettings", () => {
     act(() => {
       form().set("title", "News");
     });
+    // While "Notes" is on its way, "News" is a change: a move away asks first (CodeRabbit on #87).
+    expect(form().dirty).toBe(true);
+    expect(form().changes).toEqual({ title: "News" });
     open();
     await act(async () => {
       await pending;
