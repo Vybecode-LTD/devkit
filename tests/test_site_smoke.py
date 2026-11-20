@@ -210,3 +210,18 @@ def test_a_kernel_only_site_with_modules_is_a_failure(
     monkeypatch.setattr(new, "new", lambda *_args, **_kwargs: made)
     with pytest.raises(RuntimeError, match="came out with modules"):
         site_smoke.make(tmp_path / "test-site")
+
+
+def test_a_failure_without_a_last_newline_shows_only_its_own_output(tmp_path: Path) -> None:
+    """Output that doesn't end its last line still ends before the exit marker
+    (CodeRabbit on #92)."""
+    said: list[str] = []
+    plan = [
+        Step("first", (sys.executable, "-c", "print('earlier output')")),
+        Step(
+            "second",
+            (sys.executable, "-c", "import sys; sys.stdout.write('no newline'); sys.exit(1)"),
+        ),
+    ]
+    assert site_smoke.run(tmp_path, plan, tmp_path / "smoke.log", say=said.append) == "second"
+    assert said[2:] == ["no newline"]

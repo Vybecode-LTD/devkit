@@ -177,7 +177,8 @@ def run(
             except (OSError, subprocess.TimeoutExpired) as error:
                 code = type(error).__name__
             took = time.monotonic() - started
-            out.write(f"=== {step.name}: exit {code} after {took:.0f} s\n")
+            # On a line of its own, whether or not the output ended its last (CodeRabbit on #92).
+            out.write(f"\n=== {step.name}: exit {code} after {took:.0f} s\n")
             out.flush()
             say(f"{'ok  ' if code == 0 else 'FAIL'} {step.name} ({took:.0f} s)")
             if code != 0:

@@ -172,7 +172,16 @@ def _claim(site: Path, made_folder: bool) -> Path:
         claim.open("x").close()
     except FileExistsError:
         raise Refused(taken) from None
-    if [path.name for path in site.iterdir()] != [CLAIM]:
+    try:
+        alone = [path.name for path in site.iterdir()] == [CLAIM]
+    except BaseException:
+        # Only what this call made goes: its claim, and the folder if it made it,
+        # so a retry isn't refused (CodeRabbit on #92).
+        claim.unlink(missing_ok=True)
+        if made_folder:
+            site.rmdir()
+        raise
+    if not alone:
         claim.unlink()
         raise Refused(taken)
     return claim

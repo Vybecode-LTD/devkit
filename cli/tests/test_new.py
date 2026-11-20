@@ -223,3 +223,30 @@ def test_two_runs_on_one_folder_never_overwrite_each_other(
     report = check.check(folder, root=maker)
     assert (report.exit_code(), report.edited, report.missing, report.added) == (0, [], [], [])
     assert not (folder / new.CLAIM).exists()
+
+
+@pytest.mark.parametrize("ready", [False, True])
+def test_a_claim_that_fails_half_way_leaves_nothing_behind(
+    maker: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ready: bool
+) -> None:
+    """The folder can't be read just after the claim is made: the claim goes,
+    and the folder too if this run made it, so a retry isn't refused
+    (CodeRabbit on #92)."""
+    folder = tmp_path / "site"
+    if ready:
+        folder.mkdir()
+    iterdir = Path.iterdir
+
+    def unreadable_once_claimed(path: Path):  # type: ignore[no-untyped-def]
+        if path == folder and (folder / new.CLAIM).exists():
+            raise PermissionError("can't list it")
+        return iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", unreadable_once_claimed)
+    with pytest.raises(PermissionError, match="can't list it"):
+        new.new(folder, name="Site", root=maker)
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+    assert folder.is_dir() is ready
+    if ready:
+        assert list(folder.iterdir()) == []
+    assert new.new(folder, name="Site", root=maker).name == "Site"
