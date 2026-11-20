@@ -150,10 +150,11 @@ async def _deliveries(app: FastAPI, listener: events.Listener) -> list[JobRow]:
 # --- declaring --------------------------------------------------------------------------
 
 
-def test_the_kernel_declares_the_eight_events_it_emits() -> None:
+def test_the_kernel_declares_the_nine_events_it_emits() -> None:
     assert {events.declaration(model) for model in events.KERNEL_PAYLOADS} == {
         ("auth.user.created", 1),
         ("auth.user.verified", 1),
+        ("auth.user.role_changed", 1),
         ("auth.user.suspended", 1),
         ("auth.user.restored", 1),
         ("auth.user.deleted", 1),
@@ -321,9 +322,9 @@ def test_module_json_lists_exactly_the_events_its_listeners_hear(listed: str) ->
 
 
 def test_a_listener_to_an_event_the_kernel_doesn_t_declare_is_refused() -> None:
-    listener, _ = _ear(unique_id(), "auth.user.role_changed")
+    listener, _ = _ear(unique_id(), "auth.user.renamed")
     message = _refused(_module(listener.owner, listeners=[listener]))
-    assert "auth.user.role_changed" in message
+    assert "auth.user.renamed" in message
 
 
 def test_a_listener_to_an_event_an_installed_module_doesn_t_declare_is_refused() -> None:

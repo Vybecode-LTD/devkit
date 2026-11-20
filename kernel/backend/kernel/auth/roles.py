@@ -49,7 +49,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
-from kernel import audit
+from kernel import audit, events
 from kernel.answers import answer
 from kernel.auth.accounts import permissions_of
 from kernel.auth.answers import People, Person, Roles, RoleView
@@ -299,6 +299,11 @@ async def set_roles(
             subject=user_id,
             details={"added": added, "removed": removed},
             request=request,
+        )
+        await events.emit(
+            db,
+            "auth.user.role_changed",
+            events.UserRoleChanged(user_id=user_id, added=added, removed=removed),
         )
         await db.flush()
     (item,) = await _people(db, [person])

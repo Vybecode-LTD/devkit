@@ -32,7 +32,7 @@ from kernel.auth.accounts import normal_email
 from kernel.auth.models import Role, RolePermission, Totp, User, UserRole
 from kernel.email import CapturingMailer
 
-from ..conftest import SITE, Client, Draining, make_config
+from ..conftest import SITE, Client, Draining, Heard, make_config
 
 PASSWORD = "quiet orbit lantern 4471 marsh"
 USERS = "/api/auth/admin/users"
@@ -249,6 +249,26 @@ async def test_member_is_no_rank(site: Site) -> None:
                 )
             )
             await db.commit()
+
+
+async def test_a_grant_is_heard_with_the_roles_it_added_and_removed(
+    site: Site, heard: Heard
+) -> None:
+    """`auth.user.role_changed` (SPEC 11), emitted in the grant's transaction
+    with what changed; a grant that changes nothing is heard by no one."""
+    owner = await _person(site, "owner")
+    person = await _person(site, "editor")
+    browser = await _signed_in(site, owner)
+    granted = await browser.put(f"{USERS}/{person.id}/roles", json={"roles": ["admin", "member"]})
+    assert granted.status_code == 200, granted.text
+    same = await browser.put(f"{USERS}/{person.id}/roles", json={"roles": ["member", "admin"]})
+    assert same.status_code == 200, same.text
+    assert await heard.drain() == [
+        (
+            "auth.user.role_changed",
+            {"user_id": str(person.id), "added": ["admin", "member"], "removed": ["editor"]},
+        )
+    ]
 
 
 def test_the_permissions_list_is_the_kernels_then_each_modules() -> None:

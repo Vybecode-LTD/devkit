@@ -22,5 +22,5 @@
 - **Consequences:**
   - Once an admin saves the sign-up mode, changing `SIGN_UP_MODE` on the host does nothing until the setting is saved again. Tests that rely on the variable clear any saved mode first.
   - The Site tab has one Save, the board's, in the page header; the kit's save bar isn't used there, so the page never shows two.
-  - `auth.user.role_changed`, also promised by SPEC 11 for K4's admin, is still not emitted: K4.7 audits grants as `auth.user.roles_changed` but emits nothing.
+  - `auth.user.role_changed`, also promised by SPEC 11 for K4's admin, wasn't emitted: K4.7 only audited grants. The owner asked for it next, and #88 emits it (decision 0045, amended).
 - **See:** `dev plans/contracts/k4-web-kernel.md`, change 19; SPEC 11, 12 and 14.7; decisions 0020, 0035 and 0042; `kernel/backend/kernel/admin.py`

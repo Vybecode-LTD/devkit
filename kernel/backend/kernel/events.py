@@ -196,6 +196,16 @@ class UserVerified(Payload):
     user_id: uuid.UUID
 
 
+@payload("auth.user.role_changed", v=1)
+class UserRoleChanged(Payload):
+    """Staff granted or removed roles (the admin's People): the role ids
+    each change added and removed. What the person may do has changed."""
+
+    user_id: uuid.UUID
+    added: list[str]
+    removed: list[str]
+
+
 @payload("auth.user.deleted", v=1)
 class UserDeleted(Payload):
     """An account is gone: erase or anonymize what you hold on that person."""
@@ -245,6 +255,7 @@ class ModuleDisabled(Payload):
 KERNEL_PAYLOADS: tuple[type[Payload], ...] = (
     UserCreated,
     UserVerified,
+    UserRoleChanged,
     UserSuspended,
     UserRestored,
     UserDeleted,

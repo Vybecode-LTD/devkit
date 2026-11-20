@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechframe.local/schema/events/auth.user.role_changed.v1.schema.json",
+  "additionalProperties": false,
+  "description": "Staff granted or removed roles (the admin's People): the role ids\neach change added and removed. What the person may do has changed.",
+  "properties": {
+    "user_id": {
+      "format": "uuid",
+      "title": "User Id",
+      "type": "string"
+    },
+    "added": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Added",
+      "type": "array"
+    },
+    "removed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    }
+  },
+  "required": [
+    "user_id",
+    "added",
+    "removed"
+  ],
+  "title": "auth.user.role_changed (v1)",
+  "type": "object"
+}

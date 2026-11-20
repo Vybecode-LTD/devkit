@@ -1,7 +1,7 @@
 # 0045: People and roles in the admin: who may grant and edit what, the locks that keep the last owner, and `auth.role.manage`
 
 - **Date:** 2026-11-19
-- **Status:** Decided; applied in K4.7 (#85)
+- **Status:** Decided; applied in K4.7 (#85). Amended 2026-11-19 (#88): a grant also emits `auth.user.role_changed` `{user_id, added, removed}` in its transaction, as SPEC 11 promised; K4.7 had only audited it.
 - **Context:** K4.7 builds the admin's People and Roles to VM Website's `design/site/AdminPeople.dc.html` and `AdminRoles.dc.html` (K4 contract §2 additions 4 and 5, §4 item 7; decisions 0013, 0042 and 0044). SPEC 14.1 set who may grant what (decision 0013) and 14.8 that staff edit roles in the admin, but nothing had built the routes: `GET /api/auth/admin/users` and `PUT .../roles` were written down with contract tests marked not built since K2, and role editing was new in the K4 contract. Building them found:
   - Decision 0013's rule ("a role can be granted or removed only by someone who holds every permission it carries") would stop an admin granting `member` once any module gives members a permission admins don't hold. Suspensions already met this and treat `member` as no rank (decision 0039).
   - A role's permissions can change after people hold it, and a role can be deleted while someone is being given it. The last owner's guard counts owners, and two owners each stepping down at once take different account locks, so they could both count two.

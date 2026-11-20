@@ -437,7 +437,7 @@ Modules talk to each other through durable events written in the same database t
 | `kernel.module.enabled` / `kernel.module.disabled` | A module is switched on or off |
 | `kernel.settings.changed` | A settings section is saved with a change |
 
-The kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.suspended` and `auth.user.restored` (moderation, decision 0039), `auth.user.deleted` (so far for the accounts `kernel.remove_unverified` removes) `kernel.settings.changed`, and `kernel.module.enabled` and `kernel.module.disabled` (the admin's Features page, one for each module whose on-state a switch changed, decision 0046) now; `auth.user.role_changed` arrives with the code that makes its change.
+The kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.suspended` and `auth.user.restored` (moderation, decision 0039), `auth.user.deleted` (so far for the accounts `kernel.remove_unverified` removes) `kernel.settings.changed`, `kernel.module.enabled` and `kernel.module.disabled` (the admin's Features page, one for each module whose on-state a switch changed, decision 0046), and `auth.user.role_changed` (a grant on the admin's People, with the role ids it added and removed) now: every event above.
 
 An outgoing-webhooks module MAY forward any event to outside URLs, signed with HMAC.
 
@@ -831,6 +831,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-19 | `auth.user.role_changed` is emitted by a grant on the admin's People, `{user_id, added, removed}`, in its transaction; every kernel event in the table is now emitted (11) |
 | 2026-11-19 | K4's Settings, Features and System (decision 0046, contract change 19): the sign-up mode is the settings section `kernel.auth`, defaulting to `SIGN_UP_MODE`; module switches are audited and emit `kernel.module.enabled` and `kernel.module.disabled`; a failed job whose contents were wiped, or that nothing declares, can only be discarded (11, 12, 14.7) |
 | 2026-11-19 | K4's people and roles (decision 0045, contract change 18): `auth.role.manage` (admin by default); the People list and granting roles built; the site's own roles made, changed and deleted within the permissions held; `member` is no rank (14.1, 14.8) |
 | 2026-11-19 | K4's admin shell (decision 0044, contract change 17): the admin's frame and its Dashboard; `GET /api/kernel/admin/attention`; the staff's log names its people and its keep and takes several actions; `kernel.jobs.manage` (admin by default); `AdminPage`, `StatCard` and an info tone, with the required tokens `color.info` and `color.info-tint` (6, 8, 14.10) |
