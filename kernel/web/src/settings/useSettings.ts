@@ -94,6 +94,14 @@ export function useSettings(id: string): SettingsForm {
   const saved = query.data?.values ?? EMPTY;
   const from = useMemo(() => base ?? (query.data ? { version: query.data.version, values: query.data.values } : null), [base, query.data]);
   const fromValues = from?.values ?? EMPTY;
+  // With no edit left (saved, discarded, or changed back), the form begins
+  // again from what's saved (CodeRabbit on #87): settled while drawing.
+  if (base !== null && Object.keys(draft).length === 0) setBase(null);
+  // The latest read, for a save that ends after the render that sent it.
+  const latest = useRef(query.data);
+  useLayoutEffect(() => {
+    latest.current = query.data;
+  });
   const changes = useMemo(
     () => Object.fromEntries(Object.entries(draft).filter(([field, value]) => !same(value, fromValues[field]))),
     [draft, fromValues],
@@ -132,8 +140,14 @@ export function useSettings(id: string): SettingsForm {
             ),
           ),
         );
-        // Anything still in the draft begins again from what this save left.
-        setBase(null);
+        // An edit made while this was on its way begins from what the save
+        // left: its version, and the values the edit started from with this
+        // save's on top. A read after it can't move that on, so a change
+        // someone else saves meanwhile is still a conflict (CodeRabbit on #87).
+        setBase((now) => {
+          const started = now?.values ?? latest.current?.values ?? EMPTY;
+          return data ? { version: data.version, values: { ...started, ...sent } } : null;
+        });
         await reread();
         if (!data || data.changed.length === 0) return { status: "unchanged" };
         return { status: "saved", changed: data.changed, merged: data.merged };
@@ -209,8 +223,13 @@ export function useSettings(id: string): SettingsForm {
     dirty,
     set: (field, value) => {
       const read = query.data;
-      if (read) setBase((now) => now ?? { version: read.version, values: read.values });
-      setDraft((now) => ({ ...now, [field]: value }));
+      if (from !== null && field in from.values && same(value, from.values[field])) {
+        // Changed back to where it began: no longer an edit (CodeRabbit on #87).
+        setDraft((now) => Object.fromEntries(Object.entries(now).filter(([key]) => key !== field)));
+      } else {
+        if (read) setBase((now) => now ?? { version: read.version, values: read.values });
+        setDraft((now) => ({ ...now, [field]: value }));
+      }
       setErrors((now) => (field in now ? Object.fromEntries(Object.entries(now).filter(([key]) => key !== field)) : now));
     },
     discard: () => {

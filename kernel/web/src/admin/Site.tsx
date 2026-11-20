@@ -11,7 +11,7 @@
  * zone (no section holds them), and "Members must use a second factor"
  * (nothing enforces it). The name is the host's SITE_NAME, shown as it is.
  */
-import { Suspense, useCallback, useId, useMemo, useState, type ComponentPropsWithRef, type ReactNode } from "react";
+import { Suspense, useCallback, useId, useMemo, useRef, useState, type ComponentPropsWithRef, type ReactNode } from "react";
 
 import { ApiProblem } from "../api/problem";
 import { lazyPart } from "../app/lazy";
@@ -196,20 +196,32 @@ export default function Site() {
     [],
   );
   const dirty = identity.dirty || accounts.dirty || [...members.values()].some((member) => member.dirty);
-  const saving = identity.saving || accounts.saving;
+  // The whole Save, a module's section's too, holds the button until it ends (CodeRabbit on #87).
+  const [savingAll, setSavingAll] = useState(false);
+  const busy = useRef(false);
+  const saving = identity.saving || accounts.saving || savingAll;
 
   const saveAll = useCallback(async (): Promise<string | null> => {
-    for (const form of [identity, accounts, ...members.values()]) {
-      if (!form.dirty) continue;
-      const problem = sayOutcome(await form.save());
-      if (problem) return problem;
+    if (busy.current) return "These settings are saving. Wait a moment.";
+    busy.current = true;
+    setSavingAll(true);
+    try {
+      for (const form of [identity, accounts, ...members.values()]) {
+        if (!form.dirty) continue;
+        const problem = sayOutcome(await form.save());
+        if (problem) return problem;
+      }
+      return null;
+    } finally {
+      busy.current = false;
+      setSavingAll(false);
     }
-    return null;
   }, [identity, accounts, members]);
 
   const guard = useUnsavedGuard(dirty, saveAll);
 
   const submit = () => {
+    if (busy.current) return;
     void saveAll().then((problem) => {
       toast(problem ? { tone: "danger", text: problem } : { tone: "success", text: "Settings saved." });
     });
