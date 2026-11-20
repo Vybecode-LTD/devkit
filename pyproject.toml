@@ -7,6 +7,8 @@ name = "mechframe"
 version = "0.0.0"
 description = "MechFrame: reusable website modules for AI agents (dev environment only)"
 requires-python = ">=3.12"
+# What the CLI imports, so `python -m pip install -e .` brings it (Codex on #91).
+dependencies = ["jsonschema>=4.23"]
 
 # The CLI (cli/mechframe/, K5) is the one part installed: `python -m pip install -e .`
 # gives `mechframe` and `mf`, run from this checkout (it copies from it).

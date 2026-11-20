@@ -136,11 +136,20 @@ def _files(report: Report, site: Path, recorded: dict[str, str], copies: list[la
     report.added += [target for target in layout.site_files(site, copies) if target not in recorded]
 
 
-def _affected(entry: dict[str, Any], version: str) -> bool:
-    copy = versions.parse(version)
-    if copy < versions.parse(entry["introduced"]):
-        return False
-    return entry["fixed"] is None or copy < versions.parse(entry["fixed"])
+def _semver(report: Report, what: str, text: str) -> versions.Version | None:
+    """`text` as a version, or a problem naming `what`: the schemas' patterns let
+    through a few versions semver refuses, such as `0.1.0-01` (Codex on #91)."""
+    try:
+        return versions.parse(text)
+    except ValueError:
+        report.problems.append(f"{what} {text!r} isn't a semver version")
+        return None
+
+
+def _affected(
+    copy: versions.Version, introduced: versions.Version, fixed: versions.Version | None
+) -> bool:
+    return not copy < introduced and (fixed is None or copy < fixed)
 
 
 def check(site: Path, root: Path = ROOT) -> Report:
@@ -169,8 +178,18 @@ def check(site: Path, root: Path = ROOT) -> Report:
             report.unknown.append(module_id)
         else:
             latest[module_id] = manifest["version"]
+    copies = {
+        name: _semver(report, f"{lock.NAME}: {name}'s version", version)
+        for name, version in report.versions.items()
+    }
     for name, version in report.versions.items():
-        if name in latest and versions.parse(version) < versions.parse(latest[name]):
+        newest = (
+            _semver(report, f"The checkout's {name} version", latest[name])
+            if name in latest
+            else None
+        )
+        copy = copies[name]
+        if copy is not None and newest is not None and copy < newest:
             report.behind.append(Behind(name, version, latest[name]))
 
     advisories = load_json(root / "advisories.json")
@@ -178,9 +197,15 @@ def check(site: Path, root: Path = ROOT) -> Report:
     if problems:
         report.problems += [f"advisories.json in the checkout: {problem}" for problem in problems]
         return report
-    report.advisories = [
-        entry
-        for entry in advisories["advisories"]
-        if entry["module"] in report.versions and _affected(entry, report.versions[entry["module"]])
-    ]
+    for entry in advisories["advisories"]:
+        copy = copies.get(entry["module"])
+        if entry["module"] not in copies:
+            continue
+        where = f"advisories.json in the checkout: {entry['id']}'s"
+        introduced = _semver(report, f"{where} introduced", entry["introduced"])
+        fixed = _semver(report, f"{where} fixed", entry["fixed"]) if entry["fixed"] else None
+        if entry["fixed"] and fixed is None:
+            continue
+        if copy is not None and introduced is not None and _affected(copy, introduced, fixed):
+            report.advisories.append(entry)
     return report
