@@ -570,9 +570,9 @@
    "step": "The mechframe commands and lock files",
    "status": "next",
    "status_label": "Next",
-   "prs": "#91 #92",
-   "decisions": "0047 0048",
-   "note": "check and the lock in #91; new (kernel only) in #92; add, remove, new --recipe and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"
+   "prs": "#91 #92 #94",
+   "decisions": "0047 0048 0050",
+   "note": "check and the lock in #91; new (kernel only) in #92; add, remove and new --recipe in #94; create-owner follows; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"
   },
   {
    "milestone": "MechFrame v1.0",

@@ -140,22 +140,28 @@ class Faked:
 
     def __init__(self, monkeypatch: pytest.MonkeyPatch, folder: Path, failed: str | None) -> None:
         self.folder = folder
-        self.planned: list[Step] = []
+        self.plans: list[list[Step]] = []
+        self.added: list[Path] = []
         monkeypatch.setenv("TEST_DATABASE_URL", "postgresql://u:p@db.test/postgres")
         monkeypatch.setattr(site_smoke.shutil, "which", lambda _name: "npm")
         monkeypatch.setattr(site_smoke.tempfile, "mkdtemp", self.mkdtemp)
         monkeypatch.setattr(site_smoke, "make", lambda site: site.mkdir(parents=True))
+        monkeypatch.setattr(site_smoke, "add_fixtures", lambda site, _root: self.added.append(site))
 
         async def fresh(admin_url: str) -> str:
             return site_smoke.database_url(admin_url)
 
         def run(site: Path, plan: list[Step], log: Path) -> str | None:
-            self.planned = list(plan)
+            self.plans.append(list(plan))
             log.write_text("the steps' output\n", "utf-8")
             return failed
 
         monkeypatch.setattr(site_smoke, "fresh_database", fresh)
         monkeypatch.setattr(site_smoke, "run", run)
+
+    @property
+    def planned(self) -> list[Step]:
+        return self.plans[-1]
 
     def mkdtemp(self, prefix: str) -> str:
         self.folder.mkdir()
@@ -168,8 +174,12 @@ def test_a_pass_removes_the_folder_unless_it_is_kept(
     faked = Faked(monkeypatch, tmp_path / "smoke", failed=None)
     assert site_smoke.main([]) == 0
     assert not faked.folder.exists()
-    assert "Every step passed" in capsys.readouterr().out
-    assert faked.planned[-1].name == "mechframe check"
+    out = capsys.readouterr().out
+    assert "Every step passed" in out
+    assert "alone and with modules added" in out
+    assert faked.plans[0][-1].name == "mechframe check"
+    assert faked.plans[1][-1].name == "mechframe check (with modules)"
+    assert faked.added == [faked.folder / "test-site"]
     kept = Faked(monkeypatch, tmp_path / "kept", failed=None)
     assert site_smoke.main(["--keep"]) == 0
     assert (kept.folder / "test-site").is_dir()
@@ -185,6 +195,38 @@ def test_a_failure_keeps_the_folder_and_names_the_log(
     assert "The site's pytest step failed" in out
     assert str(faked.folder / "smoke.log") in out
     assert (faked.folder / "smoke.log").is_file()
+    assert faked.added == []  # no second pass after a failure
+    assert len(faked.plans) == 1
+
+
+def test_the_second_pass_runs_again_what_the_modules_change(tmp_path: Path) -> None:
+    site = tmp_path / "test-site"
+    plan = site_smoke.with_modules(site, npm="npm", migrated="postgresql://u:p@db.test/site_smoke")
+    assert [step.name for step in plan] == [
+        f"{name} (with modules)"
+        for name in (
+            "ruff",
+            "black",
+            "mypy",
+            "migrations",
+            "pytest",
+            "eslint",
+            "tsc",
+            "vitest",
+            "vite build",
+            "mechframe check",
+        )
+    ]
+    first = {step.name: step for step in site_smoke.steps(site, npm="npm", migrated="x")}
+    assert plan[3].command == first["migrations"].command
+
+
+def test_the_fixture_modules_go_into_a_new_site(tmp_path: Path) -> None:
+    site = tmp_path / "test-site"
+    site_smoke.make(site)
+    site_smoke.add_fixtures(site, site_smoke.fixture_checkout(tmp_path))
+    lock = json.loads((site / "mechframe.lock.json").read_text("utf-8"))
+    assert sorted(lock["modules"]) == list(site_smoke.FIXTURE_MODULES)
 
 
 def test_it_needs_npm(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

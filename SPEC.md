@@ -464,19 +464,21 @@ A module is copied in with `mechframe add` (the CLI is `mechframe`, with `mf` as
 
 **`mechframe add <id>`**
 
-1. Check `requires` and `conflicts` against the lock file. Stop on any conflict.
+1. Check `requires` and `conflicts` against the lock file: the kernel's and each required module's version against its range, a conflict declared by either module, and a setting the site sets already. Stop on any of them, writing nothing. A range is `^`, `~`, an exact or partial version, `>=`, `>`, `<=`, `<` or `*`, or several separated by spaces; a pre-release meets it from the lowest pre-release of each lower bound, so the kernel `0.1.0-dev.0` meets `^0.1` (decision 0050).
 2. Copy the module's backend, migrations and web folders into the site.
 3. Regenerate `backend/app/modules.py` and `web/src/modules.ts`, the two registries the app is built from.
-4. Append its env vars to `.env.example` and print the ones still to set.
+4. Append its env vars to `.env.example`, and to `.railway/railway.ts` as `preserve()` (an apply deletes a variable the file doesn't list: decision 0048), and print the ones still to set.
 5. Record its version and every copied file's hash in `mechframe.lock.json`.
 6. Print the command for its migrations (`python -m app.migrations upgrade <id>@head`).
 7. Print the command for the site's tests.
 
-The CLI runs from a MechFrame checkout, with MechFrame's Python, and copies from that checkout; it fetches nothing. So the site runs steps 6 and 7 itself, in its own environment (decision 0047).
+The CLI runs from a MechFrame checkout, with MechFrame's Python, and copies from that checkout; it fetches nothing. So the site runs steps 6 and 7 itself, in its own environment (decision 0047). `add` runs whole or not at all: a failure half-way puts every file back.
+
+**`mechframe new <dir> --recipe <id>`** checks the recipe first (it validates, every module is built, each one's requirements are in it, no two conflict), makes the kernel's site, then runs `add` for each module after those it requires. The theme is the recipe's unless `--theme` is given. The recipe's settings are printed for Admin, Settings (decision 0050).
 
 **Switching on and off.** A module is on when the deploy's `MODULES` list allows it and the admin hasn't switched it off on the Features page (VybeSite's parts). While off, its routes answer 404, its slots are hidden, its jobs pause and its event handlers wait. A switch applies at once in the process that made it and within `MODULES_CACHE_SECONDS` (5 by default) in every other worker (decision 0009).
 
-**`mechframe remove <id>`.** Refuse while another module requires it. Delete its code, registry entries and lock entry, comment out its env vars, and keep its tables. `--drop-data` waits for the first module with data, since its downgrade must run before its files go (decision 0047).
+**`mechframe remove <id>`.** Refuse while another module requires it. Delete its code (its backend package and web folder), registry entries and lock entry, comment out its env vars in `.env.example`, and keep its tables. It also keeps its migrations, since the database's `alembic_version` still names their revision, and its `railway.ts` lines, so an apply keeps what the owner typed into Railway (decision 0050). `--drop-data` waits for the first module with data, since its downgrade must run before its files go (decision 0047).
 
 **Upgrades**
 
@@ -860,6 +862,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-20 | `add`, `remove` and `new --recipe` (decision 0050, K5 contract change 8): `requires` ranges and pre-releases, `add` writing `railway.ts` and running whole or not at all, `remove` keeping a module's migrations and `railway.ts` lines, and the recipe's order and settings (12) |
 | 2026-11-20 | A destructive migration waits for the owner (decision 0049, K5 contract change 7): once its branch is in the database, an upgrade stops before it and names it, until `--confirm-destructive <revision>` names it back; the harness and every site share `kernel.migrate` (10) |
 | 2026-11-20 | K5's site template (decision 0048, K5 contract changes 5 and 6): a site's own pages, `create_app(site=)` and `defineSite` for `mountApp({ site })`, always on and first in a tie, `site` no module's id (6, 8, 9); `load_module` (6); a site's Python runs with `backend` on the path, and `.railway/railway.ts` replaces `railway.toml` for Railway, listing every setting (4) |
 | 2026-11-20 | K5's CLI and site template (decision 0047, K5 contract): the CLI copies from its own checkout; a site's exact layout; lock hashes read `\r\n` as `\n`; `advisories.json`'s entries; `check`'s exits; `add` prints the migration and test steps; `remove --drop-data`, `diff` and `upgrade` wait; the catalog's fields (4, 12, 13, 17) |

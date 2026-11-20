@@ -13,6 +13,8 @@ export default tseslint.config(
       ".venv/**",
       "modules/_template/**",
       "templates/**",
+      // The CLI's fixture modules: linted in a site the smoke makes (tools/site_smoke.py).
+      "cli/tests/fixtures/**",
       // Generated from kernel/openapi.json (npm run api:types); api:check holds it current.
       "kernel/web/src/api/schema.ts",
     ],

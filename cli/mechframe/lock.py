@@ -38,8 +38,9 @@ def read(site: Path, root: Path = ROOT) -> dict[str, Any]:
     return checked
 
 
-def write(site: Path, data: dict[str, Any], root: Path = ROOT) -> None:
-    """Write the lock with its files in path order, refusing one that doesn't validate."""
+def text(data: dict[str, Any], root: Path = ROOT) -> str:
+    """The lock as written: its files in path order, its modules in id order.
+    Raises LockError on one that doesn't validate."""
     found = problems(data, root)
     if found:
         raise LockError(found)
@@ -49,6 +50,11 @@ def write(site: Path, data: dict[str, Any], root: Path = ROOT) -> None:
         module_id: {**entry, "files": dict(sorted(entry["files"].items()))}
         for module_id, entry in sorted(data["modules"].items())
     }
+    return json.dumps(ordered, indent=2, ensure_ascii=False) + "\n"
+
+
+def write(site: Path, data: dict[str, Any], root: Path = ROOT) -> None:
+    """Write the lock, refusing one that doesn't validate."""
+    written = text(data, root)
     site.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(ordered, indent=2, ensure_ascii=False) + "\n"
-    (site / NAME).write_text(text, encoding="utf-8", newline="\n")
+    (site / NAME).write_text(written, encoding="utf-8", newline="\n")

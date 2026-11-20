@@ -1,9 +1,12 @@
-"""`mechframe new <dir>`: a kernel-only site (K5 contract §2 and §4 item 2).
+"""`mechframe new <dir> [--recipe <id>]`: a site, with the kernel and a recipe's
+modules (K5 contract §2, and §4 items 2 and 4).
 
 In one go, or not at all:
 
-1. Refuses a folder that isn't empty, an unknown theme and a name that
-   can't be a site's, before writing anything.
+1. Refuses a folder that isn't empty, an unknown theme, a name that can't
+   be a site's, and a recipe that can't make one from this checkout (one
+   that doesn't validate, a module not built, a requirement it lacks, two
+   that conflict), before writing anything.
 2. Copies `templates/site/` (its build output left behind: `node_modules`,
    `dist`, caches, a `.venv`), then this checkout's pinned requirements.
 3. Writes the site's name and theme in: `__SITE_NAME__` in every text file
@@ -11,11 +14,14 @@ In one go, or not at all:
    string), `__THEME__` in `web/index.html`, and
    the theme's `tokens.css` as `web/src/theme/tokens.css`.
 4. Copies the kernel (`mechframe.layout`) and writes `mechframe.lock.json`.
+5. With a recipe, runs `add` for each of its modules, each after those it
+   requires (`mechframe.modules`). The theme is the recipe's unless one is
+   given, and the recipe's settings are printed for Admin, Settings.
 
 A run holds its folder from its first write (a folder it makes, or a claim
 file in an empty one), so two runs never write to one site. A failure
 half-way removes what it wrote: a folder it made goes, and an
-empty folder it was given is emptied again. `--recipe` joins with `add` (#93).
+empty folder it was given is emptied again, a recipe's modules too.
 """
 
 from __future__ import annotations
@@ -26,8 +32,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from mechframe import __version__, layout, lock
-from mechframe.source import ROOT, kernel_manifest
+from mechframe import __version__, layout, lock, modules
+from mechframe.source import ROOT, kernel_manifest, schema_problems
 
 TEMPLATE = "templates/site"
 #: This checkout's pins, which a site installs as they are (`--require-hashes`).
@@ -65,11 +71,22 @@ class Refused(Exception):
 
 
 @dataclass(frozen=True)
+class Recipe:
+    id: str
+    theme: str
+    settings: dict[str, Any]
+    #: its modules, each after every module it requires
+    modules: list[str]
+
+
+@dataclass(frozen=True)
 class Made:
     site: Path
     name: str
     theme: str
     lock: dict[str, Any]
+    recipe: Recipe | None = None
+    added: tuple[modules.Added, ...] = ()
 
 
 def themes(root: Path = ROOT) -> list[str]:
@@ -106,6 +123,61 @@ def template_files(root: Path = ROOT) -> list[tuple[Path, str]]:
         if path.is_file() and not any(part in LEFT_OUT for part in relative.parts[:-1]):
             found.append((path, str(relative)))
     return found
+
+
+def recipes(root: Path = ROOT) -> list[str]:
+    folder = root / "recipes"
+    return sorted(path.stem for path in folder.glob("*.json")) if folder.is_dir() else []
+
+
+def load_recipe(recipe_id: str, root: Path = ROOT) -> Recipe:
+    """The checkout's recipe, its modules in the order `add` needs them. Raises
+    Refused on one that can't make a site from this checkout."""
+    path = root / "recipes" / f"{recipe_id}.json"
+    if recipe_id not in recipes(root):
+        raise Refused(
+            f"There's no recipe {recipe_id}. The recipes: {', '.join(recipes(root)) or 'none'}."
+        )
+    try:
+        data = json.loads(path.read_text("utf-8"))
+    except (OSError, ValueError) as error:
+        raise Refused(f"recipes/{recipe_id}.json can't be read as JSON ({error}).") from None
+    problems = schema_problems("recipe", data, root)
+    if problems:
+        raise Refused(f"recipes/{recipe_id}.json doesn't validate: " + "; ".join(problems))
+    wanted: list[str] = list(data["modules"])
+    have = set(modules.built(root))
+    missing = [each for each in wanted if each not in have]
+    if missing:
+        raise Refused(
+            f"{recipe_id} needs modules this checkout hasn't built: {', '.join(missing)}."
+        )
+    try:
+        manifests = {each: modules.checked_manifest(each, root) for each in wanted}
+    except modules.Refused as refusal:
+        raise Refused(str(refusal)) from None
+    for each in wanted:
+        for other in manifests[each]["conflicts"]:
+            if other in manifests:
+                raise Refused(f"{each} and {other} can't be in one site: they conflict.")
+        for other in manifests[each]["requires"].get("modules", {}):
+            if other not in manifests:
+                raise Refused(f"{each} needs {other}, which {recipe_id} doesn't have.")
+    ordered: list[str] = []
+
+    def visit(module_id: str, path: tuple[str, ...]) -> None:
+        if module_id in ordered:
+            return
+        if module_id in path:
+            loop = " -> ".join([*path, module_id])
+            raise Refused(f"{recipe_id}'s modules require each other in a loop: {loop}.")
+        for other in sorted(manifests[module_id]["requires"].get("modules", {})):
+            visit(other, (*path, module_id))
+        ordered.append(module_id)
+
+    for each in wanted:
+        visit(each, ())
+    return Recipe(recipe_id, data["theme"], dict(data["settings"]), ordered)
 
 
 def _refusals(site: Path, theme: str, root: Path) -> None:
@@ -187,9 +259,18 @@ def _claim(site: Path, made_folder: bool) -> Path:
     return claim
 
 
-def new(site: Path, *, name: str, theme: str = DEFAULT_THEME, root: Path = ROOT) -> Made:
+def new(
+    site: Path,
+    *,
+    name: str,
+    theme: str | None = None,
+    recipe: str | None = None,
+    root: Path = ROOT,
+) -> Made:
     """Make the site in `site`. Raises Refused before writing anything."""
     name = checked_name(name)
+    chosen = load_recipe(recipe, root) if recipe is not None else None
+    theme = theme or (chosen.theme if chosen else DEFAULT_THEME)
     _refusals(site, theme, root)
     made_folder = not site.exists()
     claim = _claim(site, made_folder)
@@ -202,22 +283,38 @@ def new(site: Path, *, name: str, theme: str = DEFAULT_THEME, root: Path = ROOT)
             "spec": manifest["spec"],
             "kernel": {"version": manifest["version"], "files": files},
             "modules": {},
-            "recipe": None,
+            "recipe": chosen.id if chosen else None,
             "theme": theme,
         }
         lock.write(site, data, root=root)
+        added = tuple(
+            modules.add(site, each, root=root) for each in (chosen.modules if chosen else [])
+        )
         claim.unlink()
     except BaseException:
         _undo(site, made_folder)
         raise
-    return Made(site, name, theme, data)
+    return Made(site, name, theme, lock.read(site, root), chosen, added)
 
 
 def next_steps(made: Made) -> list[str]:
     """What to run next, in the site's folder (its README.md has the rest)."""
-    return [
+    found = [
         f"Made {made.name} in {made.site}, with the kernel {made.lock['kernel']['version']} "
-        f"and the theme {made.theme}.",
+        f"and the theme {made.theme}."
+    ]
+    if made.recipe is not None:
+        versions = ", ".join(f"{each.id} {each.version}" for each in made.added)
+        found.append(f"The recipe {made.recipe.id} added its modules, with {versions}.")
+        needed = [setting for each in made.added for setting in each.settings]
+        if needed:
+            found += ["", "Their settings, to set in .env and in Railway's variables:"]
+            found += [modules.setting_line(setting) for setting in needed]
+        if made.recipe.settings:
+            found += ["", "The recipe's settings, for Admin, Settings once the site runs:"]
+            found += [f"  {key}: {value}" for key, value in sorted(made.recipe.settings.items())]
+    return [
+        *found,
         "",
         "Next, in that folder (README.md has the rest):",
         "  py -3.12 -m venv .venv",

@@ -15,6 +15,11 @@ folder, then, in that folder and with its own environment, as an agent would:
 6. its Playwright tests (`npm run e2e`: Chromium, axe), against its own server;
 7. `mechframe check`, which must exit 0.
 
+Then a second pass, with modules: `mechframe add` puts the CLI's fixture
+modules (`cli/tests/fixtures/`) in, and the site migrates, passes its Python
+tests and lint, and its web app type-checks, passes Vitest and builds again,
+so the registries `add` writes import and build (the K5 contract §7).
+
 Each step's output goes to `smoke.log` in the folder, and the run stops at the
 first step that fails, keeping the folder and naming the log. It needs the
 network for pip and npm, so it runs where the owner said: CI's E2E workflow
@@ -198,6 +203,48 @@ def _tail(log: Path, name: str, lines: int = TAIL) -> list[str]:
     return body.splitlines()[-lines:]
 
 
+#: The fixture modules the second pass adds, each after what it requires.
+FIXTURE_MODULES = ("fixture-notes", "fixture-pins")
+
+
+def fixture_checkout(folder: Path) -> Path:
+    """A checkout `add` can copy the fixture modules from: this one's schemas
+    and the CLI's fixtures as its modules."""
+    root = folder / "fixture-checkout"
+    shutil.copytree(ROOT / "schema", root / "schema")
+    shutil.copytree(ROOT / "cli" / "tests" / "fixtures" / "modules", root / "modules")
+    return root
+
+
+def add_fixtures(site: Path, root: Path) -> None:
+    """`mechframe add` for each fixture module, as an agent runs it."""
+    from mechframe import modules
+
+    for module_id in FIXTURE_MODULES:
+        modules.add(site, module_id, root=root)
+
+
+def with_modules(site: Path, *, npm: str, migrated: str) -> list[Step]:
+    """The second pass: what the modules `add` wrote changes, run again."""
+    again = {
+        "ruff",
+        "black",
+        "mypy",
+        "migrations",
+        "pytest",
+        "eslint",
+        "tsc",
+        "vitest",
+        "vite build",
+        "mechframe check",
+    }
+    found = [step for step in steps(site, npm=npm, migrated=migrated) if step.name in again]
+    return [
+        Step(f"{step.name} (with modules)", step.command, step.cwd, step.env, step.timeout)
+        for step in found
+    ]
+
+
 def make(site: Path) -> None:
     """`mechframe new` for the site, as an agent runs it."""
     from mechframe import new
@@ -226,11 +273,16 @@ def main(argv: list[str]) -> int:
     make(site)
     migrated = asyncio.run(fresh_database(admin_url))
     failed = run(site, steps(site, npm=npm, migrated=migrated), log)
+    if failed is None:
+        print(f"Adding {', '.join(FIXTURE_MODULES)} with mechframe add")
+        add_fixtures(site, fixture_checkout(folder))
+        failed = run(site, with_modules(site, npm=npm, migrated=migrated), log)
     if failed is not None:
         print(f"The site's {failed} step failed: its output is in {log}, the site in {site}.")
         return 1
     print(
-        "Every step passed: the new site installs, builds, migrates, passes its tests and checks clean."
+        "Every step passed: the new site installs, builds, migrates, passes its tests and checks"
+        " clean, alone and with modules added."
     )
     if argv == ["--keep"]:
         print(f"The site is in {site}.")

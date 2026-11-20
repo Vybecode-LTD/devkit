@@ -1,7 +1,10 @@
 """The site template (K5 contract §2, §4 item 2 and §7): a site `mechframe new`
 makes from `templates/site/` holds every file the contract lists, its web
 dependencies are MechFrame's, it deploys behind Railway's proxy with a real
-client address, and its own Python tests and lint pass.
+client address, and its own Python tests and lint pass. With the CLI's
+fixture modules added (`mechframe add`, the K5 contract §4 item 4), its
+registries import and build, every setting is in `.railway/railway.ts`, its
+tests pass again and `mechframe check` is clean.
 
 The site's tests run here in a subprocess, with this repo's Python (the
 site's pins are this repo's), so every pull request runs them; the database
@@ -15,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +26,7 @@ from pathlib import Path
 import pytest
 from dotenv import dotenv_values
 
-from mechframe import check, lock
+from mechframe import check, lock, modules, settings
 from mechframe.__main__ import main
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -290,6 +294,63 @@ def test_the_sites_python_is_linted_clean(site: Path) -> None:
 
 def test_the_sites_own_python_tests_pass(site: Path) -> None:
     found = _run(site, "-m", "pytest", "-q", "-p", "no:cacheprovider", "backend/tests")
+    assert found.returncode == 0, found.stdout[-4000:] + found.stderr[-2000:]
+    if os.environ.get("MECHFRAME_REQUIRE_DB") == "1":
+        assert " skipped" not in found.stdout, found.stdout[-2000:]
+
+
+#: The fixture modules a site gets added, each after what it requires.
+FIXTURE_MODULES = ("fixture-notes", "fixture-pins")
+
+
+@pytest.fixture(scope="module")
+def site_with_modules(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A new site with the CLI's fixture modules added, from a checkout of this
+    one's schemas and the fixtures as its modules (no real module is built yet)."""
+    root = tmp_path_factory.mktemp("fixture-checkout") / "mechframe"
+    shutil.copytree(ROOT / "schema", root / "schema")
+    shutil.copytree(ROOT / "cli" / "tests" / "fixtures" / "modules", root / "modules")
+    folder = tmp_path_factory.mktemp("made") / "with-modules"
+    assert main(["new", str(folder), "--name", "Test Site"]) == 0
+    for module_id in FIXTURE_MODULES:
+        modules.add(folder, module_id, root=root)
+    return folder
+
+
+def test_a_site_with_modules_lists_every_setting_for_railway(site_with_modules: Path) -> None:
+    env = _railway_env((site_with_modules / settings.RAILWAY).read_text("utf-8"))
+    example = set(dotenv_values(site_with_modules / settings.ENV))
+    assert {"FIXTURE_NOTES_FEED_URL", "FIXTURE_PINS_LIMIT"} <= example
+    assert sorted(example - set(env)) == []
+    for name in ("FIXTURE_NOTES_FEED_URL", "FIXTURE_NOTES_PAGE_SIZE", "FIXTURE_PINS_LIMIT"):
+        assert env[name] == "preserve()", name
+
+
+def test_a_site_with_modules_imports_each_binding_it_lists(site_with_modules: Path) -> None:
+    web = (site_with_modules / "web" / "src" / "modules.ts").read_text("utf-8")
+    imported = re.findall(r'from "\./(modules/[a-z0-9-]+/module\.web)";', web)
+    assert imported == ["modules/fixture-notes/module.web", "modules/fixture-pins/module.web"]
+    for path in imported:
+        assert (site_with_modules / "web" / "src" / f"{path}.ts").is_file(), path
+
+
+def test_a_site_with_modules_checks_clean(site_with_modules: Path) -> None:
+    report = check.check(site_with_modules, root=ROOT)
+    assert report.exit_code() == 0, report.lines()
+    assert (report.edited, report.missing, report.added) == ([], [], [])
+    assert report.unknown == list(FIXTURE_MODULES)  # not this checkout's modules
+
+
+def test_a_site_with_modules_is_linted_clean_and_passes_its_tests(site_with_modules: Path) -> None:
+    """The registries `add` wrote import, the app builds with the modules, and
+    their migration round-trips with the kernel's (the site's own tests)."""
+    for command in (
+        ("-m", "ruff", "check", "backend"),
+        ("-m", "black", "--check", "backend"),
+    ):
+        found = _run(site_with_modules, *command)
+        assert found.returncode == 0, found.stdout + found.stderr
+    found = _run(site_with_modules, "-m", "pytest", "-q", "-p", "no:cacheprovider", "backend/tests")
     assert found.returncode == 0, found.stdout[-4000:] + found.stderr[-2000:]
     if os.environ.get("MECHFRAME_REQUIRE_DB") == "1":
         assert " skipped" not in found.stdout, found.stdout[-2000:]

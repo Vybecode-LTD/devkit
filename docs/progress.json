@@ -129,7 +129,7 @@
       "gate": "mechframe new test-site builds, migrates and passes its tests; mechframe check passes on it.",
       "gate_passed": false,
       "items": [
-        {"name": "The mechframe commands and lock files", "status": "next", "prs": [91, 92], "decisions": ["0047", "0048"], "note": "check and the lock in #91; new (kernel only) in #92; add, remove, new --recipe and create-owner follow; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"},
+        {"name": "The mechframe commands and lock files", "status": "next", "prs": [91, 92, 94], "decisions": ["0047", "0048", "0050"], "note": "check and the lock in #91; new (kernel only) in #92; add, remove and new --recipe in #94; create-owner follows; diff and upgrade wait for a module's second version (the owner, 2026-11-20)"},
         {"name": "templates/site, made from the harness", "status": "done", "prs": [92], "decisions": ["0047", "0048"], "note": "the site's own pages (create_app(site=), defineSite), kernel.load_module, the site's tests and CI, tools/site_smoke.py"},
         {"name": "The start command and .env.example for a host's edge", "status": "done", "prs": [92], "decisions": ["0048"], "note": "the Dockerfile's start command reads the proxy's headers; .railway/railway.ts (Railway as code) in place of railway.toml, checked live on a throwaway project"},
         {"name": "mechframe catalog", "status": "done", "prs": [91], "decisions": ["0047"]},

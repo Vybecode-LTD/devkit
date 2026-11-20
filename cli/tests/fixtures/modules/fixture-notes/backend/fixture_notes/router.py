@@ -1,0 +1,5 @@
+"""fixture-notes's API: none, for the CLI's tests."""
+
+from fastapi import APIRouter
+
+router = APIRouter()

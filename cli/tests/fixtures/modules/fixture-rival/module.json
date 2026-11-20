@@ -1,0 +1,48 @@
+{
+  "id": "fixture-rival",
+  "name": "Fixture rival",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "content",
+  "summary": "A rival to fixture-pins, for the CLI's tests: a backend alone.",
+  "use_when": [
+    "A test that needs a module with no settings, migrations or web binding"
+  ],
+  "avoid_when": [
+    "A real site: it exists only for MechFrame's own tests"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [],
+  "settings": [],
+  "env": [],
+  "routes": {
+    "api": "/api/fixture-rival",
+    "public": [],
+    "member": [],
+    "admin": []
+  },
+  "tables": [],
+  "events": {
+    "emits": [],
+    "listens": []
+  },
+  "slots": [],
+  "bindings": [
+    "mobile"
+  ],
+  "jobs": [],
+  "notifications": [],
+  "data_hooks": {
+    "export": false,
+    "delete": false
+  },
+  "source": {
+    "from": "new",
+    "commit": "none",
+    "license": "proprietary"
+  }
+}

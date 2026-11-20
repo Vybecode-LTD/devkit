@@ -1,0 +1,15 @@
+{
+  "id": "fixture-notebook",
+  "name": "Fixture notebook",
+  "fits": [
+    "A site made for the CLI's tests, with notes and pins"
+  ],
+  "modules": [
+    "fixture-pins",
+    "fixture-notes"
+  ],
+  "settings": {
+    "auth.signup_mode": "closed"
+  },
+  "theme": "vibrant-mindz"
+}

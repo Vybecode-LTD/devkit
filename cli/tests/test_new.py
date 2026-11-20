@@ -14,41 +14,7 @@ from mechframe import check, lock, new, source
 from mechframe.__main__ import main
 from mechframe.hashes import digest
 
-from .conftest import write
-
-REQUIREMENTS = (
-    "requirements.in",
-    "requirements.txt",
-    "requirements-dev.in",
-    "requirements-dev.txt",
-)
-
-
-@pytest.fixture
-def maker(checkout: Path) -> Path:
-    """The checkout with a small site template, two themes and its pins."""
-    template = checkout / "templates" / "site"
-    write(template / "README.md", "# __SITE_NAME__\n\nMade with MechFrame.\n")
-    write(template / "CLAUDE.md", "# CLAUDE.md: __SITE_NAME__\n")
-    write(
-        template / ".env.example",
-        "DEBUG=false\nSITE_NAME=__SITE_NAME__\nCLIENT_IP_HEADER=X-Real-IP\n",
-    )
-    write(template / "backend" / "app" / "main.py", "app = None\n")
-    write(template / "backend" / "app" / "__pycache__" / "main.cpython-312.pyc", "junk")
-    write(template / "web" / "index.html", '<html data-theme="__THEME__"></html>\n')
-    write(template / ".railway" / "railway.ts", 'const name = "__SITE_NAME__";\n')
-    write(template / "web" / "node_modules" / "react" / "index.js", "junk\n")
-    write(template / "web" / "dist" / "index.html", "junk\n")
-    write(template / ".venv" / "pyvenv.cfg", "junk\n")
-    (template / "web" / "logo.png").parent.mkdir(parents=True, exist_ok=True)
-    (template / "web" / "logo.png").write_bytes(bytes([137, 80, 78, 71, 0, 255, 254]))
-    for theme in ("machined-light", "vibrant-mindz"):
-        write(checkout / "themes" / theme / "tokens.css", f'[data-theme="{theme}"] {{}}\n')
-        write(checkout / "themes" / theme / "tokens.json", "{}\n")
-    for name in REQUIREMENTS:
-        write(checkout / name, f"# {name}, pinned\n")
-    return checkout
+from .conftest import REQUIREMENTS, write
 
 
 def _new(maker: Path, folder: Path, *extra: str) -> int:

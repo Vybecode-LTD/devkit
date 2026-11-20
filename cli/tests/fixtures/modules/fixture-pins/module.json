@@ -1,0 +1,58 @@
+{
+  "id": "fixture-pins",
+  "name": "Fixture pins",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "content",
+  "summary": "Pins on notes, for the CLI's tests: it needs fixture-notes.",
+  "use_when": [
+    "A test that needs a module requiring another, with a conflict"
+  ],
+  "avoid_when": [
+    "A real site: it exists only for MechFrame's own tests"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {
+      "fixture-notes": "^0.1"
+    }
+  },
+  "conflicts": [
+    "fixture-rival"
+  ],
+  "permissions": [],
+  "settings": [],
+  "env": [
+    {
+      "name": "FIXTURE_PINS_LIMIT",
+      "required": false,
+      "description": "How many pins a note takes"
+    }
+  ],
+  "routes": {
+    "api": "/api/fixture-pins",
+    "public": [],
+    "member": [],
+    "admin": []
+  },
+  "tables": [],
+  "events": {
+    "emits": [],
+    "listens": []
+  },
+  "slots": [],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [],
+  "data_hooks": {
+    "export": false,
+    "delete": false
+  },
+  "source": {
+    "from": "new",
+    "commit": "none",
+    "license": "proprietary"
+  }
+}

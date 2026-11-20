@@ -3,6 +3,9 @@
 The checkout holds the real schemas and kernel manifest, a few kernel files,
 one built module (`demo-shop`), a scaffold (`_later`) and a planned module
 (`planned-thing`), so a test can change any of them without touching the repo.
+`maker` adds a small site template, two themes and the pins, for `new`;
+`site_maker` adds the template's real registries and settings files and the
+fixture modules and recipe (`fixtures/README.md`), for `add` and `remove`.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ import pytest
 from mechframe import layout, lock, source
 
 REPO = source.ROOT
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def write(path: Path, text: str) -> Path:
@@ -121,3 +125,82 @@ def advisory(**fields: Any) -> dict[str, Any]:
 
 def set_advisories(root: Path, *entries: dict[str, Any]) -> None:
     write(root / "advisories.json", json.dumps({"advisories": list(entries)}, indent=2) + "\n")
+
+
+REQUIREMENTS = (
+    "requirements.in",
+    "requirements.txt",
+    "requirements-dev.in",
+    "requirements-dev.txt",
+)
+
+
+@pytest.fixture
+def maker(checkout: Path) -> Path:
+    """The checkout with a small site template, two themes and its pins."""
+    template = checkout / "templates" / "site"
+    write(template / "README.md", "# __SITE_NAME__\n\nMade with MechFrame.\n")
+    write(template / "CLAUDE.md", "# CLAUDE.md: __SITE_NAME__\n")
+    write(
+        template / ".env.example",
+        "DEBUG=false\nSITE_NAME=__SITE_NAME__\nCLIENT_IP_HEADER=X-Real-IP\n",
+    )
+    write(template / "backend" / "app" / "main.py", "app = None\n")
+    write(template / "backend" / "app" / "__pycache__" / "main.cpython-312.pyc", "junk")
+    write(template / "web" / "index.html", '<html data-theme="__THEME__"></html>\n')
+    write(template / ".railway" / "railway.ts", 'const name = "__SITE_NAME__";\n')
+    write(template / "web" / "node_modules" / "react" / "index.js", "junk\n")
+    write(template / "web" / "dist" / "index.html", "junk\n")
+    write(template / ".venv" / "pyvenv.cfg", "junk\n")
+    (template / "web" / "logo.png").parent.mkdir(parents=True, exist_ok=True)
+    (template / "web" / "logo.png").write_bytes(bytes([137, 80, 78, 71, 0, 255, 254]))
+    for theme in ("machined-light", "vibrant-mindz"):
+        write(checkout / "themes" / theme / "tokens.css", f'[data-theme="{theme}"] {{}}\n')
+        write(checkout / "themes" / theme / "tokens.json", "{}\n")
+    for name in REQUIREMENTS:
+        write(checkout / name, f"# {name}, pinned\n")
+    return checkout
+
+
+#: The template's files `add` and `remove` write, as `mechframe new` copies them.
+SITE_FILES = ("backend/app/modules.py", "web/src/modules.ts", ".env.example", ".railway/railway.ts")
+
+
+def with_fixtures(root: Path) -> Path:
+    """The fixture modules and recipe in the checkout `root`."""
+    for folder in (FIXTURES / "modules").iterdir():
+        shutil.copytree(folder, root / "modules" / folder.name, dirs_exist_ok=True)
+    for recipe in (FIXTURES / "recipes").glob("*.json"):
+        write(root / "recipes" / recipe.name, recipe.read_text("utf-8"))
+    return root
+
+
+@pytest.fixture
+def site_maker(maker: Path) -> Path:
+    """`maker` with the template's real registries and settings files, and the
+    fixture modules and recipe."""
+    template = maker / "templates" / "site"
+    for relative in SITE_FILES:
+        target = template / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPO / "templates" / "site" / relative, target)
+    return with_fixtures(maker)
+
+
+@pytest.fixture
+def made(site_maker: Path, tmp_path: Path) -> Path:
+    """A kernel-only site from `site_maker`."""
+    from mechframe.__main__ import main
+
+    folder = tmp_path / "made"
+    assert main(["new", str(folder), "--root", str(site_maker)]) == 0
+    return folder
+
+
+def tree(folder: Path) -> dict[str, bytes]:
+    """Every file under `folder`, by its path there, with what it holds."""
+    return {
+        path.relative_to(folder).as_posix(): path.read_bytes()
+        for path in sorted(folder.rglob("*"))
+        if path.is_file()
+    }

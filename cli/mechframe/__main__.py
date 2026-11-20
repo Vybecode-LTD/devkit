@@ -1,8 +1,8 @@
 """`python -m mechframe <command>` (K5 contract §2; cli/README.md).
 
-Built so far: `new` (a kernel-only site), `catalog` and `check`. `add`,
-`remove`, `new --recipe` and `create-owner` follow in the next K5 pull
-requests; `diff` and `upgrade` wait for a module's second version (the owner,
+Built so far: `new` (with `--recipe`, a recipe's modules too), `add`,
+`remove`, `catalog` and `check`. `create-owner` follows in the next K5 pull
+request; `diff` and `upgrade` wait for a module's second version (the owner,
 2026-11-20).
 """
 
@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from mechframe import __version__, catalog, check, new
+from mechframe import __version__, catalog, check, modules, new
 from mechframe.source import ROOT
 
 
@@ -30,13 +30,25 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"mechframe {__version__}")
     commands = parser.add_subparsers(dest="command", required=True, metavar="command")
 
-    started = commands.add_parser("new", help="make a site (kernel only) in an empty folder")
+    started = commands.add_parser("new", help="make a site in an empty folder")
     started.add_argument("dir", type=Path, help="the site's folder: empty, or not there yet")
     started.add_argument("--name", help="the site's name (default: the folder's)")
+    started.add_argument("--recipe", help="add a recipe's modules too (recipes/<id>.json)")
     started.add_argument(
-        "--theme", default=new.DEFAULT_THEME, help=f"its theme (default: {new.DEFAULT_THEME})"
+        "--theme",
+        help=f"its theme (default: the recipe's, else {new.DEFAULT_THEME})",
     )
     _root(started)
+
+    adding = commands.add_parser("add", help="add a module to a site")
+    adding.add_argument("id", help="the module's id")
+    adding.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
+    _root(adding)
+
+    removing = commands.add_parser("remove", help="remove a module from a site, keeping its tables")
+    removing.add_argument("id", help="the module's id")
+    removing.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
+    _root(removing)
 
     made = commands.add_parser("catalog", help="write catalog.json from every built module")
     made.add_argument("--check", action="store_true", help="only say whether it's current")
@@ -57,11 +69,23 @@ def main(argv: list[str] | None = None) -> int:
         site = args.dir.resolve()
         try:
             name = site.name if args.name is None else args.name
-            made = new.new(site, name=name, theme=args.theme, root=args.root)
-        except new.Refused as refusal:
+            made = new.new(site, name=name, theme=args.theme, recipe=args.recipe, root=args.root)
+        except (new.Refused, modules.Refused) as refusal:
             print(refusal, file=sys.stderr)
             return 2
         print("\n".join(new.next_steps(made)))
+        return 0
+    if args.command in ("add", "remove"):
+        site = args.site.resolve()
+        try:
+            if args.command == "add":
+                lines = modules.added_lines(modules.add(site, args.id, root=args.root))
+            else:
+                lines = modules.removed_lines(modules.remove(site, args.id, root=args.root))
+        except modules.Refused as refusal:
+            print(refusal, file=sys.stderr)
+            return 2
+        print("\n".join(lines))
         return 0
     if args.command == "catalog":
         if args.check:

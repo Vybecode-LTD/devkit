@@ -6,7 +6,7 @@ A website made with MechFrame: its kernel, the modules this site has and its own
 
 - **This site's code goes in its `site/` folders:** `backend/app/site/` and `web/src/site/`. Its pages are listed in `web/src/site/site.ts`, each public one with its server copy in `backend/app/site/pages.py`, the same words read from the same rows, so a crawler that runs no script reads what a person sees.
 - **Copied folders are MechFrame's:** `backend/kernel/`, `backend/modules/`, `backend/migrations/`, `web/src/kernel/` and `web/src/modules/`. Change one only when its settings, slots and events can't do what the site needs, and say why in the commit. `mechframe check` reports every edit against `mechframe.lock.json`.
-- **Modules come and go with `mechframe add` and `mechframe remove`,** never by copying files by hand: they write `backend/app/modules.py`, `web/src/modules.ts`, `.env.example` and the lock together.
+- **Modules come and go with `mechframe add` and `mechframe remove`,** never by copying files by hand: they write `backend/app/modules.py`, `web/src/modules.ts`, `.env.example`, `.railway/railway.ts` and the lock together.
 - **Run `mechframe check` before each pull request** (from MechFrame's checkout: `python -m mechframe check --site <this folder>`). CI runs it too, and fails on an open high or critical advisory: patch it before anything else.
 - **Styling comes only from the theme's tokens** (`var(--mf-*)`, `web/src/theme/tokens.css`); ESLint refuses a colour written in code. Use the kernel's UI kit (`@/kernel`) before writing a component.
 - **Data comes only through the kernel's typed client and TanStack Query** (`useApiQuery`, `useApiMutation`): no `fetch` in a component.

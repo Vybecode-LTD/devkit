@@ -1,0 +1,61 @@
+{
+  "id": "fixture-notes",
+  "name": "Fixture notes",
+  "version": "0.1.0",
+  "status": "experimental",
+  "category": "content",
+  "summary": "Notes, for the CLI's tests: two settings, a table and a web binding.",
+  "use_when": [
+    "A test that needs a module with settings, a migration and a web binding"
+  ],
+  "avoid_when": [
+    "A real site: it exists only for MechFrame's own tests"
+  ],
+  "requires": {
+    "kernel": "^0.1",
+    "modules": {}
+  },
+  "conflicts": [],
+  "permissions": [],
+  "settings": [],
+  "env": [
+    {
+      "name": "FIXTURE_NOTES_FEED_URL",
+      "required": true,
+      "description": "The feed the notes come from"
+    },
+    {
+      "name": "FIXTURE_NOTES_PAGE_SIZE",
+      "required": false,
+      "description": "How many notes a page shows"
+    }
+  ],
+  "routes": {
+    "api": "/api/fixture-notes",
+    "public": [],
+    "member": [],
+    "admin": []
+  },
+  "tables": [
+    "fixture_notes_note"
+  ],
+  "events": {
+    "emits": [],
+    "listens": []
+  },
+  "slots": [],
+  "bindings": [
+    "web"
+  ],
+  "jobs": [],
+  "notifications": [],
+  "data_hooks": {
+    "export": false,
+    "delete": false
+  },
+  "source": {
+    "from": "new",
+    "commit": "none",
+    "license": "proprietary"
+  }
+}
