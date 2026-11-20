@@ -540,8 +540,8 @@
    "gate": "not passed",
    "step_order": 8,
    "step": "Admin settings: Site, Features and System",
-   "status": "review",
-   "status_label": "In review",
+   "status": "done",
+   "status_label": "Done",
    "prs": "#87",
    "decisions": "0042 0046",
    "note": ""
