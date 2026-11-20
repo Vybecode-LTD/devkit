@@ -618,6 +618,20 @@
   },
   {
    "milestone": "MechFrame v1.0",
+   "phase_order": 8,
+   "phase_id": "k5",
+   "phase": "K5: CLI and site template",
+   "gate": "not passed",
+   "step_order": 5,
+   "step": "SPEC 10's confirmation before a destructive migration",
+   "status": "next",
+   "status_label": "Next",
+   "prs": "",
+   "decisions": "",
+   "note": "nothing reads destructive = True yet (CodeRabbit on #92); the owner, 2026-11-20: build it after #92, before any module with migrations"
+  },
+  {
+   "milestone": "MechFrame v1.0",
    "phase_order": 9,
    "phase_id": "hooks",
    "phase": "Contract hooks",

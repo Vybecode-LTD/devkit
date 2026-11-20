@@ -30,14 +30,14 @@ Overwritten every session. This one: 2026-11-20, afternoon Eastern (Claude Code,
 ## Next
 
 1. **Land #92** once "CI result" is green and the bots are clear. Then republish the ledger (`dev plans/progress-ledger/README.md`).
-2. **#93, `add` and `remove`,** on fixture modules (`cli/tests/fixtures/`). They write `backend/app/modules.py`, `web/src/modules.ts`, `.env.example` **and `.railway/railway.ts`** (a module's settings as `preserve()`, or the next apply deletes them), and the lock. Plus `new --recipe`.
-3. **#94, `create-owner`:** `kernel.auth.owners.create_owner`, the template's real `app/owner.py`, and the CLI's wrapper.
-4. **#95, K5's gate** (docs only): `python -m tools.site_smoke` evidence in `dev plans/<date>-k5-gate-evidence.md`.
+2. **#93, SPEC 10's confirmation before a destructive migration** (the owner, 2026-11-20: land #92, then build it, before any module with migrations). Nothing reads `destructive = True` yet (CodeRabbit on #92). Say `app.migrations upgrade` (the site's and the harness's) refusing a pending revision marked True without `--confirm-destructive`, so Railway's pre-deploy stops until the owner runs it by hand. The contract's §4 numbers move on by one (its change 7).
+3. **#94, `add` and `remove`,** on fixture modules (`cli/tests/fixtures/`). They write `backend/app/modules.py`, `web/src/modules.ts`, `.env.example` **and `.railway/railway.ts`** (a module's settings as `preserve()`, or the next apply deletes them), and the lock. Plus `new --recipe`.
+4. **#95, `create-owner`:** `kernel.auth.owners.create_owner`, the template's real `app/owner.py`, and the CLI's wrapper.
+5. **#96, K5's gate** (docs only): `python -m tools.site_smoke` evidence in `dev plans/<date>-k5-gate-evidence.md`.
 
 ## Open questions for the owner
 
-- **Delete `mechframe-iac-probe`:** Railway, the project, Settings, Danger, Delete. Or keep it for #93's check of `add` writing `railway.ts`.
-- **Where SPEC 10's destructive-migration confirmation lives.** Nothing reads `destructive = True` yet, in the harness or a site (CodeRabbit on #92); the templates now say so. Say `app.migrations` refusing a pending one without `--confirm-destructive`, which would also hold Railway's pre-deploy until confirmed.
+- **`mechframe-iac-probe` is kept** (the owner, 2026-11-20) for #94's read-only `railway config plan` of what `add` writes; the owner deletes it after K5's gate.
 - **Plan a site's Railway file in its CI?** It would need a project token as an Actions secret: yours to make.
 - A name for a person (nothing sets `display_name`)? A way for a site to reword the kernel's screens?
 - Decisions 0032 to 0039's own calls; the R2 test buckets; the desk steps (the `postgres` password, `Set-ExecutionPolicy`).

@@ -8,9 +8,9 @@ Updated 2026-11-20, `main` at `e60b23c`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 38 | 0 | 1 | 15 | 3 | 3 | ██████░░░░ 63% (38 of 60) |
+| MechFrame v1.0 | 38 | 0 | 2 | 15 | 3 | 3 | ██████░░░░ 62% (38 of 61) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 38 | 0 | 1 | 100 | 3 | 6 | ██░░░░░░░░ 25% (38 of 148) |
+| Everything | 38 | 0 | 2 | 100 | 3 | 6 | ██░░░░░░░░ 25% (38 of 149) |
 
 ## MechFrame v1.0
 
@@ -111,7 +111,7 @@ Gate: Component tests, axe with no serious violations, Playwright runs of every 
 | Admin settings: Site, Features and System | Done | [#87](https://github.com/mechframe/mechframe/pull/87) | [0042](decisions/0042-web-kernel.md), [0046](decisions/0046-settings-features-system.md) |  |
 | Depth theme | Later |  |  | The owner, 2026-11-18: when a site wants it |
 
-### K5: CLI and site template · 3 of 4 done · gate not passed yet
+### K5: CLI and site template · 3 of 5 done · gate not passed yet
 
 mechframe works end to end.
 
@@ -123,6 +123,7 @@ Gate: mechframe new test-site builds, migrates and passes its tests; mechframe c
 | templates/site, made from the harness | Done | [#92](https://github.com/mechframe/mechframe/pull/92) | [0047](decisions/0047-cli-and-site-template.md), [0048](decisions/0048-site-pages-and-template.md) | the site's own pages (create_app(site=), defineSite), kernel.load_module, the site's tests and CI, tools/site_smoke.py |
 | The start command and .env.example for a host's edge | Done | [#92](https://github.com/mechframe/mechframe/pull/92) | [0048](decisions/0048-site-pages-and-template.md) | the Dockerfile's start command reads the proxy's headers; .railway/railway.ts (Railway as code) in place of railway.toml, checked live on a throwaway project |
 | mechframe catalog | Done | [#91](https://github.com/mechframe/mechframe/pull/91) | [0047](decisions/0047-cli-and-site-template.md) |  |
+| SPEC 10's confirmation before a destructive migration | Next |  |  | nothing reads destructive = True yet (CodeRabbit on #92); the owner, 2026-11-20: build it after #92, before any module with migrations |
 
 ### Contract hooks · 0 of 10 done
 

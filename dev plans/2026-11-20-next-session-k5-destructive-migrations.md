@@ -1,6 +1,6 @@
-# Next session: K5's add and remove (#93)
+# Next session: K5's destructive-migration confirmation (#93), then add and remove (#94)
 
-Run from `C:\DEV\AI-DevKit`: "Read dev plans\2026-11-20-next-session-k5-add-remove.md and follow it, starting with section 4."
+Run from `C:\DEV\AI-DevKit`: "Read dev plans\2026-11-20-next-session-k5-destructive-migrations.md and follow it, starting with section 4."
 
 ## 1. The project
 
@@ -21,17 +21,15 @@ MechFrame is a set of website modules built around a FastAPI + Postgres kernel (
 
 ## 4. The job
 
-1. **#93, `add` and `remove`** (contract §2 and §4 item 3), tests first, on fixture modules in `cli/tests/fixtures/`:
-   - `add <id>`: requires and conflicts against the lock; copy (`mechframe.layout`); the registries `backend/app/modules.py` and `web/src/modules.ts`; the module's env vars appended to `.env.example` **and written into `.railway/railway.ts`** at its "added by mechframe add" line, as `preserve()`; version and hashes into the lock; then print the migration and test commands.
-   - `remove <id>`: refuse while another module requires it; take out its files, registry entries and lock entry; comment out its env vars in both files; keep its tables.
-   - `new --recipe <id>`: `new`, then `add` for each of the recipe's modules; refuse a recipe naming a module not built yet.
-   - **Tests:** the registries import and build; `railway.ts` lists every `.env.example` key (reuse `tests/test_site_template.py`'s check); `check` is clean after `add` and after `remove`.
-2. Then #94 (`create-owner`) and #95 (K5's gate: `python -m tools.site_smoke`, evidence file).
+1. **#93, SPEC 10's confirmation before a destructive migration** (the owner, 2026-11-20: build it next, before any module with migrations). Nothing reads `destructive = True` yet. Tests first: `app.migrations upgrade` (the template's) and `harness.migrations upgrade` refuse a pending revision marked True without `--confirm-destructive`, naming it, so Railway's pre-deploy stops until the owner runs it by hand. Record it as the contract's change 7 (its §4 numbers move on by one) and a decision.
+2. **#94, `add` and `remove`** (contract §2 and §4 item 3), tests first, on fixture modules in `cli/tests/fixtures/`:
+   - `add <id>` writes the registries, `.env.example` **and `.railway/railway.ts`** (a module's settings as `preserve()`, or an apply deletes them) and the lock; `remove` undoes it but its tables; `new --recipe`.
+   - **Tests:** the registries build, `railway.ts` lists every setting (`tests/test_site_template.py`'s check), and `check` is clean after each.
+3. Then #95 (`create-owner`) and #96 (K5's gate: `python -m tools.site_smoke`, evidence file).
 
 ## 5. Ask the owner
 
-- Delete `mechframe-iac-probe` (Railway, "color8's Projects")? Or keep it to check `add`'s `railway.ts` with a plan: only `railway config plan`, read-only.
-- Where SPEC 10's destructive-migration confirmation goes (nothing reads `destructive = True` yet; `docs/HANDOFF.md`).
+- `mechframe-iac-probe` (Railway, "color8's Projects") is kept for #94: only `railway config plan` against it, read-only. The owner deletes it after K5's gate.
 - The rest: `docs/HANDOFF.md`, "Open questions". Ask, don't decide.
 
 ## 6. Environment and traps
