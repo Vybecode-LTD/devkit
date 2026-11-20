@@ -1,5 +1,6 @@
-"""Codex's review of #91: the installed CLI brings what it imports, and a
-version the lock's schema lets through but semver doesn't is a refusal, not a crash."""
+"""The reviews of #91 (Codex, CodeRabbit): the installed CLI brings what it
+imports; a version semver refuses is a refusal everywhere, never a crash; a
+recorded file that can't be read is a refusal too."""
 
 from __future__ import annotations
 
@@ -20,12 +21,24 @@ def test_installing_the_cli_installs_what_it_imports() -> None:
     assert any(need.startswith("jsonschema") for need in project["dependencies"])
 
 
+def _lock_with(site: Path, version: str) -> None:
+    path = site / lock.NAME
+    data = json.loads(path.read_text("utf-8"))
+    data["modules"]["demo-shop"]["version"] = version
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_the_lock_s_schema_refuses_a_version_semver_refuses(site: Path, checkout: Path) -> None:
+    data = lock.read(site, root=checkout)
+    data["modules"]["demo-shop"]["version"] = "0.1.0-01"
+    with pytest.raises(lock.LockError, match=r"0.1.0-01"):
+        lock.write(site, data, root=checkout)
+
+
 def test_a_lock_version_semver_refuses_is_a_refusal(
     site: Path, checkout: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    data = lock.read(site, root=checkout)
-    data["modules"]["demo-shop"]["version"] = "0.1.0-01"  # the schema's pattern allows it
-    lock.write(site, data, root=checkout)
+    _lock_with(site, "0.1.0-01")
     report = check.check(site, root=checkout)
     assert report.exit_code() == 2
     assert any("demo-shop" in problem and "0.1.0-01" in problem for problem in report.problems)
@@ -40,8 +53,34 @@ def test_an_advisory_version_semver_refuses_is_a_refusal(
     set_advisories(checkout, advisory(**{field: "0.1.0-01"}))
     report = check.check(site, root=checkout)
     assert report.exit_code() == 2
+    assert any("0.1.0-01" in problem for problem in report.problems)
+    assert report.advisories == []
+
+
+def test_a_checkout_version_semver_refuses_is_a_refusal(site: Path, checkout: Path) -> None:
+    path = checkout / "modules" / "demo-shop" / "module.json"
+    data = json.loads(path.read_text("utf-8"))
+    data["version"] = "0.2.0-01"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    report = check.check(site, root=checkout)
+    assert report.exit_code() == 2
+    assert any("checkout's demo-shop" in problem for problem in report.problems)
+
+
+def test_a_recorded_file_that_can_t_be_read_is_a_refusal(
+    site: Path, checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = check.digest
+
+    def refuse(path: Path) -> str:
+        if path.name == "sessions.py":
+            raise PermissionError(13, "Permission denied", str(path))
+        return real(path)
+
+    monkeypatch.setattr(check, "digest", refuse)
+    report = check.check(site, root=checkout)
+    assert report.exit_code() == 2
     assert any(
-        f"MF-2026-0001's {field}" in problem and "0.1.0-01" in problem
+        problem.startswith("backend/kernel/auth/sessions.py: can't be read")
         for problem in report.problems
     )
-    assert report.advisories == []

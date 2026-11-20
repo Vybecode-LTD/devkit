@@ -1,6 +1,7 @@
 # The MechFrame repo's Python tooling. MechFrame isn't installed as a package: sites
-# copy the kernel and modules in (decision 0002). This file only configures the
-# dev tools. Dependencies live in requirements.in and requirements-dev.in.
+# copy the kernel and modules in (decision 0002). This file configures the dev tools,
+# whose dependencies live in requirements.in and requirements-dev.in, and the CLI,
+# the one part that is installed: `dependencies` below is what it imports.
 
 [project]
 name = "mechframe"

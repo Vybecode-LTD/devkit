@@ -40,12 +40,17 @@ class Report:
         self.problems.append(f"{path.relative_to(root).as_posix()}: {message}")
 
 
+#: What `_load` answers for a file it couldn't read, so a file holding JSON
+#: `null` is still checked against its schema (CodeRabbit on #91).
+UNREAD: Any = object()
+
+
 def _load(path: Path, root: Path, report: Report) -> Any:
     try:
         return json.loads(path.read_text("utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
         report.problem(path, root, f"can't be read as JSON ({error})")
-        return None
+        return UNREAD
 
 
 def _validator(root: Path, name: str) -> Draft202012Validator:
@@ -102,7 +107,7 @@ def check(root: Path = ROOT) -> Report:
     known: set[str] = set()
     for path in sorted((root / "modules").glob("*/module.json")):
         manifest = _load(path, root, report)
-        if manifest is None or not _against(modules, manifest, path, root, report):
+        if manifest is UNREAD or not _against(modules, manifest, path, root, report):
             continue
         _module_rules(manifest, path.parent, root, report)
         if not path.parent.name.startswith("_"):
@@ -110,7 +115,7 @@ def check(root: Path = ROOT) -> Report:
 
     for path in sorted((root / "recipes").glob("*.json")):
         recipe = _load(path, root, report)
-        if recipe is None or not _against(recipes, recipe, path, root, report):
+        if recipe is UNREAD or not _against(recipes, recipe, path, root, report):
             continue
         if recipe["id"] != path.stem:
             report.problem(path, root, f"the file is {path.name!r} but the id is {recipe['id']!r}")
@@ -118,13 +123,13 @@ def check(root: Path = ROOT) -> Report:
 
     kernel_path = root / "kernel" / "kernel.json"
     data = _load(kernel_path, root, report)
-    if data is not None:
+    if data is not UNREAD:
         _against(kernel, data, kernel_path, root, report)
 
     _load(root / "catalog.json", root, report)
     advisories_path = root / "advisories.json"
     data = _load(advisories_path, root, report)
-    if data is not None:
+    if data is not UNREAD:
         _against(_validator(root, "advisories.schema.json"), data, advisories_path, root, report)
     return report
 

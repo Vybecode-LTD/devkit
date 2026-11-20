@@ -131,7 +131,13 @@ def _files(report: Report, site: Path, recorded: dict[str, str], copies: list[la
         path = site / target
         if not path.is_file():
             report.missing.append(target)
-        elif digest(path) != expected:
+            continue
+        try:
+            found = digest(path)
+        except OSError as error:  # a refusal, never a traceback (CodeRabbit on #91)
+            report.problems.append(f"{target}: can't be read ({error.strerror or error})")
+            continue
+        if found != expected:
             report.edited.append(target)
     report.added += [target for target in layout.site_files(site, copies) if target not in recorded]
 
@@ -197,15 +203,13 @@ def check(site: Path, root: Path = ROOT) -> Report:
     if problems:
         report.problems += [f"advisories.json in the checkout: {problem}" for problem in problems]
         return report
+    # The schema's pattern is semver's own grammar, so these parse (CodeRabbit on #91).
     for entry in advisories["advisories"]:
         copy = copies.get(entry["module"])
-        if entry["module"] not in copies:
+        if copy is None:
             continue
-        where = f"advisories.json in the checkout: {entry['id']}'s"
-        introduced = _semver(report, f"{where} introduced", entry["introduced"])
-        fixed = _semver(report, f"{where} fixed", entry["fixed"]) if entry["fixed"] else None
-        if entry["fixed"] and fixed is None:
-            continue
-        if copy is not None and introduced is not None and _affected(copy, introduced, fixed):
+        introduced = versions.parse(entry["introduced"])
+        fixed = versions.parse(entry["fixed"]) if entry["fixed"] else None
+        if _affected(copy, introduced, fixed):
             report.advisories.append(entry)
     return report

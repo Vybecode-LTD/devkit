@@ -122,6 +122,17 @@ def test_an_advisory_is_checked_against_its_schema(repo: Path) -> None:
     assert problem.startswith("advisories.json: advisories/0/severity")
 
 
+def test_advisories_that_are_json_null_are_checked_not_skipped(repo: Path) -> None:
+    (repo / "advisories.json").write_text("null", "utf-8")
+    (problem,) = check(repo).problems
+    assert problem.startswith("advisories.json: (top)")
+
+
+def test_a_version_semver_refuses_fails_the_schema(repo: Path) -> None:
+    _edit(repo, version="0.1.0-01")  # semver: no leading zero in a numeric pre-release part
+    assert any("version" in problem for problem in check(repo).problems)
+
+
 def test_main_exits_one_on_a_problem(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _edit(repo, status="beta")
     assert main([str(repo)]) == 1
