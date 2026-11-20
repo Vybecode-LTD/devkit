@@ -18,8 +18,10 @@ shown the link. Using it marks the address verified (`resets.py`).
   account (someone who signed up with the address first) holds nothing until
   the link is used. A second factor stays, as a reset leaves it.
 
-`owner`'s role row is locked first, so two runs at once take turns: the
-second finds the first's owner. A suspended or deleted account isn't made an
+The account's row is locked, then `owner`'s role row, the order the
+admin's role changes take (`roles.py`), so the two can't deadlock (Codex on
+#95). Two runs at once take turns on `owner`'s row, and the second finds the
+first's owner. A suspended or deleted account isn't made an
 owner. Every run is audited as `ACTION`: `made`, `granted`, `renewed` or
 `refused`.
 """
@@ -76,10 +78,10 @@ async def create_owner(db: AsyncSession, email: str) -> str:
     if len(written) > MAX_ADDRESS or not is_address(written):
         raise OwnerRefused(f"{email!r} isn't an email address, like name@example.com.")
     normal = accounts.normal_email(written)
-    await db.execute(select(Role.id).where(Role.id == OWNER).with_for_update())
     user: User | None = await db.scalar(
         select(User).where(User.email_normal == normal).with_for_update()
     )
+    await db.execute(select(Role.id).where(Role.id == OWNER).with_for_update())
     is_owner = user is not None and await _is_owner(db, user)
     if not is_owner and await _active_owner(db):
         _record(db, "refused", user)

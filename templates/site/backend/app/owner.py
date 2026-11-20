@@ -8,10 +8,12 @@ With an owner already, only an owner's own address gets a new link, which is
 how an owner locked out gets back in from the server; any other address is
 refused, since an owner grants the role in Admin, People.
 
-It runs with the app's own settings, from the environment or `.env`: its
-database, and its SECRET_KEY, which the link's stored hash is keyed with, so
-it refuses the secrets the app would refuse. On Railway, run it in the
-service's own shell (`railway ssh`), where both are.
+It runs as the app does, from its own settings (the environment or `.env`)
+and its modules: its database; its SECRET_KEY, which the link's stored hash is
+keyed with, so it refuses the secrets the app would; and its modules'
+listeners, so a module that hears of a new account or a role change gets its
+delivery (Codex on #95). On Railway, run it in the service's own shell
+(`railway ssh`), where the database and the secrets are.
 """
 
 from __future__ import annotations
@@ -19,13 +21,16 @@ from __future__ import annotations
 import asyncio
 import sys
 
+from app import installed
+from app.modules import MODULE_IDS
+from app.site.pages import SITE_PAGES
+from kernel.app import Assembled, assemble
 from kernel.auth import owners
-from kernel.config import KernelConfig, get_config, unsafe_secrets
-from kernel.db import Database
+from kernel.config import get_config, unsafe_secrets
 
 
-async def _issue(config: KernelConfig, email: str) -> str:
-    database = Database(config.database_url)
+async def _issue(built: Assembled, email: str) -> str:
+    database = built.database()
     try:
         async with database.sessions() as db:
             return await owners.create_owner(db, email)
@@ -45,8 +50,10 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+    # The site as its app is built: its modules' events, mail and audit owners.
+    built = assemble(modules=installed(MODULE_IDS), config=config, role="worker", site=SITE_PAGES)
     try:
-        token = asyncio.run(_issue(config, argv[0]))
+        token = asyncio.run(_issue(built, argv[0]))
     except owners.OwnerRefused as refusal:
         print(f"Refused: {refusal}", file=sys.stderr)
         return 2

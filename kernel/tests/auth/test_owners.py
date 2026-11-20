@@ -237,3 +237,25 @@ async def test_two_runs_wait_for_each_other_on_the_owner_role(site: Site) -> Non
                 await owners.create_owner(db, "owner@site.test")
         await holding.rollback()
     assert await _account(site, "owner@site.test") is None
+
+
+async def test_the_account_is_locked_before_the_owner_role(site: Site) -> None:
+    """The admin's role changes lock the account, then `owner`'s row (roles.py):
+    a run locks them in the same order, so the two can't deadlock (Codex on #95).
+    While another holds the account, a run waits holding nothing of `owner`'s."""
+    held = await _member(site, "owner@site.test", verified=True)
+    async with site.db() as holding:
+        await holding.execute(
+            text("SELECT id FROM auth_user WHERE id = :id FOR UPDATE"), {"id": held.id}
+        )
+        run = asyncio.create_task(_create(site, "owner@site.test"))
+        await asyncio.sleep(0.5)  # long enough to reach the account's lock
+        assert not run.done()
+        async with site.db() as probe:
+            await probe.execute(
+                text("SELECT id FROM auth_role WHERE id = 'owner' FOR UPDATE NOWAIT")
+            )
+            await probe.rollback()
+        await holding.rollback()
+    await run
+    assert await _roles(site, held.id) == {"owner", "member"}

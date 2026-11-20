@@ -269,9 +269,12 @@ def test_the_kernel_resolves_as_at_mechframe(site: Path) -> None:
     assert 'data-theme="machined-light"' in (site / "web" / "index.html").read_text("utf-8")
 
 
-def _run(site: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def _run(
+    site: Path, *args: str, env_extra: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     env = {key: value for key, value in os.environ.items() if key != "PYTHONPATH"}
     env["PYTHONPATH"] = "backend"
+    env.update(env_extra or {})
     return subprocess.run(  # noqa: S603 (this repo's own Python, on a site it just made)
         [sys.executable, *args],
         cwd=site,
@@ -354,3 +357,31 @@ def test_a_site_with_modules_is_linted_clean_and_passes_its_tests(site_with_modu
     assert found.returncode == 0, found.stdout[-4000:] + found.stderr[-2000:]
     if os.environ.get("MECHFRAME_REQUIRE_DB") == "1":
         assert " skipped" not in found.stdout, found.stdout[-2000:]
+
+
+async def _jobs_named(url: str, name: str) -> int:
+    import asyncpg
+
+    connection = await asyncpg.connect(url.replace("postgresql+asyncpg://", "postgresql://", 1))
+    try:
+        found: int = await connection.fetchval(
+            "SELECT count(*) FROM kernel_job WHERE name = $1", name
+        )
+    finally:
+        await connection.close()
+    return found
+
+
+async def test_the_owner_made_from_the_server_reaches_the_modules_listeners(
+    site_with_modules: Path, empty_database_url: str
+) -> None:
+    """`python -m app.owner` builds the site as its app does, so a module that
+    listens for a new account gets its delivery (Codex on #95): deliveries are
+    written when the event is, and nothing else would queue this one."""
+    settings = {"DATABASE_URL": empty_database_url, "SITE_URL": "https://site.test"}
+    migrated = _run(site_with_modules, "-m", "app.migrations", "upgrade", env_extra=settings)
+    assert migrated.returncode == 0, migrated.stdout + migrated.stderr
+    made = _run(site_with_modules, "-m", "app.owner", "owner@site.test", env_extra=settings)
+    assert made.returncode == 0, made.stdout + made.stderr
+    assert "https://site.test/auth/reset?token=" in made.stdout
+    assert await _jobs_named(empty_database_url, "fixture-notes.greet_account") == 1

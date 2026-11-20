@@ -20,8 +20,8 @@ Overwritten every session. This one: 2026-11-20, evening Eastern (Claude Code, t
   - **#95, holding this handoff: `create-owner`** (decision 0051, change 9).
     - `kernel.auth.owners.create_owner(db, email)` answers a reset link's token (30 minutes, single use). Nothing is mailed: the command prints the link.
     - With no active owner, the address's account (made if there's none) gets `owner`. With one, only an owner's own address gets a fresh link (the owner, 2026-11-20); any other is refused.
-    - Before the link, the account's password is cleared, its sessions end and its ways in are voided. `owner`'s role row is locked first. Audited as `auth.user.owner_link_issued`.
-    - The template's `app/owner.py` runs it with the app's settings (the hash is keyed with SECRET_KEY). `mechframe create-owner` runs that with the site's `.venv`.
+    - Before the link, the account's password is cleared, its sessions end and its ways in are voided. The account's row is locked, then `owner`'s, as the admin's role changes do. Audited as `auth.user.owner_link_issued`.
+    - The template's `app/owner.py` runs it built as the app is (`assemble`: its settings, the hash keyed with SECRET_KEY, and its modules' listeners). `mechframe create-owner` runs that with the site's `.venv`.
     - SPEC 14.1's setup token at first boot is gone.
 - **v1.0:** 65 % (40 of 61 steps). Every K5 step is done but its gate.
 

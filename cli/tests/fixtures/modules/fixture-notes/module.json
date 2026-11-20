@@ -41,7 +41,9 @@
   ],
   "events": {
     "emits": [],
-    "listens": []
+    "listens": [
+      "auth.user.created"
+    ]
   },
   "slots": [],
   "bindings": [
