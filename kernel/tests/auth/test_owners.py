@@ -213,6 +213,12 @@ async def test_an_address_that_isnt_one_is_refused(site: Site) -> None:
             await _create(site, written)
     async with site.db() as db:
         assert await db.scalar(select(User.id)) is None
+        details = await db.scalars(
+            select(AuditEvent.details).where(AuditEvent.action == owners.ACTION)
+        )
+        assert all("owner" not in str(each) for each in details)  # no address kept
+    # Every run is audited, these too (CodeRabbit on #95).
+    assert await _audit(site) == [(owners.ACTION, "refused")] * 4
 
 
 async def test_a_suspended_account_isnt_made_the_owner(site: Site) -> None:

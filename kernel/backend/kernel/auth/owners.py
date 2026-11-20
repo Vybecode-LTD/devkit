@@ -76,6 +76,8 @@ async def create_owner(db: AsyncSession, email: str) -> str:
     token. Commits. Raises OwnerRefused, having changed nothing but the audit."""
     written = email.strip()
     if len(written) > MAX_ADDRESS or not is_address(written):
+        _record(db, "refused", None)  # every run, this one too, and never the address
+        await db.commit()
         raise OwnerRefused(f"{email!r} isn't an email address, like name@example.com.")
     normal = accounts.normal_email(written)
     user: User | None = await db.scalar(
