@@ -23,7 +23,7 @@
      - **its `railway.ts` lines,** so an apply keeps what the owner typed into Railway. Deleting them makes the next apply remove those variables, which the plan marks as destructive.
 
      A later `add` writes the block in `.env.example` again, overwrites the migrations with the checkout's, and adds no `railway.ts` line twice.
-  3. **Each runs whole or not at all:** a journal keeps what every file held, and a failure half-way puts it back. A run holds the site by `.mechframe-busy`, so two never mix.
+  3. **Each runs whole or not at all:** a journal keeps what every file held, and a failure half-way puts it back. A run holds the site by `.mechframe-busy` from its first read to its last write, so two that overlap never plan from the same old lock (Codex on #94).
   4. **Ranges** (`mechframe.ranges`): `^`, `~`, an exact or partial version, `>=`, `>`, `<=`, `<`, `*`, and comparators separated by spaces, all of which must hold. No `||`. A pre-release meets a range from the lowest pre-release of each lower bound: the kernel `0.1.0-dev.0` meets `^0.1` (`>=0.1.0-0 <0.2.0-0`), and `0.2.0-dev.0` doesn't.
   5. **`new --recipe <id>`** checks the recipe before writing anything: it validates; every module is built, or they're listed; each module's requirements are in the recipe; no two conflict. It makes the kernel's site, then runs `add` for each module after the ones it requires. A failure in any of them takes the whole site away. The theme is `--theme`, else the recipe's. The recipe's `settings` are printed for Admin, Settings: nothing applies them before the site runs.
 - **Alternatives:**

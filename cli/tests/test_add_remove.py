@@ -310,3 +310,41 @@ def test_a_crlf_site_keeps_its_line_endings(site_maker: Path, made: Path) -> Non
     for relative in (settings.ENV, settings.RAILWAY, registries.PYTHON, registries.WEB):
         data = (made / relative).read_bytes()
         assert data.count(b"\n") == data.count(b"\r\n"), relative
+
+
+@pytest.mark.parametrize("command", ["add", "remove"])
+def test_a_run_holds_the_site_from_its_first_read(
+    command: str, site_maker: Path, made: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two runs that overlap can't both read the old lock (Codex on #94): one
+    starting while another reads is refused, so neither writes over the other."""
+    if command == "remove":
+        assert _add(site_maker, made, "fixture-notes") == 0
+    real = modules._lock
+    overlapped: list[str] = []
+
+    def overlapping(site: Path, root: Path) -> dict[str, object]:
+        if not overlapped:
+            overlapped.append(command)
+            with pytest.raises(modules.Refused, match="Another mechframe add or remove"):
+                modules.add(site, "fixture-rival", root=root)
+        return real(site, root)
+
+    monkeypatch.setattr(modules, "_lock", overlapping)
+    if command == "add":
+        modules.add(made, "fixture-notes", root=site_maker)
+    else:
+        modules.remove(made, "fixture-notes", root=site_maker)
+    assert overlapped == [command]
+    assert "fixture-rival" not in lock.read(made, site_maker)["modules"]
+    assert not (made / "backend/modules/fixture_rival").exists()
+    _clean(site_maker, made)
+
+
+def test_add_and_remove_refuse_a_site_that_isnt_there(
+    site_maker: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for command in ("add", "remove"):
+        err = _refused(site_maker, tmp_path / "nowhere", "fixture-notes", capsys, command)
+        assert "isn't a folder: is this a MechFrame site?" in err
+    assert not (tmp_path / "nowhere").exists()

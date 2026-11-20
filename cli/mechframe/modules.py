@@ -16,7 +16,8 @@ Alembic, its migrations in `backend/migrations/<id>/`; its `railway.ts`
 lines stay too, so an apply keeps what the owner typed into Railway.
 
 Each runs whole or not at all: a failure half-way puts every file back. A run
-holds the site by `.mechframe-busy` while it writes, so two never mix.
+holds the site by `.mechframe-busy` from its first read to its last write,
+so two that overlap never plan from the same old lock.
 """
 
 from __future__ import annotations
@@ -87,6 +88,10 @@ class Journal:
 
 @contextmanager
 def _busy(site: Path) -> Iterator[None]:
+    """This run's hold on the site, from its first read to its last write, so
+    two runs that overlap can't both plan from the old lock (Codex on #94)."""
+    if not site.is_dir():
+        raise Refused(f"{site} isn't a folder: is this a MechFrame site?")
     claim = site / BUSY
     try:
         claim.open("x").close()
@@ -258,6 +263,11 @@ def _write_lock(journal: Journal, site: Path, data: dict[str, Any], root: Path) 
 
 def add(site: Path, module_id: str, *, root: Path = ROOT, today: date | None = None) -> Added:
     """Add the module to the site. Raises Refused, having written nothing."""
+    with _busy(site):
+        return _add(site, module_id, root, today)
+
+
+def _add(site: Path, module_id: str, root: Path, today: date | None) -> Added:
     data = _lock(site, root)
     manifest = _plan_add(site, data, module_id, root)
     env, env_ending = _text(site, settings.ENV)
@@ -269,25 +279,24 @@ def add(site: Path, module_id: str, *, root: Path = ROOT, today: date | None = N
         )
     except settings.SettingsError as error:
         raise Refused(str(error)) from None
-    with _busy(site):
-        journal = Journal()
-        try:
-            copied: dict[str, str] = {}
-            for source, target in layout.files(root, layout.module_copies(module_id)):
-                journal.copy(source, site / target)
-                copied[target] = digest(site / target)
-            data["modules"][module_id] = {
-                "version": manifest["version"],
-                "added": (today or date.today()).isoformat(),
-                "files": dict(sorted(copied.items())),
-            }
-            _write_registries(journal, site, sorted(data["modules"]))
-            journal.write(site / settings.ENV, registries.encoded(new_env, env_ending))
-            journal.write(site / settings.RAILWAY, registries.encoded(new_script, script_ending))
-            _write_lock(journal, site, data, root)
-        except BaseException:
-            journal.undo()
-            raise
+    journal = Journal()
+    try:
+        copied: dict[str, str] = {}
+        for source, target in layout.files(root, layout.module_copies(module_id)):
+            journal.copy(source, site / target)
+            copied[target] = digest(site / target)
+        data["modules"][module_id] = {
+            "version": manifest["version"],
+            "added": (today or date.today()).isoformat(),
+            "files": dict(sorted(copied.items())),
+        }
+        _write_registries(journal, site, sorted(data["modules"]))
+        journal.write(site / settings.ENV, registries.encoded(new_env, env_ending))
+        journal.write(site / settings.RAILWAY, registries.encoded(new_script, script_ending))
+        _write_lock(journal, site, data, root)
+    except BaseException:
+        journal.undo()
+        raise
     has_migrations = any(target.startswith(f"backend/migrations/{module_id}/") for target in copied)
     return Added(
         site, module_id, manifest["version"], len(copied), list(manifest["env"]), has_migrations
@@ -301,6 +310,11 @@ def _module_folders(module_id: str) -> list[str]:
 
 def remove(site: Path, module_id: str, *, root: Path = ROOT) -> Removed:
     """Remove the module from the site, keeping its tables. Raises Refused, having written nothing."""
+    with _busy(site):
+        return _remove(site, module_id, root)
+
+
+def _remove(site: Path, module_id: str, root: Path) -> Removed:
     data = _lock(site, root)
     installed = data["modules"]
     if module_id not in installed:
@@ -345,25 +359,24 @@ def remove(site: Path, module_id: str, *, root: Path = ROOT) -> Removed:
         for name in (each["name"] for each in _site_manifest(site, module_id).get("env", []))
         if name in settings.listed(script)
     ]
-    with _busy(site):
-        journal = Journal()
-        try:
-            for path in going:
-                journal.delete(path)
-            for folder in _module_folders(module_id):
-                top = site / folder
-                if top.is_dir():
-                    shutil.rmtree(top)  # only folders are left: every file went above
-            del installed[module_id]
-            _write_registries(journal, site, sorted(installed))
-            journal.write(
-                site / settings.ENV,
-                registries.encoded(settings.env_without(env, module_id), env_ending),
-            )
-            _write_lock(journal, site, data, root)
-        except BaseException:
-            journal.undo()
-            raise
+    journal = Journal()
+    try:
+        for path in going:
+            journal.delete(path)
+        for folder in _module_folders(module_id):
+            top = site / folder
+            if top.is_dir():
+                shutil.rmtree(top)  # only folders are left: every file went above
+        del installed[module_id]
+        _write_registries(journal, site, sorted(installed))
+        journal.write(
+            site / settings.ENV,
+            registries.encoded(settings.env_without(env, module_id), env_ending),
+        )
+        _write_lock(journal, site, data, root)
+    except BaseException:
+        journal.undo()
+        raise
     migrations = (site / "backend" / "migrations" / module_id).is_dir()
     return Removed(site, module_id, len(going), edited, added, migrations, kept)
 
