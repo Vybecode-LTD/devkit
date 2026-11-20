@@ -87,6 +87,18 @@ describe("the Features tab", () => {
     expect(screen.getByRole("switch", { name: "Comments" })).toHaveAccessibleDescription(/Off while Blog is off/);
   });
 
+  it("names every module down the chain that goes off with it", async () => {
+    const reactions = item("reactions", { requires: ["comments"], category: "community" });
+    const comments = { ...COMMENTS, required_by: ["reactions"] };
+    answers({ "GET /api/kernel/admin/modules": list(BLOG, comments, reactions, SHOP) });
+    const user = userEvent.setup();
+    await user.click(await opened());
+    const dialog = within(await screen.findByRole("dialog", { name: "Switch off Blog?" }));
+    // Reactions needs Comments, which needs Blog (CodeRabbit on #87).
+    expect(dialog.getByText(/Comments and Reactions need Blog, so they go off too/)).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: "Switch off 3" })).toBeInTheDocument();
+  });
+
   it("switches a module nothing needs at once", async () => {
     const { sent } = answers({ "PUT /api/kernel/admin/modules/shop": list(BLOG, COMMENTS, { ...SHOP, on: false, switched: false }) });
     const user = userEvent.setup();

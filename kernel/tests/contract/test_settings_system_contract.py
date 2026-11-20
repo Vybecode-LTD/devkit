@@ -502,15 +502,21 @@ async def test_a_failed_job_is_listed_without_its_payload_and_retried(api: Api) 
         assert (await _system(api))["jobs"]["dead"] >= 1
         retried = await api.http.post(f"{JOBS}/{ident}/retry")
         assert retried.status_code == 200, retried.text
-        assert retried.json() == {"state": "queued"}
+        # Queued again as a job of its own, so no claim of the old one can
+        # ever match the new run (CodeRabbit on #87).
+        anew = retried.json()["id"]
+        assert retried.json() == {"state": "queued", "id": anew}
+        assert anew != ident
         assert ident not in [item["id"] for item in (await _dead(api))["items"]]
         logged = await _logged(api, "kernel.job", ident)
         assert logged[0]["action"] == "kernel.job.retried"
         assert logged[0]["actor_id"] == owner.id
-        # Its tries were given back: it ran once more and failed again.
+        assert logged[0]["details"]["queued_as"] == anew
+        # It has all its tries: it ran once more and failed again.
         await api.run_jobs()
-        again = next(item for item in (await _dead(api))["items"] if item["id"] == ident)
+        again = next(item for item in (await _dead(api))["items"] if item["id"] == anew)
         assert again["tries"] == 1
+        await api.http.delete(f"{JOBS}/{anew}")
 
 
 async def test_a_failed_job_can_be_discarded(api: Api) -> None:

@@ -9,7 +9,7 @@
  * MechFrame is up to date (nothing checks).
  */
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 
 import { ApiProblem, api, useApiQuery } from "../api/client";
 import type { components } from "../api/schema";
@@ -115,7 +115,7 @@ const REFUSED: Readonly<Record<string, string>> = {
   "kernel.job_not_found": "That job is gone: someone discarded it.",
 };
 
-function Failed({ count }: { count: number }) {
+function Failed({ count, heading }: { count: number; heading: RefObject<HTMLHeadingElement | null> }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const session = useSession();
@@ -142,16 +142,21 @@ function Failed({ count }: { count: number }) {
 
   const act = async (job: DeadJob, how: "retry" | "discard") => {
     setBusy(job.id);
+    let done = false;
     try {
       if (how === "retry") await api.POST("/api/kernel/admin/jobs/{id}/retry", { params: { path: { id: job.id } } });
       else await api.DELETE("/api/kernel/admin/jobs/{id}", { params: { path: { id: job.id } } });
       toast({ tone: "success", text: how === "retry" ? `${job.name} will run again shortly.` : `${job.name} is discarded.` });
+      done = true;
     } catch (caught) {
       toast({ tone: "danger", text: caught instanceof ApiProblem ? said(caught, REFUSED) : "That didn't work. Try again." });
     } finally {
       setBusy(null);
       setDiscarding(null);
       await settle();
+      // The row and its buttons went with the job: the focus goes to the
+      // list's heading, not nowhere (CodeRabbit on #87). A refusal keeps it.
+      if (done) heading.current?.focus();
     }
   };
 
@@ -274,6 +279,7 @@ function Failed({ count }: { count: number }) {
 
 export default function System() {
   const read = useApiQuery("get", "/api/kernel/admin/system");
+  const heading = useRef<HTMLHeadingElement>(null);
   let body;
   if (read.error) {
     body = <LoadError what="the system's state" error={read.error} onRetry={() => void read.refetch()} />;
@@ -295,10 +301,10 @@ export default function System() {
         <Jobs system={system} />
         <section aria-labelledby={FAILED_PLACE} className="mf-settings-failed">
           {/* The board's "Failed for good", named apart from the card of that name. */}
-          <h2 id={FAILED_PLACE} className="mf-settings-heading" tabIndex={-1}>
+          <h2 id={FAILED_PLACE} ref={heading} className="mf-settings-heading" tabIndex={-1}>
             Jobs that failed for good
           </h2>
-          <Failed count={dead} />
+          <Failed count={dead} heading={heading} />
         </section>
         <Services system={system} />
       </>

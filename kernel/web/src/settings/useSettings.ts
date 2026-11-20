@@ -10,13 +10,14 @@
  * "text")` replaces it, `set(field, "")` removes it.
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { api, useApiQuery } from "../api/client";
 import { ApiProblem } from "../api/problem";
 import type { components } from "../api/schema";
 import { resolveConflict, settingsConflict, type Choices, type SettingsConflict } from "../ui/SaveConflict";
 import type { HistoryVersion } from "../ui/SectionHistory";
+import { SettingsGroupContext } from "./group";
 
 export type SettingsValues = Readonly<Record<string, unknown>>;
 export type SettingsHistoryPage = components["schemas"]["SettingsHistory"];
@@ -83,11 +84,19 @@ export function useSettings(id: string): SettingsForm {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [conflict, setConflict] = useState<SettingsConflict | null>(null);
+  // What the person's changes began from: the version and values read when
+  // they made their first, kept until they're saved or discarded. A read in
+  // the background (a focus) may move the section on meanwhile; the save
+  // still goes at this version, so the kernel can tell the edit never saw
+  // what changed since and merges it, or says it's a conflict (Codex on #87).
+  const [base, setBase] = useState<{ version: number; values: SettingsValues } | null>(null);
 
   const saved = query.data?.values ?? EMPTY;
+  const from = useMemo(() => base ?? (query.data ? { version: query.data.version, values: query.data.values } : null), [base, query.data]);
+  const fromValues = from?.values ?? EMPTY;
   const changes = useMemo(
-    () => Object.fromEntries(Object.entries(draft).filter(([field, value]) => !same(value, saved[field]))),
-    [draft, saved],
+    () => Object.fromEntries(Object.entries(draft).filter(([field, value]) => !same(value, fromValues[field]))),
+    [draft, fromValues],
   );
   const values = useMemo(() => ({ ...saved, ...draft }), [saved, draft]);
   const dirty = Object.keys(changes).length > 0;
@@ -107,17 +116,24 @@ export function useSettings(id: string): SettingsForm {
   );
 
   const send = useCallback(
-    async (version: number, sent: Readonly<Record<string, unknown>>, kept: readonly string[] = []): Promise<SaveOutcome> => {
+    async (version: number, sent: Readonly<Record<string, unknown>>, kept: Readonly<Record<string, unknown>> = {}): Promise<SaveOutcome> => {
       setSaving(true);
       setErrors({});
       try {
         const { data } = await api.PUT("/api/kernel/admin/settings/{id}", { ...init, body: { version, changes: { ...sent } } });
         setConflict(null);
         // What was saved leaves the draft, and so does each field the person
-        // gave to the other save; anything typed while this was on its way stays.
+        // gave to the other save, as it was when they did; anything typed
+        // while this was on its way stays (CodeRabbit on #87).
         setDraft((now) =>
-          Object.fromEntries(Object.entries(now).filter(([field, value]) => !kept.includes(field) && !(field in sent && same(value, sent[field])))),
+          Object.fromEntries(
+            Object.entries(now).filter(
+              ([field, value]) => !(field in kept && same(value, kept[field])) && !(field in sent && same(value, sent[field])),
+            ),
+          ),
         );
+        // Anything still in the draft begins again from what this save left.
+        setBase(null);
         await reread();
         if (!data || data.changed.length === 0) return { status: "unchanged" };
         return { status: "saved", changed: data.changed, merged: data.merged };
@@ -138,19 +154,37 @@ export function useSettings(id: string): SettingsForm {
   );
 
   const save = useCallback(async (): Promise<SaveOutcome> => {
-    if (query.data === undefined || !dirty) return { status: "unchanged" };
-    return send(query.data.version, changes);
-  }, [query.data, dirty, send, changes]);
+    if (from === null || !dirty) return { status: "unchanged" };
+    return send(from.version, changes);
+  }, [from, dirty, send, changes]);
 
   const resolve = useCallback(
     async (choices: Choices): Promise<SaveOutcome> => {
       if (conflict === null) return { status: "unchanged" };
       const again = resolveConflict(changes, conflict, choices);
       const theirs = conflict.conflicts.filter(({ field }) => choices[field] === "theirs").map(({ field }) => field);
-      return send(again.version, again.changes, theirs);
+      return send(again.version, again.changes, Object.fromEntries(theirs.map((field) => [field, draft[field]])));
     },
-    [conflict, changes, send],
+    [conflict, changes, send, draft],
   );
+
+  // On a page with one Save (the Site tab), this form joins it while drawn.
+  const group = useContext(SettingsGroupContext);
+  const key = useRef<symbol>(Symbol(id));
+  const saveNow = useRef(save);
+  useLayoutEffect(() => {
+    saveNow.current = save;
+  });
+  useEffect(() => {
+    group?.join(key.current, { dirty, save: () => saveNow.current() });
+  }, [group, dirty]);
+  useEffect(() => {
+    if (!group) return;
+    const mine = key.current;
+    return () => {
+      group.leave(mine);
+    };
+  }, [group]);
 
   const history = useCallback(async () => {
     const { data } = await api.GET("/api/kernel/admin/settings/{id}/history", { params: { path: { id }, query: { limit: HISTORY_LIMIT } } });
@@ -174,11 +208,14 @@ export function useSettings(id: string): SettingsForm {
     changes,
     dirty,
     set: (field, value) => {
+      const read = query.data;
+      if (read) setBase((now) => now ?? { version: read.version, values: read.values });
       setDraft((now) => ({ ...now, [field]: value }));
       setErrors((now) => (field in now ? Object.fromEntries(Object.entries(now).filter(([key]) => key !== field)) : now));
     },
     discard: () => {
       setDraft({});
+      setBase(null);
       setErrors({});
       setConflict(null);
     },

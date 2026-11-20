@@ -18,12 +18,12 @@ function shown(fetched: Record<string, Answer | ((request: Request) => Answer)>)
     held.form = useSettings("blog");
     return null;
   }
-  renderWithKernel(<Probe />, { session: admin });
+  const { queryClient } = renderWithKernel(<Probe />, { session: admin });
   const form = () => {
     if (!held.form) throw new Error("not drawn");
     return held.form;
   };
-  return { ...net, form };
+  return { ...net, form, queryClient };
 }
 
 const read = (version: number, values: Record<string, unknown>): Answer => ({ status: 200, body: { version, values } });
@@ -75,6 +75,34 @@ describe("useSettings", () => {
     expect(form().dirty).toBe(false);
   });
 
+  it("saves at the version the person's changes began from, though the section was read again since", async () => {
+    let version = 2;
+    const { form, sent, queryClient } = shown({
+      [`GET ${SECTION}`]: () => read(version, { title: version === 2 ? "News" : "Theirs" }),
+      [`PUT ${SECTION}`]: { status: 200, body: { version: 4, changed: ["title"], merged: [] } },
+    });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Mine");
+    });
+    // Someone else saves; the page reads the section again (a focus, say).
+    version = 3;
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ["get", "/api/kernel/admin/settings/{id}"] });
+    });
+    await waitFor(() => {
+      expect(form().saved).toEqual({ title: "Theirs" });
+    });
+    expect(form().changes).toEqual({ title: "Mine" });
+    await act(async () => {
+      await form().save();
+    });
+    // At version 2, so the server can tell this edit never saw theirs (Codex on #87).
+    expect(await bodies(sent, "PUT")).toEqual([{ version: 2, changes: { title: "Mine" } }]);
+  });
+
   it("resolves a conflict with the person's choices, dropping the fields they gave up", async () => {
     let tries = 0;
     const { form, sent } = shown({
@@ -107,6 +135,41 @@ describe("useSettings", () => {
     expect(sentBodies[1]).toEqual({ version: 3, changes: { per_page: 20 } });
     expect(form().conflict).toBeNull();
     expect(form().changes).not.toHaveProperty("title");
+  });
+
+  it("keeps an edit made while a resolution was saving, of a field given to the other save", async () => {
+    let tries = 0;
+    const { form } = shown({
+      [`GET ${SECTION}`]: read(2, { title: "News" }),
+      [`PUT ${SECTION}`]: () => {
+        tries += 1;
+        if (tries > 1) return { status: 200, body: { version: 3, changed: [], merged: [] } };
+        const refused = problem(409, "kernel.settings_conflict");
+        return {
+          ...refused,
+          body: { ...(refused.body as object), version: 3, conflicts: [{ field: "title", yours: "Mine", theirs: "Theirs" }], by: null, at: null },
+        };
+      },
+    });
+    await waitFor(() => {
+      expect(form().read).toBe("read");
+    });
+    act(() => {
+      form().set("title", "Mine");
+    });
+    await act(async () => {
+      await form().save();
+    });
+    let pending: Promise<unknown> = Promise.resolve();
+    act(() => {
+      pending = form().resolve({ title: "theirs" });
+      form().set("title", "Newer");
+    });
+    await act(async () => {
+      await pending;
+    });
+    // "Newer" came after the choice; it isn't the value given up (CodeRabbit on #87).
+    expect(form().changes).toEqual({ title: "Newer" });
   });
 
   it("puts a refused value's words beside its field", async () => {

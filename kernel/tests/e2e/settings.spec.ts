@@ -64,17 +64,23 @@ test("a failed job is retried, and one that can't run again is discarded", async
   // Each test's jobs are its own; the list may hold others' too.
   const rows = table.getByRole("row").filter({ hasText: "probe.fail" });
   await expect(rows.first()).toBeVisible();
-  const ids = await page.request.get("/api/kernel/admin/jobs/dead?limit=100");
-  const items = ((await ids.json()) as { items: { id: string; retryable: boolean }[] }).items;
+  const dead = async (): Promise<{ id: string; retryable: boolean }[]> => {
+    const listed = await page.request.get("/api/kernel/admin/jobs/dead?limit=100");
+    return ((await listed.json()) as { items: { id: string; retryable: boolean }[] }).items;
+  };
+  const items = await dead();
   expect(items.find((item) => item.id === retried)?.retryable).toBe(true);
   expect(items.find((item) => item.id === wiped)?.retryable).toBe(false);
 
   const retryable = rows.filter({ has: page.getByRole("button", { name: "Retry" }) }).first();
   await retryable.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByText("probe.fail will run again shortly.")).toBeVisible();
+  // It was this test's job the Retry took, not another's (CodeRabbit on #87).
+  expect((await dead()).map((item) => item.id)).not.toContain(retried);
 
   const onlyDiscard = rows.filter({ hasNot: page.getByRole("button", { name: "Retry" }) }).first();
   await onlyDiscard.getByRole("button", { name: "Discard" }).click();
   await page.getByRole("dialog", { name: "Discard probe.fail?" }).getByRole("button", { name: "Discard" }).click();
   await expect(page.getByText("probe.fail is discarded.")).toBeVisible();
+  expect((await dead()).map((item) => item.id)).not.toContain(wiped);
 });

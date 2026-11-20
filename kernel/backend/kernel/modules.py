@@ -293,9 +293,10 @@ class ModuleRegistry:
     async def listing(self, db: AsyncSession) -> list[dict[str, Any]]:
         """The modules MODULES allows, by name, as the Features page shows
         them: `switched` is the admin's switch, `on` also needs every module
-        it requires on (read fresh, not from the cache)."""
+        it requires on. Both come from one read of the switches, so a switch
+        made meanwhile can't set them at odds (CodeRabbit on #87)."""
         switched_off = await self.switched_off(db)
-        on = await self.on(db, fresh=True)
+        on = self.effective(switched_off)
         items = [
             {
                 "id": module.id,

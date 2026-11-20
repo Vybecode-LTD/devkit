@@ -146,6 +146,8 @@ for (const [name, canvas] of Object.entries(THEMES)) {
   });
 
   test(`axe finds no serious or critical problem in the admin in ${name}, Jump to and the notices open too`, async ({ page }) => {
+    // Eight axe runs: beside the whole suite's parallel load it nears the default 30 s (K4.8).
+    test.setTimeout(60_000);
     await signedInAdmin(page);
     for (const path of OTHERS) {
       await page.goto(path);
