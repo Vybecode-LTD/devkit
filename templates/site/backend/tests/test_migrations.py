@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
 import asyncpg
+import pytest
 
 from app import migrations
 
@@ -27,6 +29,20 @@ async def test_upgrade_downgrade_upgrade(empty_database_url: str) -> None:
     assert await _tables(empty_database_url) <= {"alembic_version"}
     await asyncio.to_thread(migrations.upgrade, empty_database_url)
     assert await _tables(empty_database_url) == made
+
+
+def test_the_database_comes_from_dotenv_as_the_apps_does(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """README.md keeps DATABASE_URL in .env: the migrations read it there, as
+    the app's KernelConfig does (Codex on #92). A URL given still wins."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.chdir(tmp_path)
+    url = "postgresql://dotenv:secret@db.test/from_dotenv"
+    (tmp_path / ".env").write_text(f"DATABASE_URL={url}\n", "utf-8")
+    assert migrations.config().get_main_option("sqlalchemy.url") == url
+    given = "postgresql://u:p%40ss@db.test/given"
+    assert migrations.config(given).get_main_option("sqlalchemy.url") == given
 
 
 def test_the_command_says_how_to_use_it() -> None:

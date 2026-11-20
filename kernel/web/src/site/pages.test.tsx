@@ -7,7 +7,7 @@ import { act, screen } from "@testing-library/react";
 import type { Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { renderApp, renderWithKernel } from "../../testing";
+import { renderApp, renderWithKernel, testUser } from "../../testing";
 import { mountApp } from "../app/mount";
 import { defineModule, defineSite, type SiteDefinition } from "../modules";
 import { SlotOutlet } from "../slots/slots";
@@ -101,6 +101,15 @@ describe("the site's pages", () => {
   it("win a tie with a module's route", async () => {
     renderApp({ modules: [shop], sitePages: site(), path: "/about" });
     expect(await screen.findByRole("heading", { name: "One of our pages" })).toBeInTheDocument();
+  });
+
+  it("win a tie with a module's route of another kind: the site's member page over a module's public one (Codex on #92)", async () => {
+    const shelf = defineModule({
+      id: "shelf",
+      routes: { public: [{ path: "/library", lazy: pageSaying("The shelf") }], member: [], admin: [] },
+    });
+    renderApp({ modules: [shelf], sitePages: site(), path: "/library", session: testUser() });
+    expect(await screen.findByRole("heading", { name: "Your library" })).toBeInTheDocument();
   });
 
   it("lose to a more fixed module route", async () => {

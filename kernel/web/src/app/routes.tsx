@@ -97,6 +97,16 @@ function moduleRoute(module: ModuleDefinition, route: ModuleRoute, access: Acces
   };
 }
 
+/** The public pages (but `/`) and then the member pages of `modules`, in the site frame. */
+function pageRoutes(modules: readonly ModuleDefinition[]): RouteObject[] {
+  return [
+    ...modules.flatMap((module) =>
+      module.routes.public.filter((route) => route.path !== "/").map((route) => moduleRoute(module, route, "public")),
+    ),
+    ...modules.flatMap((module) => module.routes.member.map((route) => moduleRoute(module, route, "member"))),
+  ];
+}
+
 /**
  * The router's routes, from the modules `on` (every module given while it's
  * unknown). A module that's off has no routes at all, so its pattern never
@@ -123,10 +133,9 @@ export function buildRoutes(given: readonly ModuleDefinition[], on?: ReadonlySet
           element: <SiteFrame />,
           children: [
             { index: true, element: <HomeRoute owners={owners} /> },
-            ...modules.flatMap((module) =>
-              module.routes.public.filter((route) => route.path !== "/").map((route) => moduleRoute(module, route, "public")),
-            ),
-            ...modules.flatMap((module) => module.routes.member.map((route) => moduleRoute(module, route, "member"))),
+            // The site's own pages of either kind first, so they win any tie, as the server's (Codex on #92).
+            ...pageRoutes(modules.filter((module) => module.id === SITE)),
+            ...pageRoutes(modules.filter((module) => module.id !== SITE)),
             { element: <RequireAuth />, children: kernel("member").map(kernelRoute) },
             { path: "*", element: <NotFound /> },
           ],

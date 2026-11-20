@@ -79,6 +79,17 @@ def test_the_site_wins_a_tie_with_a_module_and_the_log_says_so(
     ]
 
 
+def test_the_site_wins_a_tie_of_another_kind_too() -> None:
+    """The site's member page over a module's public one, as the web's router
+    has it (Codex on #92)."""
+    routes = server_copy.build(
+        [public_module("shelf", public=["/library"], pages=FakePages())], site=_site()
+    )
+    found = routes.resolve("/library")
+    assert found is not None
+    assert (found.module, found.member) == (SITE, True)
+
+
 def test_a_more_fixed_module_pattern_beats_the_sites() -> None:
     routes = server_copy.build(
         [public_module("shop", public=["/shop"], pages=FakePages())],

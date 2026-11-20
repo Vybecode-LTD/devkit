@@ -34,15 +34,23 @@ def migration_dirs() -> list[str]:
     return [str(path) for path in found if path.is_dir()]
 
 
+def app_database_url() -> str:
+    """The database the app uses: DATABASE_URL from the environment, then
+    from .env, as the app's KernelConfig reads it (Codex on #92)."""
+    from kernel.config import KernelConfig
+
+    return KernelConfig().database_url
+
+
 def config(database_url: str | None = None) -> Config:
-    """An Alembic config for this site. `database_url` overrides the app's."""
+    """An Alembic config for this site, on `database_url`, else the app's."""
+    url = database_url if database_url is not None else app_database_url()
     cfg = Config(stdout=sys.stdout)
     cfg.set_main_option("script_location", str(SCRIPT_LOCATION))
     cfg.set_main_option("path_separator", "os")
     cfg.set_main_option("version_locations", os.pathsep.join(migration_dirs()))
-    if database_url is not None:
-        # Alembic's config is an ini file: a literal % must be doubled.
-        cfg.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+    # Alembic's config is an ini file: a literal % must be doubled.
+    cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     return cfg
 
 

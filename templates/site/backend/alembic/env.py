@@ -1,7 +1,9 @@
 """Alembic's environment for this site: every branch, one async engine.
 
-The URL is `sqlalchemy.url` when the caller set one (the tests), else the
-app's DATABASE_URL. Migrations run in one transaction per revision. The
+The URL is `sqlalchemy.url`, which `app.migrations.config` always sets: the
+one a caller gave (the tests), else the app's DATABASE_URL, from the
+environment or .env as the app reads it. Migrations run in one transaction
+per revision. The
 kernel's models and each module's are imported, so `Base.metadata` holds
 every table the migrations make.
 """
