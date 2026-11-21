@@ -120,6 +120,17 @@ Lists take `?cursor=&limit=` (1 to 100, 50) and answer `{items, next_cursor}` (S
 | `DELETE /api/kernel/admin/moderation/people/{id}/time-out` | | `kernel.moderation.act`. 204 |
 | `GET /api/kernel/admin/moderation/log?subject=` | | `kernel.moderation.act`. 200, the audit entries for moderation and suspensions, newest first, without `ip` or `user_agent` |
 
+## Taxonomy (kernel.taxonomy, decision 0052, hook 2)
+
+A term is `{id, vocabulary, slug, label, parent_id, position}`. A `slug` is lowercase letters and digits joined by single hyphens, at most 80 characters; a `label` 1 to 80; a `position` 0 to 100,000, lower first, then by slug. A term made by tagging takes its label from its slug.
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/kernel/terms?vocabulary=&cursor=&limit=` | | Public. 200 `{"vocabulary": {key, label, hierarchical}, "items": [terms], "next_cursor"}`, by position and then slug; `limit` 1 to 500 (100). 404 `kernel.vocabulary_not_found` for a key no module on declares; 422 `kernel.invalid_request` for a bad cursor |
+| `POST /api/kernel/admin/terms` | `{vocabulary, slug, label, parent_id?, position?}` | `kernel.taxonomy.manage`. 201, the term. 409 `kernel.term_exists` for a slug the vocabulary has; 422 `kernel.invalid_request` for a vocabulary no module declares, or a `parent_id` in a flat vocabulary or not in this one. Audited as `kernel.term.created` |
+| `PATCH /api/kernel/admin/terms/{id}` | any of `{slug, label, parent_id, position}` | `kernel.taxonomy.manage`. 200, the term; `parent_id` null moves it to the top. 404 `kernel.term_not_found`; 409 `kernel.term_exists`; 422 `kernel.invalid_request`, a parent under the term itself among them. Audited as `kernel.term.changed` with the fields' names |
+| `DELETE /api/kernel/admin/terms/{id}` | | `kernel.taxonomy.manage`. 204, the term and its links gone. 404 `kernel.term_not_found`; 409 `kernel.term_has_children` while terms sit under it. Audited as `kernel.term.deleted` |
+
 A module route that posts answers 403 `kernel.timed_out` with `until` while the person is timed out (`moderation.can_post`).
 
 ## Staff
@@ -165,6 +176,9 @@ Mounted by the harness only when `HARNESS_TEST_SUPPORT=1`, so the contract suite
 | `POST /api/probe/notes` | `{slug, title}`: 201 `{"id"}`, a probe note, a draft (the contract hooks' content, decision 0052) |
 | `POST /api/probe/notes/{id}/publish`, `POST /api/probe/notes/{id}/unpublish` | 204: the note published now, or back to a draft (hook 1, content lifecycle) |
 | `POST /api/probe/notes/{id}/schedule` | `{at}`, an ISO 8601 time with its zone: 204, published by `kernel.publish_due` once `at` has passed; 422 `kernel.publish_at_past` for a time gone, 409 `kernel.content_published` for a published note |
-| `GET /api/probe/notes/{slug}` | 200 `{slug, title, published_at}` for a published note, else 404 `probe.note_not_found`. Its public page is `/probe/notes/{slug}`, listed in `sitemap.xml` while it's published |
+| `GET /api/probe/notes/{slug}` | 200 `{slug, title, published_at, terms: [{vocabulary, slug, label}]}` for a published note, else 404 `probe.note_not_found`. Its public page is `/probe/notes/{slug}`, listed in `sitemap.xml` while it's published |
+| `PUT /api/probe/notes/{id}/terms` | `{vocabulary, slugs}`, `topics` or `tags`: 200 `{"terms": [{vocabulary, slug, label}]}`, the note's terms in that vocabulary set to exactly those (hook 2, taxonomy) |
+| `GET /api/probe/notes?vocabulary=&term=` | 200 `{"items": [slugs]}`, the published notes holding the term |
+| `DELETE /api/probe/notes/{id}` | 204: the note and its terms' links gone |
 | `GET /api/_test/delete-hooks` | `{"deleted": [user ids]}`, recorded by the harness's probe module |
 | `GET /api/_test/routes` | `{"undeclared": [...], "admin": [...], "step_up": [...]}`: the route audit's list, then every admin route and every step-up route as `METHOD /path/{template}` |

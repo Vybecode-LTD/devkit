@@ -27,7 +27,7 @@ Account copies are saved by the owner from the review cards Claude proposes; `sk
 
 **Updated 2026-11-12:** the account copy of `mechframe-module-extractor` now uses `backend/<id_>/` (the id with hyphens turned into underscores) and decision 0009's fixed names.
 
-**To carry into the account copy at the next batch (2026-11-13):** `mechframe-module-extractor` no longer names the retired Spec doc (decision 0017); `skills/` already has the change. When the roadmap hooks land, `module-contract-lint` and `mechframe-module-extractor` gain a row or step for each (`mechframe-hook-designer` step 4), and their account copies need the same edits. Landed so far: content lifecycle (#97): `module-contract-lint`'s section 8 and the extractor's step 7 bullet.
+**To carry into the account copy at the next batch (2026-11-13):** `mechframe-module-extractor` no longer names the retired Spec doc (decision 0017); `skills/` already has the change. When the roadmap hooks land, `module-contract-lint` and `mechframe-module-extractor` gain a row or step for each (`mechframe-hook-designer` step 4), and their account copies need the same edits. Landed so far: content lifecycle (#97) and taxonomy (#98): `module-contract-lint`'s section 8 rows and the extractor's step 7 bullet.
 
 ## Waiting to be built
 

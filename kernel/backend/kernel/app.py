@@ -89,6 +89,7 @@ from kernel import (
     openapi,
     server_copy,
     shell,
+    taxonomy,
 )
 from kernel.admin import router as admin_router
 from kernel.auth import sign_up
@@ -231,6 +232,7 @@ def assemble(
         )
         reportable = moderation.build((module.id, module.reportable) for module in installed)
         publishable = lifecycle.build(installed)
+        vocabularies = taxonomy.build(installed)
         public = server_copy.build(installed, site)
         catalog = events.build(
             [
@@ -269,6 +271,7 @@ def assemble(
     notifications.install(kinds)
     moderation.install(reportable)
     lifecycle.install(publishable)
+    taxonomy.install(vocabularies)
     server_copy.install(site_name=config.site_name, site_url=config.site_url)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).

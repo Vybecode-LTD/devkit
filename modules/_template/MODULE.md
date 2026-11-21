@@ -31,7 +31,7 @@
 
 <!-- Settings, slots, events and public.py / web/public.ts exports a site can use instead of editing the copy. -->
 
-<!-- The contract hooks it fills (SPEC 7's index): content lifecycle (its `content_types` with `lifecycle: true`, lifecycle.py's PUBLISHABLE), and the rest as they land. -->
+<!-- The contract hooks it fills (SPEC 7's index): content lifecycle (its `content_types` with `lifecycle: true`, lifecycle.py's PUBLISHABLE), taxonomy (its `vocabularies` and `content_types[].taxonomy`, tagged through `kernel.taxonomy`), and the rest as they land. -->
 
 ## Known limits
 

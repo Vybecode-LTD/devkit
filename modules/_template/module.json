@@ -58,6 +58,7 @@
       "default": "both"
     }
   ],
+  "vocabularies": [],
   "content_types": [],
   "data_hooks": {
     "export": true,

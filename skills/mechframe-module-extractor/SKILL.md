@@ -110,7 +110,7 @@ Also declare `permissions` (with default roles), `settings`, `env`, `routes`, `t
 - Events: versioned Pydantic payloads holding ids, emitted inside the transaction; handlers safe to run twice.
 - Public pages: `server_copy.py` with `head`, `copy`, `structured_data` and `sitemap`, so crawlers that run no JavaScript read the page.
 - Personal data: `export_user_data` and `delete_user_data`, wired to `auth.user.deleted`.
-- Contract hooks (SPEC 7's index, decision 0052): fill each one the feature needs instead of porting the old project's own way. **Content lifecycle:** content that's drafted, scheduled or published subclasses `lifecycle.Publishable` and is listed in `lifecycle.py`'s `PUBLISHABLE` and in module.json's `content_types` with `lifecycle: true`; drop the source's status column, publish date and publishing job (VybeSite's `PostStatus`, for one), and read with `lifecycle.visible`.
+- Contract hooks (SPEC 7's index, decision 0052): fill each one the feature needs instead of porting the old project's own way. **Content lifecycle:** content that's drafted, scheduled or published subclasses `lifecycle.Publishable` and is listed in `lifecycle.py`'s `PUBLISHABLE` and in module.json's `content_types` with `lifecycle: true`; drop the source's status column, publish date and publishing job (VybeSite's `PostStatus`, for one), and read with `lifecycle.visible`. **Taxonomy:** the source's tags, topics or categories become a vocabulary in module.json's `vocabularies` (a shared key such as `topics` where another module could use the same list) and the content type's `taxonomy`; drop the source's term and join tables, write its terms with `taxonomy.tag`, and call `taxonomy.untag_all` where the thing is deleted.
 
 ## Step 8: port the web binding
 

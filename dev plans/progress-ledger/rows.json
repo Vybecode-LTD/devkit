@@ -652,11 +652,11 @@
    "gate": "",
    "step_order": 2,
    "step": "Taxonomy",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
-   "note": ""
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#98",
+   "decisions": "0052",
+   "note": "kernel.taxonomy: vocabularies in module.json, the kernel's term tables (kernel_0013), tag, terms_for, tagged and untag_all, the public terms list and the admin's term routes"
   },
   {
    "milestone": "MechFrame v1.0",

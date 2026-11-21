@@ -95,6 +95,11 @@ def _module_rules(manifest: dict[str, Any], folder: Path, root: Path, report: Re
             report.problem(
                 path, root, f"notification {notice['key']!r} should start with {module_id}."
             )
+    vocabularies: set[str] = set()
+    for vocabulary in manifest.get("vocabularies", []):
+        if vocabulary["key"] in vocabularies:
+            report.problem(path, root, f"vocabulary {vocabulary['key']!r} is listed twice")
+        vocabularies.add(vocabulary["key"])
     seen: set[str] = set()
     for content in manifest.get("content_types", []):
         key = content["key"]
@@ -103,6 +108,13 @@ def _module_rules(manifest: dict[str, Any], folder: Path, root: Path, report: Re
         elif key in seen:
             report.problem(path, root, f"content type {key!r} is listed twice")
         seen.add(key)
+        for taken in content.get("taxonomy", []):
+            if taken not in vocabularies:
+                report.problem(
+                    path,
+                    root,
+                    f"content type {key!r} takes {taken!r}, which its vocabularies don't declare",
+                )
 
 
 def check(root: Path = ROOT) -> Report:

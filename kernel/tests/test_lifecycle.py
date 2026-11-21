@@ -61,13 +61,14 @@ async def notes(database: Database) -> AsyncIterator[Database]:
 
 
 @pytest.fixture(autouse=True)
-def _installed() -> Iterator[None]:
-    lifecycle.install({"notes.note": Note})
+def _installed(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """The test's types, and the app's back after it: the contract suite's
+    app, built once, reads the same module global."""
+    monkeypatch.setattr(lifecycle, "_publishable", {"notes.note": Note})
     clock.reset()
     try:
         yield
     finally:
-        lifecycle.install({})
         clock.reset()
 
 

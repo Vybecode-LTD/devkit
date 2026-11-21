@@ -121,6 +121,10 @@ KERNEL_ACTIONS = frozenset(
         "kernel.module.disabled",
         "kernel.job.retried",
         "kernel.job.discarded",
+        # The terms of the vocabularies modules declare (decision 0052, hook 2).
+        "kernel.term.created",
+        "kernel.term.changed",
+        "kernel.term.deleted",
     }
 )
 

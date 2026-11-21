@@ -393,6 +393,46 @@
             "type": "boolean",
             "default": false,
             "description": "Draft, scheduled and published, through kernel.lifecycle (decision 0052)"
+          },
+          "taxonomy": {
+            "type": "array",
+            "default": [],
+            "uniqueItems": true,
+            "description": "The vocabularies this content takes terms from, each one the module's vocabularies declare (kernel.taxonomy, decision 0052)",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          }
+        }
+      }
+    },
+    "vocabularies": {
+      "type": "array",
+      "description": "The term lists the module's content is tagged from. Modules naming the same key share it (kernel.taxonomy, decision 0052)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 40,
+            "description": "Shared across modules, so not prefixed: topics, tags, genres"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "hierarchical": {
+            "type": "boolean",
+            "default": false,
+            "description": "Terms may sit under a parent term"
           }
         }
       }

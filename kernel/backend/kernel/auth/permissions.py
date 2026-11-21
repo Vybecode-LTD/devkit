@@ -38,6 +38,7 @@ KERNEL_PERMISSION_WORDS: dict[str, str] = {
     "kernel.settings.manage": "Change any module's settings",
     "kernel.jobs.manage": "Retry and discard failed background jobs",
     "kernel.moderation.act": "Act on moderation reports: hide, delete, time out and ban",
+    "kernel.taxonomy.manage": "Add, rename, move and delete the site's terms",
 }
 KERNEL_PERMISSIONS = frozenset(KERNEL_PERMISSION_WORDS)
 

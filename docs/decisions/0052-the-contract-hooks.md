@@ -1,7 +1,7 @@
 # 0052: The ten contract hooks: their shapes and their order
 
 - **Date:** 2026-11-20
-- **Status:** Accepted (the owner approved `dev plans/contracts/hooks.md` "as recommended", 2026-11-20). Hooks applied to SPEC.md so far: 1, content lifecycle (#97).
+- **Status:** Accepted (the owner approved `dev plans/contracts/hooks.md` "as recommended", 2026-11-20). Hooks applied to SPEC.md so far: 1, content lifecycle (#97); 2, taxonomy (#98).
 - **Context:** Decision 0018 put ten hooks into SPEC.md before v1.0 freezes, one PR each, with `mechframe-hook-designer`. Each needed an exact shape: what a module declares, what the kernel does, and what a module that doesn't take part loses (nothing). Vibrant Mindz's step-1 modules (`media`, `pages`, `blog`, `embeds`, `contact`, `campaigns`) are extracted next, and they need some of the hooks from their first commit. Building the contract settled:
   - which hooks share a manifest field;
   - the order;
@@ -18,9 +18,11 @@
   7. **The fake module:** the harness's `probe` fills every hook and `probe-addon` none, so each hook's tests compare a module that takes part with one that doesn't. Their tables live on a metadata of their own (`harness.probe.TABLES`), which the test support makes when its app starts, so no migration or migration check sees them.
   8. **Hook 1, content lifecycle (#97):** `kernel.lifecycle`'s `Publishable` mixin gives a model `status`, `publish_at` and `published_at`, a CHECK and a partial index. `publish`, `schedule` and `unpublish` change them in the caller's transaction and emit `kernel.content.published` and `kernel.content.unpublished`. The kernel's `kernel.publish_due` job publishes what's due every minute, dated at its time, and `visible(Model)` is the one public WHERE. `published_at` keeps the first publication.
 - **Alternatives:**
+  9. **Hook 2, taxonomy (#98):** module.json's `vocabularies` and `content_types[].taxonomy`, with the kernel's three tables (`kernel_0013`). `taxonomy.tag(db, type, id, vocabulary, slugs)` takes the vocabulary, since a type can take several, and sets that vocabulary's terms to exactly the slugs, making any missing, each held FOR KEY SHARE so a deletion waits. `GET /api/kernel/terms` lists a vocabulary's terms in pages while a module declaring it is on. Staff's changes lock the vocabulary's row, so no two moves make a circle. A 404 has codes of its own (`kernel.vocabulary_not_found`, `kernel.term_not_found`), since the contract suite reads `kernel.not_found` as a route not built.
   - Flags of their own for each hook rather than `content_types`: three fields saying the same thing.
   - A publishing job in each module: every module would schedule its own way, and an editorial calendar couldn't read them.
   - `visible` showing a scheduled row whose time has passed, so nothing waits on the job: the published date and the events would then lag what the public sees.
+  - A term table in each module: the blog's topics and the docs' topics couldn't be one list, and a site search couldn't facet across them.
   - Leaving the export route to K2's step 11: hook 7's contract test would have nothing to call.
   - `CONSENT_MODE=off` by default: simpler, but analytics would run before anyone agreed.
 - **Consequences:**

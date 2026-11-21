@@ -89,6 +89,7 @@ Then the migration round trip, the contract tests (HTTP only, no imports of the 
 A hook is optional: check only the ones the module takes part in, and that it doesn't solve a hook's problem its own way instead.
 
 - **Content lifecycle:** every type in module.json's `content_types` with `lifecycle: true` has a model in `lifecycle.py`'s `PUBLISHABLE` subclassing `lifecycle.Publishable`, with `__content_type__` set to that key, and no other model is listed. The migration writes `*lifecycle.columns()` and `*lifecycle.table_args("<table>")`. Public reads, the server copy and the sitemap filter with `lifecycle.visible(Model)`; only `lifecycle.publish`, `schedule` and `unpublish` change `status`, `publish_at` and `published_at`. No status column, publish date or publishing job of the module's own.
+- **Taxonomy:** every vocabulary a content type's `taxonomy` names is in the same manifest's `vocabularies`, and a shared key agrees with the other modules' `hierarchical`. The module tags only through `taxonomy.tag`, reads with `terms_for` and `tagged`, and calls `taxonomy.untag_all` in the transaction that deletes a tagged thing. No term, tag or category table of its own (SPEC 10), and no term carrying what the content keeps private.
 
 ## Report
 

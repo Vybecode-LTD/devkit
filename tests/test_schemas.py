@@ -203,3 +203,54 @@ def test_a_content_type_breaking_the_schema_is_named(
     _edit(repo, content_types=[entry])
     (problem,) = check(repo).problems
     assert problem.startswith(f"modules/print-on-demand/module.json: {where}:")
+
+
+# --- vocabularies (decision 0052, hook 2: taxonomy) --------------------------------------
+
+_TOPICS = {"key": "topics", "label": "Topics", "hierarchical": True}
+
+
+def test_vocabularies_pass_and_a_content_type_takes_its_modules_own(repo: Path) -> None:
+    _edit(
+        repo,
+        vocabularies=[_TOPICS, {"key": "styles", "label": "Styles"}],
+        content_types=[{**_DESIGN, "taxonomy": ["topics", "styles"]}],
+    )
+    assert check(repo).problems == []
+
+
+def test_a_content_type_taking_a_vocabulary_its_module_lacks_fails(repo: Path) -> None:
+    _edit(repo, vocabularies=[_TOPICS], content_types=[{**_DESIGN, "taxonomy": ["tags"]}])
+    assert check(repo).problems == [
+        "modules/print-on-demand/module.json: content type 'print-on-demand.design' takes "
+        "'tags', which its vocabularies don't declare"
+    ]
+
+
+def test_a_vocabulary_listed_twice_fails(repo: Path) -> None:
+    _edit(repo, vocabularies=[_TOPICS, {**_TOPICS, "label": "Again"}])
+    assert check(repo).problems == [
+        "modules/print-on-demand/module.json: vocabulary 'topics' is listed twice"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("changes", "where"),
+    [
+        ({"vocabularies": [{"key": "Topics", "label": "Topics"}]}, "vocabularies/0/key"),
+        ({"vocabularies": [{"key": "topics"}]}, "vocabularies/0"),
+        ({"vocabularies": [{**_TOPICS, "hierarchical": "yes"}]}, "vocabularies/0/hierarchical"),
+        ({"vocabularies": [{**_TOPICS, "colour": "red"}]}, "vocabularies/0"),
+        ({"content_types": [{**_DESIGN, "taxonomy": "topics"}]}, "content_types/0/taxonomy"),
+        (
+            {"vocabularies": [_TOPICS], "content_types": [{**_DESIGN, "taxonomy": ["topics"] * 2}]},
+            "content_types/0/taxonomy",
+        ),
+    ],
+)
+def test_a_vocabulary_breaking_the_schema_is_named(
+    repo: Path, changes: dict[str, object], where: str
+) -> None:
+    _edit(repo, **changes)
+    (problem,) = check(repo).problems
+    assert problem.startswith(f"modules/print-on-demand/module.json: {where}:")

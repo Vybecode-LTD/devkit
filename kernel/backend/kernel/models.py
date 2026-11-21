@@ -298,6 +298,57 @@ class ModerationReport(Base):
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class TaxonomyVocabulary(Base):
+    """A list of terms that modules declare in their manifests (kernel.taxonomy,
+    decision 0052, hook 2). Its row is made the first time it's used, and its
+    label and `hierarchical` are kept in step with the manifests."""
+
+    __tablename__ = "kernel_vocabulary"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    key: Mapped[str] = mapped_column(String(40), unique=True)
+    label: Mapped[str] = mapped_column(String(60))
+    hierarchical: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+
+
+class TaxonomyTerm(Base):
+    """One term of a vocabulary, its slug unique in it. A term with children
+    isn't deleted: they're moved or deleted first."""
+
+    __tablename__ = "kernel_term"
+    __table_args__ = (
+        UniqueConstraint("vocabulary_id", "slug"),
+        Index("ix_kernel_term_parent_id", "parent_id"),
+        CheckConstraint("parent_id IS DISTINCT FROM id", name="not_its_own_parent"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    vocabulary_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("kernel_vocabulary.id", ondelete="CASCADE")
+    )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("kernel_term.id")
+    )
+    slug: Mapped[str] = mapped_column(String(80))
+    label: Mapped[str] = mapped_column(String(80))
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+
+
+class TaxonomyTermLink(Base):
+    """A term on one thing of a module's. No foreign key to the module's row:
+    the module calls `taxonomy.untag_all` when it deletes one."""
+
+    __tablename__ = "kernel_term_link"
+    __table_args__ = (Index("ix_kernel_term_link_content", "content_type", "content_id"),)
+
+    term_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("kernel_term.id", ondelete="CASCADE"), primary_key=True
+    )
+    #: `<id>.<entity>`, a content type the module's manifest lists.
+    content_type: Mapped[str] = mapped_column(String(64), primary_key=True)
+    content_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+
+
 # Auth's tables live in kernel.auth.models; importing them here puts every
 # kernel table in Base.metadata for Alembic and the model checks. Last, since
 # auth's models import the audit log's from here.

@@ -2,7 +2,8 @@
 the staff's audit log (decision 0037), the dashboard's "Needs you" list (K4
 contract §2, addition 9), each person's notices (decision 0038), and
 moderation: reports, the queue, actions, time-outs and the moderators' log
-(decision 0039)."""
+(decision 0039); and the terms of the vocabularies modules declare, with
+staff's changes to them (decision 0052, hook 2)."""
 
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from sqlalchemy import ColumnElement, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import attention, audit, moderation, notifications, server_copy
+from kernel import attention, audit, moderation, notifications, server_copy, taxonomy
 from kernel.access import public
 from kernel.answers import Answer, AuditEntry, Id, TargetRef, When, answer
 from kernel.auth import sessions
@@ -698,3 +699,145 @@ async def moderation_log(
         "items": [moderation.log_item(entry) for entry in page.entries],
         "next_cursor": page.next,
     }
+
+
+# --- taxonomy: the vocabularies' terms (decision 0052, hook 2) ----------------------------
+
+
+class VocabularyShown(Answer):
+    key: str
+    label: str
+    hierarchical: bool
+
+
+class TermShown(Answer):
+    id: Id
+    vocabulary: str
+    slug: str
+    label: str
+    parent_id: Id | None
+    position: int
+
+
+class Terms(Answer):
+    vocabulary: VocabularyShown
+    items: list[TermShown]
+    next_cursor: str | None
+
+
+MANAGE_TERMS = "kernel.taxonomy.manage"
+_SLUG = f"^{taxonomy.SLUG.pattern}$"
+
+
+@router.get("/terms", dependencies=[Depends(public)], response_model=Terms)
+async def terms(
+    request: Request,
+    vocabulary: str,
+    db: AsyncSession = Depends(get_db),
+    cursor: str | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    """A vocabulary's terms, by position and then slug, while a module
+    declaring it is on: one that's off names nothing of what the site lacks."""
+    found = taxonomy.vocabulary(vocabulary)
+    if found is None or not set(found.modules) & await _modules_on(request):
+        raise Problem("kernel.vocabulary_not_found", 404, "There's no such vocabulary.")
+    return await taxonomy.listed(db, found, cursor=cursor, limit=limit)
+
+
+class NewTerm(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    vocabulary: str = Field(max_length=40)
+    slug: str = Field(min_length=1, max_length=taxonomy.MAX_SLUG, pattern=_SLUG)
+    label: str = Field(min_length=1, max_length=taxonomy.MAX_LABEL)
+    parent_id: str | None = None
+    position: int = Field(default=0, ge=0, le=taxonomy.MAX_POSITION)
+
+
+class TermChanges(BaseModel):
+    """The fields to change; `parent_id` null moves the term to the top."""
+
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    slug: str | None = Field(
+        default=None, min_length=1, max_length=taxonomy.MAX_SLUG, pattern=_SLUG
+    )
+    label: str | None = Field(default=None, min_length=1, max_length=taxonomy.MAX_LABEL)
+    parent_id: str | None = None
+    position: int | None = Field(default=None, ge=0, le=taxonomy.MAX_POSITION)
+
+
+def _label(label: str) -> str:
+    if not label.strip():
+        raise _invalid("label", "A label has words in it.")
+    return label.strip()
+
+
+def _parent(parent_id: str | None) -> uuid.UUID | None:
+    if parent_id is None:
+        return None
+    try:
+        return uuid.UUID(parent_id)
+    except ValueError:
+        raise _invalid("parent_id", "A term's id.") from None
+
+
+@router.post("/admin/terms", status_code=201, response_model=TermShown)
+async def new_term(
+    body: NewTerm,
+    user: User = Depends(require_permission(MANAGE_TERMS)),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Adds a term to a vocabulary a module declares, on or off."""
+    found = taxonomy.vocabulary(body.vocabulary)
+    if found is None:
+        raise _invalid("vocabulary", "No module declares that vocabulary.")
+    term = await taxonomy.create(
+        db,
+        found,
+        slug=body.slug,
+        label=_label(body.label),
+        parent_id=_parent(body.parent_id),
+        position=body.position,
+        actor=user.id,
+    )
+    await db.commit()
+    return taxonomy.view(term)
+
+
+TERM = "/admin/terms/{term_id}"
+
+
+@router.patch(TERM, response_model=TermShown)
+async def change_term(
+    term_id: uuid.UUID,
+    body: TermChanges,
+    user: User = Depends(require_permission(MANAGE_TERMS)),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Renames, re-slugs, moves or reorders a term: only the fields sent change."""
+    changes: dict[str, Any] = {}
+    for field in sorted(body.model_fields_set):
+        value = getattr(body, field)
+        if field == "parent_id":
+            changes[field] = _parent(value)
+        elif value is None:
+            raise _invalid(field, "It can't be empty.")
+        else:
+            changes[field] = _label(value) if field == "label" else value
+    term = await taxonomy.change(db, term_id, changes, actor=user.id)
+    await db.commit()
+    return taxonomy.view(term)
+
+
+@router.delete(TERM, status_code=204)
+async def delete_term(
+    term_id: uuid.UUID,
+    user: User = Depends(require_permission(MANAGE_TERMS)),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """Deletes a term and its links; one with terms under it stays."""
+    await taxonomy.remove(db, term_id, actor=user.id)
+    await db.commit()
+    return Response(status_code=204)

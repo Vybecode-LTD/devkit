@@ -163,7 +163,8 @@ Every module MUST ship a `module.json` that validates against `mechframe/schema/
 | `bindings` | string[] | `["web"]` in v1 |
 | `jobs` | object[] | `{name, schedule}` for scheduled work |
 | `notifications` | object[] | `{key, description, default}` for each kind of notice the module sends; default is in_site, email or both. The kernel builds each person's notification preferences from these |
-| `content_types` | object[] | Optional. `{key, label, lifecycle}` for each kind of content the module holds, the key `<id>.<entity>`: what the contract hooks that work on content read (decision 0052). `lifecycle: true` makes it publishable through `kernel.lifecycle` (7, 10) |
+| `content_types` | object[] | Optional. `{key, label, lifecycle, taxonomy}` for each kind of content the module holds, the key `<id>.<entity>`: what the contract hooks that work on content read (decision 0052). `lifecycle: true` makes it publishable through `kernel.lifecycle` (7, 10); `taxonomy` lists the vocabularies it's tagged from, each one this manifest's `vocabularies` declares |
+| `vocabularies` | object[] | Optional. `{key, label, hierarchical}` for each list of terms the module's content is tagged from (`kernel.taxonomy`, decision 0052). The key is lowercase and shared: modules naming the same key share one vocabulary, and the start refuses two that disagree on `hierarchical`. `hierarchical: true` lets a term sit under another |
 | `data_hooks` | object | `export` and `delete` set to true when the module holds personal data. Required if any table references a user |
 | `source` | object | Where the code was lifted from, the commit, and the license |
 
@@ -186,13 +187,14 @@ Every module MUST ship a `module.json` that validates against `mechframe/schema/
   "settings": [{"key": "posts_per_page", "type": "int", "default": 10, "secret": false, "description": "Posts on each list page"}],
   "env": [],
   "routes": {"api": "/api/blog", "public": ["/blog", "/blog/:slug"], "member": [], "admin": ["/admin/blog"]},
-  "tables": ["blog_post", "blog_topic", "blog_post_topic"],
+  "tables": ["blog_post"],
   "events": {"emits": ["blog.post.published"], "listens": ["auth.user.deleted"]},
   "slots": ["nav.public", "nav.admin", "admin.dashboard.widget"],
   "bindings": ["web"],
   "jobs": [{"name": "send_digest", "schedule": "0 8 * * 1"}],
   "notifications": [{"key": "blog.comment_reply", "description": "Someone replied under your post", "default": "both"}],
-  "content_types": [{"key": "blog.post", "label": "Post", "lifecycle": true}],
+  "vocabularies": [{"key": "topics", "label": "Topics", "hierarchical": false}],
+  "content_types": [{"key": "blog.post", "label": "Post", "lifecycle": true, "taxonomy": ["topics"]}],
   "data_hooks": {"export": true, "delete": true},
   "source": {"from": "VybeSite", "commit": "TBD", "license": "proprietary"}
 }
@@ -229,6 +231,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `server_copy.Pages`, `Page`, `Moved`, `Entry`, the builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`, `time`, `section`, `article`, `cleaned`), `server_copy.identity(db)` | A module's public pages, readable without JavaScript: its `server_copy.py`'s `PAGES` answers `page(db, path, params)` for each address its `routes.public` patterns match with the page's head, words and JSON-LD (or a move, or None for a 404), from the same rows its API reads, and lists them for the sitemap; the builders escape every value and nh3 cleans the finished words; `identity` is the site's name and the settings section `kernel.site` (section 9, decision 0041) | A blog post's page | K3 |
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
 | `lifecycle.Publishable`, `lifecycle.publish / schedule / unpublish(db, row)`, `lifecycle.visible(Model)`, `lifecycle.columns() / table_args(table)` | Draft, scheduled and published for a module's public content (hook 1, decision 0052): the mixin's three columns, CHECK and due index; publish and unpublish emit `kernel.content.published` and `kernel.content.unpublished` in the caller's transaction; the kernel's `kernel.publish_due` publishes what's due every minute, dated at its time; `visible` is the one WHERE for what the public sees; `columns` and `table_args` write the same in a migration | A scheduled post | Hooks |
+| `taxonomy.tag(db, type, id, vocabulary, slugs)`, `taxonomy.terms_for(db, type, ids)`, `taxonomy.tagged(type, vocabulary, slug)`, `taxonomy.untag_all(db, type, id)` | Terms on a module's content from the vocabularies its manifest declares (hook 2, decision 0052): `tag` sets a thing's terms in one vocabulary to exactly those slugs in the caller's transaction, making any missing; `terms_for` answers each id's; `tagged` is a select of the ids holding a term, for `Model.id.in_(...)`; `untag_all` is for deleting the thing. The terms are public at `GET /api/kernel/terms?vocabulary=` while a module declaring the vocabulary is on, and staff holding `kernel.taxonomy.manage` (admin and editor by default) add, rename, move and delete them, audited | A post's topics | Hooks |
 | `Answer`, `answer(Model, content)`, `Id`, `When` | The base of every route's answer model, which refuses keys it doesn't name, and the JSON response built through one for a route that sets a cookie or header (section 7, decision 0042) | `@router.get("/posts", response_model=Posts)` | K4 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
@@ -331,6 +334,7 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 | Hook | Shape | Defined in |
 | --- | --- | --- |
 | Content lifecycle | module.json's `content_types[].lifecycle`; `lifecycle.py`'s `PUBLISHABLE`, models subclassing `lifecycle.Publishable`; the kernel's `kernel.publish_due` job; the events `kernel.content.published` and `kernel.content.unpublished` | 5, 6, 7, 10, 11 |
+| Taxonomy | module.json's `vocabularies` and `content_types[].taxonomy`; `kernel.taxonomy`'s `tag`, `terms_for`, `tagged` and `untag_all`; the tables `kernel_vocabulary`, `kernel_term` and `kernel_term_link`; `GET /api/kernel/terms` and the admin's term routes under `kernel.taxonomy.manage` | 5, 6, 7, 10 |
 
 ## 8. Frontend rules and UI slots
 
@@ -433,6 +437,8 @@ Each module owns its own tables and its own migration branch. It links only to t
 - Logs, events and other records that grow MUST declare a retention period. The kernel's retention job enforces it (VybeSite `retention_service.py`).
 
 **Publishable content** (hook 1, decision 0052). A model that subclasses `lifecycle.Publishable` MUST set `__content_type__` to its `<id>.<entity>` key, the one module.json's `content_types` lists with `lifecycle: true` (the start refuses a model without it). It gets `status` (`draft`, `scheduled` or `published`, a `String(16)`), `publish_at` and `published_at` (timestamptz), the CHECK `ck_<table>_lifecycle` (a known status, a scheduled row's time, a published row's date) and the partial index `ix_<table>_due`. Its migration MUST write the same, with `*lifecycle.columns()` and `*lifecycle.table_args("<table>")`; the start refuses a model whose table lacks the CHECK or the index. Public reads MUST filter with `lifecycle.visible(Model)`, and only `lifecycle`'s functions change the three columns.
+
+**Tagged content** (hook 2, decision 0052). A module tags its content only through `kernel.taxonomy`, from the vocabularies its manifest declares, and never keeps a term table of its own. Terms live in the kernel's `kernel_vocabulary`, `kernel_term` and `kernel_term_link`; a link has no foreign key to the module's row, so a module that deletes a tagged thing MUST call `taxonomy.untag_all` in the same transaction. Terms are public, a term made by tagging a draft included, so a term's slug or label MUST NOT carry what the content keeps private. A term with terms under it isn't deleted until they're moved or deleted.
 
 **Search.** Postgres full-text search in v1. A search module MAY add a dedicated engine later.
 
@@ -703,6 +709,7 @@ Both limits are site settings (Q6).
 | `auth_api_key` | Id, secret hash, scopes, expiry, last use |
 | `kernel_audit_event` | The audit log, every module's: auth's table renamed when it became the kernel's (decision 0037) |
 | `kernel_moderation_case`, `kernel_moderation_report` | One case per reported thing, at most one open, with the excerpt as first reported, and the reports on it; closed cases go after `AUDIT_KEEP_DAYS` (decision 0039) |
+| `kernel_vocabulary`, `kernel_term`, `kernel_term_link` | The vocabularies modules declare (made on first use, kept in step with the manifests), their terms (a slug unique in each, a parent in a hierarchical one, a position), and a term's links to a module's content by type and id, with no foreign key to the module's row (decision 0052, hook 2) |
 
 ### 14.12 Crypto and secrets
 
@@ -875,6 +882,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-20 | Hook 2, taxonomy (decision 0052, `dev plans/contracts/hooks.md`): module.json's `vocabularies` and `content_types[].taxonomy`; `kernel.taxonomy`'s `tag`, `terms_for`, `tagged` and `untag_all` on the kernel tables `kernel_vocabulary`, `kernel_term` and `kernel_term_link` (`kernel_0013`); `GET /api/kernel/terms`, and the admin's term routes under the new `kernel.taxonomy.manage` (admin and editor); the hooks index's second row (5, 6, 7, 10) |
 | 2026-11-20 | Hook 1, content lifecycle (decisions 0018 and 0052, `dev plans/contracts/hooks.md`): module.json's `content_types`; `kernel.lifecycle`, the `Publishable` mixin with its CHECK and due index, publish, schedule and unpublish, `visible`, and the kernel's `kernel.publish_due` job; the events `kernel.content.published` and `kernel.content.unpublished`; and the hooks index at the end of section 7 (5, 6, 7, 10, 11) |
 | 2026-11-20 | The first owner, from the server (decision 0051, K5 contract change 9): `create-owner` prints a reset link for the owner's account, closes every way into it first, refuses any address but an owner's once there is one, and replaces the setup token at first boot (14.1) |
 | 2026-11-20 | `add`, `remove` and `new --recipe` (decision 0050, K5 contract change 8): `requires` ranges and pre-releases, `add` writing `railway.ts` and running whole or not at all, `remove` keeping a module's migrations and `railway.ts` lines, and the recipe's order and settings (12) |

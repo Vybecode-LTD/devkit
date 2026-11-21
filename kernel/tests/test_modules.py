@@ -379,6 +379,29 @@ def test_load_module_builds_a_module_from_its_fixed_names(
     assert [model.__content_type__ for model in module.publishable] == [f"{module_id}.photo"]
 
 
+def test_a_modules_vocabularies_reach_the_taxonomy_from_its_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Taxonomy is the manifest's alone (decision 0052, hook 2): what discovery
+    reads from module.json is what the start's checks build on."""
+    from kernel import taxonomy
+
+    module_id = unique_id("library")
+    folder = _module_folder(tmp_path, module_id, {"__init__.py": ""})
+    raw = json.loads((folder / "module.json").read_text("utf-8"))
+    raw["vocabularies"] = [{"key": "shelves", "label": "Shelves", "hierarchical": True}]
+    raw["content_types"] = [{"key": f"{module_id}.book", "label": "Book", "taxonomy": ["shelves"]}]
+    (folder / "module.json").write_text(json.dumps(raw), "utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    try:
+        found = taxonomy.build([load_module(folder / "module.json")])
+    finally:
+        for loaded in [each for each in sys.modules if each.startswith(folder.name)]:
+            del sys.modules[loaded]
+    assert found.vocabularies["shelves"].modules == (module_id,)
+    assert found.content_types == {f"{module_id}.book": frozenset({"shelves"})}
+
+
 def test_load_module_of_a_package_with_none_of_the_names_or_none_at_all(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

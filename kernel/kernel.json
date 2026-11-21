@@ -85,6 +85,14 @@
         "admin",
         "editor"
       ]
+    },
+    {
+      "key": "kernel.taxonomy.manage",
+      "description": "Add, rename, move and delete the site's terms",
+      "default_roles": [
+        "admin",
+        "editor"
+      ]
     }
   ],
   "pages": [

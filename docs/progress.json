@@ -143,7 +143,7 @@
       "goal": "The ten hooks the Must modules need, before blog, chat and payments are extracted (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md).",
       "items": [
         {"name": "Content lifecycle", "status": "done", "prs": [97], "decisions": ["0052"], "note": "kernel.lifecycle: the Publishable mixin, publish, schedule and unpublish, visible, and the kernel's kernel.publish_due job"},
-        {"name": "Taxonomy", "status": "todo"},
+        {"name": "Taxonomy", "status": "done", "prs": [98], "decisions": ["0052"], "note": "kernel.taxonomy: vocabularies in module.json, the kernel's term tables (kernel_0013), tag, terms_for, tagged and untag_all, the public terms list and the admin's term routes"},
         {"name": "Search index", "status": "todo"},
         {"name": "Seed data", "status": "todo"},
         {"name": "Bot check", "status": "todo"},

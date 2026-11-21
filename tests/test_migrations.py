@@ -172,6 +172,14 @@ _SEED = [
     "'comments.comment', '9', 'report', :user, 'Buy now', now(), now())",
     "INSERT INTO kernel_moderation_report (case_id, reporter_id, reason, at) "
     "VALUES ('00000000-0000-0000-0000-000000000002', :user, 'spam', now())",
+    "INSERT INTO kernel_vocabulary (id, key, label, hierarchical) "
+    "VALUES ('00000000-0000-0000-0000-000000000003', 'topics', 'Topics', true)",
+    "INSERT INTO kernel_term (id, vocabulary_id, parent_id, slug, label) VALUES "
+    "('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000003', NULL, "
+    "'music', 'Music'), ('00000000-0000-0000-0000-000000000005', "
+    "'00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004', 'jazz', 'Jazz')",
+    "INSERT INTO kernel_term_link (term_id, content_type, content_id) "
+    "VALUES ('00000000-0000-0000-0000-000000000005', 'blog.post', gen_random_uuid())",
 ]
 
 

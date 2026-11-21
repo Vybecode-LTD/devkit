@@ -88,6 +88,10 @@ Per hook, tests seen failing first (the skill's step 3):
 
 **Done when:** all ten rows are in SPEC 7's index, each with its contract test passing in CI, and decision 0052's Status reads "all ten applied".
 
+## Changes after approval
+
+- 2026-11-20, hook 2 (#98): `taxonomy.tag(db, type, id, vocabulary, slugs)` takes the vocabulary, since a content type can take several, and sets that vocabulary's terms to exactly `slugs`. `GET /api/kernel/terms` pages with `cursor` and `limit` and answers 404 `kernel.vocabulary_not_found` for a vocabulary no module on declares; a missing term is 404 `kernel.term_not_found` (the contract suite reads `kernel.not_found` as a route not built). A term with children answers 409 `kernel.term_has_children` rather than taking them with it. The probe declares `tags` (flat) beside `topics` (hierarchical).
+
 ## 8. Open questions
 
 None open. The owner's answers (2026-11-20, "Approve as recommended"):

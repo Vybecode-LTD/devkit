@@ -331,6 +331,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/kernel/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Terms
+         * @description A vocabulary's terms, by position and then slug, while a module
+         *     declaring it is on: one that's off names nothing of what the site lacks.
+         */
+        get: operations["terms_api_kernel_terms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Term
+         * @description Adds a term to a vocabulary a module declares, on or off.
+         */
+        post: operations["new_term_api_kernel_admin_terms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/kernel/admin/terms/{term_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Term
+         * @description Deletes a term and its links; one with terms under it stays.
+         */
+        delete: operations["delete_term_api_kernel_admin_terms__term_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change Term
+         * @description Renames, re-slugs, moves or reorders a term: only the fields sent change.
+         */
+        patch: operations["change_term_api_kernel_admin_terms__term_id__patch"];
+        trace?: never;
+    };
     "/api/kernel/admin/settings/{id}": {
         parameters: {
             query?: never;
@@ -1810,6 +1875,22 @@ export interface components {
             /** Id */
             id: string;
         };
+        /** NewTerm */
+        NewTerm: {
+            /** Vocabulary */
+            vocabulary: string;
+            /** Slug */
+            slug: string;
+            /** Label */
+            label: string;
+            /** Parent Id */
+            parent_id?: string | null;
+            /**
+             * Position
+             * @default 0
+             */
+            position: number;
+        };
         /** Notice */
         Notice: {
             /**
@@ -2394,6 +2475,46 @@ export interface components {
             /** Id */
             id: string;
         };
+        /**
+         * TermChanges
+         * @description The fields to change; `parent_id` null moves the term to the top.
+         */
+        TermChanges: {
+            /** Slug */
+            slug?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Position */
+            position?: number | null;
+        };
+        /** TermShown */
+        TermShown: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Vocabulary */
+            vocabulary: string;
+            /** Slug */
+            slug: string;
+            /** Label */
+            label: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Position */
+            position: number;
+        };
+        /** Terms */
+        Terms: {
+            vocabulary: components["schemas"]["VocabularyShown"];
+            /** Items */
+            items: components["schemas"]["TermShown"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /** TimeOut */
         TimeOut: {
             /** Minutes */
@@ -2491,6 +2612,15 @@ export interface components {
         VerifyEmail: {
             /** Token */
             token: string;
+        };
+        /** VocabularyShown */
+        VocabularyShown: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Hierarchical */
+            hierarchical: boolean;
         };
         /** WebAuthnUser */
         WebAuthnUser: {
@@ -3187,6 +3317,172 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModerationLog"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    terms_api_kernel_terms_get: {
+        parameters: {
+            query: {
+                vocabulary: string;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Terms"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    new_term_api_kernel_admin_terms_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewTerm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermShown"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_term_api_kernel_admin_terms__term_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    change_term_api_kernel_admin_terms__term_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                term_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TermChanges"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermShown"];
                 };
             };
             /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */

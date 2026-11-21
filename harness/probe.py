@@ -11,7 +11,8 @@ that fails on its one try and one that does nothing. `probe-addon` requires
 The contract hooks (decision 0052, `dev plans/contracts/hooks.md`) are
 tested on them: `probe` fills each hook and `probe-addon` doesn't. Its notes,
 `probe.note`, are publishable (hook 1), with a public page at
-`/probe/notes/:slug`. Their table, `probe_note`, lives on a metadata of its
+`/probe/notes/:slug`, and take terms from `topics` (hierarchical) and `tags`
+(hook 2). Their table, `probe_note`, lives on a metadata of its
 own (`TABLES`), which the test support makes when its app starts, so the
 migrations never see it.
 """
@@ -25,11 +26,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
-from sqlalchemy import MetaData, String, select
+from sqlalchemy import MetaData, String, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from kernel import jobs, lifecycle, server_copy
+from kernel import jobs, lifecycle, server_copy, taxonomy
 from kernel.access import public
 from kernel.answers import Answer, Id, When
 from kernel.db import NAMING, get_db
@@ -116,10 +117,36 @@ class NoteMade(Answer):
     id: Id
 
 
+class TermsOf(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    vocabulary: str
+    slugs: list[str]
+
+
+class NoteTerm(Answer):
+    vocabulary: str
+    slug: str
+    label: str
+
+
+class NoteTerms(Answer):
+    terms: list[NoteTerm]
+
+
 class NoteShown(Answer):
     slug: str
     title: str
     published_at: When
+    terms: list[NoteTerm]
+
+
+class NotesFound(Answer):
+    items: list[str]
+
+
+def _terms(found: list[taxonomy.Term]) -> list[dict[str, str]]:
+    return [{"vocabulary": t.vocabulary, "slug": t.slug, "label": t.label} for t in found]
 
 
 async def _note(db: AsyncSession, note_id: uuid.UUID) -> ProbeNote:
@@ -172,12 +199,56 @@ async def unpublish_note(note_id: uuid.UUID, db: AsyncSession = Depends(get_db))
     return Response(status_code=204)
 
 
+@router.put("/notes/{note_id}/terms", dependencies=[Depends(public)], response_model=NoteTerms)
+async def tag_note(
+    note_id: uuid.UUID, body: TermsOf, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    note = await _note(db, note_id)
+    try:
+        found = await taxonomy.tag(
+            db, ProbeNote.__content_type__, note.id, body.vocabulary, body.slugs
+        )
+    except ValueError as error:
+        raise Problem("probe.bad_vocabulary", 422, str(error)) from None
+    await db.commit()
+    return {"terms": _terms(found)}
+
+
+@router.delete("/notes/{note_id}", dependencies=[Depends(public)], status_code=204)
+async def delete_note(note_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> Response:
+    note = await _note(db, note_id)
+    await taxonomy.untag_all(db, ProbeNote.__content_type__, note.id)
+    await db.execute(delete(ProbeNote).where(ProbeNote.id == note.id))
+    await db.commit()
+    return Response(status_code=204)
+
+
+@router.get("/notes", dependencies=[Depends(public)], response_model=NotesFound)
+async def notes_under(
+    vocabulary: str, term: str, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """The published notes holding a term, by slug."""
+    holding = taxonomy.tagged(ProbeNote.__content_type__, vocabulary, term)
+    found = await db.scalars(
+        select(ProbeNote.slug)
+        .where(ProbeNote.id.in_(holding), lifecycle.visible(ProbeNote))
+        .order_by(ProbeNote.slug)
+    )
+    return {"items": list(found)}
+
+
 @router.get("/notes/{slug}", dependencies=[Depends(public)], response_model=NoteShown)
 async def show_note(slug: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     note = await _shown(db, slug)
     if note is None or note.published_at is None:
         raise Problem("probe.note_not_found", 404, "There's no such note.")
-    return {"slug": note.slug, "title": note.title, "published_at": note.published_at.isoformat()}
+    found = await taxonomy.terms_for(db, ProbeNote.__content_type__, [note.id])
+    return {
+        "slug": note.slug,
+        "title": note.title,
+        "published_at": note.published_at.isoformat(),
+        "terms": _terms(found[note.id]),
+    }
 
 
 class ProbePages(server_copy.Pages):
@@ -218,7 +289,18 @@ MODULES = (
             "The test support's module: a route, settings, jobs and the hooks",
             {},
             routes={"api": "/api/probe", "public": ["/probe/notes/:slug"]},
-            content_types=[{"key": "probe.note", "label": "Note", "lifecycle": True}],
+            vocabularies=[
+                {"key": "topics", "label": "Topics", "hierarchical": True},
+                {"key": "tags", "label": "Tags"},
+            ],
+            content_types=[
+                {
+                    "key": "probe.note",
+                    "label": "Note",
+                    "lifecycle": True,
+                    "taxonomy": ["topics", "tags"],
+                }
+            ],
         ),
         router=router,
         settings=ProbeSettings,

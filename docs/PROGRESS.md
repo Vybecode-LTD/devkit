@@ -8,9 +8,9 @@ Updated 2026-11-20, `main` at `b543642`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 41 | 0 | 0 | 14 | 3 | 3 | ██████░░░░ 67% (41 of 61) |
+| MechFrame v1.0 | 42 | 0 | 0 | 13 | 3 | 3 | ██████░░░░ 68% (42 of 61) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 41 | 0 | 0 | 99 | 3 | 6 | ██░░░░░░░░ 27% (41 of 149) |
+| Everything | 42 | 0 | 0 | 98 | 3 | 6 | ██░░░░░░░░ 28% (42 of 149) |
 
 ## MechFrame v1.0
 
@@ -125,14 +125,14 @@ Gate: mechframe new test-site builds, migrates and passes its tests; mechframe c
 | mechframe catalog | Done | [#91](https://github.com/mechframe/mechframe/pull/91) | [0047](decisions/0047-cli-and-site-template.md) |  |
 | SPEC 10's confirmation before a destructive migration | Done | [#93](https://github.com/mechframe/mechframe/pull/93) | [0049](decisions/0049-destructive-migrations-wait.md) | kernel.migrate: once its branch holds data, an upgrade stops before a revision marked destructive = True until --confirm-destructive names it; the owner, 2026-11-20: before any module with migrations |
 
-### Contract hooks · 1 of 10 done
+### Contract hooks · 2 of 10 done
 
 The ten hooks the Must modules need, before blog, chat and payments are extracted (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md).
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
 | Content lifecycle | Done | [#97](https://github.com/mechframe/mechframe/pull/97) | [0052](decisions/0052-the-contract-hooks.md) | kernel.lifecycle: the Publishable mixin, publish, schedule and unpublish, visible, and the kernel's kernel.publish_due job |
-| Taxonomy | To do |  |  |  |
+| Taxonomy | Done | [#98](https://github.com/mechframe/mechframe/pull/98) | [0052](decisions/0052-the-contract-hooks.md) | kernel.taxonomy: vocabularies in module.json, the kernel's term tables (kernel_0013), tag, terms_for, tagged and untag_all, the public terms list and the admin's term routes |
 | Search index | To do |  |  |  |
 | Seed data | To do |  |  |  |
 | Bot check | To do |  |  |  |
