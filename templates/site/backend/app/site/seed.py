@@ -14,9 +14,9 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel.seed import Context
+from kernel import seed as seeding  # the public surface; `seed` is the function below
 
 
-async def seed(db: AsyncSession, ctx: Context) -> None:
+async def seed(db: AsyncSession, ctx: seeding.Context) -> None:
     """The site's own rows, in the run's transaction, which the run commits."""
     return None

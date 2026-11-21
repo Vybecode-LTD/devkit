@@ -366,8 +366,8 @@ def test_load_module_builds_a_module_from_its_fixed_names(
                 "SEARCH = (Photos(),)\n"
             ),
             "seed.py": (
-                "from kernel.seed import Context\n"
-                "async def seed(db, ctx: Context) -> None:\n"
+                "from kernel import seed as seeding\n"
+                "async def seed(db, ctx: seeding.Context) -> None:\n"
                 "    return None\n"
             ),
         },

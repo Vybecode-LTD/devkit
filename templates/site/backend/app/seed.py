@@ -9,8 +9,9 @@ modules, so their listeners hear of the accounts it makes.
 
 It refuses unless MECHFRAME_ALLOW_SEED=1 is in the environment, read from
 there only, never `.env`; `.railway/railway.ts` never sets it, so seed data
-never reaches the live site. For one run, in PowerShell:
-`$env:MECHFRAME_ALLOW_SEED = "1"; .venv\\Scripts\\python.exe -m app.seed`.
+never reaches the live site. For one run, cleared after it, in PowerShell:
+`$env:MECHFRAME_ALLOW_SEED = "1"; try { .venv\\Scripts\\python.exe -m app.seed }
+finally { Remove-Item Env:MECHFRAME_ALLOW_SEED }`.
 """
 
 from __future__ import annotations

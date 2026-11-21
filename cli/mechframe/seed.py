@@ -3,9 +3,9 @@
 It runs the site's own `python -m app.seed` as `create-owner` runs
 `app.owner`: with the site's `.venv` Python and `backend` on the path, in the
 site's folder, with the caller's environment. So it seeds only when
-MECHFRAME_ALLOW_SEED=1 is set for the run (`$env:MECHFRAME_ALLOW_SEED = "1"`
-first, in PowerShell), and its output and exit code are the command's: what
-it seeded, or why it refused.
+MECHFRAME_ALLOW_SEED=1 is set for the run, and cleared after it, in
+PowerShell `$env:MECHFRAME_ALLOW_SEED = "1"; try { mechframe seed } finally { Remove-Item Env:MECHFRAME_ALLOW_SEED }`. Its output and exit code are the command's: what it
+seeded, or why it refused.
 """
 
 from __future__ import annotations

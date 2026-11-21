@@ -311,6 +311,60 @@ async def test_no_owner_is_seeded_and_an_unknown_role_is_refused(
     assert await _seeded_people(rows) == []
 
 
+@pytest.mark.parametrize(
+    "kind", ["a password", "the owner role", "an unverified address", "suspended"]
+)
+async def test_a_seeded_address_someone_else_holds_is_refused(rows: Database, kind: str) -> None:
+    """`seed-<role>@example.com` held by an account the seed didn't make (one
+    signed up with it, an owner, one never verified or suspended) is never
+    taken over: the run is refused, and the account keeps what it had."""
+    async with rows.sessions() as db:
+        person = User(
+            email="seed-editor@example.com",
+            email_normal="seed-editor@example.com",
+            password_hash="$argon2id$a-hash" if kind == "a password" else None,
+            email_verified_at=None if kind == "an unverified address" else seed.NOW,
+            status="suspended" if kind == "suspended" else "active",
+        )
+        db.add(person)
+        await db.flush()
+        held = ["member", "owner"] if kind == "the owner role" else ["member"]
+        db.add_all([UserRole(user_id=person.id, role_id=role) for role in held])
+        await db.commit()
+        before = await _seeded_people(rows)
+
+    async def asks(db: AsyncSession, ctx: seed.Context) -> None:
+        await ctx.user("editor")
+
+    async with rows.sessions() as db:
+        with pytest.raises(ValueError, match="isn't one a seed made"):
+            await seed.run(db, [_module("first", asks)], environ=ALLOWED)
+    assert await _seeded_people(rows) == before
+
+
+async def test_put_image_builds_its_png_off_the_event_loop(
+    rows: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    built: list[Any] = []
+
+    async def to_thread(function: Any, *args: Any) -> Any:
+        built.append(function)
+        return function(*args)
+
+    async def put(key: str, data: bytes, **options: Any) -> None:
+        return None
+
+    monkeypatch.setattr(seed, "run_in_threadpool", to_thread)
+    monkeypatch.setattr(seed.storage, "put", put)
+
+    async def images(db: AsyncSession, ctx: seed.Context) -> None:
+        await ctx.put_image("hero", width=8, height=8)
+
+    async with rows.sessions() as db:
+        await seed.run(db, [_module("gallery", images)], environ=ALLOWED)
+    assert built == [seed._png]
+
+
 def _png_size(data: bytes) -> tuple[int, int]:
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
     length, kind = struct.unpack(">I4s", data[8:16])

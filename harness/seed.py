@@ -1,6 +1,7 @@
 """The harness's seed data (hook 4, decision 0052):
 
-    $env:MECHFRAME_ALLOW_SEED = "1"; python -m harness.seed
+    $env:MECHFRAME_ALLOW_SEED = "1"
+    try { python -m harness.seed } finally { Remove-Item Env:MECHFRAME_ALLOW_SEED }
 
 Seeds every module in this repo that has a `seed.py`, each after those it
 requires (`kernel.seed`), on the harness's database (DATABASE_URL). It

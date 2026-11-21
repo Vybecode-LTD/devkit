@@ -5,9 +5,9 @@ never a live site's: `mechframe seed` runs every module's, each after those
 it requires, only with MECHFRAME_ALLOW_SEED=1. It MUST be idempotent, so a
 second run changes nothing. For example:
 
-    from kernel.seed import Context
+    from kernel import seed as seeding  # the public surface; `seed` is the function
 
-    async def seed(db: AsyncSession, ctx: Context) -> None:
+    async def seed(db: AsyncSession, ctx: seeding.Context) -> None:
         author = await ctx.user("editor")
         for number, slug in enumerate(("welcome", "second-post"), 1):
             if await db.scalar(select(Item.id).where(Item.slug == slug)) is None:

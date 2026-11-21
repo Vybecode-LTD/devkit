@@ -19,8 +19,8 @@ It refuses unless `MECHFRAME_ALLOW_SEED=1` is in the process's environment,
 raising `Refused` before any seed runs. The variable is read from the
 environment only, never `.env`, and the site template's `.railway/railway.ts`
 never sets it (a template test holds that), so no file turns seeding on for
-good: it's typed for the one run (`$env:MECHFRAME_ALLOW_SEED = "1"`, then
-`mechframe seed`).
+good: it's set for the one run and cleared after it, in PowerShell
+`$env:MECHFRAME_ALLOW_SEED = "1"; try { mechframe seed } finally { Remove-Item Env:MECHFRAME_ALLOW_SEED }`.
 
 `Context` gives each seed:
 
@@ -33,7 +33,10 @@ good: it's typed for the one run (`$env:MECHFRAME_ALLOW_SEED = "1"`, then
 - `await user(role)`: a seeded account holding the role and `member`,
   `seed-<role>@example.com`, verified, with no password (no one signs in as
   it), made the first time any seed asks and the role given back if it was
-  taken away. Never `owner`, who is made with `mechframe create-owner`;
+  taken away. Never `owner`, who is made with `mechframe create-owner`, and
+  never an account at that address the seed didn't make (one with a
+  password, the owner role, an unverified address or not active): the run
+  is refused rather than take it over (CodeRabbit on #102);
 - `await put_image(name, width=1200, height=630)`: a PNG of one colour (the
   colour drawn from the module and the name) stored in the public bucket at
   `<module>/seed/<name>.png`; answers the key.
@@ -54,6 +57,7 @@ from datetime import UTC, datetime
 from graphlib import CycleError, TopologicalSorter
 from typing import TYPE_CHECKING
 
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -137,6 +141,17 @@ class _People:
             held = set(
                 await db.scalars(select(UserRole.role_id).where(UserRole.user_id == person.id))
             )
+            if (
+                person.password_hash is not None
+                or person.email_verified_at is None
+                or person.status != "active"
+                or OWNER in held
+            ):
+                raise ValueError(
+                    f"{email} isn't one a seed made: it has a password, the owner role, an "
+                    "unverified address or isn't active. Delete that account, or seed "
+                    f"without the role {role}."
+                )
             added = [each for each in wanted if each not in held]
             db.add_all([UserRole(user_id=person.id, role_id=each) for each in added])
             if added:
@@ -197,7 +212,9 @@ class Context:
             raise ValueError(f"A seed image is 1 to {_MAX_SIDE} pixels a side.")
         key = f"{self.module}/seed/{name}.png"
         colour = hashlib.sha256(key.encode()).digest()[:3]
-        await storage.put(key, _png(width, height, colour), content_type="image/png", public=True)
+        # Off the event loop: at 4,000 pixels a side it's 48 MB of rows to compress.
+        data = await run_in_threadpool(_png, width, height, colour)
+        await storage.put(key, data, content_type="image/png", public=True)
         return key
 
 
