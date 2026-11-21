@@ -38,7 +38,10 @@ What it does, in order:
    keys against its templates and installs them, the kernel's own first
    (`kernel.notifications`, decision 0038); checks what each module lets
    people report and installs it, with the filters' settings section
-   (`kernel.moderation`, decision 0039); checks the
+   (`kernel.moderation`, decision 0039); checks each module's publishable
+   models, vocabularies and search sources against its manifest and installs
+   them (`kernel.lifecycle`, `kernel.taxonomy` and `kernel.search`, decision
+   0052), the kernel's search listening to its own content events; checks the
    kernel's jobs and every module's, their listeners' deliveries among them
    (`kernel.jobs.build`), and builds the site's worker as `app.state.worker`.
    With JOBS_IN_WEB on (the default) the lifespan runs it in this process; a
@@ -87,6 +90,7 @@ from kernel import (
     moderation,
     notifications,
     openapi,
+    search,
     server_copy,
     shell,
     taxonomy,
@@ -129,7 +133,8 @@ log = logging.getLogger(__name__)
 #: The kernel's own jobs: queued mail, pruning the queue, removing accounts
 #: whose address isn't verified (decision 0035), and pruning the audit log
 #: (decision 0037), the notices (decision 0038) and closed moderation cases
-#: (decision 0039), and publishing what's due (decision 0052).
+#: (decision 0039), publishing what's due, and rebuilding site search on
+#: demand (decision 0052).
 KERNEL_JOBS: tuple[jobs.Job, ...] = (
     email.SEND_MAIL,
     jobs.PRUNE,
@@ -138,7 +143,12 @@ KERNEL_JOBS: tuple[jobs.Job, ...] = (
     notifications.PRUNE,
     moderation.PRUNE,
     lifecycle.PUBLISH_DUE,
+    search.REINDEX,
 )
+
+#: The kernel's own listeners: site search hearing content published and
+#: unpublished (decision 0052, hook 3). Each is delivered by a job of its own.
+KERNEL_LISTENERS: tuple[events.Listener, ...] = (search.ON_PUBLISHED, search.ON_UNPUBLISHED)
 
 
 def _permissions_listed(installed: Iterable[InstalledModule]) -> tuple[dict[str, str], ...]:
@@ -233,10 +243,11 @@ def assemble(
         reportable = moderation.build((module.id, module.reportable) for module in installed)
         publishable = lifecycle.build(installed)
         vocabularies = taxonomy.build(installed)
+        sources = search.build(installed)
         public = server_copy.build(installed, site)
         catalog = events.build(
             [
-                ("kernel", events.KERNEL_PAYLOADS, (), None),
+                ("kernel", events.KERNEL_PAYLOADS, KERNEL_LISTENERS, None),
                 *(
                     (
                         module.id,
@@ -251,7 +262,7 @@ def assemble(
         )
         declared = jobs.build(
             [
-                ("kernel", KERNEL_JOBS, None),
+                ("kernel", (*KERNEL_JOBS, *(item.job for item in KERNEL_LISTENERS)), None),
                 *(
                     (
                         module.id,
@@ -272,6 +283,7 @@ def assemble(
     moderation.install(reportable)
     lifecycle.install(publishable)
     taxonomy.install(vocabularies)
+    search.install(sources, language=config.search_language)
     server_copy.install(site_name=config.site_name, site_url=config.site_url)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).

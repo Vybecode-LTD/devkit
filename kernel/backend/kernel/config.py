@@ -37,6 +37,40 @@ from cryptography.fernet import Fernet
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+#: Postgres 16's own text search configurations, the languages site search
+#: can read in (kernel.search).
+SearchLanguage = Literal[
+    "arabic",
+    "armenian",
+    "basque",
+    "catalan",
+    "danish",
+    "dutch",
+    "english",
+    "finnish",
+    "french",
+    "german",
+    "greek",
+    "hindi",
+    "hungarian",
+    "indonesian",
+    "irish",
+    "italian",
+    "lithuanian",
+    "nepali",
+    "norwegian",
+    "portuguese",
+    "romanian",
+    "russian",
+    "serbian",
+    "simple",
+    "spanish",
+    "swedish",
+    "tamil",
+    "turkish",
+    "yiddish",
+]
+
 log = logging.getLogger(__name__)
 
 #: secrets.token_urlsafe(32)'s length: 256 bits, if the key is random. A floor,
@@ -145,6 +179,12 @@ class KernelConfig(BaseSettings):
     #: removes entries older than this every night. A year by default; at
     #: least 30 days.
     audit_keep_days: int = Field(default=365, ge=30)
+
+    #: Site search (kernel.search, decision 0052, hook 3): the language its
+    #: words are read in, one of Postgres 16's text search configurations
+    #: (`simple` stems nothing). After changing it, run the job
+    #: `kernel.search_reindex` once.
+    search_language: SearchLanguage = "english"
 
     rate_limit_enabled: bool = True
     #: Where counts live: memory:// for one process, redis://… once a site

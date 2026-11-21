@@ -403,6 +403,11 @@
               "type": "string",
               "pattern": "^[a-z][a-z0-9_]*$"
             }
+          },
+          "search": {
+            "type": "boolean",
+            "default": false,
+            "description": "Found by site search, from a source in the module's search.py (kernel.search, decision 0052)"
           }
         }
       }

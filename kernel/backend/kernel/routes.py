@@ -3,7 +3,7 @@ the staff's audit log (decision 0037), the dashboard's "Needs you" list (K4
 contract §2, addition 9), each person's notices (decision 0038), and
 moderation: reports, the queue, actions, time-outs and the moderators' log
 (decision 0039); and the terms of the vocabularies modules declare, with
-staff's changes to them (decision 0052, hook 2)."""
+staff's changes to them (decision 0052, hook 2); and site search (hook 3)."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from sqlalchemy import ColumnElement, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kernel import attention, audit, moderation, notifications, server_copy, taxonomy
+from kernel import attention, audit, moderation, notifications, search, server_copy, taxonomy
 from kernel.access import public
 from kernel.answers import Answer, AuditEntry, Id, TargetRef, When, answer
 from kernel.auth import sessions
@@ -841,3 +841,47 @@ async def delete_term(
     await taxonomy.remove(db, term_id, actor=user.id)
     await db.commit()
     return Response(status_code=204)
+
+
+# --- site search (decision 0052, hook 3) ------------------------------------------------
+
+
+class SearchHit(Answer):
+    type: str
+    id: Id
+    title: str
+    #: Plain text around the words found.
+    snippet: str
+    #: Where the site shows it, such as /blog/jazz.
+    path: str
+
+
+class SearchResults(Answer):
+    items: list[SearchHit]
+    next_cursor: str | None
+
+
+@router.get(
+    "/search",
+    dependencies=[Depends(public), Depends(rate_limit(search.PER_MINUTE))],
+    response_model=SearchResults,
+)
+async def site_search(
+    request: Request,
+    q: str = Query(max_length=search.MAX_QUERY),
+    kind: str | None = Query(default=None, alias="type", max_length=64),
+    db: AsyncSession = Depends(get_db),
+    cursor: str | None = Query(default=None, max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> dict[str, Any]:
+    """The public documents matching `q`, the best first, of the modules that
+    are on; `type` keeps to one content type. One that isn't searched, or
+    whose module is off, is refused alike: it names nothing of what the site
+    lacks."""
+    on = await _modules_on(request)
+    types = [found for found in search.searched() if found.partition(".")[0] in on]
+    if kind is not None:
+        if kind not in types:
+            raise _invalid("type", "This site searches no such type.")
+        types = [kind]
+    return await search.find(db, q, types=types, cursor=cursor, limit=limit)

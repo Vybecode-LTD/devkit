@@ -11,26 +11,26 @@ that fails on its one try and one that does nothing. `probe-addon` requires
 The contract hooks (decision 0052, `dev plans/contracts/hooks.md`) are
 tested on them: `probe` fills each hook and `probe-addon` doesn't. Its notes,
 `probe.note`, are publishable (hook 1), with a public page at
-`/probe/notes/:slug`, and take terms from `topics` (hierarchical) and `tags`
-(hook 2). Their table, `probe_note`, lives on a metadata of its
-own (`TABLES`), which the test support makes when its app starts, so the
-migrations never see it.
+`/probe/notes/:slug`, take terms from `topics` (hierarchical) and `tags`
+(hook 2), and are found by site search once published (hook 3, `SEARCH`).
+Their table, `probe_note`, lives on a metadata of its own (`TABLES`), which
+the test support makes when its app starts, so the migrations never see it.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
-from sqlalchemy import MetaData, String, delete, select
+from sqlalchemy import MetaData, String, Text, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from kernel import jobs, lifecycle, server_copy, taxonomy
+from kernel import jobs, lifecycle, search, server_copy, taxonomy
 from kernel.access import public
 from kernel.answers import Answer, Id, When
 from kernel.db import NAMING, get_db
@@ -97,6 +97,7 @@ class ProbeNote(lifecycle.Publishable, _Tables):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     slug: Mapped[str] = mapped_column(String(80), unique=True)
     title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text, default="")
 
 
 class NewNote(BaseModel):
@@ -104,6 +105,7 @@ class NewNote(BaseModel):
 
     slug: str = Field(pattern=r"^[a-z0-9-]{1,80}$")
     title: str = Field(min_length=1, max_length=200)
+    body: str = Field(default="", max_length=10_000)
 
 
 class Schedule(BaseModel):
@@ -165,7 +167,7 @@ async def _shown(db: AsyncSession, slug: str) -> ProbeNote | None:
 
 @router.post("/notes", dependencies=[Depends(public)], status_code=201, response_model=NoteMade)
 async def new_note(body: NewNote, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
-    note = ProbeNote(slug=body.slug, title=body.title)
+    note = ProbeNote(slug=body.slug, title=body.title, body=body.body)
     db.add(note)
     await db.commit()
     return {"id": str(note.id)}
@@ -266,6 +268,35 @@ class ProbePages(server_copy.Pages):
         return [server_copy.Entry(f"/probe/notes/{note.slug}", title=note.title) for note in found]
 
 
+# --- hook 3, search index: the probe's notes found by site search -----------------------
+
+
+def _document(note: ProbeNote) -> search.Document:
+    return search.Document(
+        ProbeNote.__content_type__, note.id, note.title, note.body, f"/probe/notes/{note.slug}"
+    )
+
+
+class ProbeSearch(search.Source):
+    """The probe's notes as site search finds them: published ones only."""
+
+    content_type = ProbeNote.__content_type__
+
+    async def document(self, db: AsyncSession, content_id: uuid.UUID) -> search.Document | None:
+        note = await db.scalar(
+            select(ProbeNote).where(ProbeNote.id == content_id, lifecycle.visible(ProbeNote))
+        )
+        return None if note is None else _document(note)
+
+    async def documents(self, db: AsyncSession) -> AsyncIterator[search.Document]:
+        published = select(ProbeNote).where(lifecycle.visible(ProbeNote)).order_by(ProbeNote.id)
+        for note in await db.scalars(published):
+            yield _document(note)
+
+
+SEARCH = (ProbeSearch(),)
+
+
 def _manifest(
     module_id: str, name: str, summary: str, requires: dict[str, str], **more: Any
 ) -> Manifest:
@@ -300,6 +331,7 @@ MODULES = (
                     "label": "Note",
                     "lifecycle": True,
                     "taxonomy": ["topics", "tags"],
+                    "search": True,
                 }
             ],
         ),
@@ -308,6 +340,7 @@ MODULES = (
         jobs=(_fail, _ok),
         pages=ProbePages(),
         publishable=(ProbeNote,),
+        searchable=SEARCH,
     ),
     InstalledModule(
         _manifest(

@@ -58,4 +58,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0049](0049-destructive-migrations-wait.md) | A destructive migration waits for the owner: named back with `--confirm-destructive`, once its branch holds data | Decided; applied in K5.3 (#93) |
 | [0050](0050-add-and-remove.md) | `mechframe add` and `remove`: what each writes, what `remove` keeps, and how `requires` reads a range | Decided; applied in K5.4 (#94) |
 | [0051](0051-create-owner.md) | The site's owner, made from the server: the reset's own link, and only an owner's address once there is one | Decided; applied in K5.5 (#95) |
-| [0052](0052-the-contract-hooks.md) | The ten contract hooks: their shapes and their order | Accepted; hooks 1 and 2 applied (#97, #98) |
+| [0052](0052-the-contract-hooks.md) | The ten contract hooks: their shapes and their order | Accepted; hooks 1 to 3 applied (#97 to #99) |

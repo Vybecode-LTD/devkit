@@ -144,7 +144,7 @@
       "items": [
         {"name": "Content lifecycle", "status": "done", "prs": [97], "decisions": ["0052"], "note": "kernel.lifecycle: the Publishable mixin, publish, schedule and unpublish, visible, and the kernel's kernel.publish_due job"},
         {"name": "Taxonomy", "status": "done", "prs": [98], "decisions": ["0052"], "note": "kernel.taxonomy: vocabularies in module.json, the kernel's term tables (kernel_0013), tag, terms_for, tagged and untag_all, the public terms list and the admin's term routes"},
-        {"name": "Search index", "status": "todo"},
+        {"name": "Search index", "status": "done", "prs": [99], "decisions": ["0052"], "note": "kernel.search: search.py's SEARCH and content_types[].search, the kernel table kernel_search_document (kernel_0014), the kernel hearing kernel.content.*, the kernel.search_reindex job, and GET /api/kernel/search"},
         {"name": "Seed data", "status": "todo"},
         {"name": "Bot check", "status": "todo"},
         {"name": "Consent categories", "status": "todo"},

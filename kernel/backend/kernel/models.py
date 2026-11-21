@@ -17,6 +17,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     CheckConstraint,
+    Computed,
     DateTime,
     ForeignKey,
     Index,
@@ -27,7 +28,8 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
+from sqlalchemy.dialects.postgresql import INET, JSONB, REGCONFIG, TSVECTOR, UUID
+from sqlalchemy.dialects.postgresql import base as postgresql_types
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kernel.db import Base
@@ -347,6 +349,40 @@ class TaxonomyTermLink(Base):
     #: `<id>.<entity>`, a content type the module's manifest lists.
     content_type: Mapped[str] = mapped_column(String(64), primary_key=True)
     content_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+
+
+#: SQLAlchemy reads `regconfig` back from the database as no type at all, and
+#: warns: Alembic's checks and the migrations' snapshot need it known.
+postgresql_types.ischema_names.setdefault("regconfig", REGCONFIG)
+
+#: The words a document is found by: its title weighted A, its body B, in its
+#: language. Postgres keeps it (a stored generated column).
+SEARCH_WORDS = (
+    "setweight(to_tsvector(language, title), 'A') || setweight(to_tsvector(language, body), 'B')"
+)
+
+
+class SearchDocument(Base):
+    """One public thing of a module's, as site search finds it (kernel.search,
+    decision 0052, hook 3). No foreign key to the module's row: the kernel
+    fills it from the module's `search.py` as the thing is published and
+    unpublished, and the module calls `search.index` and `search.remove`
+    for content without lifecycle."""
+
+    __tablename__ = "kernel_search_document"
+    __table_args__ = (Index("ix_kernel_search_document_tsv", "tsv", postgresql_using="gin"),)
+
+    #: `<id>.<entity>`, a content type the module's manifest lists with `search`.
+    content_type: Mapped[str] = mapped_column(String(64), primary_key=True)
+    content_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    title: Mapped[str] = mapped_column(String(300))
+    body: Mapped[str] = mapped_column(Text, server_default=text("''"))
+    #: Where it's shown on the site, such as /blog/jazz.
+    path: Mapped[str] = mapped_column(String(500))
+    #: The text search configuration its words were read in: SEARCH_LANGUAGE.
+    language: Mapped[str] = mapped_column(REGCONFIG)
+    tsv: Mapped[Any] = mapped_column(TSVECTOR, Computed(SEARCH_WORDS, persisted=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 # Auth's tables live in kernel.auth.models; importing them here puts every

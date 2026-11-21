@@ -396,6 +396,29 @@ export interface paths {
         patch: operations["change_term_api_kernel_admin_terms__term_id__patch"];
         trace?: never;
     };
+    "/api/kernel/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Site Search
+         * @description The public documents matching `q`, the best first, of the modules that
+         *     are on; `type` keeps to one content type. One that isn't searched, or
+         *     whose module is off, is refused alike: it names nothing of what the site
+         *     lacks.
+         */
+        get: operations["site_search_api_kernel_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/kernel/admin/settings/{id}": {
         parameters: {
             query?: never;
@@ -2254,6 +2277,29 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** SearchHit */
+        SearchHit: {
+            /** Type */
+            type: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Snippet */
+            snippet: string;
+            /** Path */
+            path: string;
+        };
+        /** SearchResults */
+        SearchResults: {
+            /** Items */
+            items: components["schemas"]["SearchHit"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
         /** SecondFactor */
         SecondFactor: {
             /** Challenge */
@@ -3483,6 +3529,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TermShown"];
+                };
+            };
+            /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A problem (RFC 9457) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    site_search_api_kernel_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                type?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
                 };
             };
             /** @description What was sent isn't valid (`kernel.invalid_request`), or the route refused it with its own code, such as `auth.password_rejected` */

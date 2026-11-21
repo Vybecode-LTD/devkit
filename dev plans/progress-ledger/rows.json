@@ -666,11 +666,11 @@
    "gate": "",
    "step_order": 3,
    "step": "Search index",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
-   "note": ""
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#99",
+   "decisions": "0052",
+   "note": "kernel.search: search.py's SEARCH and content_types[].search, the kernel table kernel_search_document (kernel_0014), the kernel hearing kernel.content.*, the kernel.search_reindex job, and GET /api/kernel/search"
   },
   {
    "milestone": "MechFrame v1.0",

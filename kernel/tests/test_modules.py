@@ -354,6 +354,17 @@ def test_load_module_builds_a_module_from_its_fixed_names(
                 "    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)\n"
                 "PUBLISHABLE = (Photo,)\n"
             ),
+            "search.py": (
+                "from kernel import search\n"
+                "class Photos(search.Source):\n"
+                f"    content_type = '{module_id}.photo'\n"
+                "    async def document(self, db, content_id):\n"
+                "        return None\n"
+                "    async def documents(self, db):\n"
+                "        for _ in ():\n"
+                "            yield _\n"
+                "SEARCH = (Photos(),)\n"
+            ),
         },
     )
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -377,6 +388,7 @@ def test_load_module_builds_a_module_from_its_fixed_names(
     assert [kind.name for kind in module.reportable] == [f"{module_id}.photo"]
     assert isinstance(module.pages, server_copy.Pages)
     assert [model.__content_type__ for model in module.publishable] == [f"{module_id}.photo"]
+    assert [source.content_type for source in module.searchable] == [f"{module_id}.photo"]
 
 
 def test_a_modules_vocabularies_reach_the_taxonomy_from_its_manifest(
@@ -424,7 +436,8 @@ def test_load_module_of_a_package_with_none_of_the_names_or_none_at_all(
         found.listeners,
         found.reportable,
         found.publishable,
-    ) == ((), (), (), (), (), ())
+        found.searchable,
+    ) == ((), (), (), (), (), (), ())
     assert found.emails == {}
     assert module_jobs(f"{absent_id.replace('-', '_')}.jobs") == ()  # no package at all
     # Its package isn't importable: the manifest only.

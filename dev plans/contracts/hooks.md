@@ -91,6 +91,7 @@ Per hook, tests seen failing first (the skill's step 3):
 ## Changes after approval
 
 - 2026-11-20, hook 2 (#98): `taxonomy.tag(db, type, id, vocabulary, slugs)` takes the vocabulary, since a content type can take several, and sets that vocabulary's terms to exactly `slugs`. `GET /api/kernel/terms` pages with `cursor` and `limit` and answers 404 `kernel.vocabulary_not_found` for a vocabulary no module on declares; a missing term is 404 `kernel.term_not_found` (the contract suite reads `kernel.not_found` as a route not built). A term with children answers 409 `kernel.term_has_children` rather than taking them with it. The probe declares `tags` (flat) beside `topics` (hierarchical).
+- 2026-11-21, hook 3 (#99): `SEARCH` is a tuple of `search.Source`, one per content type (as `PUBLISHABLE` is), each naming its `content_type`. The reindex job is `kernel.search_reindex`, since a job's name is `<owner>.<name>` with one dot; the kernel's listeners are `kernel.search_published` and `kernel.search_unpublished`. Either listener indexes the thing as it is now (its source's answer while it's there and published), so deliveries in any order leave the index right, and `index` keeps out a lifecycle row that isn't published. `GET /api/kernel/search` answers 422 `kernel.invalid_request` for a `type` no module on searches, `limit` is 1 to 50 (20), and the snippet is plain text. `SEARCH_LANGUAGE` is one of Postgres 16's own text search configurations, checked at start.
 
 ## 8. Open questions
 

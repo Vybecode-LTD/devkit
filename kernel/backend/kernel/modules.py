@@ -55,6 +55,7 @@ from kernel.models import ModuleState
 
 if TYPE_CHECKING:  # kernel.moderation reads OFF from here; server_copy builds from these
     from kernel.moderation import Kind
+    from kernel.search import Source
     from kernel.server_copy import Pages
 
 
@@ -119,6 +120,10 @@ class InstalledModule:
     #: `lifecycle.py`'s `PUBLISHABLE`, each a `lifecycle.Publishable` named by
     #: its `__content_type__`.
     publishable: tuple[type[Any], ...] = ()
+    #: The module's search sources (kernel.search, decision 0052): its
+    #: `search.py`'s `SEARCH`, a `search.Source` for each content type it
+    #: lets site search find.
+    searchable: tuple[Source, ...] = ()
 
     @property
     def id(self) -> str:
@@ -205,7 +210,8 @@ def load_module(manifest: Path) -> InstalledModule:
     - `<id_>/moderation.py`'s kinds (kernel.moderation);
     - `<id_>/server_copy.py`'s `PAGES`, its public pages (kernel.server_copy);
     - `<id_>/lifecycle.py`'s `PUBLISHABLE`, its publishable models
-      (kernel.lifecycle).
+      (kernel.lifecycle);
+    - `<id_>/search.py`'s `SEARCH`, its search sources (kernel.search).
 
     The package `<id_>` must be importable: the caller puts its folder on
     `sys.path`. A package that isn't there gives the manifest alone."""
@@ -226,6 +232,7 @@ def load_module(manifest: Path) -> InstalledModule:
         reportable=module_kinds(f"{package}.moderation"),
         pages=_attribute(f"{package}.server_copy", "PAGES"),
         publishable=tuple(_attribute(f"{package}.lifecycle", "PUBLISHABLE") or ()),
+        searchable=tuple(_attribute(f"{package}.search", "SEARCH") or ()),
     )
 
 

@@ -163,7 +163,7 @@ Every module MUST ship a `module.json` that validates against `mechframe/schema/
 | `bindings` | string[] | `["web"]` in v1 |
 | `jobs` | object[] | `{name, schedule}` for scheduled work |
 | `notifications` | object[] | `{key, description, default}` for each kind of notice the module sends; default is in_site, email or both. The kernel builds each person's notification preferences from these |
-| `content_types` | object[] | Optional. `{key, label, lifecycle, taxonomy}` for each kind of content the module holds, the key `<id>.<entity>`: what the contract hooks that work on content read (decision 0052). `lifecycle: true` makes it publishable through `kernel.lifecycle` (7, 10); `taxonomy` lists the vocabularies it's tagged from, each one this manifest's `vocabularies` declares |
+| `content_types` | object[] | Optional. `{key, label, lifecycle, taxonomy, search}` for each kind of content the module holds, the key `<id>.<entity>`: what the contract hooks that work on content read (decision 0052). `lifecycle: true` makes it publishable through `kernel.lifecycle` (7, 10); `taxonomy` lists the vocabularies it's tagged from, each one this manifest's `vocabularies` declares; `search: true` lets site search find it, from a source in the module's `search.py` (`kernel.search`, 7, 10) |
 | `vocabularies` | object[] | Optional. `{key, label, hierarchical}` for each list of terms the module's content is tagged from (`kernel.taxonomy`, decision 0052). The key is lowercase and shared: modules naming the same key share one vocabulary, and the start refuses two that disagree on `hierarchical`. `hierarchical: true` lets a term sit under another |
 | `data_hooks` | object | `export` and `delete` set to true when the module holds personal data. Required if any table references a user |
 | `source` | object | Where the code was lifted from, the commit, and the license |
@@ -194,7 +194,7 @@ Every module MUST ship a `module.json` that validates against `mechframe/schema/
   "jobs": [{"name": "send_digest", "schedule": "0 8 * * 1"}],
   "notifications": [{"key": "blog.comment_reply", "description": "Someone replied under your post", "default": "both"}],
   "vocabularies": [{"key": "topics", "label": "Topics", "hierarchical": false}],
-  "content_types": [{"key": "blog.post", "label": "Post", "lifecycle": true, "taxonomy": ["topics"]}],
+  "content_types": [{"key": "blog.post", "label": "Post", "lifecycle": true, "taxonomy": ["topics"], "search": true}],
   "data_hooks": {"export": true, "delete": true},
   "source": {"from": "VybeSite", "commit": "TBD", "license": "proprietary"}
 }
@@ -232,6 +232,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
 | `lifecycle.Publishable`, `lifecycle.publish / schedule / unpublish(db, row)`, `lifecycle.visible(Model)`, `lifecycle.columns() / table_args(table)` | Draft, scheduled and published for a module's public content (hook 1, decision 0052): the mixin's three columns, CHECK and due index; publish and unpublish emit `kernel.content.published` and `kernel.content.unpublished` in the caller's transaction; the kernel's `kernel.publish_due` publishes what's due every minute, dated at its time; `visible` is the one WHERE for what the public sees; `columns` and `table_args` write the same in a migration | A scheduled post | Hooks |
 | `taxonomy.tag(db, type, id, vocabulary, slugs)`, `taxonomy.terms_for(db, type, ids)`, `taxonomy.tagged(type, vocabulary, slug)`, `taxonomy.untag_all(db, type, id)` | Terms on a module's content from the vocabularies its manifest declares (hook 2, decision 0052): `tag` sets a thing's terms in one vocabulary to exactly those slugs in the caller's transaction, making any missing; `terms_for` answers each id's; `tagged` is a select of the ids holding a term, for `Model.id.in_(...)`; `untag_all` is for deleting the thing. The terms are public at `GET /api/kernel/terms?vocabulary=` while a module declaring the vocabulary is on, and staff holding `kernel.taxonomy.manage` (admin and editor by default) add, rename, move and delete them, audited | A post's topics | Hooks |
+| `search.Source`, `search.Document(type, id, title, body, path)`, `search.index(db, doc)`, `search.remove(db, type, id)` | Site search over every module's public content (hook 3, decision 0052): a module's `search.py` gives a source for each content type its manifest lists with `search: true`, answering one thing (`document(db, id)`, None when it's gone or not public) and all of them (`documents(db)`, for a reindex). The kernel indexes content with lifecycle itself, hearing `kernel.content.published` and `.unpublished`; `index` and `remove` are for content without lifecycle and for an edit of what's published, in the caller's transaction, and `index` keeps out a row that isn't published. The job `kernel.search_reindex`, run on demand, rebuilds the index. The public searches at `GET /api/kernel/search?q=&type=&cursor=&limit=` (30 a minute from one address): the modules that are on, ranked in `SEARCH_LANGUAGE` (default `english`), the title above the body, each hit with a plain-text snippet | A site's search box | Hooks |
 | `Answer`, `answer(Model, content)`, `Id`, `When` | The base of every route's answer model, which refuses keys it doesn't name, and the JSON response built through one for a route that sets a cookie or header (section 7, decision 0042) | `@router.get("/posts", response_model=Posts)` | K4 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
@@ -296,7 +297,7 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `mechframe check` and code review enforce.
 
-**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates), `moderation.py` (what people may report, decision 0039) and `lifecycle.py` (its publishable content, decision 0052). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033), `server_copy.py`'s `PAGES` (decision 0041) and `lifecycle.py`'s `PUBLISHABLE` (decision 0052).
+**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates), `moderation.py` (what people may report, decision 0039), `lifecycle.py` (its publishable content, decision 0052) and `search.py` (what site search finds, decision 0052). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033), `server_copy.py`'s `PAGES` (decision 0041), `lifecycle.py`'s `PUBLISHABLE` and `search.py`'s `SEARCH`, a tuple of `search.Source` (decision 0052).
 
 **Routes**
 
@@ -335,6 +336,7 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 | --- | --- | --- |
 | Content lifecycle | module.json's `content_types[].lifecycle`; `lifecycle.py`'s `PUBLISHABLE`, models subclassing `lifecycle.Publishable`; the kernel's `kernel.publish_due` job; the events `kernel.content.published` and `kernel.content.unpublished` | 5, 6, 7, 10, 11 |
 | Taxonomy | module.json's `vocabularies` and `content_types[].taxonomy`; `kernel.taxonomy`'s `tag`, `terms_for`, `tagged` and `untag_all`; the tables `kernel_vocabulary`, `kernel_term` and `kernel_term_link`; `GET /api/kernel/terms` and the admin's term routes under `kernel.taxonomy.manage` | 5, 6, 7, 10 |
+| Search index | module.json's `content_types[].search`; `search.py`'s `SEARCH`, a `search.Source` for each searched type; `kernel.search`'s `index` and `remove`; the table `kernel_search_document`; the kernel's listeners to `kernel.content.*` and its `kernel.search_reindex` job; `GET /api/kernel/search` | 5, 6, 7, 10 |
 
 ## 8. Frontend rules and UI slots
 
@@ -440,7 +442,7 @@ Each module owns its own tables and its own migration branch. It links only to t
 
 **Tagged content** (hook 2, decision 0052). A module tags its content only through `kernel.taxonomy`, from the vocabularies its manifest declares, and never keeps a term table of its own. Terms live in the kernel's `kernel_vocabulary`, `kernel_term` and `kernel_term_link`; a link has no foreign key to the module's row, so a module that deletes a tagged thing MUST call `taxonomy.untag_all` in the same transaction, and MUST hold the thing's row locked while it tags or deletes it, so a tagging can't land after the deletion. A vocabulary whose modules all make it flat shows no parents at once, and its terms lose theirs on its next write. Terms are public, a term made by tagging a draft included, so a term's slug or label MUST NOT carry what the content keeps private. A term with terms under it isn't deleted until they're moved or deleted.
 
-**Search.** Postgres full-text search in v1. A search module MAY add a dedicated engine later.
+**Search** (hook 3, decision 0052). Postgres full-text search in v1, in the kernel's `kernel_search_document`: a row per public thing, its words (`tsv`, the title weighted A and the body B) kept by Postgres from the title, body and `language`, through a GIN index. A module never keeps a search table of its own, and its documents MUST be public: search finds them without a sign-in, so a source MUST answer None for what isn't public, and the kernel keeps out a lifecycle row that isn't published either way. Content with lifecycle is indexed by the kernel as it's published and unpublished; a module that changes what a published thing shows, or holds content without lifecycle, calls `search.index` or `search.remove` in the same transaction. A document's body is plain text, cut at 100,000 characters. After `SEARCH_LANGUAGE` changes, or once a module is removed, run `kernel.search_reindex`. A module switched off keeps its documents, unfound until it's on again. A search module MAY add a dedicated engine later.
 
 ## 11. Events between modules
 
@@ -710,6 +712,7 @@ Both limits are site settings (Q6).
 | `kernel_audit_event` | The audit log, every module's: auth's table renamed when it became the kernel's (decision 0037) |
 | `kernel_moderation_case`, `kernel_moderation_report` | One case per reported thing, at most one open, with the excerpt as first reported, and the reports on it; closed cases go after `AUDIT_KEEP_DAYS` (decision 0039) |
 | `kernel_vocabulary`, `kernel_term`, `kernel_term_link` | The vocabularies modules declare (made on first use, kept in step with the manifests), their terms (a slug unique in each, a parent in a hierarchical one, a position), and a term's links to a module's content by type and id, with no foreign key to the module's row (decision 0052, hook 2) |
+| `kernel_search_document` | One row per public thing site search finds, by content type and id: its title, plain-text body, path and text search language, and the words Postgres keeps from them in a GIN index; no foreign key to the module's row (decision 0052, hook 3) |
 
 ### 14.12 Crypto and secrets
 
@@ -882,6 +885,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | Hook 3, search index (decision 0052, `dev plans/contracts/hooks.md`): module.json's `content_types[].search`; `search.py`'s `SEARCH`, a tuple of `search.Source`; `kernel.search`'s `index` and `remove` on the kernel table `kernel_search_document` (`kernel_0014`); the kernel hearing `kernel.content.published` and `.unpublished`, and its `kernel.search_reindex` job; `GET /api/kernel/search`; `SEARCH_LANGUAGE`; the hooks index's third row (5, 6, 7, 10, 14.11) |
 | 2026-11-20 | Hook 2, taxonomy (decision 0052, `dev plans/contracts/hooks.md`): module.json's `vocabularies` and `content_types[].taxonomy`; `kernel.taxonomy`'s `tag`, `terms_for`, `tagged` and `untag_all` on the kernel tables `kernel_vocabulary`, `kernel_term` and `kernel_term_link` (`kernel_0013`); `GET /api/kernel/terms`, and the admin's term routes under the new `kernel.taxonomy.manage` (admin and editor); the hooks index's second row (5, 6, 7, 10) |
 | 2026-11-20 | Hook 1, content lifecycle (decisions 0018 and 0052, `dev plans/contracts/hooks.md`): module.json's `content_types`; `kernel.lifecycle`, the `Publishable` mixin with its CHECK and due index, publish, schedule and unpublish, `visible`, and the kernel's `kernel.publish_due` job; the events `kernel.content.published` and `kernel.content.unpublished`; and the hooks index at the end of section 7 (5, 6, 7, 10, 11) |
 | 2026-11-20 | The first owner, from the server (decision 0051, K5 contract change 9): `create-owner` prints a reset link for the owner's account, closes every way into it first, refuses any address but an owner's once there is one, and replaces the setup token at first boot (14.1) |

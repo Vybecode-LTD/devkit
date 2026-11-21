@@ -172,6 +172,11 @@ def test_content_types_are_optional_and_pass_with_the_modules_own_keys(repo: Pat
     assert check(repo).problems == []
 
 
+def test_a_content_type_may_be_searched(repo: Path) -> None:
+    _edit(repo, content_types=[{**_DESIGN, "search": True}])
+    assert check(repo).problems == []
+
+
 def test_a_content_type_outside_the_id_fails(repo: Path) -> None:
     _edit(repo, content_types=[{"key": "shop.product", "label": "Product"}])
     assert check(repo).problems == [
@@ -194,6 +199,7 @@ def test_a_content_type_listed_twice_fails(repo: Path) -> None:
         ({"key": "print-on-demand.design"}, "content_types/0"),
         ({"key": "print-on-demand", "label": "Design"}, "content_types/0/key"),
         ({**_DESIGN, "lifecycle": "yes"}, "content_types/0/lifecycle"),
+        ({**_DESIGN, "search": "yes"}, "content_types/0/search"),
         ({**_DESIGN, "colour": "red"}, "content_types/0"),
     ],
 )

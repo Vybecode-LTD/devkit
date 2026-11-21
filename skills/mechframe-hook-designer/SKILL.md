@@ -116,7 +116,7 @@ The owner decided these when they picked the post-v1.0 modules (decision 0018, `
 | Export and erase | privacy-center | Yes: `data_hooks` (5) and `export_user_data` / `delete_user_data` (10); 14.13 tests delete only | Confirm; add an export contract test |
 | Dashboard cards | setup-wizard, fleet | Partly: the `admin.dashboard.widget` slot (8) | Setup-checklist steps as a manifest field or a fixed-name part with a live check |
 | Profile tabs | profiles | Partly: `account.section` is the member's own page | A public `profile.tab` slot plus a rule that it shows only public data |
-| Search index | site-search, semantic-search, concierge, docs | No: 10 says Postgres full-text search in v1 | Fixed-name `search.py` returning documents, a kernel index table, reindex on events |
+| Search index | site-search, semantic-search, concierge, docs | Yes, since #99 | `kernel.search` (decision 0052) |
 | Consent categories | consent, analytics-adapters, social-feeds, video | No: `CSP` hosts carry no category | A category on each `CSP` entry, the front end holding scripts and iframes until consent |
 | Entitlements | memberships, member-only video, ai-studio | No: roles and permissions only (14.8) | Kernel `require_access(resource)` with providers registered by modules |
 | Bot check | bot-shield, forms, reviews, submissions | No: `rate_limit` only | A kernel API dependency with a provider adapter and one setting |

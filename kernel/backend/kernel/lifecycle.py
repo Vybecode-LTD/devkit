@@ -266,6 +266,12 @@ def install(publishable: Mapping[str, type[Publishable]]) -> None:
     _publishable = dict(publishable)
 
 
+def model_of(content_type: str) -> type[Publishable] | None:
+    """The publishable model of `content_type`, or None for a type without
+    lifecycle: what search reads to keep a draft out (hook 3)."""
+    return _publishable.get(content_type)
+
+
 async def _publish_due(ctx: jobs.Context) -> None:
     """Publishes every scheduled row whose time has passed, dated at that time,
     a batch to a transaction; a row another worker holds is left to it."""

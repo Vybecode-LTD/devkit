@@ -1069,6 +1069,9 @@ def test_create_worker_builds_what_create_app_would() -> None:
         "kernel.prune_notifications",
         "kernel.prune_moderation",
         "kernel.publish_due",
+        "kernel.search_reindex",
+        "kernel.search_published",
+        "kernel.search_unpublished",
     } == (worker.names)
     assert (worker.concurrency, worker.poll, worker.drain) == (7, 0.5, 20.0)
 

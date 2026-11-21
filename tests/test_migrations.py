@@ -180,6 +180,9 @@ _SEED = [
     "'00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004', 'jazz', 'Jazz')",
     "INSERT INTO kernel_term_link (term_id, content_type, content_id) "
     "VALUES ('00000000-0000-0000-0000-000000000005', 'blog.post', gen_random_uuid())",
+    "INSERT INTO kernel_search_document (content_type, content_id, title, body, path, language, "
+    "updated_at) VALUES ('blog.post', gen_random_uuid(), 'Jazz', 'Mixing jazz', '/blog/jazz', "
+    "'english', now())",
 ]
 
 
