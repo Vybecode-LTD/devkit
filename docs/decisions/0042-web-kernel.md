@@ -1,7 +1,7 @@
 # 0042: The web kernel: a typed client from committed specs, kernel pages in one list, `--mf-*` tokens, and the admin to the boards
 
 - **Date:** 2026-11-18
-- **Status:** Decided; applied in K4, PR by PR (#78 is the typed client)
+- **Status:** Decided; applied in K4, PR by PR (#78 is the typed client). Amended 2026-11-21 (#101, from VM Website Dev 05 with the owner's OK): the required token `color.field` fills a field, a select and a text area (Vibrant Mindz's canvas, as the boards draw them; Machined Light's well), and every switch takes the admin's gap ring, off as well as on (an off track met the ring's line at 2.2:1)
 - **Context:** K4 builds the kernel's front end (KICKOFF K4, SPEC 6, 8, 9 and 16). It touches seams other code depends on:
   - the typed client modules call the API with;
   - `defineModule`'s slots;

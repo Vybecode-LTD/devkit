@@ -92,6 +92,7 @@ A landing takes `?token=` out of the address bar before it renders. It acts only
 - **Type:** `font.display`, `font.text`, `font.mono`; `type.page-title`, `type.section-title`, `type.body`, `type.small`, `type.meta`.
 - **Shape and motion:** `radius.control`, `radius.card`, `radius.pill`; `layout.sidebar`; `motion.fast`, `motion.base`.
 - **Added by the UI kit (change 15):** `color.border-control`; `color.success-tint`, `warning-tint`, `danger-tint`, `neutral-tint`; `shadow.focus-ring`, `focus-ring-gap`, `focus-ring-inset`, `nav-current-focus`, `tab-current-focus`.
+- **Added after K4 (#101, 2026-11-21; decision 0042, amended):** `color.field`, a field's fill.
 
 The primary button hovers to `accent-hover`. `python -m tools.themes` writes each theme's `tokens.css` and `tailwind.css`, with `--check`.
 

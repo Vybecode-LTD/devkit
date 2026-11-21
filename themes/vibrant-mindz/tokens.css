@@ -145,6 +145,7 @@
   --mf-color-surface-raised: var(--mf-color-palette-panel-2);
   --mf-color-surface-2: var(--mf-color-palette-band);
   --mf-color-well: var(--mf-color-palette-well);
+  --mf-color-field: var(--mf-color-palette-night);
   --mf-color-text: var(--mf-color-palette-soft);
   --mf-color-text-strong: var(--mf-color-palette-bone);
   --mf-color-text-muted: var(--mf-color-palette-muted);

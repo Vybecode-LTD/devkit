@@ -42,6 +42,7 @@
   --mf-color-surface: var(--mf-color-palette-neutral-50);
   --mf-color-surface-raised: var(--mf-color-palette-neutral-25);
   --mf-color-well: var(--mf-color-palette-neutral-150);
+  --mf-color-field: var(--mf-color-palette-neutral-150);
   --mf-color-text-strong: var(--mf-color-palette-neutral-900);
   --mf-color-text: var(--mf-color-palette-neutral-800);
   --mf-color-text-muted: var(--mf-color-palette-neutral-700);

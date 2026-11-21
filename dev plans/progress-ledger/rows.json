@@ -486,7 +486,7 @@
    "step": "UI kit, moved to React 19 and tokens",
    "status": "done",
    "status_label": "Done",
-   "prs": "#82",
+   "prs": "#82 #101",
    "decisions": "0042",
    "note": ""
   },

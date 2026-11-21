@@ -120,13 +120,13 @@ def test_every_pair_was_checked() -> None:
 def test_every_alias_resolves_and_roles_hold_no_hex() -> None:
     aliases = [t for t in TOKENS if isinstance(t.value, str) and themes.ALIAS.match(t.value)]
     # 62, plus the kernel's font, radius and motion names (K4), plus the control edge and the
-    # four pill tints (K4.4), plus info and its tint (K4.6)
-    assert len(aliases) == 77
+    # four pill tints (K4.4), plus info and its tint (K4.6), plus a field's fill (#101)
+    assert len(aliases) == 78
     for t in aliases:
         themes.literal(t, BY_PATH)
     # Every colour role points at the palette or an alpha, so a colour is changed in one place.
     roles = [t for t in TOKENS if len(t.path) == 2 and t.path[0] == "color"]
-    assert len(roles) == 33  # info and its tint joined at K4.6
+    assert len(roles) == 34  # info and its tint joined at K4.6, the field's fill at #101
     assert [t.dotted for t in roles if not themes.ALIAS.match(str(t.value))] == []
 
 

@@ -26,6 +26,7 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 | `color.surface` | Cards, panels, the save bar |
 | `color.surface-raised` | Pop-overs, menus, a nav item's hover and current state |
 | `color.well` | Recessed inputs and tracks |
+| `color.field` | A field's fill: an input, a select, a text area and the admin's Ctrl K box (Vibrant Mindz fills them with its page colour, Machined Light with its well) |
 | `color.text` | Secondary text: an accordion's body, a stat's line, the current breadcrumb |
 | `color.text-strong` | The highest contrast: titles and the admin's body text |
 | `color.text-muted` | Labels, hints, table heads, inactive nav |
@@ -63,13 +64,13 @@ Every theme defines these; the kit styles itself with them. `tools/themes.py`'s 
 | `motion.fast` | A quick change: colour, border, background |
 | `motion.base` | An ordinary change: a transform, a panel |
 | `shadow.focus-ring` | The admin's keyboard focus: a 1px line and a 4px glow of it, in the theme's ring colour (Vibrant Mindz's accent, Machined Light's `color.focus`) |
-| `shadow.focus-ring-gap` | The admin's focus on a filled or pressed control (the primary button, a switch that's on, a pressed chip): a 2px gap of the page colour first |
+| `shadow.focus-ring-gap` | The admin's focus on a filled or pressed control (the primary button, every switch, a pressed chip): a 2px gap of the page colour first |
 | `shadow.focus-ring-inset` | The admin's focus drawn just inside: a row in a clipped list, a table's sideways scroller |
 | `shadow.nav-current-focus` | The current nav item with focus: its 2px edge under the ring |
 | `shadow.tab-current-focus` | The selected tab with focus: its 2px underline under the ring |
 
 **Contrast**, which `tests/test_themes.py` checks token against token:
-- Every text role is at least 4.5:1 on the canvas, surface, raised surface and rail, and the two strongest are 4.5:1 on a well.
+- Every text role is at least 4.5:1 on the canvas, surface, raised surface and rail; the two strongest are 4.5:1 on a well, and they and a placeholder's `color.text-subtle` on a field's fill.
 - Links are 4.5:1 on the canvas and surface, and so is the on-accent colour on the accent and its hover.
 - The signals are 4.5:1 on the canvas, surface and raised surface.
 - The focus colour and the accent are at least 3:1 on what they sit on.

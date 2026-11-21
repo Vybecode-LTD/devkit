@@ -36,7 +36,7 @@ The site's frames (`SiteFrame`, the sign-in frame) carry `.mf-site-look`, the lo
 
 The site, sign-in and account screens keep the base outline: 2px of `color.focus`, 3px off (`frames.css`). Inside the admin (`.mf-admin-look`, on the admin frame), focus is the accent ring (`shadow.focus-ring`), as the owner set it on 2026-11-18:
 
-- a 2px page-colour gap first on a filled or pressed control: the primary button, a switch that's on, anything `aria-pressed="true"` (`shadow.focus-ring-gap`);
+- a 2px page-colour gap first on a filled or pressed control: the primary button, every switch (an off track meets the ring's line at 2.2:1 in Vibrant Mindz), anything `aria-pressed="true"` (`shadow.focus-ring-gap`);
 - drawn inside on a table's scroller and on a row of a clipped list, class `mf-pick` (`shadow.focus-ring-inset`);
 - over the 2px edge the current nav item and the selected tab keep (`shadow.nav-current-focus`, `shadow.tab-current-focus`).
 
@@ -45,4 +45,4 @@ The outline turns transparent rather than off, so forced colours still draw it.
 ## Checked
 
 - Vitest: the parts' tests in `src/ui/`; `RouteFocus` through `app/routes.test.tsx`, `ErrorBoundary` through `slots/slots.test.tsx`, `ScrollMemory` through `place.test.tsx`.
-- Playwright on the kit's page, `harness/web/kit.html` at `/kit.html` (`kernel/tests/e2e/kit.spec.ts`): axe in both themes, the dialog open and shut; the boundary as drawn of each field, select, switch, pressed chip and filled button, 3:1 against what's behind it, and a switch's knob against its track (a secondary button or a chip that's not pressed keeps `border-strong`: its words name it, contract change 15); the focus rings, reached with real Tab presses; a half-hidden button in a table's scroller brought fully into view; and the save bar keeping the focus clear of itself.
+- Playwright on the kit's page, `harness/web/kit.html` at `/kit.html` (`kernel/tests/e2e/kit.spec.ts`): axe in both themes, the dialog open and shut; the boundary as drawn of each field, select, switch, pressed chip and filled button, 3:1 against what's behind it, and a switch's knob against its track (a secondary button or a chip that's not pressed keeps `border-strong`: its words name it, contract change 15); a field's, a select's and a text area's fill (`color.field`); the focus rings, reached with real Tab presses, the gap on an off switch as on an on one; a half-hidden button in a table's scroller brought fully into view; and the save bar keeping the focus clear of itself.

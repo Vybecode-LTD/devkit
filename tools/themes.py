@@ -43,6 +43,7 @@ REQUIRED: tuple[str, ...] = (
     "color.surface",
     "color.surface-raised",
     "color.well",
+    "color.field",
     "color.text",
     "color.text-strong",
     "color.text-muted",

@@ -80,6 +80,7 @@ SIGNALS = ["color.success", "color.warning", "color.danger", "color.info"]
 PAIRS = (
     [(fg, bg, 4.5) for fg in TEXT for bg in GROUNDS]
     + [(fg, "color.well", 4.5) for fg in ["color.text-strong", "color.text"]]
+    + [(fg, "color.field", 4.5) for fg in ["color.text-strong", "color.text", "color.text-subtle"]]
     + [
         (fg, bg, 4.5)
         for fg in ["color.link", "color.link-hover"]
@@ -91,10 +92,20 @@ PAIRS = (
         for fg in SIGNALS
         for bg in ["color.canvas", "color.surface", "color.surface-raised"]
     ]
-    + [("color.focus", bg, 3.0) for bg in [*GROUNDS, "color.well"]]
+    + [("color.focus", bg, 3.0) for bg in [*GROUNDS, "color.well", "color.field"]]
     + [("color.border-control", bg, 3.0) for bg in GROUNDS]
     + [("color.accent", bg, 3.0) for bg in GROUNDS]
 )
+
+
+def test_vibrant_mindz_fills_a_field_with_its_page_colour() -> None:
+    # The boards fill every field with the canvas, a shade lighter than the
+    # well (VM Website Dev 05, 2026-11-21); Machined Light keeps its well.
+    by_name = {theme.name: theme for theme in THEMES}
+    mindz, light = by_name["vibrant-mindz"], by_name["machined-light"]
+    assert opaque(mindz, "color.field") == opaque(mindz, "color.canvas")
+    assert opaque(mindz, "color.field") != opaque(mindz, "color.well")
+    assert opaque(light, "color.field") == opaque(light, "color.well")
 
 
 #: A pill's words on its tint (K4.4): (words, tint).

@@ -138,7 +138,23 @@ for (const [theme, canvas] of Object.entries(THEMES)) {
       }
     });
 
-    test("focus is the admin's ring, with a gap on a filled or pressed control and over a selected tab's edge; the site keeps its outline", async ({ page }) => {
+    test("a field, a select and a text area take the theme's field fill", async ({ page }) => {
+      await open(page, theme, canvas);
+      const fills = await page.evaluate(() => {
+        const probe = document.createElement("div");
+        probe.style.backgroundColor = "var(--mf-color-field)";
+        document.body.append(probe);
+        const field = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return { field, drawn: [...document.querySelectorAll(".mf-input")].map((each) => getComputedStyle(each).backgroundColor) };
+      });
+      expect(fills.drawn.length).toBeGreaterThan(3);
+      expect([...new Set(fills.drawn)]).toEqual([fills.field]);
+      // The boards fill a field with the page colour (VM Website Dev 05, 2026-11-21).
+      if (theme === "vibrant-mindz") expect(fills.field).toBe(canvas);
+    });
+
+    test("focus is the admin's ring, with a gap on a filled or pressed control, on every switch and over a selected tab's edge; the site keeps its outline", async ({ page }) => {
       await open(page, theme, canvas);
       const ring = await shadowOf(page, "--mf-shadow-focus-ring");
       const gap = await shadowOf(page, "--mf-shadow-focus-ring-gap");
@@ -162,6 +178,15 @@ for (const [theme, canvas] of Object.entries(THEMES)) {
       await page.getByRole("switch", { name: "Open sign-up" }).focus();
       await page.keyboard.press("Tab");
       await page.keyboard.press("Shift+Tab");
+      expect((await focusedShadow(page)).shadow).toBe(gap);
+
+      // An off switch too: in Vibrant Mindz its track meets the ring's line at 2.2:1 (VM Website Dev 05).
+      const off = page.getByRole("switch", { name: "Direct messages" });
+      await expect(off).toHaveAttribute("aria-checked", "false");
+      await off.focus();
+      await page.keyboard.press("Shift+Tab");
+      await page.keyboard.press("Tab");
+      await expect(off).toBeFocused();
       expect((await focusedShadow(page)).shadow).toBe(gap);
 
       await page.getByRole("tab", { name: "Site" }).focus();

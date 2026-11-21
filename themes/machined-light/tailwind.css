@@ -8,6 +8,7 @@
   --color-surface: var(--mf-color-surface);
   --color-surface-raised: var(--mf-color-surface-raised);
   --color-well: var(--mf-color-well);
+  --color-field: var(--mf-color-field);
   --color-text-strong: var(--mf-color-text-strong);
   --color-text: var(--mf-color-text);
   --color-text-muted: var(--mf-color-text-muted);

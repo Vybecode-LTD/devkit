@@ -118,7 +118,7 @@
     padding: 0.5625rem 0.75rem;
     border: 1px solid var(--mf-color-border-control);
     border-radius: var(--mf-radius-control);
-    background: var(--mf-color-well);
+    background: var(--mf-color-field);
     color: var(--mf-color-text-strong);
     font: var(--mf-type-small);
     line-height: 1.45;
@@ -1068,7 +1068,8 @@
     box-shadow: var(--mf-shadow-focus-ring);
   }
 
-  .mf-admin-look :where(.mf-button--primary, .mf-switch[aria-checked="true"], [aria-pressed="true"]):focus-visible {
+  /* Every switch, off as well as on: an off track meets the ring's line at 2.2:1 in Vibrant Mindz. */
+  .mf-admin-look :where(.mf-button--primary, .mf-switch, [aria-pressed="true"]):focus-visible {
     box-shadow: var(--mf-shadow-focus-ring-gap);
   }
 
