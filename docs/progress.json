@@ -150,8 +150,8 @@
         {"name": "Consent categories", "status": "todo"},
         {"name": "Export and erase", "status": "todo"},
         {"name": "Dashboard cards", "status": "todo"},
-        {"name": "Entitlements", "status": "todo"},
-        {"name": "Profile tabs", "status": "todo"}
+        {"name": "Entitlements", "status": "todo", "note": "Waits until just before Vibrant Mindz step 5, its downloads (the owner, 2026-11-21)"},
+        {"name": "Profile tabs", "status": "todo", "note": "Waits until just before wave 2b, its profiles module (the owner, 2026-11-21)"}
       ]
     },
     {

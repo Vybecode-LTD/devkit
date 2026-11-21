@@ -81,6 +81,12 @@ The canvas **Admin** page draws six of these: Dashboard, Players, Album editor, 
 - **Links from new community members are held** for a moderator for their first 7 days (step 4, `community`; the Channels and Moderation boards draw it; the owner picked 7 on 2026-11-18, afternoon). [Dropping the rule; the link filter alone.]
 - **"petro" on Catalyst is petroTHAdestroyer.** The site's seed links that credit to the petroTHAdestroyer profile, so Catalyst shows there. The Credits board (`AdminCredits.dc.html`) still draws the credit unlinked, which is how the screen looks before someone links it.
 
+**Owner answers, 2026-11-18, late afternoon** (settings from `content-intake.md`; the options that lost are in brackets):
+
+- **The shop sells in US dollars and adds no sales tax yet** (step 5, `payments` and `shop`). Stripe Checkout takes the price as listed. If an accountant later says the shop must collect tax, Stripe Tax can be switched on then. [Stripe Tax working out each buyer's tax at checkout; prices that include tax.]
+- **The site's address is vibrantmindz.com.** The new build replaces the WordPress site there, so launch moves the domain to Railway and the cutover needs planning. [A new address beside the old site.]
+- **The site's time zone is US Eastern** (America/New_York, daylight saving included) for scheduled posts and placements. [UTC.]
+
 **For K4:** the site's theme, VM Website `design/theme/vibrant-mindz/`, holds every value the 44 canvas boards use (a census test there fails on a value the theme lacks). Its README's "At K4" says how it moves: copy `tokens.json`, `tokens.css` and the generator; rename the tokens to Machined Light's names; the census stays in the VM Website folder and is rerun after the rename, so no value changes.
 
 ## 5. What the scaffold zip holds

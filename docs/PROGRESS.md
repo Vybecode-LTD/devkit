@@ -139,8 +139,8 @@ The ten hooks the Must modules need, before blog, chat and payments are extracte
 | Consent categories | To do |  |  |  |
 | Export and erase | To do |  |  |  |
 | Dashboard cards | To do |  |  |  |
-| Entitlements | To do |  |  |  |
-| Profile tabs | To do |  |  |  |
+| Entitlements | To do |  |  | Waits until just before Vibrant Mindz step 5, its downloads (the owner, 2026-11-21) |
+| Profile tabs | To do |  |  | Waits until just before wave 2b, its profiles module (the owner, 2026-11-21) |
 
 ### Vibrant Mindz site, to launch · 1 of 6 done · gate not passed yet
 

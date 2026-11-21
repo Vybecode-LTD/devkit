@@ -1,11 +1,12 @@
 # Handoff
 
-Overwritten every session. This one: 2026-11-21, morning Eastern (Claude Code, the owner's machine). #98 landed at `747e5f6` and the ledger was republished. This session then built hook 3 as #99, which holds this handoff.
+Overwritten every session. This one: 2026-11-21, morning Eastern (Claude Code, the owner's machine). #98 landed at `747e5f6` and the ledger was republished. This session then built hook 3 as #99 and, at the owner's request, wrote the plan to Vibrant Mindz's step 1 as #100, which holds this handoff.
 
 ## State
 
 - **The kernel is done**, K0 to K5. K2's steps 9 to 11 still wait for the site (decision 0029).
-- **The ten contract hooks** (`dev plans/contracts/hooks.md`, decision 0052), one PR each: content lifecycle (#97), taxonomy (#98), search index (#99), then seed data, bot check, consent categories, export and erase, dashboard cards, entitlements, profile tabs.
+- **The ten contract hooks** (`dev plans/contracts/hooks.md`, decision 0052), one PR each: content lifecycle (#97), taxonomy (#98), search index (#99), then seed data, bot check, consent categories, export and erase, dashboard cards; then Vibrant Mindz's step 1. **Entitlements and profile tabs wait** until just before step 5 and wave 2b (the owner, 2026-11-21; decision 0052, item 11).
+- **The plan** (`dev plans/2026-11-21-vibrant-mindz-push-plan.md`, #100): MechFrame's sessions M1 to M5 take hooks 4 to 8, `mechframe upgrade` for the kernel, and step 1's six modules. A Vibrant Mindz session builds the site's front end alongside, in `C:\DEV\VM Website` (a local git repo, the owner's call): its homepage and pages run on stand-in data until their modules land.
 - **Hook 3, search index, is #99:**
   - module.json's `content_types[].search`, and `search.py`'s `SEARCH`, a tuple of `search.Source` (`content_type`, `document(db, id)`, `documents(db)`), checked against each other at start (`search.build`);
   - `kernel.search`: `index(db, doc)` and `remove(db, type, id)` in the caller's transaction, `index` keeping out a lifecycle row that isn't published; `find` for the route;
@@ -15,18 +16,22 @@ Overwritten every session. This one: 2026-11-21, morning Eastern (Claude Code, t
   - advisory locks: a change of one document holds its type's lock shared and its own alone; a reindex holds its type's alone;
   - the probe's notes have a body and are searchable; SPEC 5, 6, 7 (the index's third row), 10 and 14.11; the contract's "Changes after approval" says what moved from §2 (`SEARCH` a tuple; the job `kernel.search_reindex`, a job's name having one dot).
   - Nine mutants caught: no public check, no shared type lock, a listener that never removes, the types ignored, the worst first (caught once a paging test had more than a page and one), a tie's cursor repeating a document, orphans kept, the kernel's listeners not installed, a switched-off module's documents shown.
+  - CodeRabbit's three findings, fixed with tests seen failing (`0ba79c7`): `index` and `remove` flush the caller's changes before search's locks (a caller under `no_autoflush` could deadlock); the reindex runs on one connection (a pool of one never finished); the extractor's step calls `search.index` where content without lifecycle is made, shown or changed. Codex found nothing.
 - **A fix rides in #99:** decision 0052's item 9 (taxonomy) sat under Alternatives; it's back in the Decision list.
 - **v1.0:** 70 % (43 of 61 steps).
 
 ## Next
 
-1. **Land #99** once "CI result" is green and no thread is open; then republish the ledger (`dev plans/progress-ledger/README.md`).
-2. **Hook 4, seed data:** the prompt is `dev plans/2026-11-21-next-session-hook-seed.md`.
-3. Hooks 5 to 10 in order, then wave 1's modules. The first module closes the `MODULE.md` check gap (SPEC 16's Docs row).
+1. **Land #100** (the plan) once "CI result" is green and no thread is open; then republish the ledger (`dev plans/progress-ledger/README.md`).
+2. **Session M1:** the kit's two fixes from the Vibrant Mindz session (a field-fill role; the gap ring on every switch), then hooks 4 to 6, stacked. The prompt is `dev plans/2026-11-21-next-session-m1-kit-and-hooks-4-to-6.md`.
+3. M2 to M5 as the plan has them. The first module closes the `MODULE.md` check gap (SPEC 16's Docs row).
 
 ## Open questions for the owner
 
-- **A public name and handle for a person,** before hook 10 (the contract's §8, answer 4).
+- **A public name and handle for a person,** before hook 10 (the contract's §8, answer 4), which now waits for wave 2b.
+- **Hook 4's two calls, settled ahead in the plan** (override them if you'd rather): its contract test seeds through `POST /api/_test/seed`, and the site's own seed runs after the modules'.
+- **The `mechframe upgrade` contract** (M3), for your approval when it comes.
+- **The Vibrant Mindz content** (`C:\DEV\VM Website\design\specs\content-intake.md`): items 1 to 9 and 16 to 17 feed steps 1 to 3's pages.
 - **`mechframe-iac-probe`** on Railway isn't needed now: deleting it is yours.
 - **A Railway variable to confirm a destructive migration** at pre-deploy (decision 0049)? A site's Railway plan in its CI (it needs a project token as an Actions secret)?
 - **Six unused ledger assets:** `cd100445…`, `0f244b76…`, `7889d809…`, `e6e668c9…`, `5ca8682a…` and `78538570…` (the rows before #98's). Delete them?

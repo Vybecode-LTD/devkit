@@ -15,7 +15,7 @@ One Claude Code session per step, in this order. Every step ends with `python -m
 | 6 | The beat store | `licensing` | Tier table drafted for the owner (Q1); a test purchase issues a license PDF and `/license/<id>` checks it |
 | 7 | The apparel designer | `print-on-demand` | Printful v2 re-checked; a test order reaches a Printful draft |
 
-**Between step 0 and step 1** (decision 0029): K3, K4 with this site's theme (drafted in `C:\DEV\VM Website\design\theme\vibrant-mindz\`; its README says what K4 does with it), and K5, then decision 0018's ten hooks, so `mechframe check` exists from step 1. K2's invites (its step 10) come before step 4, and its OAuth and deletion (steps 9 and 11) come before the launch at step 5.
+**Between step 0 and step 1** (decision 0029): K3, K4 with this site's theme (drafted in `C:\DEV\VM Website\design\theme\vibrant-mindz\`; its README says what K4 does with it), and K5, then hooks 1 to 8 of decision 0052 (9, entitlements, before step 5; 10, profile tabs, before wave 2b: the owner, 2026-11-21), so `mechframe check` exists from step 1. The road there, with the site's front end alongside: `dev plans/2026-11-21-vibrant-mindz-push-plan.md`. K2's invites (its step 10) come before step 4, and its OAuth and deletion (steps 9 and 11) come before the launch at step 5.
 
 **Site side** (the `VM Website` repo): after `mechframe new`, copy in `site-additions/` (seed and the `/api/site/home` composer), then build the homepage from `design/site/Main.dc.html` into `web/src/site/`.
 
