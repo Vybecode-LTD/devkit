@@ -7,8 +7,8 @@ same transaction as the change they follow:
     @jobs.handler("blog.send_digest", tries=5, timeout=300)
     async def send_digest(ctx: jobs.Context, payload: dict[str, Any]) -> None: ...
 
-    @jobs.scheduled("*/5 * * * *", "blog.publish_scheduled")
-    async def publish_scheduled(ctx: jobs.Context) -> None: ...
+    @jobs.scheduled("0 8 * * 1", "blog.weekly_digest")
+    async def weekly_digest(ctx: jobs.Context) -> None: ...
 
     await jobs.enqueue(db, "blog.send_digest", {"week": 47})
     await db.commit()   # the job exists exactly when the change does

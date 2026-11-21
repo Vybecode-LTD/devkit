@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 import pyotp
@@ -239,4 +241,16 @@ def build_test_app(database_url: str | None = None, *, env_file: bool = True) ->
     app.state.captured_mail = captured
     app.state.breached = set()
     app.include_router(router, prefix="/api/_test")
+    started = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(running: FastAPI) -> AsyncIterator[None]:
+        """The kernel's start, then the probe's tables (`probe.TABLES`), which
+        no migration makes."""
+        async with started(running):
+            async with running.state.database.engine.begin() as connection:
+                await connection.run_sync(probe.TABLES.create_all)
+            yield
+
+    app.router.lifespan_context = lifespan
     return app

@@ -160,3 +160,46 @@ def test_a_module_may_not_take_the_kernels_own_ids(taken: str) -> None:
     manifest["id"] = taken
     errors = list(Draft202012Validator(schema).iter_errors(manifest))
     assert any(list(error.absolute_path) == ["id"] for error in errors)
+
+
+# --- content_types (decision 0052: the lifecycle, taxonomy and search hooks) -----------
+
+_DESIGN = {"key": "print-on-demand.design", "label": "Design", "lifecycle": True}
+
+
+def test_content_types_are_optional_and_pass_with_the_modules_own_keys(repo: Path) -> None:
+    _edit(repo, content_types=[_DESIGN, {"key": "print-on-demand.mockup", "label": "Mockup"}])
+    assert check(repo).problems == []
+
+
+def test_a_content_type_outside_the_id_fails(repo: Path) -> None:
+    _edit(repo, content_types=[{"key": "shop.product", "label": "Product"}])
+    assert check(repo).problems == [
+        "modules/print-on-demand/module.json: content type 'shop.product' should start with "
+        "print-on-demand."
+    ]
+
+
+def test_a_content_type_listed_twice_fails(repo: Path) -> None:
+    _edit(repo, content_types=[_DESIGN, {**_DESIGN, "label": "Again"}])
+    assert check(repo).problems == [
+        "modules/print-on-demand/module.json: content type 'print-on-demand.design' is "
+        "listed twice"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("entry", "where"),
+    [
+        ({"key": "print-on-demand.design"}, "content_types/0"),
+        ({"key": "print-on-demand", "label": "Design"}, "content_types/0/key"),
+        ({**_DESIGN, "lifecycle": "yes"}, "content_types/0/lifecycle"),
+        ({**_DESIGN, "colour": "red"}, "content_types/0"),
+    ],
+)
+def test_a_content_type_breaking_the_schema_is_named(
+    repo: Path, entry: dict[str, object], where: str
+) -> None:
+    _edit(repo, content_types=[entry])
+    (problem,) = check(repo).problems
+    assert problem.startswith(f"modules/print-on-demand/module.json: {where}:")

@@ -368,6 +368,35 @@
         }
       }
     },
+    "content_types": {
+      "type": "array",
+      "description": "The module's kinds of content, for the contract hooks that work on content (decision 0052)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "label"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9_]*$",
+            "description": "<id>.<entity>, as a moderation kind is named"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "lifecycle": {
+            "type": "boolean",
+            "default": false,
+            "description": "Draft, scheduled and published, through kernel.lifecycle (decision 0052)"
+          }
+        }
+      }
+    },
     "data_hooks": {
       "type": "object",
       "additionalProperties": false,

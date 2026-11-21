@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechframe.local/schema/events/kernel.content.published.v1.schema.json",
+  "additionalProperties": false,
+  "description": "A module's content went public (kernel.lifecycle, decision 0052): its\ncontent type, `<id>.<entity>`, and its id. Index it, or tell people.",
+  "properties": {
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "id"
+  ],
+  "title": "kernel.content.published (v1)",
+  "type": "object"
+}

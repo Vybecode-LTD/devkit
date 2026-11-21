@@ -84,6 +84,12 @@ npm run lint && npm run typecheck && npm test
 
 Then the migration round trip, the contract tests (HTTP only, no imports of the module's Python), Playwright smoke and axe for each route, the server-copy test for public pages, and gitleaks and pip-audit clean. For any code lifted from VybeSite, the brand check must pass too.
 
+## 8. Contract hooks (SPEC 7, "Hooks every module can fill"; decision 0052)
+
+A hook is optional: check only the ones the module takes part in, and that it doesn't solve a hook's problem its own way instead.
+
+- **Content lifecycle:** every type in module.json's `content_types` with `lifecycle: true` has a model in `lifecycle.py`'s `PUBLISHABLE` subclassing `lifecycle.Publishable`, with `__content_type__` set to that key, and no other model is listed. The migration writes `*lifecycle.columns()` and `*lifecycle.table_args("<table>")`. Public reads, the server copy and the sitemap filter with `lifecycle.visible(Model)`; only `lifecycle.publish`, `schedule` and `unpublish` change `status`, `publish_at` and `published_at`. No status column, publish date or publishing job of the module's own.
+
 ## Report
 
 ```markdown

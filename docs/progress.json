@@ -140,18 +140,18 @@
       "id": "hooks",
       "milestone": "v1",
       "name": "Contract hooks",
-      "goal": "The ten hooks the Must modules need, before blog, chat and payments are extracted (decision 0018).",
+      "goal": "The ten hooks the Must modules need, before blog, chat and payments are extracted (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md).",
       "items": [
-        {"name": "Search index", "status": "todo"},
-        {"name": "Consent categories", "status": "todo"},
-        {"name": "Entitlements", "status": "todo"},
-        {"name": "Bot check", "status": "todo"},
-        {"name": "Export and erase", "status": "todo"},
-        {"name": "Content lifecycle", "status": "todo"},
+        {"name": "Content lifecycle", "status": "done", "prs": [97], "decisions": ["0052"], "note": "kernel.lifecycle: the Publishable mixin, publish, schedule and unpublish, visible, and the kernel's kernel.publish_due job"},
         {"name": "Taxonomy", "status": "todo"},
-        {"name": "Profile tabs", "status": "todo"},
+        {"name": "Search index", "status": "todo"},
+        {"name": "Seed data", "status": "todo"},
+        {"name": "Bot check", "status": "todo"},
+        {"name": "Consent categories", "status": "todo"},
+        {"name": "Export and erase", "status": "todo"},
         {"name": "Dashboard cards", "status": "todo"},
-        {"name": "Seed data", "status": "todo"}
+        {"name": "Entitlements", "status": "todo"},
+        {"name": "Profile tabs", "status": "todo"}
       ]
     },
     {

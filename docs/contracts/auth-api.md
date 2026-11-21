@@ -160,7 +160,11 @@ Mounted by the harness only when `HARNESS_TEST_SUPPORT=1`, so the contract suite
 | `POST /api/_test/breached` | `{passwords: [...]}`: 204, the fake breach lookup reports these as breached until the next reset |
 | `POST /api/_test/oauth/grant` | `{provider: "test", subject, email, email_verified}`: 200 `{"code"}` the fake provider accepts once |
 | `POST /api/_test/jobs/run` | 204, after running every job that is due |
-| `POST /api/_test/jobs` | `{name, sealed?, key?}`: 201 `{"id"}`, a job queued now. The probe modules' jobs: `probe.fail` fails on its one try, `probe.ok` does nothing, `probe-addon.ok` likewise; any other name is queued with no handler |
+| `POST /api/_test/jobs` | `{name, sealed?, key?}`: 201 `{"id"}`, a job queued now. The probe modules' jobs: `probe.fail` fails on its one try, `probe.ok` does nothing, `probe-addon.ok` likewise; a kernel job such as `kernel.publish_due` runs as its schedule would run it; any other name is queued with no handler |
 | `GET /api/probe/ping` | 200 `{}` while the probe module is on (the test support mounts `probe` and `probe-addon`, which requires it) |
+| `POST /api/probe/notes` | `{slug, title}`: 201 `{"id"}`, a probe note, a draft (the contract hooks' content, decision 0052) |
+| `POST /api/probe/notes/{id}/publish`, `POST /api/probe/notes/{id}/unpublish` | 204: the note published now, or back to a draft (hook 1, content lifecycle) |
+| `POST /api/probe/notes/{id}/schedule` | `{at}`, an ISO 8601 time with its zone: 204, published by `kernel.publish_due` once `at` has passed; 422 `kernel.publish_at_past` for a time gone, 409 `kernel.content_published` for a published note |
+| `GET /api/probe/notes/{slug}` | 200 `{slug, title, published_at}` for a published note, else 404 `probe.note_not_found`. Its public page is `/probe/notes/{slug}`, listed in `sitemap.xml` while it's published |
 | `GET /api/_test/delete-hooks` | `{"deleted": [user ids]}`, recorded by the harness's probe module |
 | `GET /api/_test/routes` | `{"undeclared": [...], "admin": [...], "step_up": [...]}`: the route audit's list, then every admin route and every step-up route as `METHOD /path/{template}` |

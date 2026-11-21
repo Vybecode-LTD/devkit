@@ -95,6 +95,14 @@ def _module_rules(manifest: dict[str, Any], folder: Path, root: Path, report: Re
             report.problem(
                 path, root, f"notification {notice['key']!r} should start with {module_id}."
             )
+    seen: set[str] = set()
+    for content in manifest.get("content_types", []):
+        key = content["key"]
+        if not key.startswith(f"{module_id}."):
+            report.problem(path, root, f"content type {key!r} should start with {module_id}.")
+        elif key in seen:
+            report.problem(path, root, f"content type {key!r} is listed twice")
+        seen.add(key)
 
 
 def check(root: Path = ROOT) -> Report:

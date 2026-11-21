@@ -120,7 +120,7 @@ The owner decided these when they picked the post-v1.0 modules (decision 0018, `
 | Consent categories | consent, analytics-adapters, social-feeds, video | No: `CSP` hosts carry no category | A category on each `CSP` entry, the front end holding scripts and iframes until consent |
 | Entitlements | memberships, member-only video, ai-studio | No: roles and permissions only (14.8) | Kernel `require_access(resource)` with providers registered by modules |
 | Bot check | bot-shield, forms, reviews, submissions | No: `rate_limit` only | A kernel API dependency with a provider adapter and one setting |
-| Content lifecycle | editorial-calendar, drops, podcast, changelog, announcements | No | Kernel columns and a mixin for status and `publish_at`, and one publishing job |
+| Content lifecycle | editorial-calendar, drops, podcast, changelog, announcements | Yes, since #97 | `kernel.lifecycle` (decision 0052) |
 | Taxonomy | directory, recipes, docs, wiki | No | Kernel term tables, with the content types each module tags listed in its manifest |
 | Seed data | catalog-site, visual-regression, theme-generator | No | A fixed-name seed part per module, run by a CLI command, never in production |
 

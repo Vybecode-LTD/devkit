@@ -252,6 +252,23 @@ class ModuleDisabled(Payload):
     module: str
 
 
+@payload("kernel.content.published", v=1)
+class ContentPublished(Payload):
+    """A module's content went public (kernel.lifecycle, decision 0052): its
+    content type, `<id>.<entity>`, and its id. Index it, or tell people."""
+
+    type: str
+    id: uuid.UUID
+
+
+@payload("kernel.content.unpublished", v=1)
+class ContentUnpublished(Payload):
+    """Published content went back to a draft: take it out of what you show."""
+
+    type: str
+    id: uuid.UUID
+
+
 KERNEL_PAYLOADS: tuple[type[Payload], ...] = (
     UserCreated,
     UserVerified,
@@ -262,6 +279,8 @@ KERNEL_PAYLOADS: tuple[type[Payload], ...] = (
     SettingsChanged,
     ModuleEnabled,
     ModuleDisabled,
+    ContentPublished,
+    ContentUnpublished,
 )
 
 

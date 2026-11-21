@@ -115,6 +115,10 @@ class InstalledModule:
     #: The module's public pages (kernel.server_copy): its `server_copy.py`'s
     #: `PAGES`. A module with `routes.public` must have them, and only then.
     pages: Pages | None = None
+    #: The module's publishable models (kernel.lifecycle, decision 0052): its
+    #: `lifecycle.py`'s `PUBLISHABLE`, each a `lifecycle.Publishable` named by
+    #: its `__content_type__`.
+    publishable: tuple[type[Any], ...] = ()
 
     @property
     def id(self) -> str:
@@ -199,7 +203,9 @@ def load_module(manifest: Path) -> InstalledModule:
     - `<id_>/jobs.py`'s jobs (kernel.jobs);
     - `<id_>/events.py`'s event payloads and listeners (kernel.events);
     - `<id_>/moderation.py`'s kinds (kernel.moderation);
-    - `<id_>/server_copy.py`'s `PAGES`, its public pages (kernel.server_copy).
+    - `<id_>/server_copy.py`'s `PAGES`, its public pages (kernel.server_copy);
+    - `<id_>/lifecycle.py`'s `PUBLISHABLE`, its publishable models
+      (kernel.lifecycle).
 
     The package `<id_>` must be importable: the caller puts its folder on
     `sys.path`. A package that isn't there gives the manifest alone."""
@@ -219,6 +225,7 @@ def load_module(manifest: Path) -> InstalledModule:
         listeners=listeners,
         reportable=module_kinds(f"{package}.moderation"),
         pages=_attribute(f"{package}.server_copy", "PAGES"),
+        publishable=tuple(_attribute(f"{package}.lifecycle", "PUBLISHABLE") or ()),
     )
 
 

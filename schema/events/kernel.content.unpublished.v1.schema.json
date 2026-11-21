@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mechframe.local/schema/events/kernel.content.unpublished.v1.schema.json",
+  "additionalProperties": false,
+  "description": "Published content went back to a draft: take it out of what you show.",
+  "properties": {
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type",
+    "id"
+  ],
+  "title": "kernel.content.unpublished (v1)",
+  "type": "object"
+}

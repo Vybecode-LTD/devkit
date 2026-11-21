@@ -150,7 +150,7 @@ async def _deliveries(app: FastAPI, listener: events.Listener) -> list[JobRow]:
 # --- declaring --------------------------------------------------------------------------
 
 
-def test_the_kernel_declares_the_nine_events_it_emits() -> None:
+def test_the_kernel_declares_the_eleven_events_it_emits() -> None:
     assert {events.declaration(model) for model in events.KERNEL_PAYLOADS} == {
         ("auth.user.created", 1),
         ("auth.user.verified", 1),
@@ -161,6 +161,8 @@ def test_the_kernel_declares_the_nine_events_it_emits() -> None:
         ("kernel.settings.changed", 1),
         ("kernel.module.enabled", 1),
         ("kernel.module.disabled", 1),
+        ("kernel.content.published", 1),
+        ("kernel.content.unpublished", 1),
     }
     assert events.declaration(events.UserDeleted) == ("auth.user.deleted", 1)
     assert events.declaration(events.SettingsChanged) == ("kernel.settings.changed", 1)

@@ -1068,6 +1068,7 @@ def test_create_worker_builds_what_create_app_would() -> None:
         "kernel.prune_audit",
         "kernel.prune_notifications",
         "kernel.prune_moderation",
+        "kernel.publish_due",
     } == (worker.names)
     assert (worker.concurrency, worker.poll, worker.drain) == (7, 0.5, 20.0)
 

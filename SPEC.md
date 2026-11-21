@@ -163,6 +163,7 @@ Every module MUST ship a `module.json` that validates against `mechframe/schema/
 | `bindings` | string[] | `["web"]` in v1 |
 | `jobs` | object[] | `{name, schedule}` for scheduled work |
 | `notifications` | object[] | `{key, description, default}` for each kind of notice the module sends; default is in_site, email or both. The kernel builds each person's notification preferences from these |
+| `content_types` | object[] | Optional. `{key, label, lifecycle}` for each kind of content the module holds, the key `<id>.<entity>`: what the contract hooks that work on content read (decision 0052). `lifecycle: true` makes it publishable through `kernel.lifecycle` (7, 10) |
 | `data_hooks` | object | `export` and `delete` set to true when the module holds personal data. Required if any table references a user |
 | `source` | object | Where the code was lifted from, the commit, and the license |
 
@@ -189,8 +190,9 @@ Every module MUST ship a `module.json` that validates against `mechframe/schema/
   "events": {"emits": ["blog.post.published"], "listens": ["auth.user.deleted"]},
   "slots": ["nav.public", "nav.admin", "admin.dashboard.widget"],
   "bindings": ["web"],
-  "jobs": [{"name": "publish_scheduled", "schedule": "*/5 * * * *"}],
+  "jobs": [{"name": "send_digest", "schedule": "0 8 * * 1"}],
   "notifications": [{"key": "blog.comment_reply", "description": "Someone replied under your post", "default": "both"}],
+  "content_types": [{"key": "blog.post", "label": "Post", "lifecycle": true}],
   "data_hooks": {"export": true, "delete": true},
   "source": {"from": "VybeSite", "commit": "TBD", "license": "proprietary"}
 }
@@ -220,12 +222,13 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `email.send(template, to, context)`, `email.Template` | Renders a template the module declares (in `emails.py`, named `<id>.<name>`; a site may reword it, and the kernel's own `kernel.*` mails too) and sends it through the site's adapter: SMTP, or Resend only where the host blocks SMTP (decision 0033) | Welcome email | K3 |
 | `storage.put / get / download / delete / signed_url / public_url` | S3-compatible file storage: a private bucket reached only through signed links, and a public one at its own address (15, decision 0032) | Uploads | K3 |
 | `events.emit(db, name, payload)`, `@events.payload(name, v=)`, `@events.on(event, name)` | Durable events between modules, declared in the module's `events.py`, emitted in the caller's transaction and delivered as jobs, at least once (section 11, decision 0036) | `blog.post.published` | K3 |
-| `jobs.enqueue(db, name, payload, run_at=, key=, sealed=)`, `@jobs.handler(name)`, `@jobs.scheduled(cron, name)` | Background and scheduled work, declared in the module's `jobs.py` and queued in the caller's transaction, run at least once with retries; `email.queue` puts mail on it (decision 0035) | Scheduled publishing | K3 |
+| `jobs.enqueue(db, name, payload, run_at=, key=, sealed=)`, `@jobs.handler(name)`, `@jobs.scheduled(cron, name)` | Background and scheduled work, declared in the module's `jobs.py` and queued in the caller's transaction, run at least once with retries; `email.queue` puts mail on it (decision 0035) | A weekly digest | K3 |
 | `audit.record(db, action, actor=, target=, subject=, result=, details=, request=)` | An append-only audit entry, added to the caller's transaction: `<owner>.<name>` actions, a `(kind, id)` target, details of ids and counts, never a secret or an address (14.10, decision 0037) | Role changed | K3 |
 | `notifications.notify(db, user_id, key, context, link=)` | A notice in the site and by email, each by the person's choice for that key (module.json's `notifications` gives the default), written in the caller's transaction; each key has an email template of its name, whose subject is the notice's title; every notice email has one-click unsubscribe (RFC 8058) for that key (decision 0038) | Someone replied to your comment | K3 |
 | `moderation.report(db, target, reporter=, reason=)`, `@moderation.kind(name, actions=)`, `moderation.screen / hold / act`, `Depends(moderation.can_post)` | Reports on what a module declares reportable (in `moderation.py`, each kind describing its thing, hiding or deleting it, and showing again what was held when staff dismiss the case), one case per thing in the staff queue, word and link filters that hold text and never drop it, and actions (dismiss, hide, delete, time out, ban), all audited and told to the author. Acting needs `kernel.moderation.act` (admin and editor by default; decision 0031); a ban, which suspends the account, also needs `auth.user.suspend` (decision 0039) | A reported comment | K3 |
 | `server_copy.Pages`, `Page`, `Moved`, `Entry`, the builders (`h1`, `h2`, `h3`, `p`, `ul`, `link`, `time`, `section`, `article`, `cleaned`), `server_copy.identity(db)` | A module's public pages, readable without JavaScript: its `server_copy.py`'s `PAGES` answers `page(db, path, params)` for each address its `routes.public` patterns match with the page's head, words and JSON-LD (or a move, or None for a 404), from the same rows its API reads, and lists them for the sitemap; the builders escape every value and nh3 cleans the finished words; `identity` is the site's name and the settings section `kernel.site` (section 9, decision 0041) | A blog post's page | K3 |
 | `ai.client()` | The site's Anthropic client, when the AI part is on | AI drafting | K3 |
+| `lifecycle.Publishable`, `lifecycle.publish / schedule / unpublish(db, row)`, `lifecycle.visible(Model)`, `lifecycle.columns() / table_args(table)` | Draft, scheduled and published for a module's public content (hook 1, decision 0052): the mixin's three columns, CHECK and due index; publish and unpublish emit `kernel.content.published` and `kernel.content.unpublished` in the caller's transaction; the kernel's `kernel.publish_due` publishes what's due every minute, dated at its time; `visible` is the one WHERE for what the public sees; `columns` and `table_args` write the same in a migration | A scheduled post | Hooks |
 | `Answer`, `answer(Model, content)`, `Id`, `When` | The base of every route's answer model, which refuses keys it doesn't name, and the JSON response built through one for a route that sets a cookie or header (section 7, decision 0042) | `@router.get("/posts", response_model=Posts)` | K4 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
@@ -290,7 +293,7 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `mechframe check` and code review enforce.
 
-**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates) and `moderation.py` (what people may report, decision 0039). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033) and `server_copy.py`'s `PAGES` (decision 0041).
+**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates), `moderation.py` (what people may report, decision 0039) and `lifecycle.py` (its publishable content, decision 0052). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033), `server_copy.py`'s `PAGES` (decision 0041) and `lifecycle.py`'s `PUBLISHABLE` (decision 0052).
 
 **Routes**
 
@@ -322,6 +325,12 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 **Settings.** A module declares a Pydantic model, `Settings` in `schemas.py`, with a default for every field. The kernel stores it with version history and save-conflict checks (the VybeSite pattern). A field typed `SecretStr` (or `SecretStr | None`) is a secret: sealed at rest with `ENCRYPTION_KEYS` (MultiFernet, newest key first), never shown, never kept in a version. A secret anywhere else, such as in a list, a nested model or as `SecretBytes`, is refused when the module registers (decision 0009).
 
 **Logs.** Structured JSON, never secrets, tokens or full email addresses.
+
+**Hooks every module can fill.** A hook is a point every module fills the same way, so a shared module can work across all of them without importing any (decision 0018). Each is optional: a module that doesn't take part declares nothing and loses nothing (decision 0052, `dev plans/contracts/hooks.md`).
+
+| Hook | Shape | Defined in |
+| --- | --- | --- |
+| Content lifecycle | module.json's `content_types[].lifecycle`; `lifecycle.py`'s `PUBLISHABLE`, models subclassing `lifecycle.Publishable`; the kernel's `kernel.publish_due` job; the events `kernel.content.published` and `kernel.content.unpublished` | 5, 6, 7, 10, 11 |
 
 ## 8. Frontend rules and UI slots
 
@@ -423,6 +432,8 @@ Each module owns its own tables and its own migration branch. It links only to t
 - Any module whose tables reference a user MUST implement `export_user_data(user_id)` and `delete_user_data(user_id)`. The kernel calls these for account export and account deletion (section 14).
 - Logs, events and other records that grow MUST declare a retention period. The kernel's retention job enforces it (VybeSite `retention_service.py`).
 
+**Publishable content** (hook 1, decision 0052). A model that subclasses `lifecycle.Publishable` gets `status` (`draft`, `scheduled` or `published`, a `String(16)`), `publish_at` and `published_at` (timestamptz), the CHECK `ck_<table>_lifecycle` (a known status, a scheduled row's time, a published row's date) and the partial index `ix_<table>_due`. Its migration MUST write the same, with `*lifecycle.columns()` and `*lifecycle.table_args("<table>")`; the start refuses a model whose table lacks the CHECK or the index. Public reads MUST filter with `lifecycle.visible(Model)`, and only `lifecycle`'s functions change the three columns.
+
 **Search.** Postgres full-text search in v1. A search module MAY add a dedicated engine later.
 
 ## 11. Events between modules
@@ -453,8 +464,10 @@ Modules talk to each other through durable events written in the same database t
 | `auth.user.deleted` | Deletion completes; modules erase or anonymize that user's data |
 | `kernel.module.enabled` / `kernel.module.disabled` | A module is switched on or off |
 | `kernel.settings.changed` | A settings section is saved with a change |
+| `kernel.content.published` | A module's content went public, now or at its scheduled time: `{type, id}`, the type `<id>.<entity>` (decision 0052) |
+| `kernel.content.unpublished` | Published content went back to a draft: `{type, id}` |
 
-The kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.suspended` and `auth.user.restored` (moderation, decision 0039), `auth.user.deleted` (so far for the accounts `kernel.remove_unverified` removes) `kernel.settings.changed`, `kernel.module.enabled` and `kernel.module.disabled` (the admin's Features page, one for each module whose on-state a switch changed, decision 0046), and `auth.user.role_changed` (a grant on the admin's People, with the role ids it added and removed) now: every event above.
+The kernel emits `auth.user.created`, `auth.user.verified`, `auth.user.suspended` and `auth.user.restored` (moderation, decision 0039), `auth.user.deleted` (so far for the accounts `kernel.remove_unverified` removes) `kernel.settings.changed`, `kernel.module.enabled` and `kernel.module.disabled` (the admin's Features page, one for each module whose on-state a switch changed, decision 0046), `auth.user.role_changed` (a grant on the admin's People, with the role ids it added and removed), and `kernel.content.published` and `kernel.content.unpublished` (`kernel.lifecycle`, for every module's publishable content) now: every event above.
 
 An outgoing-webhooks module MAY forward any event to outside URLs, signed with HMAC.
 
@@ -862,6 +875,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-20 | Hook 1, content lifecycle (decisions 0018 and 0052, `dev plans/contracts/hooks.md`): module.json's `content_types`; `kernel.lifecycle`, the `Publishable` mixin with its CHECK and due index, publish, schedule and unpublish, `visible`, and the kernel's `kernel.publish_due` job; the events `kernel.content.published` and `kernel.content.unpublished`; and the hooks index at the end of section 7 (5, 6, 7, 10, 11) |
 | 2026-11-20 | The first owner, from the server (decision 0051, K5 contract change 9): `create-owner` prints a reset link for the owner's account, closes every way into it first, refuses any address but an owner's once there is one, and replaces the setup token at first boot (14.1) |
 | 2026-11-20 | `add`, `remove` and `new --recipe` (decision 0050, K5 contract change 8): `requires` ranges and pre-releases, `add` writing `railway.ts` and running whole or not at all, `remove` keeping a module's migrations and `railway.ts` lines, and the recipe's order and settings (12) |
 | 2026-11-20 | A destructive migration waits for the owner (decision 0049, K5 contract change 7): once its branch is in the database, an upgrade stops before it and names it, until `--confirm-destructive <revision>` names it back; the harness and every site share `kernel.migrate` (10) |

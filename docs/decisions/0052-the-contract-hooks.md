@@ -1,0 +1,31 @@
+# 0052: The ten contract hooks: their shapes and their order
+
+- **Date:** 2026-11-20
+- **Status:** Accepted (the owner approved `dev plans/contracts/hooks.md` "as recommended", 2026-11-20). Hooks applied to SPEC.md so far: 1, content lifecycle (#97).
+- **Context:** Decision 0018 put ten hooks into SPEC.md before v1.0 freezes, one PR each, with `mechframe-hook-designer`. Each needed an exact shape: what a module declares, what the kernel does, and what a module that doesn't take part loses (nothing). Vibrant Mindz's step-1 modules (`media`, `pages`, `blog`, `embeds`, `contact`, `campaigns`) are extracted next, and they need some of the hooks from their first commit. Building the contract settled:
+  - which hooks share a manifest field;
+  - the order;
+  - what export and erase still lacks: 14.7's export isn't built, and its contract test needs it;
+  - consent's default for a new site;
+  - where the contract tests' fake module lives.
+- **Decision:**
+  1. **One shared manifest field,** `content_types: [{key, label, lifecycle, taxonomy, search}]`, optional, `key` being `<id>.<entity>`. Hooks 1 to 3 hang off it, so an agent reads a module's content before any code runs. Each hook's PR adds its own flag.
+  2. **The shapes** are the contract's §2 table: content lifecycle, taxonomy, search index, seed data, bot check, consent categories, export and erase, dashboard cards, entitlements and profile tabs, each with its exact names.
+  3. **The order** puts step 1's needs first: lifecycle (blog), taxonomy (blog's topics), search (it listens to lifecycle), seed data, bot check (contact), consent (embeds), export and erase (contact, campaigns), dashboard cards and entitlements (step 5), and profile tabs (wave 2b).
+  4. **Export (hook 7):** its PR builds 14.7's account export, a ZIP of JSON made as a job and mailed as a link, since its contract test needs it. Deletion stays with K2's step 11 (decision 0029).
+  5. **Consent's default** is `CONSENT_MODE=ask`. Clicking an embed's facade grants `media`, so visitors see no change, and analytics waits for the consent banner.
+  6. **A public name and handle** for profile tabs: asked again before hook 10, since the contract made no recommendation.
+  7. **The fake module:** the harness's `probe` fills every hook and `probe-addon` none, so each hook's tests compare a module that takes part with one that doesn't. Their tables live on a metadata of their own (`harness.probe.TABLES`), which the test support makes when its app starts, so no migration or migration check sees them.
+  8. **Hook 1, content lifecycle (#97):** `kernel.lifecycle`'s `Publishable` mixin gives a model `status`, `publish_at` and `published_at`, a CHECK and a partial index. `publish`, `schedule` and `unpublish` change them in the caller's transaction and emit `kernel.content.published` and `kernel.content.unpublished`. The kernel's `kernel.publish_due` job publishes what's due every minute, dated at its time, and `visible(Model)` is the one public WHERE. `published_at` keeps the first publication.
+- **Alternatives:**
+  - Flags of their own for each hook rather than `content_types`: three fields saying the same thing.
+  - A publishing job in each module: every module would schedule its own way, and an editorial calendar couldn't read them.
+  - `visible` showing a scheduled row whose time has passed, so nothing waits on the job: the published date and the events would then lag what the public sees.
+  - Leaving the export route to K2's step 11: hook 7's contract test would have nothing to call.
+  - `CONSENT_MODE=off` by default: simpler, but analytics would run before anyone agreed.
+- **Consequences:**
+  - Ten PRs from #97, each with its SPEC change-log line, an index row at the end of SPEC 7, and a `module-contract-lint` row.
+  - The owner's account copies of `module-contract-lint` and `mechframe-module-extractor` need each hook's row at the next skill batch (`docs/SKILL-BACKLOG.md`).
+  - A blog's scheduled post shows within a minute of its time.
+  - `harness.probe` grows a little with each hook.
+- **See:** `dev plans/contracts/hooks.md`; decisions 0018, 0029, 0035 (jobs), 0036 (events); SPEC.md sections 5, 6, 7, 10 and 11; `skills/mechframe-hook-designer/SKILL.md`

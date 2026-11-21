@@ -82,6 +82,7 @@ from kernel import (
     error_tracking,
     events,
     jobs,
+    lifecycle,
     logs,
     moderation,
     notifications,
@@ -127,7 +128,7 @@ log = logging.getLogger(__name__)
 #: The kernel's own jobs: queued mail, pruning the queue, removing accounts
 #: whose address isn't verified (decision 0035), and pruning the audit log
 #: (decision 0037), the notices (decision 0038) and closed moderation cases
-#: (decision 0039).
+#: (decision 0039), and publishing what's due (decision 0052).
 KERNEL_JOBS: tuple[jobs.Job, ...] = (
     email.SEND_MAIL,
     jobs.PRUNE,
@@ -135,6 +136,7 @@ KERNEL_JOBS: tuple[jobs.Job, ...] = (
     audit.PRUNE,
     notifications.PRUNE,
     moderation.PRUNE,
+    lifecycle.PUBLISH_DUE,
 )
 
 
@@ -228,6 +230,7 @@ def assemble(
             templates,
         )
         reportable = moderation.build((module.id, module.reportable) for module in installed)
+        publishable = lifecycle.build(installed)
         public = server_copy.build(installed, site)
         catalog = events.build(
             [
@@ -265,6 +268,7 @@ def assemble(
     audit.install((module.id for module in installed), keep_days=config.audit_keep_days)
     notifications.install(kinds)
     moderation.install(reportable)
+    lifecycle.install(publishable)
     server_copy.install(site_name=config.site_name, site_url=config.site_url)
     # Here, not in create_app: a job in a worker of its own reads its module's
     # settings too (Codex on #63).

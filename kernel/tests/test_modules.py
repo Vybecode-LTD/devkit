@@ -341,6 +341,19 @@ def test_load_module_builds_a_module_from_its_fixed_names(
                 "        return None\n"
                 "PAGES = GalleryPages()\n"
             ),
+            "lifecycle.py": (
+                "import uuid\n"
+                "from sqlalchemy import MetaData\n"
+                "from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column\n"
+                "from kernel import lifecycle\n"
+                "class _Base(DeclarativeBase):\n"
+                "    metadata = MetaData()\n"
+                "class Photo(lifecycle.Publishable, _Base):\n"
+                f"    __tablename__ = '{name}_photo'\n"
+                f"    __content_type__ = '{module_id}.photo'\n"
+                "    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)\n"
+                "PUBLISHABLE = (Photo,)\n"
+            ),
         },
     )
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -363,6 +376,7 @@ def test_load_module_builds_a_module_from_its_fixed_names(
     assert [listener.name for listener in module.listeners] == [f"{module_id}.forget_user"]
     assert [kind.name for kind in module.reportable] == [f"{module_id}.photo"]
     assert isinstance(module.pages, server_copy.Pages)
+    assert [model.__content_type__ for model in module.publishable] == [f"{module_id}.photo"]
 
 
 def test_load_module_of_a_package_with_none_of_the_names_or_none_at_all(
@@ -380,13 +394,14 @@ def test_load_module_of_a_package_with_none_of_the_names_or_none_at_all(
         for loaded in [each for each in sys.modules if each.startswith(bare_id.replace("-", "_"))]:
             del sys.modules[loaded]
     assert (found.router, found.settings, found.pages) == (None, None, None)
-    assert (found.csp, found.jobs, found.payloads, found.listeners, found.reportable) == (
-        (),
-        (),
-        (),
-        (),
-        (),
-    )
+    assert (
+        found.csp,
+        found.jobs,
+        found.payloads,
+        found.listeners,
+        found.reportable,
+        found.publishable,
+    ) == ((), (), (), (), (), ())
     assert found.emails == {}
     assert module_jobs(f"{absent_id.replace('-', '_')}.jobs") == ()  # no package at all
     # Its package isn't importable: the manifest only.

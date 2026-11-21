@@ -58,6 +58,7 @@
       "default": "both"
     }
   ],
+  "content_types": [],
   "data_hooks": {
     "export": true,
     "delete": true

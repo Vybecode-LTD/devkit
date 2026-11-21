@@ -33,5 +33,6 @@ Session prompts and working plans, the owner's convention across `C:\DEV`. Each 
 | `contracts/k3-public-rendering.md` | K3's public rendering: each page's head, words and JSON-LD in the shell, real 404s, `sitemap.xml`, `robots.txt`, `llms.txt`, `kernel.server_copy` (PR #73) |
 | `contracts/k4-web-kernel.md` | K4's web kernel: the typed client, the app shell, session, guards, slots, themes, the UI kit, the auth and account screens and the admin shell (with role editing and System), in eight PRs from #78 |
 | `contracts/k5-cli-and-site-template.md` | K5's CLI and site template: `mechframe new`, `add`, `remove`, `check`, `catalog` and `create-owner`, the lock file, `templates/site/` from the harness, the start command; approved 2026-11-20, five PRs from #91 |
+| `contracts/hooks.md` | Decision 0018's ten contract hooks (decision 0052): content lifecycle, taxonomy, search index, seed data, bot check, consent, export and erase, dashboard cards, entitlements and profile tabs; one PR each from #97; draft, waiting for the owner |
 
 `npm-audit-allowlist/`: the proposal for `npm audit` with an expiring allowlist, adopted 2026-11-17 (#75, decision 0015). The tool, its list and its tests now live in `tools/` and `tests/`; the README stays as the record of why.
