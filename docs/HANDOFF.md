@@ -1,6 +1,6 @@
 # Handoff
 
-Overwritten every session. This one: 2026-11-21, morning Eastern (Claude Code, the owner's machine). #98 landed at `747e5f6` and the ledger was republished. This session then built hook 3 as #99 and, at the owner's request, wrote the plan to Vibrant Mindz's step 1 as #100, which holds this handoff.
+Overwritten every session. This one: 2026-11-21, morning Eastern (Claude Code, the owner's machine). #98 landed at `747e5f6` and the ledger was republished. This session then built hook 3 as #99 (landed at `0ba79c7`) and, at the owner's request, wrote the plan to Vibrant Mindz's step 1 as #100, which holds this handoff.
 
 ## State
 
