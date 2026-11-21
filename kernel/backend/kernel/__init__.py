@@ -10,7 +10,7 @@ dependencies (`current_user`, `optional_user`, `require_permission`,
 `require_owner_or`, `require_recent_auth`). From K3: `storage`, `email`,
 `jobs`, `events`, `audit`, `notifications`, `moderation` and `server_copy`.
 From K4: `Answer`, `answer`, `Id` and `When`, for every route's answer model.
-The contract hooks (decision 0052): `lifecycle`, `taxonomy` and `search`.
+The contract hooks (decision 0052): `lifecycle`, `taxonomy`, `search` and `seed`.
 """
 
 from kernel import (
@@ -23,6 +23,7 @@ from kernel import (
     moderation,
     notifications,
     search,
+    seed,
     server_copy,
     storage,
     taxonomy,
@@ -79,6 +80,7 @@ __all__ = [
     "require_permission",
     "require_recent_auth",
     "search",
+    "seed",
     "server_copy",
     "settings",
     "storage",

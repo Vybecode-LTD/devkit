@@ -4,7 +4,8 @@ It runs the site's own `python -m app.owner <email>` with the site's `.venv`
 Python and `backend` on the path, in the site's folder, so the owner is made
 with the site's settings (its database and SECRET_KEY, from its environment
 or `.env`). Its output and exit code are the command's: the one-time link to
-set the owner's password, or why it refused.
+set the owner's password, or why it refused. `mechframe seed` runs the site's
+`app.seed` the same way (`run_in_site`).
 """
 
 from __future__ import annotations
@@ -31,6 +32,13 @@ def site_python(site: Path) -> Path:
 
 def create_owner(site: Path, email: str, *, root: Path = ROOT) -> int:
     """Run the site's `app.owner`; its exit code. Raises Refused when it can't."""
+    return run_in_site(site, "app.owner", [email], root=root)
+
+
+def run_in_site(site: Path, module: str, args: list[str], *, root: Path = ROOT) -> int:
+    """Run `python -m <module> <args>` with the site's own Python, in its
+    folder, with `backend` on the path and the caller's environment; its exit
+    code. Raises Refused when `site` isn't a site or has no .venv."""
     try:
         lock.read(site, root)
     except lock.LockError as error:
@@ -46,6 +54,6 @@ def create_owner(site: Path, email: str, *, root: Path = ROOT) -> int:
     }
     env["PYTHONPATH"] = "backend"
     finished = subprocess.run(  # noqa: S603 (the site's own Python, on its own module)
-        [str(python), "-m", "app.owner", email], cwd=site, env=env, check=False
+        [str(python), "-m", module, *args], cwd=site, env=env, check=False
     )
     return finished.returncode

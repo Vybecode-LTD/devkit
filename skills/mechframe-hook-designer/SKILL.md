@@ -122,6 +122,6 @@ The owner decided these when they picked the post-v1.0 modules (decision 0018, `
 | Bot check | bot-shield, forms, reviews, submissions | No: `rate_limit` only | A kernel API dependency with a provider adapter and one setting |
 | Content lifecycle | editorial-calendar, drops, podcast, changelog, announcements | Yes, since #97 | `kernel.lifecycle` (decision 0052) |
 | Taxonomy | directory, recipes, docs, wiki | Yes, since #98 | `kernel.taxonomy` (decision 0052) |
-| Seed data | catalog-site, visual-regression, theme-generator | No | A fixed-name seed part per module, run by a CLI command, never in production |
+| Seed data | catalog-site, visual-regression, theme-generator | Yes, since #102 | `kernel.seed` (decision 0052) |
 
 Also decided: i18n is a v1 rule (no hard-coded UI strings) rather than a hook, and flags wait until A/B testing is wanted.

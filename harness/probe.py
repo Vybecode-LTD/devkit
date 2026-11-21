@@ -13,6 +13,8 @@ tested on them: `probe` fills each hook and `probe-addon` doesn't. Its notes,
 `probe.note`, are publishable (hook 1), with a public page at
 `/probe/notes/:slug`, take terms from `topics` (hierarchical) and `tags`
 (hook 2), and are found by site search once published (hook 3, `SEARCH`).
+Its seed (hook 4, `seed_notes`) makes three of them under the topic `seeded`,
+by the seeded editor, two published.
 Their table, `probe_note`, lives on a metadata of its own (`TABLES`), which
 the test support makes when its app starts, so the migrations never see it.
 """
@@ -30,7 +32,7 @@ from sqlalchemy import MetaData, String, Text, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from kernel import jobs, lifecycle, search, server_copy, taxonomy
+from kernel import jobs, lifecycle, search, seed, server_copy, taxonomy
 from kernel.access import public
 from kernel.answers import Answer, Id, When
 from kernel.db import NAMING, get_db
@@ -98,6 +100,8 @@ class ProbeNote(lifecycle.Publishable, _Tables):
     slug: Mapped[str] = mapped_column(String(80), unique=True)
     title: Mapped[str] = mapped_column(String(200))
     body: Mapped[str] = mapped_column(Text, default="")
+    #: Who wrote it: only the seed says (hook 4).
+    author_id: Mapped[uuid.UUID | None] = mapped_column(default=None)
 
 
 class NewNote(BaseModel):
@@ -297,6 +301,35 @@ class ProbeSearch(search.Source):
 SEARCH = (ProbeSearch(),)
 
 
+# --- hook 4, seed data: notes a demo can start from ---------------------------------------
+
+#: The seeded notes' slugs: the first two published, the third a draft.
+SEEDED = ("seed-note-1", "seed-note-2", "seed-note-3")
+_WORDS = ("amber", "bridge", "copper", "delta", "ember", "fjord", "grove", "harbor")
+
+
+async def seed_notes(db: AsyncSession, ctx: seed.Context) -> None:
+    """Three notes under the topic `seeded`, by the seeded editor, the first
+    two published. Their slugs are fixed and the random's draws the same each
+    run, so a second run finds them and changes nothing."""
+    author = await ctx.user("editor")
+    for number, slug in enumerate(SEEDED, 1):
+        words = " and ".join(ctx.random.sample(_WORDS, 2))  # drawn every run, alike
+        if await db.scalar(select(ProbeNote.id).where(ProbeNote.slug == slug)) is not None:
+            continue
+        note = ProbeNote(
+            slug=slug,
+            title=f"Seeded note {number}: {words}",
+            body=f"A seeded note on {words}, for a demo of the probe.",
+            author_id=author,
+        )
+        db.add(note)
+        await db.flush()
+        await taxonomy.tag(db, ProbeNote.__content_type__, note.id, "topics", ["seeded"])
+        if number < len(SEEDED):
+            await lifecycle.publish(db, note)
+
+
 def _manifest(
     module_id: str, name: str, summary: str, requires: dict[str, str], **more: Any
 ) -> Manifest:
@@ -341,6 +374,7 @@ MODULES = (
         pages=ProbePages(),
         publishable=(ProbeNote,),
         searchable=SEARCH,
+        seed=seed_notes,
     ),
     InstalledModule(
         _manifest(

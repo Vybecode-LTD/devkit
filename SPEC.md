@@ -100,7 +100,7 @@ mechframe/
   themes/<name>/          tokens.json tokens.css
   recipes/<name>.json
   templates/site/         the empty site every project starts from
-  cli/                    mechframe new | add | remove | check | diff | upgrade | catalog | create-owner
+  cli/                    mechframe new | add | remove | check | diff | upgrade | catalog | create-owner | seed
   docs/decisions/
 ```
 
@@ -114,9 +114,9 @@ mechframe/
   backend/
     app/main.py           builds the app from the kernel and the modules in app/modules.py
     app/modules.py        MODULE_IDS, written by mechframe add and remove
-    app/migrations.py  app/worker.py  app/owner.py
+    app/migrations.py  app/worker.py  app/owner.py  app/seed.py
     app/__init__.py       puts backend/modules on the path; installed(MODULE_IDS) builds each with load_module
-    app/site/             this site's own backend code: pages.py, its pages' server copy (SITE_PAGES)
+    app/site/             this site's own backend code: pages.py, its pages' server copy (SITE_PAGES); seed.py, its own seed data
     alembic/              env.py loads every branch
     kernel/               copied: kernel/backend/kernel/ and kernel.json
     migrations/kernel/    copied: kernel/migrations/
@@ -233,6 +233,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `lifecycle.Publishable`, `lifecycle.publish / schedule / unpublish(db, row)`, `lifecycle.visible(Model)`, `lifecycle.columns() / table_args(table)` | Draft, scheduled and published for a module's public content (hook 1, decision 0052): the mixin's three columns, CHECK and due index; publish and unpublish emit `kernel.content.published` and `kernel.content.unpublished` in the caller's transaction; the kernel's `kernel.publish_due` publishes what's due every minute, dated at its time; `visible` is the one WHERE for what the public sees; `columns` and `table_args` write the same in a migration | A scheduled post | Hooks |
 | `taxonomy.tag(db, type, id, vocabulary, slugs)`, `taxonomy.terms_for(db, type, ids)`, `taxonomy.tagged(type, vocabulary, slug)`, `taxonomy.untag_all(db, type, id)` | Terms on a module's content from the vocabularies its manifest declares (hook 2, decision 0052): `tag` sets a thing's terms in one vocabulary to exactly those slugs in the caller's transaction, making any missing; `terms_for` answers each id's; `tagged` is a select of the ids holding a term, for `Model.id.in_(...)`; `untag_all` is for deleting the thing. The terms are public at `GET /api/kernel/terms?vocabulary=` while a module declaring the vocabulary is on, and staff holding `kernel.taxonomy.manage` (admin and editor by default) add, rename, move and delete them, audited | A post's topics | Hooks |
 | `search.Source`, `search.Document(type, id, title, body, path)`, `search.index(db, doc)`, `search.remove(db, type, id)` | Site search over every module's public content (hook 3, decision 0052): a module's `search.py` gives a source for each content type its manifest lists with `search: true`, answering one thing (`document(db, id)`, None when it's gone or not public) and all of them (`documents(db)`, for a reindex). The kernel indexes content with lifecycle itself, hearing `kernel.content.published` and `.unpublished`; `index` and `remove` are for content without lifecycle and for an edit of what's published, in the caller's transaction, and `index` keeps out a row that isn't published. The job `kernel.search_reindex`, run on demand, rebuilds the index. The public searches at `GET /api/kernel/search?q=&type=&cursor=&limit=` (30 a minute from one address): the modules that are on, ranked in `SEARCH_LANGUAGE` (default `english`), the title above the body, each hit with a plain-text snippet | A site's search box | Hooks |
+| `seed.Context`: `module`, `now`, `random`, `user(role)`, `put_image(name)` | What a module's `seed.py` is given (hook 4, decision 0052): a fixed clock (2026-01-01 12:00 UTC), a `random.Random` seeded with the module's id, the seeded account for a role (`seed-<role>@example.com`, verified, with no password and `member` too; never `owner`), and a one-colour PNG in the public bucket at `<id>/seed/<name>.png`, answering its key | `author = await ctx.user("editor")` | Hooks |
 | `Answer`, `answer(Model, content)`, `Id`, `When` | The base of every route's answer model, which refuses keys it doesn't name, and the JSON response built through one for a route that sets a cookie or header (section 7, decision 0042) | `@router.get("/posts", response_model=Posts)` | K4 |
 
 **Backend, for the site.** What a site's `backend/app` uses to build itself; modules don't need these.
@@ -243,6 +244,7 @@ Modules MUST import only from the kernel's public surface: `kernel/__init__.py` 
 | `load_module(manifest)` | A module built from its `module.json` and its package's fixed names (decision 0009), as the harness and every site build theirs | K5 |
 | `Database(url)` | The engine and session factory `create_app` uses | K1 |
 | `InstalledModule`, `Manifest` | A module as the app is built from it: its manifest, `router`, `Settings`, `CSP` and, from K3, its emails, jobs, events, reportable kinds and `pages` | K1 |
+| `seed.run(db, installed, site=)` | The seed data of every installed module that has a `seed.py`, each after those it requires (ties by id), then the site's own last, in one transaction it commits; it answers the ids seeded and is audited as `kernel.seed.ran`. `seed.Refused` unless `MECHFRAME_ALLOW_SEED=1` is in the process's environment (hook 4, decision 0052) | Hooks |
 | `__version__` | The kernel's version, which the public surface follows under semver | K1 |
 
 **Front end (TypeScript)**
@@ -297,7 +299,7 @@ Each platform's UI calls the same HTTP API, modules reach only the kernel's publ
 
 Routers stay thin, services hold the logic, and modules never reach into each other. The rules below are what `mechframe check` and code review enforce.
 
-**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates), `moderation.py` (what people may report, decision 0039), `lifecycle.py` (its publishable content, decision 0052) and `search.py` (what site search finds, decision 0052). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033), `server_copy.py`'s `PAGES` (decision 0041), `lifecycle.py`'s `PUBLISHABLE` and `search.py`'s `SEARCH`, a tuple of `search.Source` (decision 0052).
+**Files.** `models.py` (SQLAlchemy), `schemas.py` (Pydantic in and out), `service.py` (logic), `router.py` (HTTP). These are optional: `events.py`, `jobs.py`, `server_copy.py` (section 9), `public.py` (what other modules may call), `emails.py` (its email templates), `moderation.py` (what people may report, decision 0039), `lifecycle.py` (its publishable content, decision 0052), `search.py` (what site search finds, decision 0052) and `seed.py` (its seed data, decision 0052). The kernel finds a module's parts by fixed names: `router.py`'s `router`, `schemas.py`'s `Settings`, `__init__.py`'s `CSP` (decision 0009), `emails.py`'s `EMAILS` (decision 0033), `server_copy.py`'s `PAGES` (decision 0041), `lifecycle.py`'s `PUBLISHABLE`, `search.py`'s `SEARCH`, a tuple of `search.Source`, and `seed.py`'s `seed`, an `async def seed(db, ctx: seed.Context) -> None` (decision 0052).
 
 **Routes**
 
@@ -337,6 +339,7 @@ Routers stay thin, services hold the logic, and modules never reach into each ot
 | Content lifecycle | module.json's `content_types[].lifecycle`; `lifecycle.py`'s `PUBLISHABLE`, models subclassing `lifecycle.Publishable`; the kernel's `kernel.publish_due` job; the events `kernel.content.published` and `kernel.content.unpublished` | 5, 6, 7, 10, 11 |
 | Taxonomy | module.json's `vocabularies` and `content_types[].taxonomy`; `kernel.taxonomy`'s `tag`, `terms_for`, `tagged` and `untag_all`; the tables `kernel_vocabulary`, `kernel_term` and `kernel_term_link`; `GET /api/kernel/terms` and the admin's term routes under `kernel.taxonomy.manage` | 5, 6, 7, 10 |
 | Search index | module.json's `content_types[].search`; `search.py`'s `SEARCH`, a `search.Source` for each searched type; `kernel.search`'s `index` and `remove`; the table `kernel_search_document`; the kernel's listeners to `kernel.content.*` and its `kernel.search_reindex` job; `GET /api/kernel/search` | 5, 6, 7, 10 |
+| Seed data | `seed.py`'s `seed(db, ctx)`, idempotent; `seed.Context`; `kernel.seed.run`; the site's `python -m app.seed` (its own `app/site/seed.py` last), the harness's `python -m harness.seed` and `mechframe seed`, each refused unless `MECHFRAME_ALLOW_SEED=1` | 4, 6, 7, 12 |
 
 ## 8. Frontend rules and UI slots
 
@@ -500,6 +503,8 @@ The CLI runs from a MechFrame checkout, with MechFrame's Python, and copies from
 **Switching on and off.** A module is on when the deploy's `MODULES` list allows it and the admin hasn't switched it off on the Features page (VybeSite's parts). While off, its routes answer 404, its slots are hidden, its jobs pause and its event handlers wait. A switch applies at once in the process that made it and within `MODULES_CACHE_SECONDS` (5 by default) in every other worker (decision 0009).
 
 **`mechframe remove <id>`.** Refuse while another module requires it. Delete its code (its backend package and web folder), registry entries and lock entry, comment out its env vars in `.env.example`, and keep its tables. It also keeps its migrations, since the database's `alembic_version` still names their revision, and its `railway.ts` lines, so an apply keeps what the owner typed into Railway (decision 0050). `--drop-data` waits for the first module with data, since its downgrade must run before its files go (decision 0047).
+
+**`mechframe seed [--site <dir>]`** runs the site's `python -m app.seed` with its `.venv`, as `create-owner` runs `app.owner`: every module's seed data, each after the modules it requires, then the site's own (`backend/app/site/seed.py`), in one transaction (hook 4, decision 0052). A module's `seed` MUST be idempotent, with fixed ids or slugs and a check or an upsert before each write, so a second run changes nothing; one that raises keeps nothing. Seed data is for a demo, a review or a screenshot, never a live site: it refuses unless `MECHFRAME_ALLOW_SEED=1` is in the environment, read from there only, never `.env`, and `.railway/railway.ts` never sets it.
 
 **Upgrades**
 
@@ -885,6 +890,7 @@ All eleven were answered on 2026-11-12, and the sections above already reflect t
 
 | Date | Change |
 | --- | --- |
+| 2026-11-21 | Hook 4, seed data (decision 0052, `dev plans/contracts/hooks.md`): `seed.py`'s `seed(db, ctx)`; `kernel.seed`'s `Context` and `run`, in `requires` order and the site's own last, in one transaction, audited as `kernel.seed.ran`; `python -m app.seed`, `python -m harness.seed` and `mechframe seed`, each refused unless `MECHFRAME_ALLOW_SEED=1` is in the environment; the hooks index's fourth row (4, 6, 7, 12) |
 | 2026-11-21 | The kit's two fixes (decision 0042, amended; VM Website Dev 05): the required token `color.field` fills a field, a select and a text area (`themes/README.md`), and every switch takes the admin's gap ring, off as well as on (no section's words change: section 8 points at that list) |
 | 2026-11-21 | Hook 3, search index (decision 0052, `dev plans/contracts/hooks.md`): module.json's `content_types[].search`; `search.py`'s `SEARCH`, a tuple of `search.Source`; `kernel.search`'s `index` and `remove` on the kernel table `kernel_search_document` (`kernel_0014`); the kernel hearing `kernel.content.published` and `.unpublished`, and its `kernel.search_reindex` job; `GET /api/kernel/search`; `SEARCH_LANGUAGE`; the hooks index's third row (5, 6, 7, 10, 14.11) |
 | 2026-11-20 | Hook 2, taxonomy (decision 0052, `dev plans/contracts/hooks.md`): module.json's `vocabularies` and `content_types[].taxonomy`; `kernel.taxonomy`'s `tag`, `terms_for`, `tagged` and `untag_all` on the kernel tables `kernel_vocabulary`, `kernel_term` and `kernel_term_link` (`kernel_0013`); `GET /api/kernel/terms`, and the admin's term routes under the new `kernel.taxonomy.manage` (admin and editor); the hooks index's second row (5, 6, 7, 10) |

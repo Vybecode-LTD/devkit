@@ -14,6 +14,7 @@ A website made with MechFrame: its kernel, the modules this site has and its own
 - **No secrets, ever:** not in the repo, not in logs. Keys go in the host's variables, typed by the site's owner. Never commit `.env`.
 - **A new setting goes in three places:** `.env.example`, the code that reads it, and `.railway/railway.ts` (`preserve()` for a secret), since an apply deletes a variable on the web service that the file doesn't list. Applying it (`railway config apply`) is the owner's.
 - **A refused destructive migration is the owner's:** when `python -m app.migrations upgrade` stops on one marked `destructive = True`, never add `--confirm-destructive` to the deploy command or unmark the migration. Tell the owner: they back the database up and run it by hand (`README.md`, "Deploying").
+- **Seed data never reaches the live site:** `backend/app/site/seed.py` (and each module's `seed.py`) is for a demo, a review or a screenshot. Never set `MECHFRAME_ALLOW_SEED` on the host, in `.env`, in `.railway/railway.ts` or in CI's deploy: it's typed in a terminal for one run.
 - **Ask the owner first** before anything outward-facing: the host's projects, domains and variables, any account, any message sent for them.
 
 ## Commands

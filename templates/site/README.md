@@ -32,6 +32,7 @@ Copy `.env.example` to `.env`, set `DEBUG=true`, `SITE_URL=http://localhost:8000
 | Install and run the web app (another terminal) | `cd web; npm ci; npm run dev` (http://localhost:5173) |
 | Build the web app the backend serves | `cd web; npm run build` |
 | The first owner | `.venv\Scripts\python.exe -m app.owner <email>`, or `mechframe create-owner <email> --site <this site's folder>` from MechFrame's checkout: it prints a one-time link to set the owner's password, valid 30 minutes. Run it again for a new one |
+| Seed data, for a demo or a review, never the live site | `$env:MECHFRAME_ALLOW_SEED = "1"`, then `.venv\Scripts\python.exe -m app.seed`, or `mechframe seed --site <this site's folder>` from MechFrame's checkout: every module's seed data, then the site's own (`backend/app/site/seed.py`). A second run changes nothing. The variable is read from the environment only, never `.env`, and `.railway/railway.ts` never sets it |
 | Python tests, lint, types | `.venv\Scripts\python.exe -m pytest`, `-m ruff check .`, `-m black --check .`, `-m mypy` |
 | Web tests, lint, types | `cd web; npm test; npm run lint; npm run typecheck` |
 | End-to-end tests | `cd web; npx playwright install chromium` once, then `npm run build; npm run e2e`, with `TEST_DATABASE_URL` set |

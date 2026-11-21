@@ -8,9 +8,9 @@ Updated 2026-11-20, `main` at `b543642`. Progress counts steps, not effort: each
 
 | Milestone | Done | In review | Next | To do | Waiting | Later | Progress |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| MechFrame v1.0 | 43 | 0 | 0 | 12 | 3 | 3 | ███████░░░ 70% (43 of 61) |
+| MechFrame v1.0 | 44 | 0 | 0 | 11 | 3 | 3 | ███████░░░ 72% (44 of 61) |
 | After v1.0 | 0 | 0 | 0 | 85 | 0 | 3 | ░░░░░░░░░░ 0% (0 of 88) |
-| Everything | 43 | 0 | 0 | 97 | 3 | 6 | ██░░░░░░░░ 28% (43 of 149) |
+| Everything | 44 | 0 | 0 | 96 | 3 | 6 | ██░░░░░░░░ 29% (44 of 149) |
 
 ## MechFrame v1.0
 
@@ -125,7 +125,7 @@ Gate: mechframe new test-site builds, migrates and passes its tests; mechframe c
 | mechframe catalog | Done | [#91](https://github.com/mechframe/mechframe/pull/91) | [0047](decisions/0047-cli-and-site-template.md) |  |
 | SPEC 10's confirmation before a destructive migration | Done | [#93](https://github.com/mechframe/mechframe/pull/93) | [0049](decisions/0049-destructive-migrations-wait.md) | kernel.migrate: once its branch holds data, an upgrade stops before a revision marked destructive = True until --confirm-destructive names it; the owner, 2026-11-20: before any module with migrations |
 
-### Contract hooks · 3 of 10 done
+### Contract hooks · 4 of 10 done
 
 The ten hooks the Must modules need (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md): 1 to 8 before Vibrant Mindz's step 1 and its blog, entitlements before step 5, and profile tabs before wave 2b, which may be after v1.0 freezes (the owner, 2026-11-21).
 
@@ -134,7 +134,7 @@ The ten hooks the Must modules need (decision 0018), in the shapes and order of 
 | Content lifecycle | Done | [#97](https://github.com/mechframe/mechframe/pull/97) | [0052](decisions/0052-the-contract-hooks.md) | kernel.lifecycle: the Publishable mixin, publish, schedule and unpublish, visible, and the kernel's kernel.publish_due job |
 | Taxonomy | Done | [#98](https://github.com/mechframe/mechframe/pull/98) | [0052](decisions/0052-the-contract-hooks.md) | kernel.taxonomy: vocabularies in module.json, the kernel's term tables (kernel_0013), tag, terms_for, tagged and untag_all, the public terms list and the admin's term routes |
 | Search index | Done | [#99](https://github.com/mechframe/mechframe/pull/99) | [0052](decisions/0052-the-contract-hooks.md) | kernel.search: search.py's SEARCH and content_types[].search, the kernel table kernel_search_document (kernel_0014), the kernel hearing kernel.content.*, the kernel.search_reindex job, and GET /api/kernel/search |
-| Seed data | To do |  |  |  |
+| Seed data | Done | [#102](https://github.com/mechframe/mechframe/pull/102) | [0052](decisions/0052-the-contract-hooks.md) |  |
 | Bot check | To do |  |  |  |
 | Consent categories | To do |  |  |  |
 | Export and erase | To do |  |  |  |

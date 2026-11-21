@@ -365,6 +365,11 @@ def test_load_module_builds_a_module_from_its_fixed_names(
                 "            yield _\n"
                 "SEARCH = (Photos(),)\n"
             ),
+            "seed.py": (
+                "from kernel.seed import Context\n"
+                "async def seed(db, ctx: Context) -> None:\n"
+                "    return None\n"
+            ),
         },
     )
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -389,6 +394,8 @@ def test_load_module_builds_a_module_from_its_fixed_names(
     assert isinstance(module.pages, server_copy.Pages)
     assert [model.__content_type__ for model in module.publishable] == [f"{module_id}.photo"]
     assert [source.content_type for source in module.searchable] == [f"{module_id}.photo"]
+    assert module.seed is not None
+    assert module.seed.__name__ == "seed"
 
 
 def test_a_modules_vocabularies_reach_the_taxonomy_from_its_manifest(
@@ -428,7 +435,7 @@ def test_load_module_of_a_package_with_none_of_the_names_or_none_at_all(
     finally:
         for loaded in [each for each in sys.modules if each.startswith(bare_id.replace("-", "_"))]:
             del sys.modules[loaded]
-    assert (found.router, found.settings, found.pages) == (None, None, None)
+    assert (found.router, found.settings, found.pages, found.seed) == (None, None, None, None)
     assert (
         found.csp,
         found.jobs,

@@ -125,6 +125,8 @@ KERNEL_ACTIONS = frozenset(
         "kernel.term.created",
         "kernel.term.changed",
         "kernel.term.deleted",
+        # Seed data loaded, never on a live site (decision 0052, hook 4).
+        "kernel.seed.ran",
     }
 )
 

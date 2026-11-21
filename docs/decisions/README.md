@@ -21,7 +21,7 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0015](0015-ci-gate-wiring.md) | How CI wires the quality gate | Applied |
 | [0016](0016-spec-catches-up-with-the-code.md) | The spec catches up with the code | Applied |
 | [0017](0017-retire-the-spec-doc.md) | Retire the claude.ai Spec doc | Applied |
-| [0018](0018-module-roadmap-and-contract-hooks.md) | The module roadmap after v1.0, and the contract hooks it needs | Accepted; hooks 1 to 3 applied, 9 and 10 wait (0052) |
+| [0018](0018-module-roadmap-and-contract-hooks.md) | The module roadmap after v1.0, and the contract hooks it needs | Accepted; hooks 1 to 4 applied, 9 and 10 wait (0052) |
 | [0019](0019-sign-in-limits-as-tiers.md) | Sign-in waits are rate-limit tiers, and second factors are limited per account | Applied |
 | [0020](0020-sign-up-defaults.md) | Sign-up is closed until a site opens it, and its mail and links have limits | Applied |
 | [0021](0021-codes-and-links.md) | An email code or link is one first factor, live once per account | Applied |
@@ -58,4 +58,4 @@ One short record per decision, numbered, written when the decision is made (`C:\
 | [0049](0049-destructive-migrations-wait.md) | A destructive migration waits for the owner: named back with `--confirm-destructive`, once its branch holds data | Decided; applied in K5.3 (#93) |
 | [0050](0050-add-and-remove.md) | `mechframe add` and `remove`: what each writes, what `remove` keeps, and how `requires` reads a range | Decided; applied in K5.4 (#94) |
 | [0051](0051-create-owner.md) | The site's owner, made from the server: the reset's own link, and only an owner's address once there is one | Decided; applied in K5.5 (#95) |
-| [0052](0052-the-contract-hooks.md) | The ten contract hooks: their shapes and their order | Accepted; hooks 1 to 3 applied (#97 to #99); 9 and 10 wait (2026-11-21) |
+| [0052](0052-the-contract-hooks.md) | The ten contract hooks: their shapes and their order | Accepted; hooks 1 to 4 applied (#97 to #99, #102); 9 and 10 wait (2026-11-21) |

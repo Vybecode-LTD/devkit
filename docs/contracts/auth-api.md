@@ -179,6 +179,7 @@ Mounted by the harness only when `HARNESS_TEST_SUPPORT=1`, so the contract suite
 | `POST /api/_test/breached` | `{passwords: [...]}`: 204, the fake breach lookup reports these as breached until the next reset |
 | `POST /api/_test/oauth/grant` | `{provider: "test", subject, email, email_verified}`: 200 `{"code"}` the fake provider accepts once |
 | `POST /api/_test/jobs/run` | 204, after running every job that is due |
+| `POST /api/_test/seed` | `{allow?}`: 200 `{"seeded": [ids]}`, every installed module's seed data, in the order run (hook 4, decision 0052). `allow: true` stands for `MECHFRAME_ALLOW_SEED=1` in the command's environment; without it, 403 `harness.seed_refused`, as the command refuses. The probe's seed makes `seed-note-1` to `-3` under the topic `seeded`, the first two published, by `seed-editor@example.com` (an editor); a second run changes nothing |
 | `POST /api/_test/jobs` | `{name, sealed?, key?}`: 201 `{"id"}`, a job queued now. The probe modules' jobs: `probe.fail` fails on its one try, `probe.ok` does nothing, `probe-addon.ok` likewise; a kernel job such as `kernel.publish_due` runs as its schedule would run it; any other name is queued with no handler |
 | `GET /api/probe/ping` | 200 `{}` while the probe module is on (the test support mounts `probe` and `probe-addon`, which requires it) |
 | `POST /api/probe/notes` | `{slug, title, body?}`: 201 `{"id"}`, a probe note, a draft (the contract hooks' content, decision 0052). Published, it's found by `GET /api/kernel/search` once the jobs have run, and unpublished it isn't (hook 3) |
