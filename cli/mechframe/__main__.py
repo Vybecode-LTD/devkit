@@ -1,7 +1,7 @@
 """`python -m mechframe <command>` (K5 contract §2; cli/README.md).
 
 Built: `new` (with `--recipe`, a recipe's modules too), `add`, `remove`,
-`create-owner`, `catalog` and `check`. `diff` and `upgrade` wait for a
+`create-owner`, `seed`, `catalog` and `check`. `diff` and `upgrade` wait for a
 module's second version (the owner, 2026-11-20).
 """
 
@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-from mechframe import __version__, catalog, check, modules, new, owner
+from mechframe import __version__, catalog, check, modules, new, owner, seed
 from mechframe.source import ROOT
 
 
@@ -51,6 +51,12 @@ def _parser() -> argparse.ArgumentParser:
     owning.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
     _root(owning)
 
+    seeding = commands.add_parser(
+        "seed", help="load the site's seed data: only with MECHFRAME_ALLOW_SEED=1, never live"
+    )
+    seeding.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
+    _root(seeding)
+
     removing = commands.add_parser("remove", help="remove a module from a site, keeping its tables")
     removing.add_argument("id", help="the module's id")
     removing.add_argument("--site", type=Path, default=Path(), help="the site (default: here)")
@@ -81,8 +87,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print("\n".join(new.next_steps(made)))
         return 0
-    if args.command == "create-owner":
+    if args.command in ("create-owner", "seed"):
         try:
+            if args.command == "seed":
+                return seed.seed(args.site.resolve(), root=args.root)
             return owner.create_owner(args.site.resolve(), args.email, root=args.root)
         except owner.Refused as refusal:
             print(refusal, file=sys.stderr)

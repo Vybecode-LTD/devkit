@@ -15,8 +15,9 @@ the app's mailer was handed, kept by a `CapturingMailer` behind the same
 checks a site's adapter gets, read after the due jobs have run, since mail
 goes out through the jobs queue), jobs/run (every due job, now), jobs (a job
 queued now: the probe modules', `harness.probe`, which only the test support
-mounts) and users (accounts made without judging their passwords). Still to
-come with K2 and K3: oauth/grant, delete-hooks.
+mounts), users (accounts made without judging their passwords) and seed (the
+modules' seed data, `kernel.seed`, hook 4). Still to come with K2 and K3:
+oauth/grant, delete-hooks.
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ from sqlalchemy import delete, select
 
 from harness import probe
 from harness.registry import discover
-from kernel import clock, create_app, crypto, jobs
+from kernel import clock, create_app, crypto, jobs, seed
 from kernel.access import needs_step_up, public, undeclared
 from kernel.auth.accounts import normal_email
 from kernel.auth.models import Role, Totp, User, UserRole
@@ -176,6 +177,28 @@ async def new_job(body: NewJob, request: Request) -> dict[str, str]:
             raise Problem("harness.job_waiting", 409, "A job of that name and key is waiting.")
         await db.commit()
     return {"id": str(made)}
+
+
+class SeedNow(BaseModel):
+    #: Stands for MECHFRAME_ALLOW_SEED=1 in the environment of the command a
+    #: site runs (`python -m app.seed`), which a suite can't set on a server
+    #: that's running: without it, seeding refuses, as the command does.
+    allow: bool = False
+
+
+@router.post("/seed")
+async def seed_now(request: Request, body: SeedNow | None = None) -> dict[str, list[str]]:
+    """Every installed module's seed data, the probe's among them, through
+    `kernel.seed.run` (hook 4): 200 `{"seeded": [ids]}`, in the order run;
+    403 `harness.seed_refused` without `allow`."""
+    environ = {seed.ALLOW: "1"} if body is not None and body.allow else {}
+    installed = list(request.app.state.modules.installed.values())
+    async with request.app.state.database.sessions() as db:
+        try:
+            seeded = await seed.run(db, installed, environ=environ)
+        except seed.Refused as refusal:
+            raise Problem("harness.seed_refused", 403, str(refusal)) from None
+    return {"seeded": seeded}
 
 
 @router.post("/clock", status_code=204)

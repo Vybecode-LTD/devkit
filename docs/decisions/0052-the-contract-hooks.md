@@ -1,7 +1,7 @@
 # 0052: The ten contract hooks: their shapes and their order
 
 - **Date:** 2026-11-20
-- **Status:** Accepted (the owner approved `dev plans/contracts/hooks.md` "as recommended", 2026-11-20). Hooks applied to SPEC.md so far: 1, content lifecycle (#97); 2, taxonomy (#98); 3, search index (#99). Amended 2026-11-21 (the owner): hooks 9 and 10 wait (item 11).
+- **Status:** Accepted (the owner approved `dev plans/contracts/hooks.md` "as recommended", 2026-11-20). Hooks applied to SPEC.md so far: 1, content lifecycle (#97); 2, taxonomy (#98); 3, search index (#99); 4, seed data (#102). Amended 2026-11-21 (the owner): hooks 9 and 10 wait (item 11).
 - **Context:** Decision 0018 put ten hooks into SPEC.md before v1.0 freezes, one PR each, with `mechframe-hook-designer`. Each needed an exact shape: what a module declares, what the kernel does, and what a module that doesn't take part loses (nothing). Vibrant Mindz's step-1 modules (`media`, `pages`, `blog`, `embeds`, `contact`, `campaigns`) are extracted next, and they need some of the hooks from their first commit. Building the contract settled:
   - which hooks share a manifest field;
   - the order;

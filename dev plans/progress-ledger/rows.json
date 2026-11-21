@@ -680,10 +680,10 @@
    "gate": "",
    "step_order": 4,
    "step": "Seed data",
-   "status": "todo",
-   "status_label": "To do",
-   "prs": "",
-   "decisions": "",
+   "status": "done",
+   "status_label": "Done",
+   "prs": "#102",
+   "decisions": "0052",
    "note": ""
   },
   {

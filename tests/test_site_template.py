@@ -40,8 +40,10 @@ PATHS = [
     "backend/app/migrations.py",
     "backend/app/worker.py",
     "backend/app/owner.py",
+    "backend/app/seed.py",
     "backend/app/site/__init__.py",
     "backend/app/site/pages.py",
+    "backend/app/site/seed.py",
     "backend/alembic/env.py",
     "backend/alembic/script.py.mako",
     "backend/kernel/__init__.py",
@@ -52,6 +54,7 @@ PATHS = [
     "backend/tests/test_app.py",
     "backend/tests/test_migrations.py",
     "backend/tests/test_pages.py",
+    "backend/tests/test_seed.py",
     "backend/tests/e2e_server.py",
     "web/src/kernel/index.ts",
     "web/src/modules.ts",
@@ -228,6 +231,17 @@ def test_railway_lists_every_setting_so_an_apply_deletes_none(site: Path) -> Non
     assert sorted(example - set(env)) == []
 
 
+#: Seeding's permission (hook 4, decision 0052): the process's environment only.
+ALLOW_SEED = "MECHFRAME_ALLOW_SEED"
+
+
+def test_railway_never_allows_seeding(site: Path) -> None:
+    """Seed data never reaches a live site: no file of the site's sets the
+    permission, so it's only ever typed for one run (decision 0052, hook 4)."""
+    for path in (".railway/railway.ts", ".env.example", "Dockerfile", "compose.yaml"):
+        assert ALLOW_SEED not in (site / path).read_text("utf-8"), path
+
+
 def test_railways_sdk_is_pinned_and_locked(site: Path) -> None:
     package = _json(site / "package.json")
     assert package["devDependencies"] == {"railway": "3.16.0"}
@@ -327,6 +341,7 @@ def test_a_site_with_modules_lists_every_setting_for_railway(site_with_modules: 
     assert sorted(example - set(env)) == []
     for name in ("FIXTURE_NOTES_FEED_URL", "FIXTURE_NOTES_PAGE_SIZE", "FIXTURE_PINS_LIMIT"):
         assert env[name] == "preserve()", name
+    assert ALLOW_SEED not in (site_with_modules / settings.RAILWAY).read_text("utf-8")
 
 
 def test_a_site_with_modules_imports_each_binding_it_lists(site_with_modules: Path) -> None:
