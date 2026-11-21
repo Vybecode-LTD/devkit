@@ -65,6 +65,9 @@ async def test_a_time_gone_or_a_published_note_cant_be_scheduled(api: Api) -> No
     gone = (datetime.now(UTC) - timedelta(seconds=60)).isoformat()
     past = await api.http.post(f"/api/probe/notes/{note}/schedule", json={"at": gone})
     assert (past.status_code, past.json()["code"]) == (422, "kernel.publish_at_past")
+    zoneless = (datetime.now(UTC) + timedelta(hours=1)).replace(tzinfo=None).isoformat()
+    unzoned = await api.http.post(f"/api/probe/notes/{note}/schedule", json={"at": zoneless})
+    assert (unzoned.status_code, unzoned.json()["code"]) == (422, "probe.bad_time")
     assert (await api.http.post(f"/api/probe/notes/{note}/publish")).status_code == 204
     later = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
     published = await api.http.post(f"/api/probe/notes/{note}/schedule", json={"at": later})

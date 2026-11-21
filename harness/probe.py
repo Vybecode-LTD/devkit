@@ -156,6 +156,8 @@ async def schedule_note(
 ) -> Response:
     try:
         at = datetime.fromisoformat(body.at)
+        if at.utcoffset() is None:
+            raise ValueError("The time needs its zone, such as 2026-12-01T09:00:00+00:00.")
     except ValueError as error:
         raise Problem("probe.bad_time", 422, str(error)) from None
     await lifecycle.schedule(db, await _note(db, note_id), at)
