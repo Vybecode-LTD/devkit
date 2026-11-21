@@ -123,7 +123,9 @@ class Source(ABC):
     @abstractmethod
     def documents(self, db: AsyncSession) -> AsyncIterator[Document]:
         """Every public thing of the type, for a reindex: an async generator
-        (`async def documents(self, db): ... yield`)."""
+        (`async def documents(self, db): ... yield`). The reindex writes on
+        the same session between the documents, so read with `db.scalars`,
+        a page at a time for a large table, not with `db.stream`."""
 
 
 def _invalid(name: str, message: str) -> Problem:
@@ -293,6 +295,7 @@ async def index(db: AsyncSession, doc: Document) -> None:
     nobody searches, no title, or a path off the site."""
     _searched(doc.type)
     checked = _checked(doc)
+    await db.flush()  # the caller's row locks first, then search's (CodeRabbit on #99)
     await _hold(db, checked.type, checked.id)
     if checked.id in await _public(db, checked.type, [checked.id]):
         await _write(db, checked)
@@ -304,6 +307,7 @@ async def remove(db: AsyncSession, content_type: str, content_id: uuid.UUID) -> 
     """Takes the thing out of search in the caller's transaction, for a module
     hiding or deleting it. ValueError for a type nobody searches."""
     _searched(content_type)
+    await db.flush()
     await _hold(db, content_type, content_id)
     await _drop(db, content_type, content_id)
 
@@ -344,20 +348,22 @@ ON_PUBLISHED = events.on("kernel.content.published", "kernel.search_published")(
 ON_UNPUBLISHED = events.on("kernel.content.unpublished", "kernel.search_unpublished")(_heard)
 
 
-async def _rebuild(writing: AsyncSession, reading: AsyncSession, kind: str, source: Source) -> None:
-    await writing.execute(
+async def _rebuild(db: AsyncSession, kind: str, source: Source) -> None:
+    """One type's documents made again, on one connection: a pool of one
+    can run it (CodeRabbit on #99)."""
+    await db.execute(
         text("SELECT pg_advisory_xact_lock(:kind, :key)"),
         {"kind": TYPE_LOCK, "key": lock_key(kind)},
     )
-    await writing.execute(delete(_Row).where(_Row.content_type == kind))
+    await db.execute(delete(_Row).where(_Row.content_type == kind))
     batch: list[Document] = []
 
     async def flush() -> None:
-        shown = await _public(writing, kind, [doc.id for doc in batch])
-        await _write(writing, *(doc for doc in batch if doc.id in shown))
+        shown = await _public(db, kind, [doc.id for doc in batch])
+        await _write(db, *(doc for doc in batch if doc.id in shown))
         batch.clear()
 
-    async for found in source.documents(reading):
+    async for found in source.documents(db):
         if found.type != kind:
             raise ValueError(f"{kind}'s source gave a document of {found.type}.")
         batch.append(_checked(found))
@@ -370,9 +376,9 @@ async def _reindex(ctx: jobs.Context, payload: dict[str, Any]) -> None:
     """Rebuilds each searched type from its source, a type to a transaction,
     then drops the rows of types no module searches now."""
     for kind, source in sorted(_sources.items()):
-        async with ctx.sessions() as writing, ctx.sessions() as reading:
-            await _rebuild(writing, reading, kind, source)
-            await writing.commit()
+        async with ctx.sessions() as db:
+            await _rebuild(db, kind, source)
+            await db.commit()
     async with ctx.sessions() as db:
         await db.execute(delete(_Row).where(_Row.content_type.not_in(sorted(_sources))))
         await db.commit()

@@ -627,3 +627,55 @@ async def test_a_match_far_into_a_long_body_is_found_with_its_opening_as_snippet
     assert item["id"] == str(page.id)
     assert item["snippet"].startswith("An opening paragraph")
     assert word not in item["snippet"]
+
+
+# --- CodeRabbit on #99: the lock order, and a reindex on one connection -----------------
+
+
+@pytest.mark.db
+async def test_two_edits_indexing_one_note_take_turns_without_a_deadlock(notes: Database) -> None:
+    """A holds the note's row (its edit flushed); B's edit isn't flushed yet.
+    B's index must take the row before the search lock, or A's index waits
+    on B's search lock while B waits on A's row (CodeRabbit on #99)."""
+    word = _word()
+    async with notes.sessions() as db:
+        note = await _note(db, word)
+        await lifecycle.publish(db, note)
+        await db.commit()
+    async with notes.sessions() as first, notes.sessions() as second:
+        mine = await first.get_one(Note, note.id)
+        mine.body = f"First edit of {word}."
+        await first.flush()  # the row is A's until it commits
+        theirs = await second.get_one(Note, note.id)
+        theirs.body = f"Second edit of {word}."  # not flushed
+
+        async def second_indexes() -> None:
+            # A caller that turns autoflush off: the session's own autoflush
+            # would otherwise flush B's edit at index()'s first statement.
+            with second.no_autoflush:
+                await search.index(second, NoteSource._of(theirs))
+            await second.commit()
+
+        waiting = asyncio.create_task(second_indexes())
+        await asyncio.sleep(0.5)
+        await search.index(first, NoteSource._of(mine))
+        await first.commit()
+        await asyncio.wait_for(waiting, 10)
+    async with notes.sessions() as db:
+        assert await _ids(db, f'"second edit" {word}') == [str(note.id)]
+
+
+@pytest.mark.db
+async def test_the_reindex_runs_on_a_pool_of_one_connection(
+    notes: Database, migrated_url: str
+) -> None:
+    """DB_POOL_SIZE=1 with no overflow is a setting the kernel accepts: a
+    reindex holding two connections would never finish (CodeRabbit on #99)."""
+    one = Database(migrated_url, pool_size=1, max_overflow=0)
+    try:
+        page = _page(f"Pooled {_word()}")
+        PageSource.shown[page.id] = page
+        context = jobs.Context(uuid.uuid4(), search.REINDEX.name, 1, one, LogMailer())
+        await asyncio.wait_for(search.REINDEX.run(context, {}), 10)
+    finally:
+        await one.dispose()
