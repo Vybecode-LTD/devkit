@@ -249,11 +249,12 @@ def _term(key: str, row: Any) -> Term:
     return Term(row.id, key, row.slug, row.label, parent, row.position)
 
 
-async def _terms(db: AsyncSession, found: Vocabulary, slugs: Sequence[str]) -> list[Term]:
+async def _terms(
+    db: AsyncSession, found: Vocabulary, vocabulary_id: uuid.UUID, slugs: Sequence[str]
+) -> list[Term]:
     """The terms with these slugs, made where missing, each held against
     deletion (FOR KEY SHARE) until the caller's transaction ends. A term
     another transaction is making is waited for, then used."""
-    vocabulary_id = await _vocabulary_id(db, found)
     terms: dict[str, Term] = {}
     for _ in range(5):
         missing = [slug for slug in slugs if slug not in terms]
@@ -310,9 +311,12 @@ async def tag(
     await db.execute(
         text("SELECT pg_advisory_xact_lock(:kind, :key)"), {"kind": LOCK_CLASS, "key": thing}
     )
-    terms = await _terms(db, found, wanted) if wanted else []
+    # Every tagging, an empty one too, keeps the vocabulary's row in step
+    # (CodeRabbit on #98).
+    vocabulary_id = await _vocabulary_id(db, found)
+    terms = await _terms(db, found, vocabulary_id, wanted) if wanted else []
     kept = [term.id for term in terms]
-    in_vocabulary = select(_Term.id).join(_Vocabulary).where(_Vocabulary.key == vocabulary)
+    in_vocabulary = select(_Term.id).where(_Term.vocabulary_id == vocabulary_id)
     unlinked = delete(_Link).where(
         _Link.content_type == content_type,
         _Link.content_id == content_id,

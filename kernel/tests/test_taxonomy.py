@@ -470,3 +470,24 @@ async def test_a_vocabulary_made_flat_shows_no_parents_and_loses_them(
         await db.commit()
         stored = await db.scalar(select(TaxonomyTerm.parent_id).where(TaxonomyTerm.id == child.id))
     assert stored is None
+
+
+@pytest.mark.db
+async def test_an_empty_tagging_of_a_vocabulary_made_flat_drops_its_parents(
+    database: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Untagging is a write too (CodeRabbit on #98)."""
+    found = _fresh(monkeypatch)
+    parent = await _made(database, found, "parent")
+    child = await _made(database, found, "child", parent_id=parent.id)
+    flat = taxonomy.Vocabulary(found.key, found.label, False, ("notes",))
+    monkeypatch.setattr(
+        taxonomy,
+        "_declared",
+        taxonomy.Declared({found.key: flat}, {"notes.note": frozenset({found.key})}),
+    )
+    async with database.sessions() as db:
+        await taxonomy.tag(db, "notes.note", uuid.uuid4(), found.key, [])
+        await db.commit()
+        stored = await db.scalar(select(TaxonomyTerm.parent_id).where(TaxonomyTerm.id == child.id))
+    assert stored is None
