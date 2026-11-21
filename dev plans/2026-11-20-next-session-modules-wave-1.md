@@ -34,7 +34,7 @@ MechFrame: website modules on a FastAPI + Postgres kernel (`CLAUDE.md`, `SPEC.md
 
 - **Python tests** (Git Bash, background, log in the scratchpad, about 13 minutes, no edits meanwhile): `TEST_DATABASE_URL="postgresql://devkit:devkit@localhost:55432/postgres" MECHFRAME_REQUIRE_DB=1 .venv/Scripts/python.exe -m pytest --cov`.
 - **The smoke:** `TEST_DATABASE_URL=... PYTHONPATH=cli .venv/Scripts/python.exe -m tools.site_smoke --keep` (about 6 minutes). A redirected log gets its stdout only at the end; each step shows live in `%TEMP%\mechframe-smoke-*\smoke.log`.
-- **`tools.npm_audit` reads the root lockfile only:** run `npm audit` in a made site for its two.
+- **`tools.npm_audit` reads the repo's root lockfile only:** in a made site, run `npm audit` twice, once in its root and once in `web/`, one for each lockfile.
 - **`$TMP` in Git Bash is `%TEMP%`,** not the scratchpad.
 - **The Bash tool decodes `\n`, `\r`, `\u`:** write patch scripts with the Write tool, `chr(13) + chr(10)` for CRLF. Most docs are CRLF; `AGENTS.md` matches `CLAUDE.md` but its title.
 

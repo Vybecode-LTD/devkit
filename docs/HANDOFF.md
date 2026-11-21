@@ -40,7 +40,7 @@ The starting prompt is `dev plans/2026-11-20-next-session-modules-wave-1.md`.
 ## Notes
 
 - **The smoke's stdout reaches a redirected log only when it exits.** Watch `%TEMP%\mechframe-smoke-*\smoke.log` for each step as it runs. `--keep` leaves the site there; this session's is `mechframe-smoke-nm99466y`, outside the repo.
-- **`tools.npm_audit` audits the root lockfile only:** a made site's `package-lock.json` and `web/package-lock.json` need `npm audit` run in the site.
+- **`tools.npm_audit` audits the repo's root lockfile only:** in a made site, run `npm audit` twice, once in its root (`package-lock.json`) and once in `web/` (`web/package-lock.json`).
 - **The Bash tool decodes `\n`, `\r` and `\uXXXX`** in command text, heredocs too. Write a patch script with the Write tool and run it. Most docs are CRLF in this checkout.
 - **Flaky under load:** `test_an_undo_link_outlives_the_owners_reset`.
 
