@@ -140,7 +140,7 @@
       "id": "hooks",
       "milestone": "v1",
       "name": "Contract hooks",
-      "goal": "The ten hooks the Must modules need, before blog, chat and payments are extracted (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md).",
+      "goal": "The ten hooks the Must modules need (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md): 1 to 8 before Vibrant Mindz's step 1 and its blog, entitlements before step 5, and profile tabs before wave 2b, which may be after v1.0 freezes (the owner, 2026-11-21).",
       "items": [
         {"name": "Content lifecycle", "status": "done", "prs": [97], "decisions": ["0052"], "note": "kernel.lifecycle: the Publishable mixin, publish, schedule and unpublish, visible, and the kernel's kernel.publish_due job"},
         {"name": "Taxonomy", "status": "done", "prs": [98], "decisions": ["0052"], "note": "kernel.taxonomy: vocabularies in module.json, the kernel's term tables (kernel_0013), tag, terms_for, tagged and untag_all, the public terms list and the admin's term routes"},

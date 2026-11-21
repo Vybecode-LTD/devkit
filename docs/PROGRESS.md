@@ -127,7 +127,7 @@ Gate: mechframe new test-site builds, migrates and passes its tests; mechframe c
 
 ### Contract hooks · 3 of 10 done
 
-The ten hooks the Must modules need, before blog, chat and payments are extracted (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md).
+The ten hooks the Must modules need (decision 0018), in the shapes and order of decision 0052 (dev plans/contracts/hooks.md): 1 to 8 before Vibrant Mindz's step 1 and its blog, entitlements before step 5, and profile tabs before wave 2b, which may be after v1.0 freezes (the owner, 2026-11-21).
 
 | Step | Status | PRs | Decisions | Note |
 | --- | --- | --- | --- | --- |
