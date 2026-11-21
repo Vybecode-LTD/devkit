@@ -4,13 +4,14 @@ WHERE, the publishing job, and the start's checks."""
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import MetaData, String, select, text
+from sqlalchemy import MetaData, String, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -341,4 +342,74 @@ async def test_a_row_published_before_its_first_flush_gets_its_id(
         await db.commit()
     assert await heard.drain() == [
         ("kernel.content.published", {"type": "notes.note", "id": str(note.id)})
+    ]
+
+
+# --- a row another transaction changed (Codex on #97) ----------------------------------
+
+
+async def _scheduled(database: Database) -> uuid.UUID:
+    async with database.sessions() as db:
+        note = await _new(db)
+        await lifecycle.schedule(db, note, clock.now() + timedelta(minutes=1))
+        await db.commit()
+        return note.id
+
+
+@pytest.mark.db
+async def test_a_stale_row_is_judged_as_the_job_left_it(notes: Database, heard: Heard) -> None:
+    """A request loaded the row while it was scheduled; the job published it
+    since. Unpublishing it is then an unpublish, with its event, and
+    publishing it again is nothing."""
+    first, second = await _scheduled(notes), await _scheduled(notes)
+    async with notes.sessions() as db:
+        stale_unpublish = await db.get(Note, first)
+        stale_publish = await db.get(Note, second)
+        assert stale_unpublish is not None
+        assert stale_publish is not None
+        await db.commit()  # the rows stay loaded, as a request's would
+        clock.advance(120)
+        await lifecycle.PUBLISH_DUE.run(_context(notes), {})
+        await lifecycle.unpublish(db, stale_unpublish)
+        await lifecycle.publish(db, stale_publish)
+        await db.commit()
+        assert (stale_unpublish.status, stale_publish.status) == ("draft", "published")
+    seen = await heard.drain()
+    assert sorted(seen, key=lambda event: (event[0], event[1]["id"])) == sorted(
+        [
+            ("kernel.content.published", {"type": "notes.note", "id": str(first)}),
+            ("kernel.content.published", {"type": "notes.note", "id": str(second)}),
+            ("kernel.content.unpublished", {"type": "notes.note", "id": str(first)}),
+        ],
+        key=lambda event: (event[0], event[1]["id"]),
+    )
+
+
+@pytest.mark.db
+async def test_a_change_waits_for_the_job_holding_the_row(notes: Database, heard: Heard) -> None:
+    """The job holds the row while it publishes it. An unpublish that only
+    re-read the row would read it as scheduled and send no event; it must
+    wait for the job's commit and judge what the job committed."""
+    note_id = await _scheduled(notes)
+    async with notes.sessions() as request, notes.sessions() as job:
+        held = await request.get(Note, note_id)
+        assert held is not None
+        await request.commit()
+        await job.execute(
+            update(Note)
+            .where(Note.id == note_id)
+            .values(status="published", published_at=clock.now())
+        )  # holds the row's lock until it commits
+
+        async def unpublish() -> None:
+            await lifecycle.unpublish(request, held)
+            await request.commit()
+
+        waiting = asyncio.create_task(unpublish())
+        await asyncio.sleep(0.5)
+        await job.commit()
+        await asyncio.wait_for(waiting, timeout=10)
+    assert held.status == "draft"
+    assert await heard.drain() == [
+        ("kernel.content.unpublished", {"type": "notes.note", "id": str(note_id)})
     ]

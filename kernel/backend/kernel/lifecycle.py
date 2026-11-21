@@ -19,7 +19,10 @@ part declares neither and loses nothing.
   the columns in the caller's transaction. Publish and unpublish emit
   `kernel.content.published` and `kernel.content.unpublished` (`{type, id}`)
   in the same transaction, so a listener (search, notices) hears exactly
-  what committed.
+  what committed. Each first locks a stored row and reads its three columns
+  again, so it judges the row as committed, not as the request loaded it:
+  an unpublish racing the publishing job waits for it, then sends its
+  event (Codex on #97).
 - The kernel's job `kernel.publish_due` runs every minute and publishes each
   scheduled row whose time has passed, dated at that time, so a scheduled
   post shows within a minute of it. A module switched off keeps its
@@ -48,7 +51,7 @@ from collections.abc import Iterable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Index, String, select, text
+from sqlalchemy import CheckConstraint, Column, DateTime, Index, String, inspect, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column
 from sqlalchemy.sql.elements import ColumnElement
@@ -124,6 +127,20 @@ async def _id(db: AsyncSession, row: Publishable) -> uuid.UUID:
     return found
 
 
+#: The columns a change judges, read again under the row's lock.
+_STATE = ["status", "publish_at", "published_at"]
+
+
+async def _current(db: AsyncSession, row: Publishable) -> None:
+    """Locks a stored row (FOR UPDATE) and reads its lifecycle columns
+    again, after writing what the caller changed on it. Another
+    transaction holding the row, such as the publishing job's, is waited
+    for. A row not stored yet needs neither."""
+    if inspect(row).persistent:
+        await db.flush()
+        await db.refresh(row, attribute_names=_STATE, with_for_update=True)
+
+
 async def _published(db: AsyncSession, row: Publishable, kind: str, at: datetime) -> None:
     row.status = PUBLISHED
     if row.published_at is None:
@@ -136,6 +153,7 @@ async def publish(db: AsyncSession, row: Publishable) -> None:
     """Shows `row` now, in the caller's transaction, and emits
     `kernel.content.published`. A row already published is left as it is."""
     kind = _kind(row)
+    await _current(db, row)
     if row.status != PUBLISHED:
         await _published(db, row, kind, clock.now())
 
@@ -148,6 +166,7 @@ async def schedule(db: AsyncSession, row: Publishable, at: datetime) -> None:
     _kind(row)
     if at.tzinfo is None or at.utcoffset() is None:
         raise ValueError("A publishing time needs its zone, such as 2026-12-01T09:00:00+00:00.")
+    await _current(db, row)
     if row.status == PUBLISHED:
         raise Problem(
             "kernel.content_published",
@@ -169,6 +188,7 @@ async def unpublish(db: AsyncSession, row: Publishable) -> None:
     hidden and `kernel.content.unpublished` emitted; a scheduled one loses its
     time. A draft is left as it is."""
     kind = _kind(row)
+    await _current(db, row)
     was = row.status
     row.status = DRAFT
     row.publish_at = None
