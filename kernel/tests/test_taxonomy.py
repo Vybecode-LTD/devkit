@@ -373,3 +373,100 @@ async def test_a_change_waiting_on_a_deletion_finds_the_term_gone(
         with pytest.raises(Problem) as missing:
             await asyncio.wait_for(racing, timeout=5)
     assert missing.value.code == "kernel.term_not_found"
+
+
+@pytest.mark.db
+async def test_two_tags_of_one_thing_at_once_leave_one_of_them(database: Database) -> None:
+    """The second waits for the first, then replaces its terms: never the
+    union of both (Codex on #98)."""
+    note = uuid.uuid4()
+    first, second = _slug("first"), _slug("second")
+    async with database.sessions() as db:  # both terms exist, so neither waits on the other's
+        await taxonomy.tag(db, "notes.note", uuid.uuid4(), "topics", [first, second])
+        await db.commit()
+    async with database.sessions() as holding, database.sessions() as other:
+        await taxonomy.tag(holding, "notes.note", note, "topics", [first])
+        racing = asyncio.create_task(taxonomy.tag(other, "notes.note", note, "topics", [second]))
+        await asyncio.sleep(0.3)
+        assert not racing.done()  # it waits for the first's tagging of the same thing
+        await holding.commit()
+        await asyncio.wait_for(racing, timeout=5)
+        await other.commit()
+    async with database.sessions() as db:
+        found = await taxonomy.terms_for(db, "notes.note", [note])
+    assert [term.slug for term in found[note]] == [second]
+
+
+@pytest.mark.parametrize("label", ["x" * 61, "Top" + chr(0) + "ics", ""])
+def test_the_start_refuses_a_vocabulary_label_it_couldnt_store(label: str) -> None:
+    with pytest.raises(ValueError, match="label"):
+        taxonomy.build([_module("blog", vocabularies=[{"key": "topics", "label": label}])])
+
+
+@pytest.mark.db
+async def test_two_taggings_making_new_terms_in_any_order_dont_deadlock(
+    database: Database,
+) -> None:
+    """New terms are made in slug order, so neither holds what the other waits
+    for (CodeRabbit on #98)."""
+    x, y = _slug("x"), _slug("y")
+    async with database.sessions() as db:  # the vocabulary's row, so they race on the terms
+        await taxonomy.tag(db, "notes.note", uuid.uuid4(), "topics", [_slug("warm-up")])
+        await db.commit()
+    async with database.sessions() as holding, database.sessions() as other:
+        await taxonomy.tag(holding, "notes.note", uuid.uuid4(), "topics", [x])
+        racing = asyncio.create_task(
+            taxonomy.tag(other, "notes.note", uuid.uuid4(), "topics", [y, x])
+        )
+        await asyncio.sleep(0.3)
+        assert not racing.done()  # it waits on x
+        await asyncio.wait_for(
+            taxonomy.tag(holding, "notes.note", uuid.uuid4(), "topics", [y]), timeout=5
+        )
+        await holding.commit()
+        await asyncio.wait_for(racing, timeout=5)
+        await other.commit()
+
+
+@pytest.mark.db
+async def test_staff_deleting_a_term_being_tagged_dont_deadlock(
+    database: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Staff's lock on the vocabulary lets a tagging's new term check its
+    vocabulary (CodeRabbit on #98)."""
+    found = _fresh(monkeypatch)
+    term = await _made(database, found, "held")
+    async with database.sessions() as tagging, database.sessions() as staff:
+        await taxonomy.tag(tagging, "notes.note", uuid.uuid4(), found.key, ["held"])
+        removing = asyncio.create_task(taxonomy.remove(staff, term.id, actor=ACTOR))
+        await asyncio.sleep(0.3)
+        assert not removing.done()  # it waits for the tagging's hold on the term
+        await asyncio.wait_for(
+            taxonomy.tag(tagging, "notes.note", uuid.uuid4(), found.key, ["new-one"]), timeout=5
+        )
+        await tagging.commit()
+        await asyncio.wait_for(removing, timeout=5)
+        await staff.commit()
+
+
+@pytest.mark.db
+async def test_a_vocabulary_made_flat_shows_no_parents_and_loses_them(
+    database: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Answers show it flat at once; its first write makes it so (CodeRabbit on #98)."""
+    found = _fresh(monkeypatch)
+    parent = await _made(database, found, "parent")
+    child = await _made(database, found, "child", parent_id=parent.id)
+    flat = taxonomy.Vocabulary(found.key, found.label, False, ("notes",))
+    monkeypatch.setattr(
+        taxonomy,
+        "_declared",
+        taxonomy.Declared({found.key: flat}, {"notes.note": frozenset({found.key})}),
+    )
+    async with database.sessions() as db:
+        page = await taxonomy.listed(db, flat, cursor=None, limit=10)
+        assert [term["parent_id"] for term in page["items"]] == [None, None]
+        await taxonomy.tag(db, "notes.note", uuid.uuid4(), found.key, ["child"])
+        await db.commit()
+        stored = await db.scalar(select(TaxonomyTerm.parent_id).where(TaxonomyTerm.id == child.id))
+    assert stored is None

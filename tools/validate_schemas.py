@@ -19,6 +19,7 @@ What it checks:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -97,6 +98,15 @@ def _module_rules(manifest: dict[str, Any], folder: Path, root: Path, report: Re
             )
     vocabularies: set[str] = set()
     for vocabulary in manifest.get("vocabularies", []):
+        if not re.fullmatch("[a-z][a-z0-9_]*", vocabulary["key"]):
+            report.problem(
+                path,
+                root,
+                f"vocabulary key {vocabulary['key']!r} should be lowercase letters, digits "
+                "and underscores",
+            )
+        if chr(0) in vocabulary["label"]:
+            report.problem(path, root, f"vocabulary {vocabulary['key']!r} has a NUL in its label")
         if vocabulary["key"] in vocabularies:
             report.problem(path, root, f"vocabulary {vocabulary['key']!r} is listed twice")
         vocabularies.add(vocabulary["key"])

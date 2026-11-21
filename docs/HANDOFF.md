@@ -13,7 +13,7 @@ Overwritten every session. This one: 2026-11-20, night Eastern (Claude Code, the
   - `GET /api/kernel/terms`, and `POST`, `PATCH` and `DELETE /api/kernel/admin/terms[/{id}]`, audited as `kernel.term.*`;
   - the probe's notes take `topics` (hierarchical) and `tags` (flat);
   - SPEC 5, 6, 7 (the index's second row), 10 and 14.11; the contract's "Changes after approval" says what moved from §2.
-  - Five mutants caught: no unlink, no ON CONFLICT on a racing term, a vocabulary of modules off listed, a term under its own child, and a parent in a flat vocabulary.
+  - Six mutants caught: no lock on two taggings of one thing at once (Codex on #98), no unlink, no ON CONFLICT on a racing term, a vocabulary of modules off listed, a term under its own child, and a parent in a flat vocabulary.
   - Full suite locally: 2,435 passed, 8 skipped, 19 xfailed, and one failure fixed after (the migrations round trip needed seed rows for the new tables), then the affected suites rerun: 283 passed. Coverage 97.94 %, `taxonomy.py` 100 %.
 - **A test-isolation fix rides in #98:** `test_lifecycle.py`'s fixture emptied `lifecycle`'s installed types on teardown, which broke the contract suite's app (built once per session) when the unit test ran first. Both hooks' fixtures now use `monkeypatch.setattr` on the module global.
 - **v1.0:** 68 % (42 of 61 steps).

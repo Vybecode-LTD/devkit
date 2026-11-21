@@ -149,8 +149,9 @@ def _terms(found: list[taxonomy.Term]) -> list[dict[str, str]]:
     return [{"vocabulary": t.vocabulary, "slug": t.slug, "label": t.label} for t in found]
 
 
-async def _note(db: AsyncSession, note_id: uuid.UUID) -> ProbeNote:
-    found = await db.get(ProbeNote, note_id)
+async def _note(db: AsyncSession, note_id: uuid.UUID, *, lock: bool = False) -> ProbeNote:
+    """The note; locked, so a tagging and a deletion of it take turns."""
+    found = await db.get(ProbeNote, note_id, with_for_update=lock)
     if found is None:
         raise Problem("probe.note_not_found", 404, "There's no such note.")
     return found
@@ -203,7 +204,7 @@ async def unpublish_note(note_id: uuid.UUID, db: AsyncSession = Depends(get_db))
 async def tag_note(
     note_id: uuid.UUID, body: TermsOf, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    note = await _note(db, note_id)
+    note = await _note(db, note_id, lock=True)
     try:
         found = await taxonomy.tag(
             db, ProbeNote.__content_type__, note.id, body.vocabulary, body.slugs
@@ -216,7 +217,7 @@ async def tag_note(
 
 @router.delete("/notes/{note_id}", dependencies=[Depends(public)], status_code=204)
 async def delete_note(note_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> Response:
-    note = await _note(db, note_id)
+    note = await _note(db, note_id, lock=True)
     await taxonomy.untag_all(db, ProbeNote.__content_type__, note.id)
     await db.execute(delete(ProbeNote).where(ProbeNote.id == note.id))
     await db.commit()

@@ -254,3 +254,24 @@ def test_a_vocabulary_breaking_the_schema_is_named(
     _edit(repo, **changes)
     (problem,) = check(repo).problems
     assert problem.startswith(f"modules/print-on-demand/module.json: {where}:")
+
+
+@pytest.mark.parametrize(
+    ("vocabulary", "problem"),
+    [
+        (
+            {"key": "topics" + chr(10), "label": "Topics"},
+            "vocabulary key 'topics" + chr(92) + "n' should be lowercase letters, digits and "
+            "underscores",
+        ),
+        (
+            {"key": "topics", "label": "Top" + chr(0) + "ics"},
+            "vocabulary 'topics' has a NUL in its label",
+        ),
+    ],
+)
+def test_a_vocabulary_the_start_would_refuse_fails(
+    repo: Path, vocabulary: dict[str, str], problem: str
+) -> None:
+    _edit(repo, vocabularies=[vocabulary])
+    assert check(repo).problems == [f"modules/print-on-demand/module.json: {problem}"]

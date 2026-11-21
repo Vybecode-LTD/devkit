@@ -12,7 +12,8 @@ module doesn't declare. A module that doesn't take part declares neither.
 
 - `tag(db, type, id, vocabulary, slugs)` sets the thing's terms in that
   vocabulary to exactly `slugs`, in the caller's transaction, making any term
-  missing (its label from its slug, which staff can change).
+  missing (its label from its slug, which staff can change). A second tagging
+  of the same thing in the same vocabulary waits for the first's transaction.
 - `terms_for(db, type, ids)` answers each id's terms, `[]` for none.
 - `tagged(type, vocabulary, slug)` is a select of the ids holding a term, for
   `Model.id.in_(...)` beside `lifecycle.visible(Model)`. It matches the term
@@ -31,11 +32,12 @@ from __future__ import annotations
 
 import re
 import uuid
+import zlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Select, delete, select, update
+from sqlalchemy import Select, delete, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,10 +57,13 @@ KEY = re.compile(r"[a-z][a-z0-9_]{0,39}")
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 MAX_SLUG = 80
 MAX_LABEL = 80
+MAX_VOCABULARY_LABEL = 60
 #: The terms one thing takes from one vocabulary.
 MAX_TERMS = 50
 #: Where a term sits among its siblings: lower first, then by slug.
 MAX_POSITION = 100_000
+#: The first key of tagging's advisory lock: pg_advisory_xact_lock(LOCK_CLASS, thing).
+LOCK_CLASS = 84712033
 
 
 @dataclass(frozen=True)
@@ -128,9 +133,14 @@ def build(installed: Iterable[InstalledModule]) -> Declared:
             if key in own:
                 raise ValueError(f"{module.id} lists the vocabulary {key} twice.")
             own.add(key)
+            label = str(entry.get("label", ""))
+            if not 0 < len(label) <= MAX_VOCABULARY_LABEL or chr(0) in label:
+                raise ValueError(
+                    f"{module.id}'s vocabulary {key} needs a label of 1 to "
+                    f"{MAX_VOCABULARY_LABEL} characters, with no NUL."
+                )
             known = vocabularies.get(key)
             if known is None:
-                label = str(entry.get("label") or key)
                 vocabularies[key] = Vocabulary(key, label, hierarchical, (module.id,))
             elif known.hierarchical != hierarchical:
                 raise ValueError(
@@ -197,7 +207,8 @@ def _slugs(slugs: Iterable[str]) -> list[str]:
 
 async def _vocabulary_id(db: AsyncSession, found: Vocabulary) -> uuid.UUID:
     """The vocabulary's row, made the first time it's used and kept in step
-    with the manifests' label and `hierarchical`."""
+    with the manifests' label and `hierarchical`. One made flat loses its
+    terms' parents here."""
     asked = select(_Vocabulary.id, _Vocabulary.label, _Vocabulary.hierarchical).where(
         _Vocabulary.key == found.key
     )
@@ -217,6 +228,12 @@ async def _vocabulary_id(db: AsyncSession, found: Vocabulary) -> uuid.UUID:
             .where(_Vocabulary.id == row.id)
             .values(label=found.label, hierarchical=found.hierarchical)
         )
+        if row.hierarchical and not found.hierarchical:  # made flat: no term keeps a parent
+            await db.execute(
+                update(_Term)
+                .where(_Term.vocabulary_id == row.id, _Term.parent_id.is_not(None))
+                .values(parent_id=None)
+            )
     found_id: uuid.UUID = row.id
     return found_id
 
@@ -225,7 +242,11 @@ _COLUMNS = (_Term.id, _Term.slug, _Term.label, _Term.parent_id, _Term.position)
 
 
 def _term(key: str, row: Any) -> Term:
-    return Term(row.id, key, row.slug, row.label, row.parent_id, row.position)
+    """A term as answered: a flat vocabulary's have no parent, even before its
+    first write since it was made flat drops the stored ones."""
+    found = vocabulary(key)
+    parent = row.parent_id if found is None or found.hierarchical else None
+    return Term(row.id, key, row.slug, row.label, parent, row.position)
 
 
 async def _terms(db: AsyncSession, found: Vocabulary, slugs: Sequence[str]) -> list[Term]:
@@ -256,7 +277,7 @@ async def _terms(db: AsyncSession, found: Vocabulary, slugs: Sequence[str]) -> l
                             "slug": slug,
                             "label": label_of(slug),
                         }
-                        for slug in new
+                        for slug in sorted(new)
                     ]
                 )
                 .on_conflict_do_nothing(index_elements=["vocabulary_id", "slug"])
@@ -283,6 +304,12 @@ async def tag(
     `kernel.invalid_request` for a bad slug or more than 50."""
     found = _takes(content_type, vocabulary)
     wanted = _slugs(slugs)
+    # One tagging of a thing in a vocabulary at a time, until the caller's
+    # transaction ends: two at once would leave both's terms (Codex on #98).
+    thing = zlib.crc32(f"{content_type}:{content_id}:{vocabulary}".encode()) - 2**31
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(:kind, :key)"), {"kind": LOCK_CLASS, "key": thing}
+    )
     terms = await _terms(db, found, wanted) if wanted else []
     kept = [term.id for term in terms]
     in_vocabulary = select(_Term.id).join(_Vocabulary).where(_Vocabulary.key == vocabulary)
@@ -411,12 +438,17 @@ def _taken(slug: str) -> Problem:
 
 
 async def _locked(db: AsyncSession, found: Vocabulary) -> uuid.UUID:
-    """The vocabulary's row, locked (FOR UPDATE) for one change of staff's at a
+    """The vocabulary's row, locked for one change of staff's at a
     time: no two moves make a circle, and no term gains a child while it's
     deleted."""
     vocabulary_id = await _vocabulary_id(db, found)
+    # FOR NO KEY UPDATE: it serializes staff's changes, yet lets a tagging's
+    # new term check its vocabulary (FOR KEY SHARE) while staff wait on that
+    # tagging's terms (CodeRabbit on #98).
     await db.execute(
-        select(_Vocabulary.id).where(_Vocabulary.id == vocabulary_id).with_for_update()
+        select(_Vocabulary.id)
+        .where(_Vocabulary.id == vocabulary_id)
+        .with_for_update(key_share=True)
     )
     return vocabulary_id
 

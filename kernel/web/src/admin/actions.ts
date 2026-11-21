@@ -29,6 +29,9 @@ const STAFF: Readonly<Record<string, Words>> = {
   "kernel.module.disabled": "Switched a module off",
   "kernel.job.retried": "Retried a failed job",
   "kernel.job.discarded": "Discarded a failed job",
+  "kernel.term.created": "Added a term",
+  "kernel.term.changed": "Changed a term",
+  "kernel.term.deleted": "Deleted a term",
   "kernel.moderation.dismissed": "Dismissed a report",
   "kernel.moderation.hidden": "Hid something reported",
   "kernel.moderation.deleted": "Deleted something reported",
@@ -75,6 +78,7 @@ export const KINDS: readonly Kind[] = [
   { label: "Accounts and roles", actions: ["auth.sign_up", "auth.email_verified", "auth.verification_resent", "auth.user.", "auth.role."] },
   { label: "Moderation", actions: ["kernel.moderation."] },
   { label: "Settings", actions: ["kernel.settings_saved", "kernel.module.", "kernel.job."] },
+  { label: "Terms", actions: ["kernel.term."] },
 ];
 
 function holds(kind: Kind, action: string): boolean {
